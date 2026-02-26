@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Function Collapse — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace; 
+    background: #0a0a0a; 
+    color: #ccc; 
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { font-size: 1.2rem; font-weight: 400; color: #fff; margin-bottom: 8px; }
+  .meta { font-size: 0.75rem; color: #444; margin-bottom: 24px; }
+  .meta a { color: #444; text-decoration: none; }
+  .meta a:hover { color: #888; }
+  #canvas { 
+    border: 1px solid #222; 
+    image-rendering: pixelated;
+    cursor: pointer;
+  }
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    background: #151515;
+    color: #888;
+    border: 1px solid #333;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  button:hover { background: #222; color: #ccc; border-color: #444; }
+  .info { 
+    margin-top: 16px; 
+    font-size: 0.7rem; 
+    color: #444; 
+    text-align: center;
+    max-width: 500px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 0.7rem;
+    color: #666;
+  }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+  <h1>Wave Function Collapse</h1>
+  <div class="meta"><a href="/">← shadow's garden</a></div>
+  <canvas id="canvas" width="400" height="400"></canvas>
+  <div class="legend">
+    <span><div class="dot" style="background:#1a1a1a"></div> Empty</span>
+    <span><div class="dot" style="background:#2d5a3d"></div> Floor</span>
+    <span><div class="dot" style="background:#5a3d2d"></div> Wall</span>
+    <span><div class="dot" style="background:#3d5a5a"></div> Water</span>
+  </div>
+  <div class="controls">
+    <button id="stepBtn">Step</button>
+    <button id="runBtn">Run</button>
+    <button id="resetBtn">Reset</button>
+    <button id="randomBtn">Randomize</button>
+  </div>
+  <div class="info">Click canvas to lock tiles. Watch the wave function collapse into caves.</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const TILE_SIZE = 8;
+const GRID_W = canvas.width / TILE_SIZE;
+const GRID_H = canvas.height / TILE_SIZE;
+
+// Tile types: 0=empty, 1=floor, 2=wall, 3=water
+const TILES = { EMPTY: 0, FLOOR: 1, WALL: 2, WATER: 3 };
+const COLORS = ['#1a1a1a', '#2d5a3d', '#5a3d2d', '#3d5a5a'];
+const TILE_NAMES = ['EMPTY', 'FLOOR', 'WALL', 'WATER'];
+
+// Adjacency rules: which tiles can be next to which
+// Format: [tile][direction] = [allowed tiles]
+// Directions: 0=right, 1=down, 2=left, 3=up
+const RULES = {
+  // Wall can be next to anything
+  [TILES.WALL]: [[0,1,2,3], [0,1,2,3], [0,1,2,3], [0,1,2,3]],
+  // Floor needs友好 connections
+  [TILES.FLOOR]: [[1,2], [1,2], [1,2], [1,2]],
+  // Water likes water and floor
+  [TILES.WATER]: [[1,3], [1,3], [1,3], [1,3]],
+  // Empty is rare, only next to walls
+  [TILES.EMPTY]: [[2], [2], [2], [2]],
+};
+
+let grid = [];
+let locked = [];
+
+// Initialize grid with all possibilities
+function init() {
+  grid = [];
+  locked = [];
+  for (let y = 0; y < GRID_H; y++) {
+    grid[y] = [];
+    locked[y] = [];
+    for (let x = 0; x < GRID_W; x++) {
+      // Start with all tiles possible
+      grid[y][x] = [TILES.EMPTY, TILES.FLOOR, TILES.WALL, TILES.WATER];
+      locked[y][x] = false;
+    }
+  }
+  // Seed corners
+  grid[0][0] = [TILES.WALL];
+  grid[0][GRID_W-1] = [TILES.WALL];
+  grid[GRID_H-1][0] = [TILES.WALL];
+  grid[GRID_H-1][GRID_W-1] = [TILES.WALL];
+  draw();
+}
+
+// Get valid neighbors
+function getNeighbors(x, y) {
+  const dirs = [[1,0], [0,1], [-1,0], [0,-1]];
+  const neighbors = [];
+  for (let i = 0; i < 4; i++) {
+    const nx = x + dirs[i][0];
+    const ny = y + dirs[i][1];
+    if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+      neighbors.push({x: nx, y: ny, dir: i});
+    }
+  }
+  return neighbors;
+}
+
+// Propagate constraints
+function propagate() {
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 1000) {
+    changed = false;
+    iterations++;
+    
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        if (locked[y][x]) continue;
+        
+        const cell = grid[y][x];
+        if (cell.length === 1) continue;
+        
+        // Get constraints from neighbors
+        const neighbors = getNeighbors(x, y);
+        const allowed = new Set([TILES.EMPTY, TILES.FLOOR, TILES.WALL, TILES.WATER]);
+        
+        for (const n of neighbors) {
+          const ncell = grid[n.y][n.x];
+          if (ncell.length === 1) {
+            // This neighbor is decided, apply rules
+            const validForNeighbor = RULES[ncell[0]][n.dir];
+            const validForUs = RULES;
+            
+            // What tiles are valid for us given this neighbor's state?
+            const valid = new Set();
+            for (const t of cell) {
+              // Check if tile t can be next to neighbor's decided tile
+              const rules = RULES[t];
+              if (rules && rules[(n.dir + 2) % 4].includes(ncell[0])) {
+                valid.add(t);
+              }
+            }
+            for (const v of valid) {
+              allowed.add(v);
+            }
+          }
+        }
+        
+        // Remove impossible tiles
+        const newCell = cell.filter(t => allowed.has(t));
+        if (newCell.length !== cell.length) {
+          grid[y][x] = newCell;
+          changed = true;
+        }
+      }
+    }
+  }
+}
+
+// Collapse one cell
+function collapse() {
+  // Find cell with minimum entropy (but more than 1 option)
+  let minEntropy = 5;
+  let candidates = [];
+  
+  for (let y = 0; y < GRID_H; y++) {
+    for (let x = 0; x < GRID_W; x++) {
+      if (locked[y][x]) continue;
+      const cell = grid[y][x];
+      if (cell.length > 1 && cell.length < minEntropy) {
+        minEntropy = cell.length;
+        candidates = [{x, y}];
+      } else if (cell.length === minEntropy && cell.length > 1) {
+        candidates.push({x, y});
+      }
+    }
+  }
+  
+  if (candidates.length === 0) return false;
+  
+  // Pick random cell with min entropy
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const cell = grid[pick.y][pick.x];
+  
+  // Collapse to one tile (weighted random)
+  const weights = cell.map(t => {
+    if (t === TILES.FLOOR) return 4;  // Floors more likely
+    if (t === TILES.WALL) return 3;  // Walls common
+    if (t === TILES.WATER) return 1; // Water rare
+    return 0.5; // Empty very rare
+  });
+  
+  const total = weights.reduce((a,b) => a+b, 0);
+  let r = Math.random() * total;
+  let chosen = cell[0];
+  for (let i = 0; i < cell.length; i++) {
+    r -= weights[i];
+    if (r <= 0) {
+      chosen = cell[i];
+      break;
+    }
+  }
+  
+  grid[pick.y][pick.x] = [chosen];
+  propagate();
+  return true;
+}
+
+// Draw the grid
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  for (let y = 0; y < GRID_H; y++) {
+    for (let x = 0; x < GRID_W; x++) {
+      const cell = grid[y][x];
+      if (cell.length === 1) {
+        ctx.fillStyle = COLORS[cell[0]];
+        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      } else if (cell.length === 0) {
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      } else {
+        // Show entropy as color
+        const brightness = Math.floor(255 - (cell.length / 4) * 100);
+        ctx.fillStyle = `rgb(${brightness},${brightness},${brightness})`;
+        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        
+        // Small indicator
+        ctx.fillStyle = '#666';
+        ctx.fillRect(x * TILE_SIZE + 2, y * TILE_SIZE + 2, 4, 4);
+      }
+    }
+  }
+}
+
+// Event handlers
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+  const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+  
+  if (x >= 0 && x < GRID_W && y >= 0 && y < GRID_H) {
+    const cell = grid[y][x];
+    if (cell.length > 1) {
+      // Cycle through options
+      const idx = cell.indexOf(locked[y][x] ? undefined : cell[0]);
+      if (locked[y][x]) {
+        locked[y][x] = false;
+      } else if (cell.length > 0) {
+        locked[y][x] = cell[0];
+      }
+    } else {
+      locked[y][x] = !locked[y][x];
+    }
+    draw();
+  }
+});
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (collapse()) draw();
+});
+
+let running = false;
+let runInterval = null;
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  if (running) {
+    clearInterval(runInterval);
+    running = false;
+    document.getElementById('runBtn').textContent = 'Run';
+  } else {
+    running = true;
+    document.getElementById('runBtn').textContent = 'Pause';
+    runInterval = setInterval(() => {
+      if (!collapse()) {
+        clearInterval(runInterval);
+        running = false;
+        document.getElementById('runBtn').textContent = 'Done';
+      }
+      draw();
+    }, 50);
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (running) {
+    clearInterval(runInterval);
+    running = false;
+    document.getElementById('runBtn').textContent = 'Run';
+  }
+  init();
+});
+
+document.getElementById('randomBtn').addEventListener('click', () => {
+  // Quick random collapse
+  for (let i = 0; i < 50; i++) {
+    collapse();
+  }
+  draw();
+});
+
+// Start
+init();
+</script>
+</body>
+</html>
