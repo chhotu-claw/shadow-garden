@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boids — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #0a0a0a; 
+    overflow: hidden;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10,10,10,0.85);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #222;
+    color: #888;
+    font-size: 11px;
+    z-index: 10;
+    max-width: 200px;
+  }
+  #controls h3 {
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 12px;
+    font-weight: 400;
+  }
+  .control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .control-row label { flex: 1; }
+  .control-row input[type="range"] {
+    width: 80px;
+    accent-color: #4a9;
+  }
+  .control-row span {
+    width: 30px;
+    text-align: right;
+    color: #4a9;
+  }
+  #hint {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #444;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<div id="controls">
+  <h3>Boids Flocking</h3>
+  <div class="control-row">
+    <label>Separation</label>
+    <input type="range" id="separation" min="0" max="5" step="0.1" value="1.5">
+    <span id="sep-val">1.5</span>
+  </div>
+  <div class="control-row">
+    <label>Alignment</label>
+    <input type="range" id="alignment" min="0" max="5" step="0.1" value="1.0">
+    <span id="ali-val">1.0</span>
+  </div>
+  <div class="control-row">
+    <label>Cohesion</label>
+    <input type="range" id="cohesion" min="0" max="5" step="0.1" value="1.0">
+    <span id="coh-val">1.0</span>
+  </div>
+  <div class="control-row">
+    <label>Speed</label>
+    <input type="range" id="speed" min="1" max="8" step="0.5" value="3">
+    <span id="spd-val">3</span>
+  </div>
+  <div class="control-row">
+    <label>Trail</label>
+    <input type="range" id="trail" min="0" max="0.95" step="0.05" value="0.1">
+    <span id="trail-val">0.1</span>
+  </div>
+</div>
+<div id="hint">Click to add boids · Right-click to add predator</div>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let boids = [];
+let predators = [];
+
+const params = {
+  separation: 1.5,
+  alignment: 1.0,
+  cohesion: 1.0,
+  maxSpeed: 3,
+  trail: 0.1,
+  perception: 60,
+  predatorRadius: 150
+};
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Boid {
+  constructor(x, y) {
+    this.x = x || Math.random() * width;
+    this.y = y || Math.random() * height;
+    this.vx = (Math.random() - 0.5) * 4;
+    this.vy = (Math.random() - 0.5) * 4;
+    this.ax = 0;
+    this.ay = 0;
+    this.hue = 160 + Math.random() * 40;
+  }
+
+  update() {
+    this.vx += this.ax;
+    this.vy += this.ay;
+    
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (speed > params.maxSpeed) {
+      this.vx = (this.vx / speed) * params.maxSpeed;
+      this.vy = (this.vy / speed) * params.maxSpeed;
+    }
+    
+    this.x += this.vx;
+    this.y += this.vy;
+    this.ax = 0;
+    this.ay = 0;
+    
+    // wrap around edges
+    if (this.x < 0) this.x = width;
+    if (this.x > width) this.x = 0;
+    if (this.y < 0) this.y = height;
+    if (this.y > height) this.y = 0;
+  }
+
+  applyForce(fx, fy) {
+    this.ax += fx;
+    this.ay += fy;
+  }
+
+  flock(boids) {
+    let sepX = 0, sepY = 0, sepCount = 0;
+    let aliX = 0, aliY = 0, aliCount = 0;
+    let cohX = 0, cohY = 0, cohCount = 0;
+
+    for (let other of boids) {
+      if (other === this) continue;
+      
+      const dx = other.x - this.x;
+      const dy = other.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < params.perception && dist > 0) {
+        // Separation: steer away from nearby boids
+        sepX -= dx / dist;
+        sepY -= dy / dist;
+        sepCount++;
+        
+        // Alignment: match velocity
+        aliX += other.vx;
+        aliY += other.vy;
+        aliCount++;
+        
+        // Cohesion: steer toward center of mass
+        cohX += other.x;
+        cohY += other.y;
+        cohCount++;
+      }
+    }
+
+    if (sepCount > 0) {
+      sepX /= sepCount;
+      sepY /= sepCount;
+      const sepMag = Math.sqrt(sepX * sepX + sepY * sepY);
+      if (sepMag > 0) {
+        sepX = (sepX / sepMag) * params.maxSpeed - this.vx;
+        sepY = (sepY / sepMag) * params.maxSpeed - this.vy;
+      }
+    }
+
+    if (aliCount > 0) {
+      aliX /= aliCount;
+      aliY /= aliCount;
+      const aliMag = Math.sqrt(aliX * aliX + aliY * aliY);
+      if (aliMag > 0) {
+        aliX = (aliX / aliMag) * params.maxSpeed - this.vx;
+        aliY = (aliY / aliMag) * params.maxSpeed - this.vy;
+      }
+    }
+
+    if (cohCount > 0) {
+      cohX /= cohCount;
+      cohY /= cohCount;
+      cohX = cohX - this.x;
+      cohY = cohY - this.y;
+      const cohMag = Math.sqrt(cohX * cohX + cohY * cohY);
+      if (cohMag > 0) {
+        cohX = (cohX / cohMag) * params.maxSpeed - this.vx;
+        cohY = (cohY / cohMag) * params.maxSpeed - this.vy;
+      }
+    }
+
+    // Flee from predators
+    for (let pred of predators) {
+      const dx = this.x - pred.x;
+      const dy = this.y - pred.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < params.predatorRadius && dist > 0) {
+        const force = (params.predatorRadius - dist) / params.predatorRadius;
+        this.applyForce((dx / dist) * force * 5, (dy / dist) * force * 5);
+      }
+    }
+
+    this.applyForce(sepX * params.separation, sepY * params.separation);
+    this.applyForce(aliX * params.alignment, aliY * params.alignment);
+    this.applyForce(cohX * params.cohesion, cohY * params.cohesion);
+  }
+
+  draw() {
+    const angle = Math.atan2(this.vy, this.vx);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(angle);
+    
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(-5, -4);
+    ctx.lineTo(-3, 0);
+    ctx.lineTo(-5, 4);
+    ctx.closePath();
+    
+    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, 0.9)`;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class Predator {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = (Math.random() - 0.5) * 2;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    
+    if (this.x < 0) this.x = width;
+    if (this.x > width) this.x = 0;
+    if (this.y < 0) this.y = height;
+    if (this.y > height) this.y = 0;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 12, 0, Math.PI * 2);
+    ctx.strokeStyle = '#f44';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // fear radius
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, params.predatorRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,68,68,0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// Initialize with boids
+for (let i = 0; i < 80; i++) {
+  boids.push(new Boid());
+}
+
+// Controls
+document.getElementById('separation').addEventListener('input', e => {
+  params.separation = parseFloat(e.target.value);
+  document.getElementById('sep-val').textContent = e.target.value;
+});
+document.getElementById('alignment').addEventListener('input', e => {
+  params.alignment = parseFloat(e.target.value);
+  document.getElementById('ali-val').textContent = e.target.value;
+});
+document.getElementById('cohesion').addEventListener('input', e => {
+  params.cohesion = parseFloat(e.target.value);
+  document.getElementById('coh-val').textContent = e.target.value;
+});
+document.getElementById('speed').addEventListener('input', e => {
+  params.maxSpeed = parseFloat(e.target.value);
+  document.getElementById('spd-val').textContent = e.target.value;
+});
+document.getElementById('trail').addEventListener('input', e => {
+  params.trail = parseFloat(e.target.value);
+  document.getElementById('trail-val').textContent = e.target.value;
+});
+
+// Click to add boids
+canvas.addEventListener('click', e => {
+  for (let i = 0; i < 5; i++) {
+    boids.push(new Boid(e.clientX + (Math.random() - 0.5) * 30, e.clientY + (Math.random() - 0.5) * 30));
+  }
+});
+
+// Right-click to add predator
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  predators.push(new Predator(e.clientX, e.clientY));
+});
+
+function animate() {
+  // Trail effect
+  ctx.fillStyle = `rgba(10, 10, 10, ${1 - params.trail})`;
+  ctx.fillRect(0, 0, width, height);
+  
+  // Update and draw predators
+  for (let pred of predators) {
+    pred.update();
+    pred.draw();
+  }
+  
+  // Update and draw boids
+  for (let boid of boids) {
+    boid.flock(boids);
+    boid.update();
+    boid.draw();
+  }
+  
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
