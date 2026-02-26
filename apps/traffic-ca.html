@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traffic Flow CA — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace; 
+    background: #0a0a0a; 
+    color: #ccc; 
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { font-size: 1.2rem; font-weight: 400; color: #fff; margin-bottom: 8px; }
+  .meta { font-size: 0.75rem; color: #444; margin-bottom: 24px; }
+  .meta a { color: #444; text-decoration: none; }
+  .meta a:hover { color: #888; }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  button {
+    background: #151515;
+    border: 1px solid #333;
+    color: #aaa;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  button:hover { background: #222; color: #fff; border-color: #444; }
+  button.active { background: #2a4a2a; border-color: #4a4; color: #8f8; }
+  
+  .info {
+    font-size: 0.7rem;
+    color: #666;
+    margin-bottom: 16px;
+    text-align: center;
+    max-width: 500px;
+  }
+  
+  #road {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: #111;
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid #222;
+  }
+  
+  .lane {
+    display: flex;
+    gap: 2px;
+    height: 16px;
+  }
+  
+  .cell {
+    width: 16px;
+    height: 16px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    transition: background 0.05s;
+  }
+  
+  .cell.car {
+    background: #f44;
+    box-shadow: 0 0 6px #f44;
+  }
+  
+  .cell.car.fast {
+    background: #f84;
+    box-shadow: 0 0 8px #f84;
+  }
+  
+  .cell.car.max-speed {
+    background: #ff4;
+    box-shadow: 0 0 10px #ff4;
+  }
+  
+  .cell.empty { background: #1a1a1a; }
+  
+  .stats {
+    margin-top: 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 0.75rem;
+    color: #666;
+  }
+  
+  .stat-value {
+    color: #888;
+    font-weight: 400;
+  }
+  
+  .legend {
+    margin-top: 20px;
+    display: flex;
+    gap: 16px;
+    font-size: 0.65rem;
+    color: #555;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+  <h1>Traffic Flow Cellular Automaton</h1>
+  <div class="meta">Nagel-Schreckenberg model · <a href="/">← shadow's garden</a></div>
+  
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="pauseBtn">Pause</button>
+    <button id="stepBtn">Step</button>
+    <button id="resetBtn">Reset</button>
+    <button id="addCarsBtn">Add Cars</button>
+  </div>
+  
+  <div class="controls">
+    <label style="font-size: 0.7rem; color: #555;">
+      Density: <input type="range" id="density" min="0.05" max="0.5" step="0.05" value="0.15">
+      <span id="densityVal">0.15</span>
+    </label>
+    <label style="font-size: 0.7rem; color: #555;">
+      Max Speed: <input type="range" id="maxSpeed" min="1" max="5" step="1" value="3">
+      <span id="maxSpeedVal">3</span>
+    </label>
+    <label style="font-size: 0.7rem; color: #555;">
+      Slow Prob: <input type="range" id="slowProb" min="0" max="0.5" step="0.05" value="0.3">
+      <span id="slowProbVal">0.3</span>
+    </label>
+  </div>
+  
+  <div class="info">
+    Simple rules: cars accelerate, slow for cars ahead, random slowdown. 
+    Watch phantom jams emerge — waves of braking that propagate backward.
+  </div>
+  
+  <div id="road"></div>
+  
+  <div class="stats">
+    <div>Time: <span class="stat-value" id="timeStep">0</span></div>
+    <div>Cars: <span class="stat-value" id="carCount">0</span></div>
+    <div>Flow: <span class="stat-value" id="flowRate">0</span> cars/step</div>
+    <div>Avg Speed: <span class="stat-value" id="avgSpeed">0</span></div>
+  </div>
+  
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#1a1a1a"></div> Empty</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f44"></div> Slow</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f84"></div> Medium</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff4"></div> Max Speed</div>
+  </div>
+
+<script>
+// Nagel-Schreckenberg Traffic Model
+const LANES = 5;
+const CELLS = 60;
+
+let road = [];
+let running = false;
+let interval = null;
+let timeStep = 0;
+let maxSpeed = 3;
+let slowProb = 0.3;
+let density = 0.15;
+let flowHistory = [];
+let lastCarPositions = [];
+
+function init() {
+  road = [];
+  for (let l = 0; l < LANES; l++) {
+    road[l] = new Array(CELLS).fill(null);
+  }
+  addCars();
+  render();
+  updateStats();
+}
+
+function addCars() {
+  const targetCars = Math.floor(CELLS * LANES * density);
+  let cars = 0;
+  
+  // Clear existing
+  for (let l = 0; l < LANES; l++) {
+    for (let c = 0; c < CELLS; c++) {
+      if (road[l][c]) cars++;
+    }
+  }
+  
+  while (cars < targetCars) {
+    const lane = Math.floor(Math.random() * LANES);
+    const cell = Math.floor(Math.random() * CELLS);
+    if (!road[lane][cell]) {
+      road[lane][cell] = { speed: Math.floor(Math.random() * (maxSpeed + 1)) };
+      cars++;
+    }
+  }
+}
+
+function update() {
+  // Store previous positions for flow calculation
+  lastCarPositions = [];
+  for (let l = 0; l < LANES; l++) {
+    for (let c = 0; c < CELLS; c++) {
+      if (road[l][c]) {
+        lastCarPositions.push({ lane: l, cell: c });
+      }
+    }
+  }
+  
+  // Nagel-Schreckenberg rules (applied per lane, wrapping around)
+  for (let l = 0; l < LANES; l++) {
+    let newLane = new Array(CELLS).fill(null);
+    let cars = [];
+    
+    // Find all cars and their positions
+    for (let c = 0; c < CELLS; c++) {
+      if (road[l][c]) {
+        cars.push({ cell: c, car: road[l][c] });
+      }
+    }
+    
+    // Sort by position
+    cars.sort((a, b) => a.cell - b.cell);
+    
+    for (let i = 0; i < cars.length; i++) {
+      const car = cars[i].car;
+      const currentPos = cars[i].cell;
+      const nextCarPos = cars[(i + 1) % cars.length].cell;
+      
+      // Distance to car ahead (accounting for wrap)
+      let distance = nextCarPos - currentPos - 1;
+      if (distance < 0) distance += CELLS;
+      
+      // Rule 1: Accelerate
+      if (car.speed < maxSpeed) {
+        car.speed++;
+      }
+      
+      // Rule 2: Slow down for car ahead
+      if (car.speed >= distance) {
+        car.speed = Math.max(0, distance);
+      }
+      
+      // Rule 3: Random slowdown
+      if (car.speed > 0 && Math.random() < slowProb) {
+        car.speed--;
+      }
+      
+      // Move car
+      let newPos = (currentPos + car.speed) % CELLS;
+      newLane[newPos] = car;
+    }
+    
+    road[l] = newLane;
+  }
+  
+  timeStep++;
+  
+  // Calculate flow (cars that moved past a threshold)
+  let movedCars = 0;
+  for (let pos of lastCarPositions) {
+    const currentAtPos = road[pos.lane][pos.cell];
+    if (!currentAtPos) movedCars++; // car moved from this position
+  }
+  flowHistory.push(movedCars);
+  if (flowHistory.length > 20) flowHistory.shift();
+  
+  render();
+  updateStats();
+}
+
+function render() {
+  const roadEl = document.getElementById('road');
+  roadEl.innerHTML = '';
+  
+  for (let l = 0; l < LANES; l++) {
+    const laneEl = document.createElement('div');
+    laneEl.className = 'lane';
+    
+    for (let c = 0; c < CELLS; c++) {
+      const cellEl = document.createElement('div');
+      cellEl.className = 'cell';
+      
+      if (road[l][c]) {
+        cellEl.classList.add('car');
+        if (road[l][c].speed >= maxSpeed) {
+          cellEl.classList.add('max-speed');
+        } else if (road[l][c].speed >= 2) {
+          cellEl.classList.add('fast');
+        }
+      } else {
+        cellEl.classList.add('empty');
+      }
+      
+      laneEl.appendChild(cellEl);
+    }
+    
+    roadEl.appendChild(laneEl);
+  }
+}
+
+function updateStats() {
+  let totalCars = 0;
+  let totalSpeed = 0;
+  
+  for (let l = 0; l < LANES; l++) {
+    for (let c = 0; c < CELLS; c++) {
+      if (road[l][c]) {
+        totalCars++;
+        totalSpeed += road[l][c].speed;
+      }
+    }
+  }
+  
+  const avgFlow = flowHistory.length > 0 
+    ? (flowHistory.reduce((a, b) => a + b, 0) / flowHistory.length).toFixed(2) 
+    : 0;
+  const avgSpeed = totalCars > 0 ? (totalSpeed / totalCars).toFixed(2) : 0;
+  
+  document.getElementById('timeStep').textContent = timeStep;
+  document.getElementById('carCount').textContent = totalCars;
+  document.getElementById('flowRate').textContent = avgFlow;
+  document.getElementById('avgSpeed').textContent = avgSpeed;
+}
+
+function start() {
+  if (running) return;
+  running = true;
+  document.getElementById('startBtn').classList.add('active');
+  document.getElementById('pauseBtn').classList.remove('active');
+  interval = setInterval(update, 100);
+}
+
+function pause() {
+  running = false;
+  document.getElementById('pauseBtn').classList.add('active');
+  document.getElementById('startBtn').classList.remove('active');
+  clearInterval(interval);
+}
+
+function step() {
+  pause();
+  update();
+}
+
+function reset() {
+  pause();
+  timeStep = 0;
+  flowHistory = [];
+  init();
+}
+
+// Event listeners
+document.getElementById('startBtn').addEventListener('click', start);
+document.getElementById('pauseBtn').addEventListener('click', pause);
+document.getElementById('stepBtn').addEventListener('click', step);
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('addCarsBtn').addEventListener('click', () => {
+  addCars();
+  render();
+  updateStats();
+});
+
+document.getElementById('density').addEventListener('input', (e) => {
+  density = parseFloat(e.target.value);
+  document.getElementById('densityVal').textContent = density;
+});
+
+document.getElementById('maxSpeed').addEventListener('input', (e) => {
+  maxSpeed = parseInt(e.target.value);
+  document.getElementById('maxSpeedVal').textContent = maxSpeed;
+});
+
+document.getElementById('slowProb').addEventListener('input', (e) => {
+  slowProb = parseFloat(e.target.value);
+  document.getElementById('slowProbVal').textContent = slowProb;
+});
+
+// Initialize
+init();
+</script>
+</body>
+</html>
