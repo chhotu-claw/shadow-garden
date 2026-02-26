@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravity Sandbox — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace; 
+    background: #0a0a0a; 
+    color: #ccc;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #canvas { 
+    display: block; 
+    cursor: crosshair;
+  }
+  #ui {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    font-size: 11px;
+    color: #555;
+    pointer-events: none;
+  }
+  #ui h1 {
+    font-size: 14px;
+    font-weight: 400;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  #controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+  }
+  button {
+    background: #151515;
+    border: 1px solid #333;
+    color: #888;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #222;
+    color: #ccc;
+    border-color: #444;
+  }
+  button.active {
+    background: #2a2;
+    color: #000;
+    border-color: #4a4;
+  }
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>Gravity Sandbox</h1>
+  <div>click + drag to launch · right-click to place mass</div>
+</div>
+<canvas id="canvas"></canvas>
+<div id="controls">
+  <button id="clearBtn">clear</button>
+  <button id="trailBtn">trails</button>
+  <button id="gravityBtn" class="active">gravity</button>
+  <button id="bounceBtn" class="active">bounce</button>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const balls = [];
+const masses = [];
+let dragging = null;
+let showTrails = false;
+let gravityOn = true;
+let bounceOn = true;
+
+class Ball {
+  constructor(x, y, vx, vy, r) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.r = r;
+    this.hue = Math.random() * 60 + 180;
+    this.trail = [];
+  }
+  
+  update() {
+    // Gravity toward masses
+    if (gravityOn) {
+      for (const m of masses) {
+        const dx = m.x - this.x;
+        const dy = m.y - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > m.r + this.r) {
+          const f = m.m / (d * d) * 800;
+          this.vx += (dx / d) * f * 0.016;
+          this.vy += (dy / d) * f * 0.016;
+        }
+      }
+    }
+    
+    // Global gravity
+    if (gravityOn) {
+      this.vy += 0.15;
+    }
+    
+    this.x += this.vx;
+    this.y += this.vy;
+    
+    // Bounce
+    if (bounceOn) {
+      if (this.x < this.r) { this.x = this.r; this.vx *= -0.8; }
+      if (this.x > W - this.r) { this.x = W - this.r; this.vx *= -0.8; }
+      if (this.y < this.r) { this.y = this.r; this.vy *= -0.8; }
+      if (this.y > H - this.r) { this.y = H - this.r; this.vy *= -0.8; }
+    } else {
+      if (this.x < -100 || this.x > W + 100 || this.y < -100 || this.y > H + 100) {
+        return false;
+      }
+    }
+    
+    // Trail
+    if (showTrails) {
+      this.trail.push({x: this.x, y: this.y});
+      if (this.trail.length > 50) this.trail.shift();
+    }
+    
+    return true;
+  }
+  
+  draw() {
+    if (showTrails && this.trail.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (let i = 1; i < this.trail.length; i++) {
+        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+      }
+      ctx.strokeStyle = `hsla(${this.hue}, 70%, 50%, 0.3)`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${this.hue}, 70%, 60%)`;
+    ctx.fill();
+    ctx.strokeStyle = `hsl(${this.hue}, 70%, 40%)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function animate() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Draw masses
+  for (const m of masses) {
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#333';
+    ctx.fill();
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#888';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(m.m + 'kg', m.x, m.y + 4);
+  }
+  
+  // Draw drag line
+  if (dragging) {
+    ctx.beginPath();
+    ctx.moveTo(dragging.x, dragging.y);
+    ctx.lineTo(dragging.cx, dragging.cy);
+    ctx.strokeStyle = '#4a9';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  
+  // Update and draw balls
+  for (let i = balls.length - 1; i >= 0; i--) {
+    if (!balls[i].update()) {
+      balls.splice(i, 1);
+      continue;
+    }
+    balls[i].draw();
+  }
+  
+  requestAnimationFrame(animate);
+}
+
+// Input handlers
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2) {
+    // Right click - place mass
+    masses.push({
+      x: e.clientX,
+      y: e.clientY,
+      r: 20,
+      m: 50
+    });
+  } else {
+    dragging = {
+      x: e.clientX,
+      y: e.clientY,
+      cx: e.clientX,
+      cy: e.clientY
+    };
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (dragging) {
+    dragging.cx = e.clientX;
+    dragging.cy = e.clientY;
+  }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (dragging) {
+    const vx = (dragging.x - dragging.cx) * 0.3;
+    const vy = (dragging.y - dragging.cy) * 0.3;
+    balls.push(new Ball(dragging.x, dragging.y, vx, vy, 8 + Math.random() * 8));
+    dragging = null;
+  }
+});
+
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// Controls
+document.getElementById('clearBtn').onclick = () => {
+  balls.length = 0;
+  masses.length = 0;
+};
+
+document.getElementById('trailBtn').onclick = (e) => {
+  showTrails = !showTrails;
+  e.target.classList.toggle('active', showTrails);
+  if (!showTrails) {
+    balls.forEach(b => b.trail = []);
+  }
+};
+
+document.getElementById('gravityBtn').onclick = (e) => {
+  gravityOn = !gravityOn;
+  e.target.classList.toggle('active', gravityOn);
+};
+
+document.getElementById('bounceBtn').onclick = (e) => {
+  bounceOn = !bounceOn;
+  e.target.classList.toggle('active', bounceOn);
+};
+
+// Spawn a few balls to start
+for (let i = 0; i < 5; i++) {
+  balls.push(new Ball(
+    100 + Math.random() * (W - 200),
+    50 + Math.random() * 100,
+    Math.random() * 4 - 2,
+    Math.random() * 2,
+    8 + Math.random() * 8
+  ));
+}
+
+animate();
+</script>
+</body>
+</html>
