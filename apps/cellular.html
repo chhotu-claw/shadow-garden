@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cellular — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .header {
+    padding: 20px;
+    text-align: center;
+    width: 100%;
+    max-width: 800px;
+  }
+  .header h1 { font-size: 1.1rem; font-weight: 400; margin-bottom: 4px; }
+  .header p { font-size: 0.75rem; color: #555; }
+  .header a { color: #444; text-decoration: none; }
+  .header a:hover { color: #888; }
+  canvas {
+    border: 1px solid #1a1a1a;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+  .controls {
+    padding: 16px 20px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    max-width: 800px;
+  }
+  button, select {
+    font-family: inherit;
+    font-size: 0.75rem;
+    background: #1a1a1a;
+    color: #aaa;
+    border: 1px solid #222;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button:hover, select:hover { background: #222; color: #fff; border-color: #333; }
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.7rem;
+    color: #555;
+    padding: 8px 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .stats { font-size: 0.7rem; color: #333; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>cellular</h1>
+  <p>conway's game of life with competing cell types · <a href="/">← back</a></p>
+</div>
+<canvas id="grid"></canvas>
+<div class="controls">
+  <button id="toggle">pause</button>
+  <button id="step">step</button>
+  <button id="reset">randomize</button>
+  <button id="clear">clear</button>
+  <select id="brush">
+    <option value="1">paint: life</option>
+    <option value="2">paint: pulse</option>
+    <option value="3">paint: chaos</option>
+    <option value="4">paint: wall</option>
+    <option value="0">eraser</option>
+  </select>
+  <select id="speed">
+    <option value="120">slow</option>
+    <option value="60" selected>normal</option>
+    <option value="20">fast</option>
+    <option value="5">ludicrous</option>
+  </select>
+</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#4a9"></div> life (B3/S23)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#77f"></div> pulse (B2/S34)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f55"></div> chaos (B3678/S3468)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#999"></div> wall (immortal)</div>
+</div>
+<div class="stats" id="stats">gen 0 · 0 cells</div>
+
+<script>
+const CELL = { EMPTY: 0, LIFE: 1, PULSE: 2, CHAOS: 3, WALL: 4 };
+const COLORS = { 0: '#0a0a0a', 1: '#4a9', 2: '#77f', 3: '#f55', 4: '#999' };
+const RULES = {
+  1: { B: new Set([3]), S: new Set([2, 3]) },
+  2: { B: new Set([2]), S: new Set([3, 4]) },
+  3: { B: new Set([3, 6, 7, 8]), S: new Set([3, 4, 6, 8]) },
+  4: { B: new Set(), S: new Set() }
+};
+
+const canvas = document.getElementById('grid');
+const ctx = canvas.getContext('2d');
+const CELL_SIZE = 6;
+const COLS = Math.min(Math.floor((window.innerWidth - 40) / CELL_SIZE), 120);
+const ROWS = Math.min(Math.floor((window.innerHeight - 240) / CELL_SIZE), 80);
+canvas.width = COLS * CELL_SIZE;
+canvas.height = ROWS * CELL_SIZE;
+
+let grid = [], generation = 0, running = true, interval = 60;
+
+function createGrid() {
+  return Array.from({ length: ROWS }, () => new Uint8Array(COLS));
+}
+
+function randomize() {
+  grid = createGrid();
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++)
+      if (Math.random() < 0.15)
+        grid[y][x] = [CELL.LIFE, CELL.PULSE, CELL.CHAOS][Math.floor(Math.random() * 3)];
+  generation = 0;
+}
+
+function step() {
+  const next = createGrid();
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const cur = grid[y][x];
+      let total = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = (x + dx + COLS) % COLS, ny = (y + dy + ROWS) % ROWS;
+          if (grid[ny][nx] !== CELL.EMPTY) total++;
+        }
+      if (cur === CELL.WALL) { next[y][x] = CELL.WALL; continue; }
+      if (cur === CELL.EMPTY) {
+        for (const [type, rules] of Object.entries(RULES)) {
+          if (+type !== CELL.EMPTY && rules.B.has(total)) { next[y][x] = +type; break; }
+        }
+      } else {
+        const rules = RULES[cur];
+        next[y][x] = rules && rules.S.has(total) ? cur : CELL.EMPTY;
+      }
+    }
+  }
+  grid = next;
+  generation++;
+}
+
+function draw() {
+  let count = 0;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      ctx.fillStyle = COLORS[grid[y][x]];
+      ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+      if (grid[y][x]) count++;
+    }
+  }
+  document.getElementById('stats').textContent = `gen ${generation} · ${count} cells`;
+}
+
+let lastTime = 0;
+function loop(time) {
+  if (running && time - lastTime > interval) {
+    step();
+    draw();
+    lastTime = time;
+  }
+  requestAnimationFrame(loop);
+}
+
+// Controls
+document.getElementById('toggle').onclick = function() {
+  running = !running;
+  this.textContent = running ? 'pause' : 'play';
+};
+document.getElementById('step').onclick = () => { step(); draw(); };
+document.getElementById('reset').onclick = () => { randomize(); draw(); };
+document.getElementById('clear').onclick = () => { grid = createGrid(); generation = 0; draw(); };
+document.getElementById('speed').onchange = function() { interval = +this.value; };
+
+// Paint
+let painting = false;
+canvas.onmousedown = (e) => { painting = true; paint(e); };
+canvas.onmouseup = () => painting = false;
+canvas.onmouseleave = () => painting = false;
+canvas.onmousemove = (e) => { if (painting) paint(e); };
+function paint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+  const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+  if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+    grid[y][x] = +document.getElementById('brush').value;
+    draw();
+  }
+}
+
+randomize();
+draw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
