@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction-Diffusion — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #0a0a0a; 
+    color: #888; 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #canvas { 
+    flex: 1; 
+    display: block;
+    cursor: crosshair;
+  }
+  .controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10,10,10,0.9);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #222;
+    z-index: 10;
+  }
+  .controls h1 {
+    font-size: 0.9rem;
+    color: #fff;
+    margin-bottom: 12px;
+    font-weight: 400;
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.7rem;
+  }
+  .control-row label {
+    width: 60px;
+    color: #666;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #4a9;
+  }
+  .value {
+    width: 40px;
+    text-align: right;
+    color: #4a9;
+  }
+  .presets {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    background: #151515;
+    border: 1px solid #333;
+    color: #888;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.65rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #222;
+    border-color: #4a9;
+    color: #4a9;
+  }
+  button.active {
+    background: #4a9;
+    color: #0a0a0a;
+    border-color: #4a9;
+  }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+<div class="controls">
+  <h1>Reaction-Diffusion</h1>
+  <div class="control-row">
+    <label>Feed</label>
+    <input type="range" id="feed" min="0.01" max="0.1" step="0.001" value="0.055">
+    <span class="value" id="feedVal">0.055</span>
+  </div>
+  <div class="control-row">
+    <label>Kill</label>
+    <input type="range" id="kill" min="0.01" max="0.1" step="0.001" value="0.062">
+    <span class="value" id="killVal">0.062</span>
+  </div>
+  <div class="control-row">
+    <label>Speed</label>
+    <input type="range" id="speed" min="1" max="20" step="1" value="8">
+    <span class="value" id="speedVal">8</span>
+  </div>
+  <div class="presets">
+    <button onclick="loadPreset('coral')" class="active">Coral</button>
+    <button onclick="loadPreset('spots')">Spots</button>
+    <button onclick="loadPreset('worms')">Worms</button>
+    <button onclick="loadPreset('maze')">Maze</button>
+    <button onclick="loadPreset('chaos')">Chaos</button>
+    <button onclick="clearCanvas()">Clear</button>
+    <button onclick="reset()">Reset</button>
+  </div>
+</div>
+<canvas id="canvas"></canvas>
+<div class="hint">Click and drag to add chemicals · Scroll to zoom</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let grid, nextGrid;
+let chemicalA, chemicalB;
+let da, db;
+let running = true;
+
+const DIFFUSION_A = 1.0;
+const DIFFUSION_B = 0.5;
+
+let feed = 0.055;
+let kill = 0.062;
+let speed = 8;
+
+function resize() {
+  width = Math.floor(window.innerWidth / 4);
+  height = Math.floor((window.innerHeight - 60) / 4);
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  init();
+}
+
+function init() {
+  const size = width * height;
+  chemicalA = new Float32Array(size);
+  chemicalB = new Float32Array(size);
+  grid = new Float32Array(size);
+  nextGrid = new Float32Array(size);
+  
+  // Initialize with chemical A everywhere
+  for (let i = 0; i < size; i++) {
+    chemicalA[i] = 1.0;
+    chemicalB[i] = 0;
+  }
+  
+  // Add some seed spots
+  seed();
+}
+
+function seed() {
+  const spots = 5;
+  for (let s = 0; s < spots; s++) {
+    const cx = Math.floor(width * 0.3 + Math.random() * width * 0.4);
+    const cy = Math.floor(height * 0.3 + Math.random() * height * 0.4);
+    const r = 5 + Math.random() * 10;
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x*x + y*y <= r*r) {
+          const idx = (cy + y) * width + (cx + x);
+          if (idx >= 0 && idx < width * height) {
+            chemicalB[idx] = 1;
+          }
+        }
+      }
+    }
+  }
+}
+
+function clearCanvas() {
+  const size = width * height;
+  for (let i = 0; i < size; i++) {
+    chemicalA[i] = 1;
+    chemicalB[i] = 0;
+  }
+}
+
+function reset() {
+  init();
+}
+
+const presets = {
+  coral: { feed: 0.055, kill: 0.062 },
+  spots: { feed: 0.036, kill: 0.064 },
+  worms: { feed: 0.078, kill: 0.061 },
+  maze: { feed: 0.029, kill: 0.057 },
+  chaos: { feed: 0.026, kill: 0.051 }
+};
+
+function loadPreset(name) {
+  const p = presets[name];
+  feed = p.feed;
+  kill = p.kill;
+  document.getElementById('feed').value = feed;
+  document.getElementById('kill').value = kill;
+  document.getElementById('feedVal').textContent = feed.toFixed(3);
+  document.getElementById('killVal').textContent = kill.toFixed(3);
+  
+  document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  clearCanvas();
+  seed();
+}
+
+document.getElementById('feed').addEventListener('input', e => {
+  feed = parseFloat(e.target.value);
+  document.getElementById('feedVal').textContent = feed.toFixed(3);
+});
+document.getElementById('kill').addEventListener('input', e => {
+  kill = parseFloat(e.target.value);
+  document.getElementById('killVal').textContent = kill.toFixed(3);
+});
+document.getElementById('speed').addEventListener('input', e => {
+  speed = parseInt(e.target.value);
+  document.getElementById('speedVal').textContent = speed;
+});
+
+let isDrawing = false;
+let drawX = 0, drawY = 0;
+
+canvas.addEventListener('mousedown', e => {
+  isDrawing = true;
+  drawX = Math.floor(e.clientX / 4);
+  drawY = Math.floor(e.clientY / 4);
+  addChemical(drawX, drawY);
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (isDrawing) {
+    drawX = Math.floor(e.clientX / 4);
+    drawY = Math.floor(e.clientY / 4);
+    addChemical(drawX, drawY);
+  }
+});
+
+canvas.addEventListener('mouseup', () => isDrawing = false);
+canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+function addChemical(x, y) {
+  const r = 8;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx*dx + dy*dy <= r*r) {
+        const idx = (y + dy) * width + (x + dx);
+        if (idx >= 0 && idx < width * height) {
+          chemicalB[idx] = 1;
+        }
+      }
+    }
+  }
+}
+
+function laplacian(grid, x, y) {
+  let sum = 0;
+  const idx = y * width + x;
+  
+  // 3x3 convolution
+  sum += grid[idx] * -1;
+  sum += (x > 0 ? grid[idx - 1] : 0) * 0.2;
+  sum += (x < width - 1 ? grid[idx + 1] : 0) * 0.2;
+  sum += (y > 0 ? grid[idx - width] : 0) * 0.2;
+  sum += (y < height - 1 ? grid[idx + width] : 0) * 0.2;
+  sum += (x > 0 && y > 0 ? grid[idx - width - 1] : 0) * 0.05;
+  sum += (x < width - 1 && y > 0 ? grid[idx - width + 1] : 0) * 0.05;
+  sum += (x > 0 && y < height - 1 ? grid[idx + width - 1] : 0) * 0.05;
+  sum += (x < width - 1 && y < height - 1 ? grid[idx + width + 1] : 0) * 0.05;
+  
+  return sum;
+}
+
+function update() {
+  for (let iter = 0; iter < speed; iter++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        
+        const a = chemicalA[idx];
+        const b = chemicalB[idx];
+        
+        const lapA = laplacian(chemicalA, x, y);
+        const lapB = laplacian(chemicalB, x, y);
+        
+        // Gray-Scott reaction-diffusion
+        const reaction = a * b * b;
+        const newA = a + (DIFFUSION_A * lapA - reaction + feed * (1 - a));
+        const newB = b + (DIFFUSION_B * lapB + reaction - (kill + feed) * b);
+        
+        nextGrid[idx] = Math.max(0, Math.min(1, newA));
+        grid[idx] = Math.max(0, Math.min(1, newB));
+      }
+    }
+    
+    // Swap buffers
+    [chemicalA, nextGrid] = [nextGrid, chemicalA];
+    [chemicalB, grid] = [grid, chemicalB];
+  }
+}
+
+function render() {
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < width * height; i++) {
+    const a = chemicalA[i];
+    const b = chemicalB[i];
+    const c = Math.floor((a - b) * 255);
+    const idx = i * 4;
+    
+    // Color mapping - chemical B determines the pattern
+    const v = Math.floor(b * 255);
+    const t = a - b;
+    
+    if (b > 0.2) {
+      // Chemical B present - coral/organic colors
+      data[idx] = Math.floor(20 + t * 100);     // R
+      data[idx + 1] = Math.floor(180 + t * 75); // G  
+      data[idx + 2] = Math.floor(140 + t * 115); // B
+      data[idx + 3] = 255;
+    } else {
+      // Mostly chemical A - dark background
+      const shade = Math.floor(a * 30);
+      data[idx] = shade;
+      data[idx + 1] = shade;
+      data[idx + 2] = Math.floor(shade + 10);
+      data[idx + 3] = 255;
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function loop() {
+  if (running) {
+    update();
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+resize();
+loop();
+</script>
+</body>
+</html>
