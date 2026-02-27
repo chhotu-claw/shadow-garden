@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ant Colony — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #0a0a0a; 
+    color: #888; 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+  }
+  canvas { 
+    display: block; 
+    cursor: crosshair;
+  }
+  .controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10,10,10,0.9);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #222;
+    font-size: 11px;
+    z-index: 10;
+  }
+  .controls h3 {
+    color: #ccc;
+    font-weight: 400;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .control-row label {
+    color: #666;
+  }
+  .control-row input[type="range"] {
+    width: 80px;
+    accent-color: #4a9;
+  }
+  .stats {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(10,10,10,0.9);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #222;
+    font-size: 11px;
+    color: #444;
+  }
+  .stats span {
+    color: #4a9;
+  }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #333;
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="controls">
+  <h3>Ant Colony</h3>
+  <div class="control-row">
+    <label>Ants</label>
+    <input type="range" id="antCount" min="50" max="500" value="200">
+  </div>
+  <div class="control-row">
+    <label>Pheromone</label>
+    <input type="range" id="pheromone" min="1" max="20" value="8">
+  </div>
+  <div class="control-row">
+    <label>Evaporation</label>
+    <input type="range" id="evap" min="1" max="50" value="10">
+  </div>
+</div>
+<div class="stats">
+  Ants: <span id="statAnts">200</span> · Pheromone: <span id="statPhero">8</span>
+</div>
+<div class="hint">Click to place food · Ants find shortest paths</div>
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let ants = [];
+let pheromones = [];
+let foods = [];
+let colonyPos = { x: 0, y: 0 };
+
+const ANT_SPEED = 2;
+const SENSOR_ANGLE = Math.PI / 4;
+const SENSOR_DIST = 20;
+const TURN_ANGLE = Math.PI / 6;
+
+let config = {
+  antCount: 200,
+  pheromoneStrength: 8,
+  evaporation: 0.001
+};
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  colonyPos = { x: width / 2, y: height / 2 };
+  initPheromones();
+}
+
+function initPheromones() {
+  pheromones = [];
+  for (let i = 0; i < 50; i++) {
+    pheromones.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      strength: Math.random() * 0.1
+    });
+  }
+}
+
+function initAnts() {
+  ants = [];
+  for (let i = 0; i < config.antCount; i++) {
+    ants.push(createAnt());
+  }
+}
+
+function createAnt(x, y) {
+  return {
+    x: x !== undefined ? x : colonyPos.x,
+    y: y !== undefined ? y : colonyPos.y,
+    angle: Math.random() * Math.PI * 2,
+    hasFood: false,
+    sensorLeft: null,
+    sensorCenter: null,
+    sensorRight: null
+  };
+}
+
+function sense(ant, angleOffset) {
+  const sensorX = ant.x + Math.cos(ant.angle + angleOffset) * SENSOR_DIST;
+  const sensorY = ant.y + Math.sin(ant.angle + angleOffset) * SENSOR_DIST;
+  
+  let maxStrength = 0;
+  
+  // Check food
+  for (const food of foods) {
+    const dx = food.x - sensorX;
+    const dy = food.y - sensorY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 20) {
+      return 100; // Food has highest priority
+    }
+  }
+  
+  // Check pheromones (reverse for food-carrying ants)
+  for (const phero of pheromones) {
+    const dx = phero.x - sensorX;
+    const dy = phero.y - sensorY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 15) {
+      const strength = phero.strength * (ant.hasFood ? -1 : 1);
+      maxStrength = Math.max(maxStrength, strength);
+    }
+  }
+  
+  // Home detection
+  const homeDist = Math.sqrt((colonyPos.x - sensorX) ** 2 + (colonyPos.y - sensorY) ** 2);
+  if (homeDist < 30 && ant.hasFood) {
+    return 50;
+  }
+  
+  return maxStrength;
+}
+
+function update() {
+  // Evaporate pheromones
+  for (const phero of pheromones) {
+    phero.strength *= (1 - config.evaporation);
+    if (phero.strength < 0.001) {
+      phero.strength = 0;
+    }
+  }
+  
+  // Remove weak pheromones and add new ones
+  for (let i = pheromones.length - 1; i >= 0; i--) {
+    if (pheromones[i].strength < 0.001) {
+      pheromones.splice(i, 1);
+    }
+  }
+  
+  while (pheromones.length < 500) {
+    pheromones.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      strength: 0
+    });
+  }
+  
+  // Update ants
+  for (const ant of ants) {
+    // Sense
+    ant.sensorLeft = sense(ant, SENSOR_ANGLE);
+    ant.sensorCenter = sense(ant, 0);
+    ant.sensorRight = sense(ant, -SENSOR_ANGLE);
+    
+    // Steer based on sensors
+    if (ant.sensorCenter > ant.sensorLeft && ant.sensorCenter > ant.sensorRight) {
+      // Continue straight
+    } else if (ant.sensorCenter < ant.sensorLeft && ant.sensorCenter < ant.sensorRight) {
+      // Random turn
+      ant.angle += (Math.random() - 0.5) * 2 * TURN_ANGLE;
+    } else if (ant.sensorLeft > ant.sensorRight) {
+      ant.angle += TURN_ANGLE;
+    } else if (ant.sensorRight > ant.sensorLeft) {
+      ant.angle -= TURN_ANGLE;
+    } else if (ant.sensorCenter < 0) {
+      ant.angle += (Math.random() - 0.5) * TURN_ANGLE;
+    }
+    
+    // Random wander
+    if (Math.random() < 0.1) {
+      ant.angle += (Math.random() - 0.5) * 0.5;
+    }
+    
+    // Move
+    ant.x += Math.cos(ant.angle) * ANT_SPEED;
+    ant.y += Math.sin(ant.angle) * ANT_SPEED;
+    
+    // Wrap around
+    if (ant.x < 0) ant.x = width;
+    if (ant.x > width) ant.x = 0;
+    if (ant.y < 0) ant.y = height;
+    if (ant.y > height) ant.y = 0;
+    
+    // Check food
+    if (!ant.hasFood) {
+      for (let i = foods.length - 1; i >= 0; i--) {
+        const food = foods[i];
+        const dx = food.x - ant.x;
+        const dy = food.y - ant.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 10) {
+          ant.hasFood = true;
+          ant.angle += Math.PI;
+          food.amount--;
+          if (food.amount <= 0) {
+            foods.splice(i, 1);
+          }
+          break;
+        }
+      }
+    } else {
+      // Drop pheromone trail
+      const nearby = pheromones.find(p => 
+        Math.sqrt((p.x - ant.x) ** 2 + (p.y - ant.y) ** 2) < 10
+      );
+      if (nearby) {
+        nearby.strength = Math.min(nearby.strength + 0.1, 1);
+      }
+      
+      // Check home
+      const homeDist = Math.sqrt((colonyPos.x - ant.x) ** 2 + (colonyPos.y - ant.y) ** 2);
+      if (homeDist < 15) {
+        ant.hasFood = false;
+        ant.angle += Math.PI;
+      }
+    }
+  }
+}
+
+function draw() {
+  // Fade background
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, width, height);
+  
+  // Draw pheromones
+  for (const phero of pheromones) {
+    if (phero.strength > 0.01) {
+      const alpha = Math.min(phero.strength * 0.5, 0.4);
+      ctx.fillStyle = `rgba(74, 169, 153, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(phero.x, phero.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  // Draw food
+  for (const food of foods) {
+    const alpha = Math.min(food.amount / 10, 1);
+    ctx.fillStyle = `rgba(255, 120, 80, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(food.x, food.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  // Draw colony
+  ctx.fillStyle = '#4a9';
+  ctx.beginPath();
+  ctx.arc(colonyPos.x, colonyPos.y, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0a0a0a';
+  ctx.beginPath();
+  ctx.arc(colonyPos.x, colonyPos.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Draw ants
+  for (const ant of ants) {
+    ctx.fillStyle = ant.hasFood ? '#ff7850' : '#666';
+    ctx.beginPath();
+    ctx.arc(ant.x, ant.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Click to add food
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  
+  foods.push({ x, y, amount: 10 });
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  colonyPos = {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top
+  };
+});
+
+// Controls
+document.getElementById('antCount').addEventListener('input', (e) => {
+  config.antCount = parseInt(e.target.value);
+  document.getElementById('statAnts').textContent = config.antCount;
+  const diff = config.antCount - ants.length;
+  if (diff > 0) {
+    for (let i = 0; i < diff; i++) {
+      ants.push(createAnt());
+    }
+  } else if (diff < 0) {
+    ants.splice(config.antCount);
+  }
+});
+
+document.getElementById('pheromone').addEventListener('input', (e) => {
+  config.pheromoneStrength = parseInt(e.target.value);
+  document.getElementById('statPhero').textContent = config.pheromoneStrength;
+});
+
+document.getElementById('evap').addEventListener('input', (e) => {
+  config.evaporation = parseInt(e.target.value) / 10000;
+});
+
+window.addEventListener('resize', resize);
+
+resize();
+initAnts();
+loop();
+</script>
+</body>
+</html>
