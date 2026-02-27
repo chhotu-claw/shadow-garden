@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Color Langton's Ant — Shadow's Garden</title>
+<meta name="description">What happens when Langton's Ant meets more than two colors? Chaos, highways, and beautiful patterns emerge.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #e0e0e0;
+    margin-bottom: 5px;
+  }
+  .subtitle {
+    color: #888;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  canvas {
+    border: 1px solid #333;
+    image-rendering: pixelated;
+    cursor: crosshair;
+  }
+  .controls {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 20px 0;
+    align-items: center;
+  }
+  button, select, input {
+    padding: 8px 14px;
+    background: #1a1a24;
+    border: 1px solid #333;
+    color: #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover {
+    background: #2a2a3a;
+    border-color: #555;
+  }
+  .stat {
+    color: #666;
+    font-size: 13px;
+  }
+  .stat span {
+    color: #4a9;
+    font-weight: bold;
+  }
+  .legend {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 600px;
+  }
+  .legend-color {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #333;
+  }
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 15px;
+  }
+  .preset-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+  .info {
+    color: #555;
+    font-size: 12px;
+    max-width: 600px;
+    text-align: center;
+    margin-top: 15px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Multi-Color Langton's Ant</h1>
+  <div class="subtitle">Classic: 2 colors → highway. More colors → ?</div>
+  
+  <div class="presets">
+    <button class="preset-btn" onclick="loadPreset('RL')">RL (classic)</button>
+    <button class="preset-btn" onclick="loadPreset('RLR')">RLR (chaos)</button>
+    <button class="preset-btn" onclick="loadPreset('RLLR')">RLLR</button>
+    <button class="preset-btn" onclick="loadPreset('LLRR')">LLRR</button>
+    <button class="preset-btn" onclick="loadPreset('RLRRLRLLR')">RLRRLRLLR</button>
+    <button class="preset-btn" onclick="loadPreset('RRRR')">RRRR</button>
+  </div>
+
+  <div class="controls">
+    <button onclick="togglePlay()" id="playBtn">▶ Play</button>
+    <button onclick="step()">Step</button>
+    <button onclick="reset()">Reset</button>
+    <button onclick="clearGrid()">Clear</button>
+    <input type="range" id="speed" min="1" max="100" value="20">
+    <span class="stat">Speed: <span id="speedVal">20</span></span>
+    <input type="range" id="zoom" min="1" max="8" value="2">
+    <span class="stat">Zoom: <span id="zoomVal">2</span></span>
+  </div>
+
+  <canvas id="canvas"></canvas>
+  
+  <div class="legend" id="legend"></div>
+  
+  <div class="info">
+    Click on the grid to place the ant. Each color has a rule: R = turn Right, L = turn Left. The ant moves forward after turning, then the color cycles to the next. Classic Langton's Ant uses "RL" — white turns right, black turns left.
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let grid = [];
+    let gridWidth, gridHeight;
+    let ant = { x: 0, y: 0, dir: 0 };
+    let rule = 'RL';
+    let colors = [];
+    let running = false;
+    let animId = null;
+    let stepsPerFrame = 20;
+    let zoom = 2;
+    let totalSteps = 0;
+    
+    const DIRECTIONS = [
+      { dx: 0, dy: -1 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 }
+    ];
+    
+    function init() {
+      gridWidth = 400;
+      gridHeight = 300;
+      canvas.width = gridWidth * zoom;
+      canvas.height = gridHeight * zoom;
+      reset();
+    }
+    
+    function generateColors(r) {
+      const baseHue = Math.random() * 360;
+      const hues = [];
+      for (let i = 0; i < r.length; i++) {
+        hues.push((baseHue + (i * 360 / r.length)) % 360);
+      }
+      return hues.map((h, i) => {
+        const s = 60 + (i % 2) * 20;
+        const l = 20 + (i % 3) * 15;
+        return `hsl(${h}, ${s}%, ${l}%)`;
+      });
+    }
+    
+    function loadPreset(r) {
+      rule = r;
+      colors = generateColors(rule);
+      updateLegend();
+      reset();
+    }
+    
+    function updateLegend() {
+      const legend = document.getElementById('legend');
+      legend.innerHTML = rule.split('').map((c, i) => 
+        `<div class="legend-color" style="background:${colors[i]}"></div>`
+      ).join('') + ` <span style="color:#666;margin-left:8px">${rule}</span>`;
+    }
+    
+    function reset() {
+      grid = Array(gridHeight).fill(null).map(() => Array(gridWidth).fill(0));
+      ant = { x: Math.floor(gridWidth / 2), y: Math.floor(gridHeight / 2), dir: 0 };
+      totalSteps = 0;
+      colors = generateColors(rule);
+      updateLegend();
+      render();
+    }
+    
+    function clearGrid() {
+      grid = Array(gridHeight).fill(null).map(() => Array(gridWidth).fill(0));
+      totalSteps = 0;
+      render();
+    }
+    
+    function step() {
+      const currentColor = grid[ant.y][ant.x];
+      const turn = rule[currentColor % rule.length];
+      
+      if (turn === 'R') ant.dir = (ant.dir + 1) % 4;
+      else if (turn === 'L') ant.dir = (ant.dir + 3) % 4;
+      
+      grid[ant.y][ant.x] = (currentColor + 1) % rule.length;
+      
+      ant.x += DIRECTIONS[ant.dir].dx;
+      ant.y += DIRECTIONS[ant.dir].dy;
+      
+      if (ant.x < 0) ant.x = gridWidth - 1;
+      if (ant.x >= gridWidth) ant.x = 0;
+      if (ant.y < 0) ant.y = gridHeight - 1;
+      if (ant.y >= gridHeight) ant.y = 0;
+      
+      totalSteps++;
+    }
+    
+    function render() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const cellSize = zoom;
+      
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          if (grid[y][x] !== 0) {
+            ctx.fillStyle = colors[grid[y][x] % rule.length];
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+      
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(ant.x * cellSize, ant.y * cellSize, cellSize, cellSize);
+      
+      document.getElementById('speedVal').textContent = stepsPerFrame;
+      document.getElementById('zoomVal').textContent = zoom;
+    }
+    
+    function togglePlay() {
+      running = !running;
+      document.getElementById('playBtn').textContent = running ? '⏸ Pause' : '▶ Play';
+      if (running) loop();
+    }
+    
+    function loop() {
+      if (!running) return;
+      
+      for (let i = 0; i < stepsPerFrame; i++) {
+        step();
+      }
+      render();
+      animId = requestAnimationFrame(loop);
+    }
+    
+    document.getElementById('speed').addEventListener('input', e => {
+      stepsPerFrame = parseInt(e.target.value);
+    });
+    
+    document.getElementById('zoom').addEventListener('input', e => {
+      zoom = parseInt(e.target.value);
+      canvas.width = gridWidth * zoom;
+      canvas.height = gridHeight * zoom;
+      render();
+    });
+    
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / zoom);
+      const y = Math.floor((e.clientY - rect.top) / zoom);
+      if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
+        ant.x = x;
+        ant.y = y;
+        render();
+      }
+    });
+    
+    init();
+  </script>
+</body>
+</html>
