@@ -7,319 +7,535 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
-    font-family: 'JetBrains Mono', 'SF Mono', monospace; 
     background: #0a0a0a; 
-    color: #ccc; 
-    min-height: 100vh;
+    color: #888; 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+  }
+  .header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #222;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    padding: 20px;
   }
-  h1 { font-size: 1.2rem; font-weight: 400; color: #fff; margin-bottom: 8px; }
-  .controls { 
-    display: flex; 
-    gap: 8px; 
-    margin-bottom: 16px; 
-    flex-wrap: wrap;
-    justify-content: center;
+  .header h1 {
+    font-size: 14px;
+    font-weight: 400;
+    color: #ccc;
   }
-  button {
-    background: #151515;
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .main {
+    flex: 1;
+    display: flex;
+  }
+  .canvas-container {
+    flex: 1;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+  .sidebar {
+    width: 200px;
+    background: #111;
+    border-left: 1px solid #222;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sidebar h3 {
+    font-size: 11px;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .algo {
+    background: #1a1a1a;
+    border: 1px solid #222;
+    border-radius: 4px;
+    padding: 10px;
+  }
+  .algo-name {
+    font-size: 12px;
+    color: #ccc;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .algo-stats {
+    font-size: 10px;
+    color: #444;
+  }
+  .algo-stats span {
+    color: #4a9;
+  }
+  .btn {
+    background: #222;
     border: 1px solid #333;
     color: #888;
-    padding: 8px 16px;
-    font-family: inherit;
-    font-size: 0.75rem;
-    cursor: pointer;
+    padding: 8px 12px;
     border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
     transition: all 0.2s;
   }
-  button:hover { background: #222; color: #ccc; }
-  button.active { background: #2a4a3a; border-color: #4a9; color: #4a9; }
-  #grid { 
-    display: grid; 
-    gap: 1px; 
-    background: #1a1a1a;
-    border: 1px solid #333;
-    user-select: none;
+  .btn:hover {
+    background: #2a2a2a;
+    color: #ccc;
   }
-  .cell {
-    width: 16px;
-    height: 16px;
-    background: #0d0d0d;
-    transition: background 0.05s;
+  .btn.primary {
+    background: #2a4a3a;
+    border-color: #3a5a4a;
+    color: #4a9;
   }
-  .cell.wall { background: #444; }
-  .cell.start { background: #4a9; }
-  .cell.end { background: #d84; }
-  .cell.open { background: #2a4a3a; }
-  .cell.closed { background: #1a3a2a; }
-  .cell.path { background: #4d8; }
-  .cell.visualizing { background: #3a5a4a; }
-  .stats { 
-    margin-top: 16px; 
-    font-size: 0.75rem; 
-    color: #666;
+  .btn.primary:hover {
+    background: #3a5a4a;
+  }
+  .controls {
     display: flex;
-    gap: 24px;
+    flex-direction: column;
+    gap: 8px;
   }
-  .stat { display: flex; gap: 8px; }
-  .stat-label { color: #444; }
-  .instructions {
-    margin-top: 16px;
-    font-size: 0.7rem;
+  .hint {
+    font-size: 10px;
     color: #333;
     text-align: center;
+    padding: 8px;
   }
 </style>
 </head>
 <body>
-<h1>Pathfinding Race</h1>
-<div class="controls">
-  <button id="bfs" onclick="setAlgo('bfs')">BFS</button>
-  <button id="dfs" onclick="setAlgo('dfs')">DFS</button>
-  <button id="dijkstra" onclick="setAlgo('dijkstra')" class="active">Dijkstra</button>
-  <button id="astar" onclick="setAlgo('astar')">A*</button>
-  <button onclick="run()">▶ Run</button>
-  <button onclick="clearPath()">Clear Path</button>
-  <button onclick="clearWalls()">Clear Walls</button>
-  <button onclick="randomWalls()">Random Walls</button>
+<div class="header">
+  <h1>Pathfinding Race</h1>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#4a9"></div>Start</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f54"></div>End</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#333"></div>Wall</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#222"></div>Path</div>
+  </div>
 </div>
-<div id="grid"></div>
-<div class="stats">
-  <div class="stat"><span class="stat-label">Explored:</span><span id="explored">0</span></div>
-  <div class="stat"><span class="stat-label">Path:</span><span id="pathLen">0</span></div>
-  <div class="stat"><span class="stat-label">Time:</span><span id="time">0ms</span></div>
-</div>
-<div class="instructions">
-  Click/drag to draw walls • Drag start (green) or end (orange) to move
+<div class="main">
+  <div class="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
+  <div class="sidebar">
+    <div class="controls">
+      <button class="btn primary" id="runBtn">Run Race</button>
+      <button class="btn" id="clearBtn">Clear Paths</button>
+      <button class="btn" id="resetBtn">Reset Grid</button>
+    </div>
+    
+    <h3>Algorithms</h3>
+    <div class="algo">
+      <div class="algo-name">BFS <span id="bfs-status">—</span></div>
+      <div class="algo-stats">Nodes: <span id="bfs-nodes">0</span> · <span id="bfs-time">0ms</span></div>
+    </div>
+    <div class="algo">
+      <div class="algo-name">DFS <span id="dfs-status">—</span></div>
+      <div class="algo-stats">Nodes: <span id="dfs-nodes">0</span> · <span id="dfs-time">0ms</span></div>
+    </div>
+    <div class="algo">
+      <div class="algo-name">Dijkstra <span id="dijkstra-status">—</span></div>
+      <div class="algo-stats">Nodes: <span id="dijkstra-nodes">0</span> · <span id="dijkstra-time">0ms</span></div>
+    </div>
+    <div class="algo">
+      <div class="algo-name">A* <span id="astar-status">—</span></div>
+      <div class="algo-stats">Nodes: <span id="astar-nodes">0</span> · <span id="astar-time">0ms</span></div>
+    </div>
+    
+    <div class="hint">Click to toggle walls · Drag to draw</div>
+  </div>
 </div>
 
 <script>
-const COLS = 40;
-const ROWS = 25;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let COLS = 40;
+let ROWS = 25;
+let CELL_SIZE = 24;
 let grid = [];
-let start = { x: 5, y: 12 };
-let end = { x: 34, y: 12 };
-let algo = 'dijkstra';
+let start = null;
+let end = null;
 let running = false;
-let mouseDown = false;
-let dragTarget = null;
+let algorithms = {};
+let results = {};
 
-function init() {
-  const gridEl = document.getElementById('grid');
-  gridEl.style.gridTemplateColumns = `repeat(${COLS}, 16px)`;
-  gridEl.innerHTML = '';
+function resize() {
+  const container = canvas.parentElement;
+  canvas.width = container.clientWidth;
+  canvas.width = COLS * CELL_SIZE;
+  canvas.height = ROWS * CELL_SIZE;
+  initGrid();
+}
+
+function initGrid() {
   grid = [];
-  
   for (let y = 0; y < ROWS; y++) {
-    const row = [];
+    grid[y] = [];
     for (let x = 0; x < COLS; x++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      
-      cell.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        mouseDown = true;
-        const isStart = x === start.x && y === start.y;
-        const isEnd = x === end.x && y === end.y;
-        if (isStart) dragTarget = 'start';
-        else if (isEnd) dragTarget = 'end';
-        else toggleWall(x, y);
-      });
-      
-      cell.addEventListener('mouseenter', () => {
-        if (mouseDown && !dragTarget) toggleWall(x, y);
-        if (mouseDown && dragTarget === 'start') { start.x = x; start.y = y; render(); }
-        if (mouseDown && dragTarget === 'end') { end.x = x; end.y = y; render(); }
-      });
-      
-      gridEl.appendChild(cell);
-      row.push({ el: cell, wall: false });
+      grid[y][x] = 0; // 0 = empty, 1 = wall
     }
-    grid.push(row);
   }
+  start = { x: 2, y: ROWS / 2 | 0 };
+  end = { x: COLS - 3, y: ROWS / 2 | 0 };
+  clearPaths();
+}
+
+function clearPaths() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      grid[y][x] &= ~0b1100; // Clear visited and path bits
+    }
+  }
+  results = {};
+  updateStats();
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  render();
-}
-
-function toggleWall(x, y) {
-  if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) return;
-  grid[y][x].wall = !grid[y][x].wall;
-  grid[y][x].el.classList.toggle('wall', grid[y][x].wall);
-}
-
-function render() {
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const cell = grid[y][x];
-      cell.el.className = 'cell';
-      if (cell.wall) cell.el.classList.add('wall');
-      if (x === start.x && y === start.y) cell.el.classList.add('start');
-      if (x === end.x && y === end.y) cell.el.classList.add('end');
-    }
-  }
-}
-
-function clearPath() {
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      grid[y][x].el.classList.remove('open', 'closed', 'path', 'visualizing');
-    }
-  }
-  document.getElementById('explored').textContent = '0';
-  document.getElementById('pathLen').textContent = '0';
-  document.getElementById('time').textContent = '0ms';
-}
-
-function clearWalls() {
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      grid[y][x].wall = false;
-      grid[y][x].el.classList.remove('wall');
-    }
-  }
-  clearPath();
-}
-
-function randomWalls() {
-  clearWalls();
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (Math.random() < 0.25) {
-        if (!((x === start.x && y === start.y) || (x === end.x && y === end.y))) {
-          grid[y][x].wall = true;
-          grid[y][x].el.classList.add('wall');
-        }
+      const px = x * CELL_SIZE;
+      const py = y * CELL_SIZE;
+      
+      // Grid lines
+      ctx.strokeStyle = '#151515';
+      ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+      
+      // Walls
+      if (cell & 1) {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+      }
+      
+      // Visited
+      if (cell & 4) {
+        ctx.fillStyle = 'rgba(74, 169, 153, 0.1)';
+        ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+      }
+      
+      // Path
+      if (cell & 8) {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
       }
     }
   }
+  
+  // Start
+  ctx.fillStyle = '#4a9';
+  ctx.fillRect(start.x * CELL_SIZE + 4, start.y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+  
+  // End
+  ctx.fillStyle = '#f54';
+  ctx.fillRect(end.x * CELL_SIZE + 4, end.y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+  
+  // Animated paths
+  if (running) {
+    drawAnimatedPaths();
+  }
+  
+  requestAnimationFrame(draw);
 }
 
-function setAlgo(a) {
-  algo = a;
-  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-  document.getElementById(a).classList.add('active');
-}
-
-document.addEventListener('mouseup', () => {
-  mouseDown = false;
-  dragTarget = null;
-});
-
-const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
-
-async function run() {
-  if (running) return;
-  running = true;
-  clearPath();
+function drawAnimatedPaths() {
+  const colors = {
+    bfs: '#4a9',
+    dfs: '#94a',
+    dijkstra: '#a74',
+    astar: '#4aa'
+  };
   
-  const startTime = performance.now();
-  let visited = new Set();
-  let cameFrom = {};
-  let cost = {};
-  let openSet = [];
-  
-  const key = (x, y) => `${x},${y}`;
-  
-  cost[key(start.x, start.y)] = 0;
-  openSet.push({ x: start.x, y: start.y, g: 0, f: 0 });
-  
-  const heuristic = (x, y) => Math.abs(x - end.x) + Math.abs(y - end.y);
-  
-  let found = false;
-  let path = [];
-  
-  while (openSet.length > 0) {
-    let current;
+  for (const [name, result] of Object.entries(results)) {
+    if (!result.path) continue;
+    const color = colors[name];
+    const progress = Math.min((Date.now() - result.startTime) / 500, 1);
+    const pathLen = Math.floor(result.path.length * progress);
     
-    if (algo === 'dfs') {
-      current = openSet.pop();
-    } else if (algo === 'bfs') {
-      current = openSet.shift();
-    } else if (algo === 'dijkstra') {
-      openSet.sort((a, b) => a.g - b.g);
-      current = openSet.shift();
-    } else if (algo === 'astar') {
-      openSet.sort((a, b) => a.f - b.f);
-      current = openSet.shift();
+    for (let i = 0; i < pathLen; i++) {
+      const p = result.path[i];
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(p.x * CELL_SIZE + 6, p.y * CELL_SIZE + 6, CELL_SIZE - 12, CELL_SIZE - 12);
     }
-    
-    const { x, y } = current;
-    const k = key(x, y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function getNeighbors(x, y) {
+  const neighbors = [];
+  const dirs = [[0,-1], [1,0], [0,1], [-1,0]];
+  for (const [dx, dy] of dirs) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !(grid[ny][nx] & 1)) {
+      neighbors.push({ x: nx, y: ny });
+    }
+  }
+  return neighbors;
+}
+
+function heuristic(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function bfs() {
+  const visited = new Set();
+  const queue = [{ x: start.x, y: start.y, path: [{ x: start.x, y: start.y }] }];
+  visited.add(`${start.x},${start.y}`);
+  
+  let nodes = 0;
+  
+  while (queue.length) {
+    const { x, y, path } = queue.shift();
+    nodes++;
     
     if (x === end.x && y === end.y) {
-      found = true;
-      let curr = { x, y };
-      while (curr) {
-        path.unshift(curr);
-        curr = cameFrom[key(curr.x, curr.y)];
+      return { path, nodes };
+    }
+    
+    for (const n of getNeighbors(x, y)) {
+      const key = `${n.x},${n.y}`;
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push({ x: n.x, y: n.y, path: [...path, n] });
       }
-      break;
+    }
+  }
+  
+  return { path: null, nodes };
+}
+
+function dfs() {
+  const visited = new Set();
+  const stack = [{ x: start.x, y: start.y, path: [{ x: start.x, y: start.y }] }];
+  
+  let nodes = 0;
+  
+  while (stack.length) {
+    const { x, y, path } = stack.pop();
+    const key = `${x},${y}`;
+    
+    if (visited.has(key)) continue;
+    visited.add(key);
+    nodes++;
+    
+    if (x === end.x && y === end.y) {
+      return { path, nodes };
     }
     
-    visited.add(k);
-    if (!(x === start.x && y === start.y)) {
-      grid[y][x].el.classList.add('visualizing');
+    const neighbors = getNeighbors(x, y);
+    // Shuffle for variation
+    for (let i = neighbors.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [neighbors[i], neighbors[j]] = [neighbors[j], neighbors[i]];
     }
     
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx;
-      const ny = y + dy;
-      const nk = key(nx, ny);
+    for (const n of neighbors) {
+      const nKey = `${n.x},${n.y}`;
+      if (!visited.has(nKey)) {
+        stack.push({ x: n.x, y: n.y, path: [...path, n] });
+      }
+    }
+  }
+  
+  return { path: null, nodes };
+}
+
+function dijkstra() {
+  const dist = {};
+  const visited = new Set();
+  const pq = [{ x: start.x, y: start.y, d: 0, path: [{ x: start.x, y: start.y }] }];
+  
+  let nodes = 0;
+  
+  while (pq.length) {
+    pq.sort((a, b) => a.d - b.d);
+    const { x, y, d, path } = pq.shift();
+    const key = `${x},${y}`;
+    
+    if (visited.has(key)) continue;
+    visited.add(key);
+    nodes++;
+    
+    if (x === end.x && y === end.y) {
+      return { path, nodes };
+    }
+    
+    for (const n of getNeighbors(x, y)) {
+      const nKey = `${n.x},${n.y}`;
+      if (!visited.has(nKey)) {
+        const nd = d + 1;
+        pq.push({ x: n.x, y: n.y, d: nd, path: [...path, n] });
+      }
+    }
+  }
+  
+  return { path: null, nodes };
+}
+
+function astar() {
+  const openSet = [{ x: start.x, y: start.y, g: 0, h: heuristic(start, end), f: heuristic(start, end), path: [{ x: start.x, y: start.y }] }];
+  const closedSet = new Set();
+  
+  let nodes = 0;
+  
+  while (openSet.length) {
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift();
+    const { x, y, g, path } = current;
+    const key = `${x},${y}`;
+    
+    if (closedSet.has(key)) continue;
+    closedSet.add(key);
+    nodes++;
+    
+    if (x === end.x && y === end.y) {
+      return { path, nodes };
+    }
+    
+    for (const n of getNeighbors(x, y)) {
+      const nKey = `${n.x},${n.y}`;
+      if (closedSet.has(nKey)) continue;
       
-      if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-      if (grid[ny][nx].wall) continue;
-      if (visited.has(nk)) continue;
+      const ng = g + 1;
+      const h = heuristic(n, end);
+      const f = ng + h;
       
-      const newCost = cost[k] + 1;
-      
-      if (!(nk in cost) || newCost < cost[nk]) {
-        cost[nk] = newCost;
-        cameFrom[nk] = { x, y };
-        
-        const g = newCost;
-        const f = algo === 'astar' ? g + heuristic(nx, ny) : g;
-        
-        openSet.push({ x: nx, y: ny, g, f });
-        
-        if (!(nx === end.x && ny === end.y)) {
-          grid[ny][nx].el.classList.add('open');
+      const existing = openSet.find(o => o.x === n.x && o.y === n.y);
+      if (!existing || ng < existing.g) {
+        if (existing) {
+          Object.assign(existing, { g: ng, h, f, path: [...path, n] });
+        } else {
+          openSet.push({ x: n.x, y: n.y, g: ng, h, f, path: [...path, n] });
         }
       }
     }
-    
-    if (!(x === start.x && y === start.y)) {
-      grid[y][x].el.classList.remove('visualizing');
-      grid[y][x].el.classList.add('closed');
-    }
-    
-    if (visited.size % 50 === 0) await new Promise(r => setTimeout(r, 10));
   }
   
-  const elapsed = performance.now() - startTime;
+  return { path: null, nodes };
+}
+
+function runRace() {
+  if (running) return;
+  running = true;
+  clearPaths();
   
-  if (found) {
-    for (let i = 0; i < path.length; i++) {
-      const { x, y } = path[i];
-      if (!(x === start.x && y === start.y) && !(x === end.x && y === end.y)) {
-        grid[y][x].el.classList.add('path');
-        if (i % 3 === 0) await new Promise(r => setTimeout(r, 20));
+  const algos = [
+    { name: 'bfs', fn: bfs },
+    { name: 'dfs', fn: dfs },
+    { name: 'dijkstra', fn: dijkstra },
+    { name: 'astar', fn: astar }
+  ];
+  
+  for (const algo of algos) {
+    const startTime = performance.now();
+    const result = algo.fn();
+    const time = performance.now() - startTime;
+    
+    results[algo.name] = {
+      ...result,
+      time,
+      startTime: Date.now()
+    };
+    
+    document.getElementById(`${algo.name}-status`).textContent = result.path ? '✓' : '✗';
+    document.getElementById(`${algo.name}-nodes`).textContent = result.nodes;
+    document.getElementById(`${algo.name}-time`).textContent = time.toFixed(1) + 'ms';
+    
+    // Draw path on grid
+    if (result.path) {
+      for (const p of result.path) {
+        grid[p.y][p.x] |= 8;
       }
     }
   }
   
-  document.getElementById('explored').textContent = visited.size;
-  document.getElementById('pathLen').textContent = path.length;
-  document.getElementById('time').textContent = Math.round(elapsed) + 'ms';
-  
-  running = false;
+  setTimeout(() => {
+    running = false;
+  }, 600);
 }
 
-init();
+function updateStats() {
+  const algos = ['bfs', 'dfs', 'dijkstra', 'astar'];
+  for (const name of algos) {
+    document.getElementById(`${name}-status`).textContent = '—';
+    document.getElementById(`${name}-nodes`).textContent = '0';
+    document.getElementById(`${name}-time`).textContent = '0ms';
+  }
+}
+
+// Input handling
+let drawing = false;
+let drawingWall = true;
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+  const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+  
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+  if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) return;
+  
+  drawing = true;
+  drawingWall = !(grid[y][x] & 1);
+  grid[y][x] = (grid[y][x] & ~1) | (drawingWall ? 1 : 0);
+  clearPaths();
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!drawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+  const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+  
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+  if ((x === start.x && y === start.y) || (x === end.x && y === end.y)) return;
+  
+  grid[y][x] = (grid[y][x] & ~1) | (drawingWall ? 1 : 0);
+});
+
+canvas.addEventListener('mouseup', () => {
+  drawing = false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  drawing = false;
+});
+
+document.getElementById('runBtn').addEventListener('click', runRace);
+document.getElementById('clearBtn').addEventListener('click', clearPaths);
+document.getElementById('resetBtn').addEventListener('click', initGrid);
+
+window.addEventListener('resize', resize);
+
+resize();
+draw();
 </script>
 </body>
 </html>
