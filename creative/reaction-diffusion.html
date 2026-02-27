@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction Diffusion — Shadow's Garden</title>
+<meta name="description" description="Gray-Scott reaction-diffusion simulator — Turing patterns emerging from simple chemical rules">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0a;
+    color: #ddd;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  .controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.85);
+    padding: 20px;
+    border-radius: 8px;
+    z-index: 100;
+    border: 1px solid #333;
+  }
+  .controls h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .control-group {
+    margin-bottom: 12px;
+  }
+  .control-group label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .control-group input[type="range"] {
+    width: 180px;
+    accent-color: #00ff88;
+  }
+  .control-group span {
+    font-size: 12px;
+    color: #00ff88;
+    font-family: monospace;
+  }
+  button {
+    background: #00ff88;
+    color: #000;
+    border: none;
+    padding: 8px 16px;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-right: 8px;
+    margin-top: 8px;
+  }
+  button:hover {
+    background: #00cc6a;
+  }
+  canvas {
+    display: block;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .presets button {
+    background: #222;
+    color: #aaa;
+    font-size: 10px;
+    padding: 6px 10px;
+  }
+  .presets button:hover {
+    background: #333;
+    color: #fff;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="controls">
+  <h3>Gray-Scott Model</h3>
+  <div class="control-group">
+    <label>Feed Rate</label>
+    <input type="range" id="feed" min="0.01" max="0.1" step="0.001" value="0.055">
+    <span id="feedVal">0.055</span>
+  </div>
+  <div class="control-group">
+    <label>Kill Rate</label>
+    <input type="range" id="kill" min="0.03" max="0.07" step="0.001" value="0.062">
+    <span id="killVal">0.062</span>
+  </div>
+  <div class="control-group">
+    <label>Diffusion A</label>
+    <input type="range" id="diffA" min="0.8" max="1.2" step="0.01" value="1.0">
+    <span id="diffAVal">1.0</span>
+  </div>
+  <div class="control-group">
+    <label>Diffusion B</label>
+    <input type="range" id="diffB" min="0.2" max="0.6" step="0.01" value="0.5">
+    <span id="diffBVal">0.5</span>
+  </div>
+  <div class="control-group">
+    <label>Iterations/Frame</label>
+    <input type="range" id="iterations" min="1" max="20" step="1" value="8">
+    <span id="iterVal">8</span>
+  </div>
+  <button id="clearBtn">Clear</button>
+  <button id="splashBtn">Splash</button>
+  <div class="presets">
+    <button data-f="0.055" data-k="0.062">Coral</button>
+    <button data-f="0.029" data-k="M0.057">itosis</button>
+    <button data-f="0.039" data-k="0.058">Fingerprints</button>
+    <button data-f="0.037" data-k="0.06">Spots</button>
+    <button data-f="0.034" data-k="0.057">Worms</button>
+    <button data-f="0.025" data-k="0.056">Maze</button>
+    <button data-f="0.014" data-k="0.054">Chaos</button>
+  </div>
+</div>
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let gridA, gridB, nextA, nextB;
+let feed = 0.055;
+let kill = 0.062;
+let diffA = 1.0;
+let diffB = 0.5;
+let iterations = 8;
+
+function resize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+  init();
+}
+
+function init() {
+  const size = width * height;
+  gridA = new Float32Array(size);
+  gridB = new Float32Array(size);
+  nextA = new Float32Array(size);
+  nextB = new Float32Array(size);
+  
+  // Fill A with 1
+  for (let i = 0; i < size; i++) {
+    gridA[i] = 1.0;
+    gridB[i] = 0.0;
+  }
+  
+  // Add some random B in the center
+  splash(3);
+}
+
+function splash(radius = 5) {
+  const cx = Math.floor(width / 2);
+  const cy = Math.floor(height / 2);
+  for (let y = -radius * 10; y <= radius * 10; y++) {
+    for (let x = -radius * 10; x <= radius * 10; x++) {
+      if (x*x + y*y < radius * radius * 100) {
+        const idx = (cy + y) * width + (cx + x);
+        if (idx >= 0 && idx < gridB.length) {
+          gridB[idx] = 1.0;
+        }
+      }
+    }
+  }
+}
+
+function laplaceA(x, y) {
+  let sum = 0;
+  sum += gridA[y * width + x] * -1;
+  sum += gridA[y * width + (x - 1)] * 0.2;
+  sum += gridA[y * width + (x + 1)] * 0.2;
+  sum += gridA[(y - 1) * width + x] * 0.2;
+  sum += gridA[(y + 1) * width + x] * 0.2;
+  sum += gridA[(y - 1) * width + (x - 1)] * 0.05;
+  sum += gridA[(y - 1) * width + (x + 1)] * 0.05;
+  sum += gridA[(y + 1) * width + (x - 1)] * 0.05;
+  sum += gridA[(y + 1) * width + (x + 1)] * 0.05;
+  return sum;
+}
+
+function laplaceB(x, y) {
+  let sum = 0;
+  sum += gridB[y * width + x] * -1;
+  sum += gridB[y * width + (x - 1)] * 0.2;
+  sum += gridB[y * width + (x + 1)] * 0.2;
+  sum += gridB[(y - 1) * width + x] * 0.2;
+  sum += gridB[(y + 1) * width + x] * 0.2;
+  sum += gridB[(y - 1) * width + (x - 1)] * 0.05;
+  sum += gridB[(y - 1) * width + (x + 1)] * 0.05;
+  sum += gridB[(y + 1) * width + (x - 1)] * 0.05;
+  sum += gridB[(y + 1) * width + (x + 1)] * 0.05;
+  return sum;
+}
+
+function update() {
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const i = y * width + x;
+        
+        const a = gridA[i];
+        const b = gridB[i];
+        
+        const lapA = laplaceA(x, y);
+        const lapB = laplaceB(x, y);
+        
+        const reaction = a * b * b;
+        
+        let newA = a + (diffA * lapA - reaction + feed * (1 - a));
+        let newB = b + (diffB * lapB + reaction - (kill + feed) * b);
+        
+        newA = Math.max(0, Math.min(1, newA));
+        newB = Math.max(0, Math.min(1, newB));
+        
+        nextA[i] = newA;
+        nextB[i] = newB;
+      }
+    }
+    
+    // Swap buffers
+    [gridA, nextA] = [nextA, gridA];
+    [gridB, nextB] = [nextB, gridB];
+  }
+}
+
+function draw() {
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < width * height; i++) {
+    const b = gridB[i];
+    const a = gridA[i];
+    const v = Math.floor((a - b) * 255);
+    
+    const idx = i * 4;
+    
+    // Color palette: dark purple to cyan to white
+    if (b > 0.4) {
+      // White/cyan for high B
+      const t = (b - 0.4) / 0.6;
+      data[idx] = Math.floor(50 + t * 205);
+      data[idx + 1] = Math.floor(100 + t * 155);
+      data[idx + 2] = Math.floor(150 + t * 105);
+    } else if (b > 0.2) {
+      // Purple for medium B
+      const t = (b - 0.2) / 0.2;
+      data[idx] = Math.floor(40 + t * 10);
+      data[idx + 1] = Math.floor(20 + t * 80);
+      data[idx + 2] = Math.floor(60 + t * 90);
+    } else {
+      // Dark for low B
+      data[idx] = 10;
+      data[idx + 1] = 8;
+      data[idx + 2] = 15;
+    }
+    data[idx + 3] = 255;
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Event listeners
+document.getElementById('feed').addEventListener('input', e => {
+  feed = parseFloat(e.target.value);
+  document.getElementById('feedVal').textContent = feed.toFixed(3);
+});
+
+document.getElementById('kill').addEventListener('input', e => {
+  kill = parseFloat(e.target.value);
+  document.getElementById('killVal').textContent = kill.toFixed(3);
+});
+
+document.getElementById('diffA').addEventListener('input', e => {
+  diffA = parseFloat(e.target.value);
+  document.getElementById('diffAVal').textContent = diffA.toFixed(2);
+});
+
+document.getElementById('diffB').addEventListener('input', e => {
+  diffB = parseFloat(e.target.value);
+  document.getElementById('diffBVal').textContent = diffB.toFixed(2);
+});
+
+document.getElementById('iterations').addEventListener('input', e => {
+  iterations = parseInt(e.target.value);
+  document.getElementById('iterVal').textContent = iterations;
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  for (let i = 0; i < gridA.length; i++) {
+    gridA[i] = 1.0;
+    gridB[i] = 0.0;
+  }
+});
+
+document.getElementById('splashBtn').addEventListener('click', () => {
+  splash(3);
+});
+
+// Presets
+document.querySelectorAll('.presets button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    feed = parseFloat(btn.dataset.f);
+    kill = parseFloat(btn.dataset.k);
+    document.getElementById('feed').value = feed;
+    document.getElementById('kill').value = kill;
+    document.getElementById('feedVal').textContent = feed.toFixed(3);
+    document.getElementById('killVal').textContent = kill.toFixed(3);
+    
+    // Clear and splash
+    for (let i = 0; i < gridA.length; i++) {
+      gridA[i] = 1.0;
+      gridB[i] = 0.0;
+    }
+    splash(3);
+  });
+});
+
+// Mouse interaction
+canvas.addEventListener('click', e => {
+  const x = Math.floor(e.clientX);
+  const y = Math.floor(e.clientY);
+  
+  for (let dy = -3; dy <= 3; dy++) {
+    for (let dx = -3; dx <= 3; dx++) {
+      const idx = (y + dy) * width + (x + dx);
+      if (idx >= 0 && idx < gridB.length) {
+        gridB[idx] = 1.0;
+      }
+    }
+  }
+});
+
+window.addEventListener('resize', resize);
+
+resize();
+loop();
+</script>
+</body>
+</html>
