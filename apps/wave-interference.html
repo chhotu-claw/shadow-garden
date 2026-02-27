@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Interference — Shadow's Garden</title>
+<meta name="description" content="Add point sources and watch waves interfere. Simple math, beautiful patterns.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+  }
+  canvas {
+    display: block;
+  }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(20, 20, 30, 0.9);
+    padding: 16px;
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    z-index: 100;
+    border: 1px solid #333;
+  }
+  #controls h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #8af;
+  }
+  #controls button {
+    background: #2a2a3a;
+    border: 1px solid #444;
+    color: #ccc;
+    padding: 6px 12px;
+    margin: 4px 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  #controls button:hover {
+    background: #3a3a4a;
+    border-color: #666;
+  }
+  #controls button.active {
+    background: #4a6a8a;
+    border-color: #8af;
+    color: #fff;
+  }
+  .slider-group {
+    margin: 12px 0;
+  }
+  .slider-group label {
+    display: block;
+    margin-bottom: 4px;
+    color: #aaa;
+    font-size: 11px;
+  }
+  .slider-group input[type="range"] {
+    width: 140px;
+    accent-color: #8af;
+  }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="controls">
+    <h3>Wave Interference</h3>
+    <button id="addSource">+ Add Source</button>
+    <button id="clearAll">Clear All</button>
+    <div class="slider-group">
+      <label>Frequency: <span id="freqVal">3</span></label>
+      <input type="range" id="frequency" min="1" max="10" value="3" step="0.5">
+    </div>
+    <div class="slider-group">
+      <label>Amplitude: <span id="ampVal">1.0</span></label>
+      <input type="range" id="amplitude" min="0.2" max="2" value="1" step="0.1">
+    </div>
+    <div class="slider-group">
+      <label>Phase Speed: <span id="speedVal">1.0</span></label>
+      <input type="range" id="speed" min="0.2" max="3" value="1" step="0.1">
+    </div>
+    <div class="slider-group">
+      <label>Sources: <span id="sourceCount">0</span></label>
+    </div>
+  </div>
+  <div id="info">Click to add sources · Drag to move</div>
+  <canvas id="canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let sources = [];
+    let time = 0;
+    let dragging = null;
+    
+    const frequency = document.getElementById('frequency');
+    const amplitude = document.getElementById('amplitude');
+    const speed = document.getElementById('speed');
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    // Add initial sources
+    addSource(width * 0.35, height * 0.5);
+    addSource(width * 0.65, height * 0.5);
+    
+    function addSource(x, y) {
+      sources.push({ x: x || width/2, y: y || height/2 });
+      updateSourceCount();
+    }
+    
+    function clearAll() {
+      sources = [];
+      updateSourceCount();
+    }
+    
+    function updateSourceCount() {
+      document.getElementById('sourceCount').textContent = sources.length;
+    }
+    
+    function getWaveHeight(x, y) {
+      let h = 0;
+      const f = parseFloat(frequency.value);
+      const a = parseFloat(amplitude.value);
+      const s = parseFloat(speed.value);
+      
+      for (const src of sources) {
+        const dx = x - src.x;
+        const dy = y - src.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        h += a * Math.sin(f * dist - time * s * 0.05) / (1 + dist * 0.01);
+      }
+      return h;
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      const f = parseFloat(frequency.value);
+      const a = parseFloat(amplitude.value);
+      const s = parseFloat(speed.value);
+      
+      // Precompute source data
+      const srcData = sources.map(src => ({
+        x: src.x,
+        y: src.y,
+        phase: time * s * 0.05
+      }));
+      
+      // Render with resolution reduction for performance
+      const scale = 2;
+      for (let y = 0; y < height; y += scale) {
+        for (let x = 0; x < width; x += scale) {
+          let h = 0;
+          for (const src of srcData) {
+            const dx = x - src.x;
+            const dy = y - src.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            h += a * Math.sin(f * dist - src.phase) / (1 + dist * 0.008);
+          }
+          
+          // Color mapping
+          const intensity = (h + 2) / 4; // normalize
+          const r = Math.floor(Math.min(1, Math.max(0, intensity)) * 255);
+          const g = Math.floor(Math.min(1, Math.max(0, intensity - 0.3)) * 200);
+          const b = Math.floor(Math.min(1, Math.max(0, intensity - 0.5)) * 255);
+          
+          // Fill the scaled pixel
+          for (let dy = 0; dy < scale && y + dy < height; dy++) {
+            for (let dx = 0; dx < scale && x + dx < width; dx++) {
+              const idx = ((y + dy) * width + (x + dx)) * 4;
+              data[idx] = r * 0.15 + g * 0.1 + b * 0.2;
+              data[idx + 1] = r * 0.2 + g * 0.15 + b * 0.25;
+              data[idx + 2] = r * 0.3 + g * 0.2 + b * 0.35;
+              data[idx + 3] = 255;
+            }
+          }
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+      
+      // Draw source markers
+      for (let i = 0; i < sources.length; i++) {
+        const src = sources[i];
+        ctx.beginPath();
+        ctx.arc(src.x, src.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(src.x, src.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#8af';
+        ctx.fill();
+      }
+      
+      time++;
+      requestAnimationFrame(render);
+    }
+    
+    // Controls
+    document.getElementById('addSource').addEventListener('click', () => addSource());
+    document.getElementById('clearAll').addEventListener('click', clearAll);
+    
+    frequency.addEventListener('input', () => {
+      document.getElementById('freqVal').textContent = frequency.value;
+    });
+    amplitude.addEventListener('input', () => {
+      document.getElementById('ampVal').textContent = amplitude.value;
+    });
+    speed.addEventListener('input', () => {
+      document.getElementById('speedVal').textContent = speed.value;
+    });
+    
+    // Mouse interaction
+    canvas.addEventListener('mousedown', (e) => {
+      const mx = e.clientX;
+      const my = e.clientY;
+      for (const src of sources) {
+        const dx = mx - src.x;
+        const dy = my - src.y;
+        if (dx*dx + dy*dy < 100) {
+          dragging = src;
+          break;
+        }
+      }
+      if (!dragging) {
+        addSource(mx, my);
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        dragging.x = e.clientX;
+        dragging.y = e.clientY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      dragging = null;
+    });
+    
+    render();
+  </script>
+</body>
+</html>
