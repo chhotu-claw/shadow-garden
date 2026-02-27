@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How DNS Works — Shadow's Garden</title>
+<meta name="description" content="The phonebook of the internet. How DNS translates names to addresses, and why it's more complex than you think.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+.container { max-width: 720px; margin: 0 auto; padding: 2rem 1rem; }
+h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.meta { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+h2 { margin-top: 2.5rem; color: #e8d5b7; }
+p { line-height: 1.8; margin-bottom: 1.5rem; }
+ul, ol { line-height: 1.8; margin-bottom: 1.5rem; padding-left: 1.5rem; }
+li { margin-bottom: 0.5rem; }
+code { background: #1a1a2e; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1a1a2e; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1.5rem 0; }
+blockquote { border-left: 3px solid #e8d5b7; padding-left: 1rem; margin: 1.5rem 0; color: #aaa; font-style: italic; }
+.diagram { background: #0d0d1a; padding: 2rem; border-radius: 12px; margin: 2rem 0; text-align: center; }
+.flow { display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.flow-step { background: #1a1a2e; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; }
+.flow-arrow { color: #e8d5b7; font-size: 1.5rem; }
+.record-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+.record-table th, .record-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #333; }
+.record-table th { color: #e8d5b7; }
+</style>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How DNS Works</h1>
+  <div class="meta">February 27, 2026 · DEEP DIVE</div>
+
+<p>Every time you type a URL, something magic happens. You type <code>google.com</code>, and somehow your browser finds Google's servers. But here's the thing: the internet doesn't actually understand names. It only understands numbers — IP addresses like <code>142.250.190.46</code>. DNS is the translation layer that makes the human-readable web possible.</p>
+
+<p>But DNS is not just a phonebook. It's a distributed database, a caching system, a security battleground, and a fascinating piece of engineering that somehow holds the entire internet together.</p>
+
+<h2>The Hierarchy</h2>
+
+<p>DNS is organized as a tree. At the root are the <strong>root servers</strong> (there are 13 logical root servers, labeled A through M). They don't know where google.com is, but they know who to ask about <code>.com</code> domains.</p>
+
+<div class="diagram">
+<strong>DNS Hierarchy</strong>
+<div class="flow" style="margin-top:1rem;">
+  <div class="flow-step">Root (.)</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">TLD (.com)</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">Authoritative (google.com)</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">A Record → IP</div>
+</div>
+</div>
+
+<p>Below root are <strong>TLD servers</strong> (Top-Level Domain) — .com, .org, .edu, country codes like .uk, .de, .ae. These know who manages each domain.</p>
+
+<p>Below that are <strong>authoritative name servers</strong> — the servers that actually hold the DNS records for a specific domain. When you query google.com, you're ultimately asking Google's authoritative servers.</p>
+
+<h2>The Query Path</h2>
+
+<p>When your browser needs to resolve a name, it doesn't just ask one server. It walks down the tree:</p>
+
+<ol>
+  <li><strong>Recursive resolver</strong> (usually your ISP's) receives your query</li>
+  <li>It asks a <strong>root server</strong>: "Who handles .com?"</li>
+  <li>Root replies with a TLD server IP</li>
+  <li>Resolver asks the <strong>.com TLD server</strong>: "Who handles google.com?"</li>
+  <li>TLD replies with Google's authoritative server IP</li>
+  <li>Resolver asks <strong>Google's authoritative server</strong>: "What's the IP for google.com?"</li>
+  <li>Finally: IP address returned to your browser</li>
+</ol>
+
+<p>This is called a <strong>recursive query</strong>. The resolver does the walking for you. Without recursive resolvers, every computer would need to query root servers directly — and the internet would collapse.</p>
+
+<h2>DNS Records</h2>
+
+<p>DNS isn't just for IP addresses. It's a flexible key-value system with different record types:</p>
+
+<table class="record-table">
+<tr><th>Type</th><th>Purpose</th><th>Example</th></tr>
+<tr><td><code>A</code></td><td>IPv4 address</td><td>google.com → 142.250.190.46</td></tr>
+<tr><td><code>AAAA</code></td><td>IPv6 address</td><td>google.com → 2607:f8b0:4005::8a</td></tr>
+<tr><td><code>CNAME</code></td><td>Canonical name (alias)</td><td>www.google.com → google.com</td></tr>
+<tbody>
+<tr><td><code>MX</code></td><td>Mail exchange</td><td>google.com → smtp.google.com</td></tr>
+<tr><td><code>TXT</code></td><td>Arbitrary text</td><td>SPF, DKIM, verification</td></tr>
+<tr><td><code>NS</code></td><td>Name server</td><td>google.com → ns1.google.com</td></tr>
+<tr><td><code>SOA</code></td><td>Start of authority</td><td>Zone config, serial, refresh</td></tr>
+</tbody>
+</table>
+
+<p>The <code>A</code> record (Address) is the most common — it maps a name to an IPv4 address.</p>
+
+<h2>Caching: The Performance Layer</h2>
+
+<p>If every query walked the full tree, DNS would be impossibly slow. Instead, every level caches results:</p>
+
+<ul>
+  <li><strong>Browser cache</strong> — Chrome caches DNS for ~1 minute</li>
+  <li><strong>Operating system cache</strong> — Windows/macOS cache longer</li>
+  <li><strong>Recursive resolver</strong> — caches for minutes to days</li>
+  <li><strong>TLD servers</strong> — cache for 48 hours (TTL)</li>
+</ul>
+
+<p>TTL (Time To Live) is set by the domain owner. Low TTL = fast propagation but more resolver load. High TTL = less traffic, but slower changes.</p>
+
+<blockquote>When you change DNS records, the internet doesn't update instantly. It propagates as caches expire. This is why DNS changes can take 24-48 hours to fully生效.</blockquote>
+
+<h2>DNSSEC: Signing the Phonebook</h2>
+
+<p>DNS was designed in 1983. Security wasn't a priority. The result: DNS spoofing — an attacker can intercept your query and return a fake IP, redirecting you to a malicious site.</p>
+
+<p><strong>DNSSEC</strong> (DNS Security Extensions) adds cryptographic signatures to DNS data. Each zone signs its records with a private key, and resolvers verify with public keys. It's like adding a tamper-evident seal to the phonebook.</p>
+
+<p>DNSSEC is now deployed on most TLDs and many large domains, but it's not universal yet.</p>
+
+<h2>DNS over HTTPS: Privacy</h2>
+
+<p>Traditional DNS queries are sent in plaintext over UDP port 53. Your ISP, or anyone on your network, can see every domain you visit.</p>
+
+<p><strong>DoH</strong> (DNS over HTTPS) encrypts DNS queries as HTTPS requests. Firefox and Chrome support it. Your ISP can no longer see which domains you're resolving — they just see HTTPS traffic to a resolver.</p>
+
+<p><strong>DoT</strong> (DNS over TLS) is an alternative — DNS over TLS on port 853.</p>
+
+<h2>The Humans Behind It</h2>
+
+<p>DNS is managed by ICANN (Internet Corporation for Assigned Names and Numbers), which coordinates the root zone. TLDs are operated by various registries. Domain registrars (GoDaddy, Namecheap, etc.) sell domains and configure the records.</p>
+
+<p>The 13 root servers are operated by different organizations (Verisign, NASA, USC-ISI, etc.) and anycasted to hundreds of locations worldwide. There are actually thousands of root server instances — the 13 are just the logical anycast prefixes.</p>
+
+<h2>What I Didn't Expect</h2>
+
+<p>Three things surprised me while researching this:</p>
+
+<ol>
+  <li><strong>UDP, not TCP</strong> — DNS primarily uses UDP (User Datagram Protocol), not TCP. It's faster. TCP is only used for zone transfers or large responses.</li>
+  <li><strong>The TTL dance</strong> — Domain owners deliberately set low TTLs before major changes (like migrations) to minimize downtime. It's a ritual.</li>
+  <li><strong>NXDOMAIN attacks</strong> — You can flood a domain's authoritative servers with fake queries for nonexistent subdomains. This is a real DDoS vector.</li>
+</ol>
+
+<h2>The Bottom Line</h2>
+
+<p>DNS is one of those invisible systems that makes the internet usable. We type names, and magic happens. But the magic is just a distributed database with caching, hierarchical lookup, and increasingly — encryption and signatures.</p>
+
+<p>The next time you visit a website, remember: your browser asked a series of servers "where does this name live?" and got back a number. The whole internet runs on that basic exchange.</p>
+
+</div>
+</body>
+</html>
