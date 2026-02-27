@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synth — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #0a0a0a; 
+    color: #888; 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 { color: #ccc; font-weight: 400; font-size: 1.2rem; margin-bottom: 32px; }
+  .synth {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 320px;
+  }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .row label { font-size: 10px; color: #444; width: 60px; text-transform: uppercase; }
+  input[type="range"] { flex: 1; accent-color: #4a9; }
+  .keys {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .key {
+    width: 40px;
+    height: 60px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8px;
+    font-size: 10px;
+    color: #444;
+    transition: all 0.1s;
+    user-select: none;
+  }
+  .key:active, .key.playing {
+    background: #4a9;
+    color: #0a0a0a;
+    border-color: #4a9;
+  }
+  .key.black {
+    width: 30px;
+    height: 40px;
+    background: #0a0a0a;
+    border-color: #222;
+    margin: 0 -15px;
+    z-index: 1;
+  }
+  .key.black + .key.white { margin-left: 30px; }
+  .key.black:active, .key.black.playing { background: #c94; }
+  .wave-selector {
+    display: flex;
+    gap: 4px;
+  }
+  .wave-btn {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #444;
+    padding: 6px 10px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 3px;
+  }
+  .wave-btn.active {
+    background: #4a9;
+    color: #0a0a0a;
+    border-color: #4a9;
+  }
+  .hint { margin-top: 24px; font-size: 10px; color: #333; }
+</style>
+</head>
+<body>
+<h1>Synth</h1>
+<div class="synth">
+  <div class="row">
+    <label>Wave</label>
+    <div class="wave-selector">
+      <button class="wave-btn active" data-wave="sine">sin</button>
+      <button class="wave-btn" data-wave="square">sqr</button>
+      <button class="wave-btn" data-wave="sawtooth">saw</button>
+      <button class="wave-btn" data-wave="triangle">tri</button>
+    </div>
+  </div>
+  <div class="row">
+    <label>Attack</label>
+    <input type="range" id="attack" min="1" max="200" value="10">
+  </div>
+  <div class="row">
+    <label>Release</label>
+    <input type="range" id="release" min="10" max="500" value="200">
+  </div>
+  <div class="row">
+    <label>Detune</label>
+    <input type="range" id="detune" min="0" max="50" value="0">
+  </div>
+  <div class="keys">
+    <div class="key white" data-note="C">C</div>
+    <div class="key black" data-note="C#">C#</div>
+    <div class="key white" data-note="D">D</div>
+    <div class="key black" data-note="D#">D#</div>
+    <div class="key white" data-note="E">E</div>
+    <div class="key white" data-note="F">F</div>
+    <div class="key black" data-note="F#">F#</div>
+    <div class="key white" data-note="G">G</div>
+    <div class="key black" data-note="G#">G#</div>
+    <div class="key white" data-note="A">A</div>
+    <div class="key black" data-note="A#">A#</div>
+    <div class="key white" data-note="B">B</div>
+  </div>
+</div>
+<div class="hint">Click or press keys (A-L) to play</div>
+
+<script>
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let waveType = 'sine';
+let activeOscillators = {};
+
+const noteFreqs = {
+  'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13,
+  'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00,
+  'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88
+};
+
+const keyMap = {
+  'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
+  'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
+  'u': 'A#', 'j': 'B', 'k': 'C+', 'l': 'C#+'
+};
+
+document.querySelectorAll('.wave-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.wave-btn.active').classList.remove('active');
+    btn.classList.add('active');
+    waveType = btn.dataset.wave;
+  });
+});
+
+function playNote(note) {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  
+  const baseFreq = noteFreqs[note] || 261.63;
+  const detune = parseInt(document.getElementById('detune').value);
+  const attack = parseInt(document.getElementById('attack').value) / 1000;
+  const release = parseInt(document.getElementById('release').value) / 1000;
+  
+  const osc = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  osc.type = waveType;
+  osc.frequency.value = baseFreq;
+  
+  osc2.type = waveType;
+  osc2.frequency.value = baseFreq;
+  osc2.detune.value = detune;
+  
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + attack);
+  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + attack + release + 0.5);
+  
+  osc.connect(gain);
+  osc2.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.start();
+  osc2.start();
+  osc.stop(audioCtx.currentTime + attack + release + 1);
+  osc2.stop(audioCtx.currentTime + attack + release + 1);
+}
+
+// Keyboard input
+const pressed = new Set();
+document.addEventListener('keydown', e => {
+  if (e.repeat || pressed.has(e.key)) return;
+  pressed.add(e.key);
+  const note = keyMap[e.key.toLowerCase()];
+  if (note) {
+    const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+    if (keyEl) keyEl.classList.add('playing');
+    playNote(note);
+  }
+});
+
+document.addEventListener('keyup', e => {
+  pressed.delete(e.key);
+  const note = keyMap[e.key.toLowerCase()];
+  if (note) {
+    const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+    if (keyEl) keyEl.classList.remove('playing');
+  }
+});
+
+// Click input
+document.querySelectorAll('.key').forEach(key => {
+  key.addEventListener('mousedown', () => {
+    key.classList.add('playing');
+    playNote(key.dataset.note);
+  });
+  key.addEventListener('mouseup', () => key.classList.remove('playing'));
+  key.addEventListener('mouseleave', () => key.classList.remove('playing'));
+});
+</script>
+</body>
+</html>
