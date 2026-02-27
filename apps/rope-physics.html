@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rope Physics — Shadow's Garden</title>
+<meta name="description" content="Interactive rope/cloth simulation with Verlet integration — click and drag to grab, gravity pulls down, shake to unleash chaos.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    z-index: 10;
+  }
+  .controls label {
+    color: #8a8a9a;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .controls input[type="range"] {
+    width: 80px;
+    accent-color: #6366f1;
+  }
+  .controls button {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    color: #a5a5c5;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .controls button:hover {
+    background: #2a2a4e;
+    color: #e5e5f5;
+  }
+  .hint {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: #4a4a5a;
+    font-size: 11px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="hint">click + drag to grab · right-click to add weight · scroll to zoom</div>
+  <canvas id="canvas"></canvas>
+  <div class="controls">
+    <label>gravity<input type="range" id="gravity" min="0" max="2" step="0.1" value="0.5"></label>
+    <label>stiffness<input type="range" id="stiffness" min="0.1" max="1" step="0.05" value="0.9"></label>
+    <label>damping<input type="range" id="damping" min="0.9" max="1" step="0.005" value="0.99"></label>
+    <button id="reset">reset</button>
+    <button id="addRope">+ rope</button>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let ropes = [];
+    let grabbed = null;
+    let mouseX = 0, mouseY = 0;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    class Point {
+      constructor(x, y, pinned = false) {
+        this.x = x;
+        this.y = y;
+        this.oldX = x;
+        this.oldY = y;
+        this.pinned = pinned;
+        this.mass = 1;
+      }
+      
+      update(gravity, damping) {
+        if (this.pinned) return;
+        
+        const vx = (this.x - this.oldX) * damping;
+        const vy = (this.y - this.oldY) * damping;
+        
+        this.oldX = this.x;
+        this.oldY = this.y;
+        
+        this.x += vx;
+        this.y += vy + gravity;
+      }
+    }
+    
+    class Stick {
+      constructor(p1, p2) {
+        this.p1 = p1;
+        this.p2 = p2;
+        this.length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      }
+      
+      update(stiffness) {
+        const dx = this.p2.x - this.p1.x;
+        const dy = this.p2.y - this.p1.y;
+        const dist = Math.hypot(dx, dy);
+        const diff = (this.length - dist) / dist * stiffness;
+        
+        const offsetX = dx * diff * 0.5;
+        const offsetY = dy * diff * 0.5;
+        
+        if (!this.p1.pinned) {
+          this.p1.x -= offsetX;
+          this.p1.y -= offsetY;
+        }
+        if (!this.p2.pinned) {
+          this.p2.x += offsetX;
+          this.p2.y += offsetY;
+        }
+      }
+    }
+    
+    class Rope {
+      constructor(startX, startY, segments, pinned = true) {
+        this.points = [];
+        this.sticks = [];
+        
+        for (let i = 0; i < segments; i++) {
+          const pinnedNow = pinned && i === 0;
+          this.points.push(new Point(startX, startY + i * 15, pinnedNow));
+        }
+        
+        for (let i = 0; i < this.points.length - 1; i++) {
+          this.sticks.push(new Stick(this.points[i], this.points[i + 1]));
+        }
+      }
+      
+      update(gravity, stiffness, damping) {
+        for (const point of this.points) {
+          point.update(gravity, damping);
+        }
+        
+        for (let i = 0; i < 5; i++) {
+          for (const stick of this.sticks) {
+            stick.update(stiffness);
+          }
+        }
+      }
+      
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        
+        for (let i = 1; i < this.points.length; i++) {
+          const prev = this.points[i - 1];
+          const curr = this.points[i];
+          const cx = (prev.x + curr.x) / 2;
+          const cy = (prev.y + curr.y) / 2;
+          ctx.quadraticCurveTo(prev.x, prev.y, cx, cy);
+        }
+        
+        ctx.lineTo(this.points[this.points.length - 1].x, this.points[this.points.length - 1].y);
+        
+        const gradient = ctx.createLinearGradient(
+          this.points[0].x, this.points[0].y,
+          this.points[this.points.length - 1].x, this.points[this.points.length - 1].y
+        );
+        gradient.addColorStop(0, '#6366f1');
+        gradient.addColorStop(0.5, '#a855f7');
+        gradient.addColorStop(1, '#ec4899');
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        
+        // Draw points
+        for (const point of this.points) {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = point.pinned ? '#22c55e' : '#a5a5c5';
+          ctx.fill();
+        }
+      }
+    }
+    
+    // Create initial rope
+    ropes.push(new Rope(width / 2, 50, 25));
+    
+    function findGrabbed(x, y) {
+      for (const rope of ropes) {
+        for (const point of rope.points) {
+          if (!point.pinned && Math.hypot(point.x - x, point.y - y) < 30) {
+            return point;
+          }
+        }
+      }
+      return null;
+    }
+    
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        grabbed = findGrabbed(e.clientX, e.clientY);
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      
+      if (grabbed) {
+        grabbed.x = mouseX;
+        grabbed.y = mouseY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      grabbed = null;
+    });
+    
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      // Add weight at mouse position
+      for (const rope of ropes) {
+        for (const point of rope.points) {
+          if (!point.pinned && Math.hypot(point.x - e.clientX, point.y - e.clientY) < 40) {
+            point.mass = 5;
+          }
+        }
+      }
+    });
+    
+    document.getElementById('reset').addEventListener('click', () => {
+      ropes = [];
+      ropes.push(new Rope(width / 2, 50, 25));
+    });
+    
+    document.getElementById('addRope').addEventListener('click', () => {
+      const x = 100 + Math.random() * (width - 200);
+      ropes.push(new Rope(x, 50, 20 + Math.floor(Math.random() * 15)));
+    });
+    
+    function animate() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      const gravity = parseFloat(document.getElementById('gravity').value);
+      const stiffness = parseFloat(document.getElementById('stiffness').value);
+      const damping = parseFloat(document.getElementById('damping').value);
+      
+      for (const rope of ropes) {
+        rope.update(gravity, stiffness, damping);
+        rope.draw(ctx);
+      }
+      
+      // Draw grab indicator
+      if (grabbed) {
+        ctx.beginPath();
+        ctx.arc(grabbed.x, grabbed.y, 15, 0, Math.PI * 2);
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      requestAnimationFrame(animate);
+    }
+    
+    animate();
+  </script>
+</body>
+</html>
