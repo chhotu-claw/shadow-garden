@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flow — Shadow's Garden</title>
+<title>Flow Field — Shadow's Garden</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -11,196 +11,198 @@
     overflow: hidden;
     font-family: 'JetBrains Mono', monospace;
   }
-  canvas { 
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-  }
+  canvas { display: block; }
   .hint {
     position: fixed;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
+    color: #222;
+    font-size: 10px;
+    pointer-events: none;
+  }
+  .title {
+    position: fixed;
+    top: 20px;
+    left: 20px;
     color: #333;
     font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
     pointer-events: none;
-    transition: opacity 2s;
   }
-  .hint.hidden { opacity: 0; }
 </style>
 </head>
 <body>
+<div class="title">flow field</div>
+<div class="hint">click to disturb · particles follow invisible currents</div>
 <canvas id="canvas"></canvas>
-<div class="hint">move to disturb</div>
+
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 let width, height;
 let particles = [];
-let mouseX = -1000, mouseY = -1000;
-let mouseVelX = 0, mouseVelY = 0;
-let lastMouseX = -1000, lastMouseY = -1000;
-let hintHidden = false;
+let cols, rows;
+let resolution = 20;
+let zoff = 0;
+let flowfield;
+let disturbances = [];
 
-const NUM_PARTICLES = 1800;
-const CONNECT_DIST = 60;
-const MOUSE_RADIUS = 150;
-const FRICTION = 0.96;
+const particleCount = 1500;
+const fadeRate = 0.05;
 
 function resize() {
   width = canvas.width = window.innerWidth;
   height = canvas.height = window.innerHeight;
+  cols = Math.floor(width / resolution);
+  rows = Math.floor(height / resolution);
+  initFlowfield();
+  initParticles();
 }
 
-class Particle {
-  constructor() {
-    this.reset();
+function initFlowfield() {
+  flowfield = new Array(cols * rows);
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < particleCount; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      prevX: 0,
+      prevY: 0,
+      speed: Math.random() * 1.5 + 0.5,
+      color: Math.random()
+    });
   }
-  
-  reset() {
-    this.x = Math.random() * width;
-    this.y = Math.random() * height;
-    this.vx = (Math.random() - 0.5) * 0.5;
-    this.vy = (Math.random() - 0.5) * 0.5;
-    this.baseHue = Math.random() * 60 + 180; // cyans and blues
-    this.hue = this.baseHue;
-    this.size = Math.random() * 2 + 0.5;
-    this.alpha = Math.random() * 0.4 + 0.1;
-  }
-  
-  update() {
-    // Flow field
-    const angle = (Math.sin(this.x * 0.003) + Math.cos(this.y * 0.003)) * Math.PI;
-    this.vx += Math.cos(angle) * 0.08;
-    this.vy += Math.sin(angle) * 0.08;
-    
-    // Mouse influence
-    const dx = mouseX - this.x;
-    const dy = mouseY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    if (dist < MOUSE_RADIUS) {
-      const force = (1 - dist / MOUSE_RADIUS) * 0.8;
-      this.vx -= dx * force * 0.01;
-      this.vy -= dy * force * 0.01;
-      this.vx += mouseVelX * force * 0.3;
-      this.vy += mouseVelY * force * 0.3;
-      this.hue = this.baseHue + 80; // shift to warmer when near mouse
-    } else {
-      this.hue = this.baseHue + Math.sin(Date.now() * 0.001 + this.x * 0.01) * 20;
+}
+
+function getIndex(col, row) {
+  return col + row * cols;
+}
+
+function updateFlowfield() {
+  let yoff = 0;
+  for (let y = 0; y < rows; y++) {
+    let xoff = 0;
+    for (let x = 0; x < cols; x++) {
+      const index = getIndex(x, y);
+      
+      // Check disturbances
+      let angle = noise(xoff, yoff, zoff) * Math.PI * 4;
+      
+      for (const d of disturbances) {
+        const dx = x * resolution + resolution/2 - d.x;
+        const dy = y * resolution + resolution/2 - d.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < d.radius) {
+          const influence = 1 - dist / d.radius;
+          angle += d.strength * influence * Math.sin(Math.atan2(dy, dx));
+        }
+      }
+      
+      flowfield[index] = angle;
+      xoff += 0.1;
     }
+    yoff += 0.1;
+  }
+  zoff += 0.003;
+}
+
+function noise(x, y, z) {
+  // Simple Perlin-like noise
+  const p = 0.5;
+  const sx = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719);
+  return (Math.sin(sx * 43758.5453) + 1) / 2;
+}
+
+function updateParticles() {
+  for (const p of particles) {
+    p.prevX = p.x;
+    p.prevY = p.y;
     
-    // Apply velocity
-    this.vx *= FRICTION;
-    this.vy *= FRICTION;
-    this.x += this.vx;
-    this.y += this.vy;
+    const col = Math.floor(p.x / resolution);
+    const row = Math.floor(p.y / resolution);
+    
+    if (col >= 0 && col < cols && row >= 0 && row < rows) {
+      const index = getIndex(col, row);
+      const angle = flowfield[index];
+      
+      p.x += Math.cos(angle) * p.speed;
+      p.y += Math.sin(angle) * p.speed;
+    }
     
     // Wrap around
-    if (this.x < 0) this.x = width;
-    if (this.x > width) this.x = 0;
-    if (this.y < 0) this.y = height;
-    if (this.y > height) this.y = 0;
-    
-    // Speed affects size
-    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-    this.displaySize = this.size + speed * 2;
+    if (p.x < 0) p.x = width;
+    if (p.x > width) p.x = 0;
+    if (p.y < 0) p.y = height;
+    if (p.y > height) p.y = 0;
   }
   
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.displaySize, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${this.alpha})`;
-    ctx.fill();
-  }
-}
-
-function init() {
-  resize();
-  for (let i = 0; i < NUM_PARTICLES; i++) {
-    particles.push(new Particle());
-  }
-}
-
-function drawConnections() {
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-    for (let j = i + 1; j < particles.length; j++) {
-      const p2 = particles[j];
-      const dx = p.x - p2.x;
-      const dy = p.y - p2.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist < CONNECT_DIST) {
-        const alpha = (1 - dist / CONNECT_DIST) * 0.15;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = `hsla(${p.hue}, 60%, 50%, ${alpha})`;
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
-      }
+  // Fade disturbances
+  for (let i = disturbances.length - 1; i >= 0; i--) {
+    disturbances[i].radius *= 0.995;
+    disturbances[i].strength *= 0.99;
+    if (disturbances[i].strength < 0.1) {
+      disturbances.splice(i, 1);
     }
   }
 }
 
-function animate() {
-  // Fade effect
-  ctx.fillStyle = 'rgba(5, 5, 5, 0.08)';
+function draw() {
+  // Semi-transparent fade
+  ctx.fillStyle = `rgba(5, 5, 5, ${fadeRate})`;
   ctx.fillRect(0, 0, width, height);
   
-  // Update particles
-  particles.forEach(p => {
-    p.update();
-    p.draw();
-  });
-  
-  // Draw connections
-  drawConnections();
-  
-  // Update mouse velocity
-  if (lastMouseX > -500) {
-    mouseVelX = mouseX - lastMouseX;
-    mouseVelY = mouseY - lastMouseY;
+  // Draw particles
+  for (const p of particles) {
+    const hue = (p.color * 60 + zoff * 50) % 360;
+    const sat = 60 + p.color * 20;
+    const light = 40 + p.color * 30;
+    
+    ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, 0.6)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.prevX, p.prevY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
   }
-  lastMouseX = mouseX;
-  lastMouseY = mouseY;
-  mouseVelX *= 0.9;
-  mouseVelY *= 0.9;
-  
-  // Hide hint after movement
-  if (!hintHidden && (Math.abs(mouseVelX) > 2 || Math.abs(mouseVelY) > 2)) {
-    document.querySelector('.hint').classList.add('hidden');
-    hintHidden = true;
-  }
-  
-  requestAnimationFrame(animate);
 }
+
+function loop() {
+  updateFlowfield();
+  updateParticles();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  disturbances.push({
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+    radius: 150,
+    strength: 8
+  });
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  for (let i = 0; i < 5; i++) {
+    disturbances.push({
+      x: e.clientX + (Math.random() - 0.5) * 100,
+      y: e.clientY + (Math.random() - 0.5) * 100,
+      radius: 100 + Math.random() * 100,
+      strength: 6 + Math.random() * 4
+    });
+  }
+});
 
 window.addEventListener('resize', resize);
 
-canvas.addEventListener('mousemove', (e) => {
-  mouseX = e.clientX;
-  mouseY = e.clientY;
-});
-
-canvas.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  mouseX = e.touches[0].clientX;
-  mouseY = e.touches[0].clientY;
-}, { passive: false });
-
-canvas.addEventListener('touchstart', (e) => {
-  mouseX = e.touches[0].clientX;
-  mouseY = e.touches[0].clientY;
-});
-
-init();
-animate();
+resize();
+loop();
 </script>
 </body>
 </html>
