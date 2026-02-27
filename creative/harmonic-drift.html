@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harmonic Drift — Shadow's Garden</title>
+<meta name="description">Ambient particle synth — particles emit tones based on position, creating evolving harmonic clouds</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #aaa;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  button.active { background: rgba(100,200,150,0.3); border-color: rgba(100,200,150,0.5); color: #8f8; }
+  #info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    font-family: monospace;
+  }
+  #chord-display {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 14px;
+    font-family: monospace;
+    text-align: right;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<canvas id="c"></canvas>
+<div id="controls">
+  <button id="btn-start">▶ Start Audio</button>
+  <button id="btn-clear">Clear</button>
+  <button id="btn-drift">Drift Mode</button>
+  <button id="btn-attract">Attract Mode</button>
+</div>
+<div id="info">click: add · right-click: attractor · scroll: zoom</div>
+<div id="chord-display">—</div>
+
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+let W, H;
+let particles = [];
+let attractors = [];
+let mode = 'drift';
+let audioStarted = false;
+let masterGain;
+let reverb;
+let zoom = 1;
+
+const BASE_FREQ = 110;
+const SCALE = [1, 9/8, 5/4, 3/2, 5/3, 2, 12/5, 3, 4, 5];
+
+function resize() {
+  W = c.width = window.innerWidth;
+  H = c.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = (Math.random() - 0.5) * 2;
+    this.life = 1;
+    this.maxLife = 200 + Math.random() * 300;
+    this.age = 0;
+    this.hue = Math.random() * 60 + 180;
+    this.osc = null;
+    this.gain = null;
+    this.freq = BASE_FREQ * SCALE[Math.floor(Math.random() * SCALE.length)];
+    this.lastToneTime = 0;
+    this.toneInterval = 500 + Math.random() * 2000;
+  }
+
+  update() {
+    if (mode === 'attract' && attractors.length > 0) {
+      let ax = 0, ay = 0;
+      attractors.forEach(a => {
+        const dx = a.x - this.x;
+        const dy = a.y - this.y;
+        const d = Math.sqrt(dx*dx + dy*dy) + 10;
+        ax += (dx / d) * 0.5;
+        ay += (dy / d) * 0.5;
+      });
+      this.vx += ax / attractors.length;
+      this.vy += ay / attractors.length;
+    }
+
+    this.vx *= 0.99;
+    this.vy *= 0.99;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.age++;
+
+    if (this.age % 60 === 0 && audioStarted) {
+      this.playTone();
+    }
+
+    if (this.age > this.maxLife || this.x < -100 || this.x > W+100 || this.y < -100 || this.y > H+100) {
+      this.kill();
+      return false;
+    }
+    return true;
+  }
+
+  playTone() {
+    if (!audioStarted || !masterGain) return;
+    const now = performance.now();
+    if (now - this.lastToneTime < this.toneInterval) return;
+    this.lastToneTime = now;
+
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const p = ctx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.value = this.freq;
+    
+    p.type = 'lowpass';
+    p.frequency.value = 800 + Math.abs(this.vx + this.vy) * 200;
+    p.Q.value = 2;
+
+    g.gain.value = 0;
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2);
+
+    osc.connect(p);
+    p.connect(g);
+    g.connect(reverb);
+    g.connect(masterGain);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 2.5);
+  }
+
+  kill() {
+    if (this.gain) {
+      this.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+    }
+  }
+
+  draw() {
+    const alpha = Math.min(1, (this.maxLife - this.age) / 50);
+    const s = 2 + Math.abs(this.vx + this.vy) * 0.5;
+    
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${alpha * 0.6})`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(this.x - this.vx * 3, this.y - this.vy * 3);
+    ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, ${alpha * 0.3})`;
+    ctx.stroke();
+  }
+}
+
+function initAudio() {
+  if (audioStarted) return;
+  
+  ctx.resume();
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 0.5;
+  
+  reverb = ctx.createConvolver();
+  const rate = ctx.sampleRate;
+  const length = rate * 3;
+  const impulse = ctx.createBuffer(2, length, rate);
+  for (let c = 0; c < 2; c++) {
+    const data = impulse.getChannelData(c);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+    }
+  }
+  reverb.buffer = impulse;
+  
+  reverb.connect(masterGain);
+  masterGain.connect(ctx.destination);
+  
+  audioStarted = true;
+  document.getElementById('btn-start').textContent = '■ Stop';
+  document.getElementById('btn-start').classList.add('active');
+}
+
+function stopAudio() {
+  audioStarted = false;
+  if (masterGain) masterGain.gain.value = 0;
+  document.getElementById('btn-start').textContent = '▶ Start Audio';
+  document.getElementById('btn-start').classList.remove('active');
+}
+
+function animate() {
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  attractors.forEach(a => {
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 15, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 100, 150, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 100, 150, 0.8)';
+    ctx.fill();
+  });
+
+  particles = particles.filter(p => p.update());
+  particles.forEach(p => p.draw());
+
+  if (particles.length > 0 && audioStarted) {
+    const notes = [...new Set(particles.map(p => Math.round(12 * Math.log2(p.freq / BASE_FREQ)) % 12))];
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const chord = notes.slice(0, 4).map(n => noteNames[n]).join(' · ');
+    document.getElementById('chord-display').textContent = chord || '—';
+  }
+
+  requestAnimationFrame(animate);
+}
+
+c.addEventListener('click', e => {
+  if (!audioStarted) initAudio();
+  for (let i = 0; i < 5; i++) {
+    particles.push(new Particle(e.clientX + (Math.random()-0.5)*30, e.clientY + (Math.random()-0.5)*30));
+  }
+});
+
+c.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  attractors.push({x: e.clientX, y: e.clientY});
+});
+
+document.getElementById('btn-start').onclick = () => {
+  if (audioStarted) stopAudio(); else initAudio();
+};
+
+document.getElementById('btn-clear').onclick = () => {
+  particles = [];
+  attractors = [];
+};
+
+document.getElementById('btn-drift').onclick = () => {
+  mode = 'drift';
+  document.getElementById('btn-drift').classList.add('active');
+  document.getElementById('btn-attract').classList.remove('active');
+};
+
+document.getElementById('btn-attract').onclick = () => {
+  mode = 'attract';
+  document.getElementById('btn-attract').classList.add('active');
+  document.getElementById('btn-drift').classList.remove('active');
+};
+
+document.getElementById('btn-drift').classList.add('active');
+
+for (let i = 0; i < 20; i++) {
+  particles.push(new Particle(Math.random() * W, Math.random() * H));
+}
+
+animate();
+</script>
+</body>
+</html>
