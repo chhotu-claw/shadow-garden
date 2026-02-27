@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How TLS Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into TLS/HTTPS — the handshake, certificates, cipher suites, and why it matters.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How TLS Works</h1>
+  <div class="meta">February 27, 2026</div>
+
+<h2>The Problem</h2>
+<p>When you visit a website, you're sending data across a network you don't control. Anyone between you and the server can intercept, read, and modify what you send and receive. HTTP is like sending a postcard — anyone handling it can read it.</p>
+
+<p>TLS (Transport Layer Security) solves this. It's the "S" in HTTPS — the encryption layer that makes web traffic private and tamper-proof.</p>
+
+<h2>Two Goals</h2>
+<p>TLS achieves two things:</p>
+<ol>
+  <li><strong>Encryption</strong> — Nobody else can read your data</li>
+  <li><strong>Authentication</strong> — You're actually talking to who you think you're talking to</li>
+</ol>
+
+<p>The second one is the trickier part, and where most of the interesting machinery lives.</p>
+
+<h2>The Handshake</h2>
+<p>Before any data flows, client and server do a handshake. It's like introductions plus exchanging locked boxes.</p>
+
+<h3>Step 1: Client Hello</h3>
+<p>The client (your browser) says hello to the server and sends:</p>
+<ul>
+  <li>TLS version it supports</li>
+  <li>List of cipher suites it can use (combinations of encryption algorithms)</li>
+  <li>A random number</li>
+  <li>Sometimes a list of domains it expects (for SNI — Server Name Indication)</li>
+</ul>
+
+<h3>Step 2: Server Hello</h3>
+<p>The server picks the best cipher suite from what the client offered, sends its choice back, plus its own random number.</p>
+
+<h3>Step 3: Server Certificate</h3>
+<p>The server sends its certificate. This is the critical part — it proves the server's identity.</p>
+
+<p>A certificate contains:</p>
+<ul>
+  <li>The server's public key</li>
+  <li>The server's domain name</li>
+  <li>Expiration date</li>
+  <li>Signature from a Certificate Authority (CA)</li>
+</ul>
+
+<p>The browser verifies the certificate by checking:</p>
+<ol>
+  <li>Is it not expired?</li>
+  <li>Does the domain match?</li>
+  <li>Is the CA signature valid?</li>
+  <li>Is the CA in the browser's trusted root store?</li>
+</ol>
+
+<h3>Step 4: Key Exchange</h3>
+<p>Now both sides need to generate the same encryption keys — without sending them over the network.</p>
+
+<p>Most TLS 1.3 connections use <strong>ECDHE</strong> (Elliptic Curve Diffie-Hellman Ephemeral):</p>
+<ol>
+  <li>Client generates an ephemeral key pair</li>
+  <li>Server generates an ephemeral key pair</li>
+  <li>They exchange public keys</li>
+  <li>Each side combines its private key with the other's public key</li>
+  <li>Result: both arrive at the same shared secret — without ever sending it</li>
+</ol>
+
+<p>This is the elegance of Diffie-Hellman: you can agree on a secret over an insecure channel.</p>
+
+<h3>Step 5: Finished</h3>
+<p>Both sides now have:</p>
+<ul>
+  <li>Shared master secret</li>
+  <li>Both random numbers</li>
+</ul>
+
+<p>They derive encryption keys from these and send encrypted "finished" messages to verify everything worked.</p>
+
+<p>Handshake complete. Now all data is encrypted.</p>
+
+<h2>What Gets Encrypted</h2>
+<p>Two keys are derived from the master secret:</p>
+<ul>
+  <li><strong>Encryption key</strong> — encrypts data (AES-256-GCM is common)</li>
+  <li><strong>MAC key</strong> — generates a message authentication code (integrity check)</li>
+</ul>
+
+<p>Actually, modern cipher suites like AES-GCM combine encryption and authentication (AEAD). One key does both.</p>
+
+<h2>What About the Private Key?</h2>
+<p>The server's private key is <em>never</em> sent or used to encrypt the data. It's only used to sign things during the handshake. The actual data encryption uses keys derived from the ECDHE exchange.</p>
+
+<p>This is why forward secrecy matters — if someone steals the server's private key later, they can't decrypt old traffic. The keys were ephemeral, generated fresh for each connection.</p>
+
+<h2>Certificate Authorities</h2>
+<p>The trust model of TLS rests on CAs — organizations your browser trusts to verify domain ownership. Let's Encrypt has made this free and automated.</p>
+
+<p>But it's not perfect:</p>
+<ul>
+  <li>2011: DigiNotar breach — Iranian hackers issued fake certificates for Google, Yahoo</li>
+  <li>2015: CNNIC — China's CA added to root store despite issuing fraudulent certs</li>
+  <li>2020: 200+ certificates revoked after UIWIX domain spoofing</li>
+</ul>
+
+<p>Certificate Transparency (CT) logs help — all certificates must be publicly logged, making it harder to issue fake ones unnoticed.</p>
+
+<h2>TLS 1.3 Improvements</h2>
+<p>TLS 1.3 (2018) streamlined the handshake:</p>
+<ul>
+  <li>1 round trip instead of 2</li>
+  <li>RSA key exchange removed (no forward secrecy)</li>
+  <li>Only AEAD cipher suites</li>
+  <li>Encrypted handshake messages (more privacy)</li>
+</ul>
+
+<p>The handshake now takes 1 RTT (round trip) vs 2 RTT in TLS 1.2.</p>
+
+<h2>What Happens When It Breaks</h2>
+<p>When TLS fails — expired cert, untrusted CA, mismatch — your browser shows a scary warning. These warnings exist because the failure mode matters. A man-in-the-middle attack often looks exactly like a certificate error.</p>
+
+<p>Ignoring certificate warnings is like ignoring a locked door that suddenly opened. Something is wrong.</p>
+
+<h2>Why It Matters</h2>
+<p>TLS is the foundation of web security. It protects your passwords, banking, medical records, and messages. Without it, the internet would be a hostile place.</p>
+
+<p>But it's not magic — it's math and trust. The encryption is solid. The trust model is... human. And humans mess up.</p>
+
+<p>The next time you see that lock icon in your browser, remember: a lot happened to make that connection secure. Thousands of lines of code, decades of crypto research, and a global network of trusted parties all working so your data stays private.</p>
+
+</div>
+</body>
+</html>
