@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langton's Ant — Shadow's Garden</title>
+<meta name="description" content="A cellular automaton where simple rules create emergent highways and chaos. Watch the ant build.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed; bottom: 20px; left: 20px;
+    background: rgba(10,10,15,0.9); padding: 16px;
+    border-radius: 8px; border: 1px solid #333;
+    font-family: monospace; color: #ccc; font-size: 12px;
+    display: flex; gap: 16px; align-items: center;
+    flex-wrap: wrap;
+  }
+  button {
+    background: #2a2a35; border: 1px solid #444;
+    color: #eee; padding: 6px 12px; border-radius: 4px;
+    cursor: pointer; font-family: inherit;
+  }
+  button:hover { background: #3a3a45; }
+  button.active { background: #4a6; border-color: #6a8; }
+  .stat { color: #888; }
+  .stat span { color: #eee; }
+  #info {
+    position: fixed; top: 20px; right: 20px;
+    background: rgba(10,10,15,0.9); padding: 12px 16px;
+    border-radius: 8px; border: 1px solid #333;
+    font-family: monospace; color: #888; font-size: 11px;
+    max-width: 280px; line-height: 1.5;
+  }
+  #info h3 { margin: 0 0 8px; color: #aaa; font-size: 12px; }
+</style>
+</head>
+<body data-page-type="app">
+<canvas id="canvas"></canvas>
+<div id="controls">
+  <button id="playBtn" class="active">▶ Play</button>
+  <button id="stepBtn">Step</button>
+  <button id="resetBtn">Reset</button>
+  <div class="stat">Steps: <span id="stepCount">0</span></div>
+  <div class="stat">Speed: 
+    <button id="speedDown">−</button>
+    <span id="speedVal">1x</span>
+    <button id="speedUp">+</button>
+  </div>
+</div>
+<div id="info">
+  <h3>Langton's Ant</h3>
+  At a white square: turn 90° right, flip the color of the square, move forward one unit.<br><br>
+  At a black square: turn 90° left, flip the color of the square, move forward one unit.<br><br>
+  Simple rules, emergent chaos — after ~10,000 steps the ant builds a "highway" of repeating pattern.
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, cellSize, cols, rows;
+let grid = [];
+let ant = { x: 0, y: 0, dir: 0 }; // 0=right, 1=down, 2=left, 3=up
+let steps = 0;
+let running = true;
+let speed = 1;
+let stepsPerFrame = 1;
+
+const playBtn = document.getElementById('playBtn');
+const stepBtn = document.getElementById('stepBtn');
+const resetBtn = document.getElementById('resetBtn');
+const stepCount = document.getElementById('stepCount');
+const speedVal = document.getElementById('speedVal');
+const speedDown = document.getElementById('speedDown');
+const speedUp = document.getElementById('speedUp');
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cellSize = Math.max(4, Math.min(8, Math.floor(W / 200)));
+  cols = Math.floor(W / cellSize);
+  rows = Math.floor(H / cellSize);
+  initGrid();
+}
+
+function initGrid() {
+  grid = new Array(cols * rows).fill(0);
+  ant = { x: Math.floor(cols/2), y: Math.floor(rows/2), dir: 0 };
+  steps = 0;
+  stepCount.textContent = '0';
+  render();
+}
+
+function step() {
+  for (let i = 0; i < stepsPerFrame; i++) {
+    const idx = ant.y * cols + ant.x;
+    const cell = grid[idx];
+    
+    // Rule: white (0) → turn right, flip to black, move
+    //       black (1) → turn left, flip to white, move
+    if (cell === 0) {
+      ant.dir = (ant.dir + 1) % 4;
+      grid[idx] = 1;
+    } else {
+      ant.dir = (ant.dir + 3) % 4;
+      grid[idx] = 0;
+    }
+    
+    // Move forward
+    switch (ant.dir) {
+      case 0: ant.x = (ant.x + 1) % cols; break;
+      case 1: ant.y = (ant.y + 1) % rows; break;
+      case 2: ant.x = (ant.x - 1 + cols) % cols; break;
+      case 3: ant.y = (ant.y - 1 + rows) % rows; break;
+    }
+    steps++;
+  }
+  stepCount.textContent = steps.toLocaleString();
+}
+
+function render() {
+  // Draw cells
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Draw black cells (active)
+  ctx.fillStyle = '#c44';
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (grid[y * cols + x] === 1) {
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+  
+  // Draw ant
+  ctx.fillStyle = '#4f4';
+  ctx.fillRect(ant.x * cellSize, ant.y * cellSize, cellSize, cellSize);
+  
+  // Ant direction indicator
+  ctx.strokeStyle = '#afa';
+  ctx.lineWidth = 1;
+  const cx = ant.x * cellSize + cellSize/2;
+  const cy = ant.y * cellSize + cellSize/2;
+  const len = cellSize * 0.8;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  switch (ant.dir) {
+    case 0: ctx.lineTo(cx + len, cy); break;
+    case 1: ctx.lineTo(cx, cy + len); break;
+    case 2: ctx.lineTo(cx - len, cy); break;
+    case 3: ctx.lineTo(cx, cy - len); break;
+  }
+  ctx.stroke();
+}
+
+function loop() {
+  if (running) {
+    step();
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+
+playBtn.addEventListener('click', () => {
+  running = !running;
+  playBtn.textContent = running ? '▶ Play' : '⏸ Pause';
+  playBtn.classList.toggle('active', running);
+});
+
+stepBtn.addEventListener('click', () => {
+  running = false;
+  playBtn.textContent = '⏸ Pause';
+  playBtn.classList.remove('active');
+  step();
+  render();
+});
+
+resetBtn.addEventListener('click', initGrid);
+
+speedDown.addEventListener('click', () => {
+  if (speed > 1) speed--;
+  stepsPerFrame = Math.pow(2, speed - 1);
+  speedVal.textContent = speed === 1 ? '1x' : speed + 'x';
+});
+
+speedUp.addEventListener('click', () => {
+  if (speed < 10) speed++;
+  stepsPerFrame = Math.pow(2, speed - 1);
+  speedVal.textContent = speed === 1 ? '1x' : speed + 'x';
+});
+
+window.addEventListener('resize', resize);
+resize();
+loop();
+</script>
+</body>
+</html>
