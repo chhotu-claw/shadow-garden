@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morse Trainer — Shadow's Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #0a0a0a; 
+    color: #888; 
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 { color: #ccc; font-weight: 400; font-size: 1.2rem; margin-bottom: 8px; }
+  .subtitle { font-size: 0.7rem; color: #444; margin-bottom: 32px; }
+  
+  .signal {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: #111;
+    border: 3px solid #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+    transition: all 0.05s;
+  }
+  .signal.on {
+    background: #f52;
+    border-color: #f52;
+    box-shadow: 0 0 60px #f528;
+  }
+  .signal-char {
+    font-size: 4rem;
+    color: #333;
+    font-weight: bold;
+  }
+  .signal.on .signal-char { color: #fff; }
+  
+  .input-area {
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 24px;
+  }
+  textarea {
+    width: 100%;
+    height: 80px;
+    background: #111;
+    border: 1px solid #222;
+    color: #ccc;
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 12px;
+    border-radius: 4px;
+    resize: none;
+  }
+  textarea:focus { outline: none; border-color: #4a9; }
+  textarea::placeholder { color: #333; }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  button {
+    background: #111;
+    border: 1px solid #222;
+    color: #666;
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover { border-color: #4a9; color: #4a9; }
+  button.active { background: #4a9; color: #0a0a0a; border-color: #4a9; }
+  
+  .output {
+    font-size: 1.5rem;
+    color: #4a9;
+    min-height: 40px;
+    margin-bottom: 24px;
+    letter-spacing: 4px;
+  }
+  
+  .wpm-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: #444;
+  }
+  input[type="range"] { accent-color: #4a9; }
+  
+  .reference {
+    margin-top: 32px;
+    font-size: 0.65rem;
+    color: #333;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .reference kbd {
+    background: #151515;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+<h1>Morse Trainer</h1>
+<div class="subtitle">Type to send · Listen to learn</div>
+
+<div class="signal" id="signal">
+  <div class="signal-char" id="signalChar">●</div>
+</div>
+
+<div class="output" id="output"></div>
+
+<div class="input-area">
+  <textarea id="input" placeholder="Type message here... (A-Z, 0-9, space)"></textarea>
+</div>
+
+<div class="controls">
+  <button id="btnPlay">Play</button>
+  <button id="btnStop">Stop</button>
+  <button id="btnClear">Clear</button>
+</div>
+
+<div class="wpm-control">
+  <span>WPM:</span>
+  <input type="range" id="wpm" min="5" max="30" value="15">
+  <span id="wpmVal">15</span>
+</div>
+
+<div class="reference">
+  <kbd>.</kbd> = dit (1 unit) · <kbd>-</kbd> = dah (3 units) · space between chars (3 units) · space between words (7 units)<br>
+  Click signal or press <kbd>Space</kbd> to key manually
+</div>
+
+<script>
+const MORSE = {
+  'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+  'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+  'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+  'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+  'Y': '-.--', 'Z': '--..',
+  '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+  '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+  ' ': ' '
+};
+
+const signal = document.getElementById('signal');
+const signalChar = document.getElementById('signalChar');
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const btnPlay = document.getElementById('btnPlay');
+const btnStop = document.getElementById('btnStop');
+const btnClear = document.getElementById('btnClear');
+const wpmSlider = document.getElementById('wpm');
+const wpmVal = document.getElementById('wpmVal');
+
+let audioCtx = null;
+let isPlaying = false;
+let stopRequested = false;
+
+function getUnit() {
+  return 1200 / parseInt(wpmSlider.value);
+}
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playTone(duration) {
+  initAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.frequency.value = 600;
+  osc.type = 'sine';
+  
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+  
+  signal.classList.add('on');
+  setTimeout(() => signal.classList.remove('on'), duration * 1000);
+}
+
+async function playMessage(msg) {
+  stopRequested = false;
+  const unit = getUnit();
+  const upper = msg.toUpperCase();
+  
+  for (let i = 0; i < upper.length && !stopRequested; i++) {
+    const char = upper[i];
+    const code = MORSE[char];
+    
+    if (code === ' ') {
+      await sleep(unit * 7);
+      output.textContent += ' ';
+    } else if (code) {
+      for (let j = 0; j < code.length && !stopRequested; j++) {
+        if (code[j] === '.') {
+          playTone(unit);
+          await sleep(unit);
+        } else {
+          playTone(unit * 3);
+          await sleep(unit);
+        }
+        // gap between elements
+        await sleep(unit);
+      }
+      // gap between chars
+      await sleep(unit * 2);
+      output.textContent += char;
+    }
+  }
+  
+  isPlaying = false;
+  btnPlay.classList.remove('active');
+  btnPlay.disabled = false;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+btnPlay.addEventListener('click', () => {
+  if (isPlaying) return;
+  isPlaying = true;
+  btnPlay.classList.add('active');
+  btnPlay.disabled = true;
+  output.textContent = '';
+  playMessage(input.value);
+});
+
+btnStop.addEventListener('click', () => {
+  stopRequested = true;
+});
+
+btnClear.addEventListener('click', () => {
+  input.value = '';
+  output.textContent = '';
+});
+
+wpmSlider.addEventListener('input', () => {
+  wpmVal.textContent = wpmSlider.value;
+});
+
+// Manual keying
+let keyDown = false;
+
+async function keyDownHandler(e) {
+  if (e.code === 'Space' && !keyDown) {
+    e.preventDefault();
+    keyDown = true;
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 600;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    osc.start();
+    signal.classList.add('on');
+    signalChar.textContent = '◉';
+  }
+}
+
+function keyUpHandler(e) {
+  if (e.code === 'Space' && keyDown) {
+    keyDown = false;
+    signal.classList.remove('on');
+    signalChar.textContent = '●';
+  }
+}
+
+document.addEventListener('keydown', keyDownHandler);
+document.addEventListener('keyup', keyUpHandler);
+signal.addEventListener('mousedown', () => {
+  initAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.frequency.value = 600;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  osc.start();
+  signal.classList.add('on');
+  signalChar.textContent = '◉';
+  
+  const up = () => {
+    signal.classList.remove('on');
+    signalChar.textContent = '●';
+    osc.stop();
+    signal.removeEventListener('mouseup', up);
+    signal.removeEventListener('mouseleave', up);
+  };
+  signal.addEventListener('mouseup', up);
+  signal.addEventListener('mouseleave', up);
+});
+</script>
+</body>
+</html>
