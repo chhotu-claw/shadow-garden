@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fractal Explorer — Shadow's Garden</title>
+<meta name="description" description="Explore the Mandelbrot set and Julia sets with interactive zoom and pan">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #e0e0e0;
+    margin-bottom: 10px;
+    font-weight: 300;
+    letter-spacing: 2px;
+  }
+  .controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  select, input[type="range"] {
+    background: #1a1a24;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  select:hover {
+    border-color: #555;
+  }
+  input[type="range"] {
+    width: 120px;
+    accent-color: #ff6b6b;
+  }
+  canvas {
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: crosshair;
+    box-shadow: 0 0 40px rgba(255, 107, 107, 0.1);
+  }
+  .info {
+    color: #666;
+    font-size: 13px;
+    margin-top: 15px;
+    text-align: center;
+  }
+  .info span {
+    color: #ff6b6b;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>FRACTAL EXPLORER</h1>
+  <div class="controls">
+    <div class="control-group">
+      <label>Fractal Type</label>
+      <select id="fractalType">
+        <option value="mandelbrot">Mandelbrot</option>
+        <option value="julia">Julia</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Iterations</label>
+      <input type="range" id="iterations" min="50" max="500" value="200">
+    </div>
+    <div class="control-group">
+      <label>Color Shift</label>
+      <input type="range" id="colorShift" min="0" max="100" value="0">
+    </div>
+    <div class="control-group">
+      <label>Zoom</label>
+      <input type="range" id="zoom" min="1" max="100" value="1">
+    </div>
+    <div class="control-group">
+      <label>Julia Constant</label>
+      <input type="range" id="juliaReal" min="-100" max="100" value="-70">
+      <input type="range" id="juliaImag" min="-100" max="100" value="0">
+    </div>
+  </div>
+  <canvas id="canvas" width="700" height="500"></canvas>
+  <div class="info">
+    Click to center zoom | Scroll to zoom | Drag to pan<br>
+    <span id="coords">x: 0, y: 0, zoom: 1x</span>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    let centerX = -0.5;
+    let centerY = 0;
+    let zoom = 1;
+    let maxIter = 200;
+    let colorShift = 0;
+    let fractalType = 'mandelbrot';
+    let juliaReal = -0.7;
+    let juliaImag = 0;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+    
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
+    
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+    
+    function render() {
+      const w = 3.5 / zoom;
+      const h = w * (height / width);
+      const xMin = centerX - w / 2;
+      const yMin = centerY - h / 2;
+      
+      for (let py = 0; py < height; py++) {
+        for (let px = 0; px < width; px++) {
+          const x0 = xMin + (px / width) * w;
+          const y0 = yMin + (py / height) * h;
+          
+          let x, y, xTemp;
+          let iter = 0;
+          
+          if (fractalType === 'mandelbrot') {
+            x = 0;
+            y = 0;
+            while (x*x + y*y <= 4 && iter < maxIter) {
+              xTemp = x*x - y*y + x0;
+              y = 2*x*y + y0;
+              x = xTemp;
+              iter++;
+            }
+          } else {
+            x = x0;
+            y = y0;
+            while (x*x + y*y <= 4 && iter < maxIter) {
+              xTemp = x*x - y*y + juliaReal;
+              y = 2*x*y + juliaImag;
+              x = xTemp;
+              iter++;
+            }
+          }
+          
+          const idx = (py * width + px) * 4;
+          if (iter === maxIter) {
+            data[idx] = 10;
+            data[idx+1] = 10;
+            data[idx+2] = 15;
+            data[idx+3] = 255;
+          } else {
+            const hue = (iter / maxIter * 360 + colorShift * 3.6) % 360;
+            const sat = 0.7 + (iter / maxIter) * 0.3;
+            const light = 0.1 + (iter / maxIter) * 0.5;
+            const [r, g, b] = hslToRgb(hue / 360, sat, light);
+            data[idx] = r;
+            data[idx+1] = g;
+            data[idx+2] = b;
+            data[idx+3] = 255;
+          }
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+      document.getElementById('coords').textContent = 
+        `x: ${centerX.toFixed(6)}, y: ${centerY.toFixed(6)}, zoom: ${zoom.toFixed(1)}x`;
+    }
+    
+    document.getElementById('fractalType').addEventListener('change', (e) => {
+      fractalType = e.target.value;
+      render();
+    });
+    
+    document.getElementById('iterations').addEventListener('input', (e) => {
+      maxIter = parseInt(e.target.value);
+      render();
+    });
+    
+    document.getElementById('colorShift').addEventListener('input', (e) => {
+      colorShift = parseInt(e.target.value);
+      render();
+    });
+    
+    document.getElementById('zoom').addEventListener('input', (e) => {
+      zoom = Math.pow(1.5, parseInt(e.target.value));
+      render();
+    });
+    
+    document.getElementById('juliaReal').addEventListener('input', (e) => {
+      juliaReal = parseInt(e.target.value) / 100;
+      render();
+    });
+    
+    document.getElementById('juliaImag').addEventListener('input', (e) => {
+      juliaImag = parseInt(e.target.value) / 100;
+      render();
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      
+      const w = 3.5 / zoom;
+      const h = w * (height / width);
+      const xMin = centerX - w / 2;
+      const yMin = centerY - h / 2;
+      
+      centerX = xMin + (px / width) * w;
+      centerY = yMin + (py / height) * h;
+      zoom *= 2;
+      
+      document.getElementById('zoom').value = Math.log(zoom) / Math.log(1.5);
+      render();
+    });
+    
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        
+        const w = 3.5 / zoom;
+        const h = w * (height / width);
+        
+        centerX -= (dx / width) * w;
+        centerY -= (dy / height) * h;
+        
+        lastMouse = { x: e.clientX, y: e.clientY };
+        render();
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+    
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.8 : 1.25;
+      zoom *= zoomFactor;
+      document.getElementById('zoom').value = Math.log(zoom) / Math.log(1.5);
+      render();
+    });
+    
+    render();
+  </script>
+</body>
+</html>
