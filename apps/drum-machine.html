@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drum Machine — Shadow's Garden</title>
+<meta name="description" content="Interactive drum machine with step sequencer — 8 tracks, adjustable BPM, pattern save/load"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    background: #0a0a0f;
+  }
+  h1 {
+    color: #e0e0e0;
+    margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+  }
+  .controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    transition: all 0.15s;
+  }
+  button:hover {
+    background: #2a2a4e;
+    border-color: #555;
+  }
+  button.active {
+    background: #3a3a6e;
+    border-color: #7b68ee;
+    color: #fff;
+  }
+  .bpm-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #aaa;
+    font-family: 'Courier New', monospace;
+  }
+  .bpm-control input {
+    width: 60px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    padding: 0.4rem;
+    font-family: inherit;
+    text-align: center;
+  }
+  .sequencer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #111;
+    padding: 1rem;
+    border: 1px solid #222;
+    border-radius: 4px;
+  }
+  .track {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .track-label {
+    width: 80px;
+    color: #888;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .step {
+    width: 28px;
+    height: 28px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .step:hover {
+    background: #2a2a4e;
+  }
+  .step.active {
+    background: #4a4aaa;
+    border-color: #7b68ee;
+  }
+  .step.playing {
+    background: #6a6aaa;
+    box-shadow: 0 0 8px #7b68ee;
+  }
+  .step.active.playing {
+    background: #9b9bff;
+    box-shadow: 0 0 12px #7b68ee;
+  }
+  .beat-marker {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #444;
+    font-size: 0.6rem;
+    font-family: 'Courier New', monospace;
+  }
+  .beat-marker.beat-0 {
+    color: #ff6666;
+  }
+  .patterns {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .pattern-btn {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+  }
+  .info {
+    margin-top: 1.5rem;
+    color: #555;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>DRUM MACHINE</h1>
+  
+  <div class="controls">
+    <button id="playBtn">▶ PLAY</button>
+    <button id="stopBtn">■ STOP</button>
+    <button id="clearBtn">CLEAR</button>
+    <button id="randomBtn">RANDOM</button>
+    <div class="bpm-control">
+      <span>BPM:</span>
+      <input type="number" id="bpmInput" value="120" min="60" max="200">
+    </div>
+  </div>
+
+  <div class="sequencer" id="sequencer"></div>
+
+  <div class="patterns">
+    <button class="pattern-btn" data-pattern="0">Basic</button>
+    <button class="pattern-btn" data-pattern="1">Break</button>
+    <button class="pattern-btn" data-pattern="2">House</button>
+    <button class="pattern-btn" data-pattern="3">Techno</button>
+    <button class="pattern-btn" data-pattern="4">Ambient</button>
+  </div>
+
+  <div class="info">Click cells to toggle · Space to play/pause</div>
+
+  <script>
+    const tracks = [
+      { name: 'Kick', freq: 150, decay: 0.3 },
+      { name: 'Snare', freq: 200, decay: 0.2 },
+      { name: 'HiHat', freq: 800, decay: 0.05 },
+      { name: 'OpenHat', freq: 600, decay: 0.15 },
+      { name: 'Clap', freq: 250, decay: 0.1 },
+      { name: 'Tom', freq: 180, decay: 0.25 },
+      { name: 'Perc', freq: 400, decay: 0.08 },
+      { name: 'Bass', freq: 80, decay: 0.4 }
+    ];
+
+    const steps = 16;
+    let grid = tracks.map(() => Array(steps).fill(false));
+    let currentStep = 0;
+    let isPlaying = false;
+    let bpm = 120;
+    let intervalId = null;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(track) {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = track.name === 'Bass' ? 'sine' : 'square';
+      osc.frequency.value = track.freq;
+      
+      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + track.decay);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + track.decay);
+    }
+
+    function render() {
+      const seq = document.getElementById('sequencer');
+      seq.innerHTML = '';
+      
+      // Header row with beat markers
+      const header = document.createElement('div');
+      header.className = 'track';
+      header.innerHTML = '<div class="track-label"></div>';
+      for (let i = 0; i < steps; i++) {
+        const marker = document.createElement('div');
+        marker.className = 'beat-marker' + (i % 4 === 0 ? ' beat-0' : '');
+        marker.textContent = i + 1;
+        header.appendChild(marker);
+      }
+      seq.appendChild(header);
+      
+      // Track rows
+      tracks.forEach((track, ti) => {
+        const row = document.createElement('div');
+        row.className = 'track';
+        
+        const label = document.createElement('div');
+        label.className = 'track-label';
+        label.textContent = track.name;
+        row.appendChild(label);
+        
+        for (let i = 0; i < steps; i++) {
+          const step = document.createElement('div');
+          step.className = 'step' + (grid[ti][i] ? ' active' : '') + (i === currentStep && isPlaying ? ' playing' : '');
+          step.onclick = () => {
+            grid[ti][i] = !grid[ti][i];
+            render();
+          };
+          row.appendChild(step);
+        }
+        
+        seq.appendChild(row);
+      });
+    }
+
+    function tick() {
+      tracks.forEach((track, ti) => {
+        if (grid[ti][currentStep]) {
+          playSound(track);
+        }
+      });
+      
+      currentStep = (currentStep + 1) % steps;
+      render();
+    }
+
+    function start() {
+      initAudio();
+      isPlaying = true;
+      const interval = (60 / bpm) * 1000 / 4;
+      intervalId = setInterval(tick, interval);
+      document.getElementById('playBtn').classList.add('active');
+    }
+
+    function stop() {
+      isPlaying = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      currentStep = 0;
+      document.getElementById('playBtn').classList.remove('active');
+      render();
+    }
+
+    function clear() {
+      grid = tracks.map(() => Array(steps).fill(false));
+      render();
+    }
+
+    function random() {
+      grid = tracks.map(() => Array(steps).fill(0).map(() => Math.random() > 0.7));
+      render();
+    }
+
+    const patterns = [
+      // Basic
+      [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]],
+      // Break
+      [[1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0], [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]],
+      // House
+      [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]],
+      // Techno
+      [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]],
+      // Ambient
+      [[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    ];
+
+    document.getElementById('playBtn').onclick = start;
+    document.getElementById('stopBtn').onclick = stop;
+    document.getElementById('clearBtn').onclick = clear;
+    document.getElementById('randomBtn').onclick = random;
+
+    document.getElementById('bpmInput').onchange = (e) => {
+      bpm = parseInt(e.target.value) || 120;
+      if (isPlaying) {
+        stop();
+        start();
+      }
+    };
+
+    document.querySelectorAll('.pattern-btn').forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.dataset.pattern);
+        grid = patterns[idx].map(row => [...row]);
+        render();
+      };
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (isPlaying) stop(); else start();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

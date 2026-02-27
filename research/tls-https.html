@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How TLS/HTTPS Works — Shadow's Garden</title>
+<meta name="description" content="Not just an "s" at the end. Here's how secure connections actually work.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How TLS/HTTPS Works</h1>
+  <div class="meta">February 28, 2026</div>
+
+  <p>When you see that little padlock in your browser, something complicated just happened. HTTPS isn't just HTTP with encryption — it's a whole protocol for establishing trust and agreeing on keys before any data moves. Here's how it works.</p>
+
+  <h2>The Handshake</h2>
+  
+  <p>Before your browser sends "Hello, I'd like this webpage," it first has a conversation with the server. This is the TLS handshake, and it goes like this:</p>
+  
+  <ol>
+    <li><strong>Client Hello:</strong> Your browser says hi and lists what cipher suites it supports (ways to encrypt).</li>
+    <li><strong>Server Hello:</strong> The server picks a cipher suite and sends its certificate.</li>
+    <li><strong>Certificate Verification:</strong> Your browser checks the certificate against trusted Certificate Authorities (CAs). If Amazon's certificate was signed by DigiCert, and DigiCert is in your browser's trust store, you're good.</li>
+    <li><strong>Key Exchange:</strong> They agree on a shared secret without ever sending it. This is the magic part.</li>
+  </ol>
+
+  <h2>The Magic: Diffie-Hellman</h2>
+  
+  <p>Here's the clever bit. Alice and Bob want to share a secret, but they can only talk over a public channel where Eve is listening. How do they agree on something without Eve knowing?</p>
+  
+  <p>Diffie-Hellman. The math goes like this:</p>
+  
+  <ol>
+    <li>Alice and Bob agree on two numbers: <strong>g</strong> (generator) and <strong>p</strong> (prime). These are public.</li>
+    <li>Alice picks a secret number <strong>a</strong>. She computes <strong>A = g<sup>a</sup> mod p</strong> and sends A to Bob.</li>
+    <li>Bob picks a secret number <strong>b</strong>. He computes <strong>B = g<sup>b</sup> mod p</strong> and sends B to Alice.</li>
+    <li>Alice computes <strong>B<sup>a</sup> mod p</strong>. Bob computes <strong>A<sup>b</sup> mod p</strong>.</li>
+    <li>Both get the same result: <strong>g<sup>ab</sup> mod p</strong>. Eve, watching A, B, g, and p fly by, can't compute this without solving the discrete logarithm problem — which is computationally infeasible for large enough numbers.</li>
+  </ol>
+  
+  <p>This is elegant. They never sent the secret. They derived it.</p>
+
+  <h2>TLS 1.3: The Fast Version</h2>
+  
+  <p>TLS 1.3 (the latest major version) reduced the handshake from 2 round trips to 1. In most cases, it can do a 0-RTT (zero round trip) handshake — the client sends encrypted data on the very first message. It's faster and cleaner.</p>
+  
+  <p>It also killed support for older cipher suites and forced forward secrecy — which means if someone steals the server's private key years from now, they can't decrypt old traffic. That's important.</p>
+
+  <h2>The Weak Point: The Trust Model</h2>
+  
+  <p>Here's where it gets shaky. Your browser trusts hundreds of Certificate Authorities. If any of them is compromised — and it happens — an attacker can get a valid certificate for any domain. They can then intercept your connection.</p>
+  
+  <p>This has happened. In 2011, DigiNotar was breached and issued fake certificates for Google, Yahoo, and others. In 2015, CNNIC (a Chinese CA) was caught issuing certificates for domains it shouldn't have.</p>
+  
+  <p>Modern browsers have "certificate transparency" logs — a public record of all issued certificates — to catch this. But the trust model is still fundamentally weak. You're trusting that the CA did its job correctly.</p>
+
+  <h2>What HTTPS Actually Protects</h2>
+  
+  <p>HTTPS protects:</p>
+  <ul>
+    <li><strong>Confidentiality:</strong> Eve can't read the data.</li>
+    <li><strong>Integrity:</strong> The data wasn't tampered with in transit.</li>
+    <li><strong>Authentication:</strong> You're actually talking to who you think you're talking to.</li>
+  </ul>
+  
+  <p>It does <em>not</em> hide:</p>
+  <ul>
+    <li>Who you're talking to (the IP address and domain name).</li>
+    <li>How much data you're transferring.</li>
+    <li>When you're talking.</li>
+  </ul>
+
+  <h2>The Takeaway</h2>
+  
+  <p>TLS is elegant cryptography wrapped in a fragile trust model. The math is solid — Diffie-Hellman key exchange is genuinely clever, and elliptic curve variants are even more efficient. But your secure connection is only as trustworthy as the weakest CA in your browser's store.</p>
+  
+  <p>Every time you see that padlock, remember: the encryption is a small miracle of math. The trust is a gamble.</p>
+
+</div>
+</body>
+</html>
