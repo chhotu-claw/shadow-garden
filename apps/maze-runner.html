@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maze Runner — Shadow's Garden</title>
+<meta name="description" content="Generate mazes with different algorithms and watch pathfinding solve them in real-time"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0d1117;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #e6edf3;
+    margin-bottom: 10px;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  button, select {
+    padding: 10px 16px;
+    font-size: 14px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #21262d;
+    color: #e6edf3;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  button:hover, select:hover {
+    background: #30363d;
+    border-color: #484f58;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  #canvas {
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    image-rendering: pixelated;
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 15px;
+    font-size: 13px;
+    color: #8b949e;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-box {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+  .stats {
+    margin-top: 10px;
+    color: #8b949e;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>🌀 Maze Runner</h1>
+  <div class="controls">
+    <select id="algo">
+      <option value="dfs">Recursive Backtracking (DFS)</option>
+      <option value="prims">Prim's Algorithm</option>
+      <option value="kruskals">Kruskal's Algorithm</option>
+      <option value="binary">Binary Tree</option>
+      <option value="aldous">Aldous-Broder</option>
+    </select>
+    <button id="generate">Generate Maze</button>
+    <button id="solve">Solve (A*)</button>
+    <button id="solveBFS">Solve (BFS)</button>
+    <button id="clear">Clear Solution</button>
+    <select id="speed">
+      <option value="1">Slow</option>
+      <option value="10" selected>Normal</option>
+      <option value="50">Fast</option>
+      <option value="0">Instant</option>
+    </select>
+  </div>
+  <canvas id="canvas" width="600" height="600"></canvas>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-box" style="background:#21262d;border:1px solid #30363d"></div> Wall</div>
+    <div class="legend-item"><div class="legend-box" style="background:#0d1117"></div> Path</div>
+    <div class="legend-item"><div class="legend-box" style="background:#238636"></div> Start</div>
+    <div class="legend-item"><div class="legend-box" style="background:#da3633"></div> End</div>
+    <div class="legend-item"><div class="legend-box" style="background:#1f6feb"></div> Visited</div>
+    <div class="legend-item"><div class="legend-box" style="background:#f78166"></div> Solution</div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const COLS = 30;
+    const ROWS = 30;
+    const CELL = canvas.width / COLS;
+    
+    let grid = [];
+    let solution = [];
+    let solving = false;
+    let stopSolve = false;
+    
+    const WALL = 1, PATH = 0;
+    
+    function initGrid() {
+      grid = [];
+      for (let y = 0; y < ROWS; y++) {
+        grid[y] = [];
+        for (let x = 0; x < COLS; x++) {
+          grid[y][x] = { wall: true, visited: false, parent: null };
+        }
+      }
+      solution = [];
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = grid[y][x];
+          const px = x * CELL, py = y * CELL;
+          
+          if (cell.wall) {
+            ctx.fillStyle = '#21262d';
+            ctx.fillRect(px, py, CELL, CELL);
+            ctx.strokeStyle = '#30363d';
+            ctx.strokeRect(px, py, CELL, CELL);
+          } else {
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+          }
+        }
+      }
+      
+      // Start (top-left)
+      ctx.fillStyle = '#238636';
+      ctx.fillRect(CELL * 0.2, CELL * 0.2, CELL * 0.6, CELL * 0.6);
+      
+      // End (bottom-right)
+      ctx.fillStyle = '#da3633';
+      ctx.fillRect((COLS - 1) * CELL + CELL * 0.2, (ROWS - 1) * CELL + CELL * 0.2, CELL * 0.6, CELL * 0.6);
+      
+      // Solution path
+      if (solution.length > 0) {
+        ctx.strokeStyle = '#f78166';
+        ctx.lineWidth = CELL * 0.3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(solution[0].x * CELL + CELL/2, solution[0].y * CELL + CELL/2);
+        for (let i = 1; i < solution.length; i++) {
+          ctx.lineTo(solution[i].x * CELL + CELL/2, solution[i].y * CELL + CELL/2);
+        }
+        ctx.stroke();
+      }
+    }
+    
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    
+    function getNeighbors(x, y) {
+      const neighbors = [];
+      const dirs = [[0,-2], [0,2], [-2,0], [2,0]];
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && grid[ny][nx].wall) {
+          neighbors.push({x: nx, y: ny, mx: x + dx/2, my: y + dy/2});
+        }
+      }
+      return neighbors;
+    }
+    
+    async function generateDFS() {
+      initGrid();
+      const stack = [{x: 0, y: 0}];
+      grid[0][0].wall = false;
+      
+      while (stack.length > 0) {
+        const current = stack[stack.length - 1];
+        const neighbors = shuffle(getNeighbors(current.x, current.y));
+        
+        if (neighbors.length > 0) {
+          const next = neighbors[0];
+          grid[next.my][next.mx].wall = false;
+          grid[next.y][next.x].wall = false;
+          grid[next.y][next.x].visited = true;
+          stack.push({x: next.x, y: next.y});
+        } else {
+          stack.pop();
+        }
+        draw();
+        await sleep(5);
+      }
+    }
+    
+    async function generatePrims() {
+      initGrid();
+      const walls = [];
+      grid[0][0].wall = false;
+      
+      // Add walls of start cell
+      const startNeighbors = getNeighbors(0, 0);
+      for (const n of startNeighbors) {
+        walls.push({x: n.mx, y: n.my, nx: n.x, ny: n.y});
+      }
+      
+      while (walls.length > 0) {
+        const idx = Math.floor(Math.random() * walls.length);
+        const wall = walls.splice(idx, 1)[0];
+        
+        if (grid[wall.y][wall.x].wall) {
+          grid[wall.y][wall.x].wall = false;
+          grid[wall.ny][wall.nx].wall = false;
+          
+          const newWalls = getNeighbors(wall.nx, wall.ny);
+          for (const n of newWalls) {
+            if (grid[n.my][n.mx].wall) {
+              walls.push({x: n.mx, y: n.my, nx: n.x, ny: n.y});
+            }
+          }
+        }
+        draw();
+        await sleep(5);
+      }
+    }
+    
+    async function generateKruskals() {
+      initGrid();
+      const sets = [];
+      const edges = [];
+      
+      // Initialize sets and edges
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          sets.push({x, y, id: y * COLS + x});
+          if (x < COLS - 1) edges.push({x1: x, y1: y, x2: x + 1, y2: y});
+          if (y < ROWS - 1) edges.push({x1: x, y1: y, x2: x, y2: y + 1});
+        }
+      }
+      
+      shuffle(edges);
+      
+      function find(id) {
+        for (const s of sets) {
+          if (s.id === id) return s;
+        }
+        return null;
+      }
+      
+      for (const edge of edges) {
+        const id1 = edge.y1 * COLS + edge.x1;
+        const id2 = edge.y2 * COLS + edge.x2;
+        const set1 = find(id1);
+        const set2 = find(id2);
+        
+        if (set1 && set2 && set1.id !== set2.id) {
+          const mx = (edge.x1 + edge.x2) / 2;
+          const my = (edge.y1 + edge.y2) / 2;
+          grid[my][mx].wall = false;
+          grid[edge.y2][edge.x2].wall = false;
+          
+          // Merge sets
+          for (const s of sets) {
+            if (s.id === set2.id) s.id = set1.id;
+          }
+          
+          draw();
+          await sleep(5);
+        }
+      }
+    }
+    
+    async function generateBinary() {
+      initGrid();
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          grid[y][x].wall = false;
+        }
+      }
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (y === 0 && x === 0) continue;
+          
+          const neighbors = [];
+          if (y > 0) neighbors.push({x, y: y - 1});
+          if (x > 0) neighbors.push({x: x - 1, y});
+          
+          if (neighbors.length > 0) {
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+            const mx = (x + next.x) / 2;
+            const my = (y + next.y) / 2;
+            grid[my][mx].wall = false;
+          }
+          draw();
+          await sleep(3);
+        }
+      }
+    }
+    
+    async function generateAldous() {
+      initGrid();
+      let unvisited = ROWS * COLS - 1;
+      let x = 0, y = 0;
+      grid[y][x].wall = false;
+      
+      while (unvisited > 0) {
+        const neighbors = [];
+        if (x > 0) neighbors.push({x: x - 1, y});
+        if (x < COLS - 1) neighbors.push({x: x + 1, y});
+        if (y > 0) neighbors.push({x, y: y - 1});
+        if (y < ROWS - 1) neighbors.push({x, y: y + 1});
+        
+        const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+        
+        if (grid[next.y][next.x].wall) {
+          grid[next.y][next.x].wall = false;
+          grid[(y + next.y) / 2][(x + next.x) / 2].wall = false;
+          unvisited--;
+        }
+        
+        x = next.x;
+        y = next.y;
+        draw();
+        await sleep(2);
+      }
+    }
+    
+    function heuristic(x1, y1, x2, y2) {
+      return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+    
+    async function solveAStar() {
+      if (solving) return;
+      solving = true;
+      stopSolve = false;
+      
+      // Clear previous solution markers
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          grid[y][x].parent = null;
+        }
+      }
+      solution = [];
+      
+      const openSet = [{x: 0, y: 0, g: 0, f: heuristic(0, 0, COLS-1, ROWS-1)}];
+      const closedSet = new Set();
+      const speed = parseInt(document.getElementById('speed').value);
+      
+      while (openSet.length > 0 && !stopSolve) {
+        openSet.sort((a, b) => a.f - b.f);
+        const current = openSet.shift();
+        
+        if (current.x === COLS - 1 && current.y === ROWS - 1) {
+          // Reconstruct path
+          let x = current.x, y = current.y;
+          while (x !== undefined) {
+            solution.unshift({x, y});
+            const cell = grid[y][x];
+            x = cell.parent?.x;
+            y = cell.parent?.y;
+          }
+          solving = false;
+          draw();
+          document.getElementById('stats').textContent = `Solved! Path length: ${solution.length} cells`;
+          return;
+        }
+        
+        closedSet.add(`${current.x},${current.y}`);
+        
+        if (speed > 0) {
+          ctx.fillStyle = 'rgba(31, 111, 235, 0.5)';
+          ctx.fillRect(current.x * CELL + 2, current.y * CELL + 2, CELL - 4, CELL - 4);
+        }
+        
+        const dirs = [[0,-1], [0,1], [-1,0], [1,0]];
+        for (const [dx, dy] of dirs) {
+          const nx = current.x + dx, ny = current.y + dy;
+          if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+          if (grid[ny][nx].wall) continue;
+          if (closedSet.has(`${nx},${ny}`)) continue;
+          
+          const g = current.g + 1;
+          const existing = openSet.find(n => n.x === nx && n.y === ny);
+          
+          if (!existing) {
+            openSet.push({x: nx, y: ny, g, f: g + heuristic(nx, ny, COLS-1, ROWS-1)});
+            grid[ny][nx].parent = {x: current.x, y: current.y};
+          } else if (g < existing.g) {
+            existing.g = g;
+            existing.f = g + heuristic(nx, ny, COLS-1, ROWS-1);
+            grid[ny][nx].parent = {x: current.x, y: current.y};
+          }
+        }
+        
+        if (speed > 0) await sleep(speed);
+      }
+      
+      solving = false;
+      document.getElementById('stats').textContent = 'No solution found';
+    }
+    
+    async function solveBFS() {
+      if (solving) return;
+      solving = true;
+      stopSolve = false;
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          grid[y][x].parent = null;
+        }
+      }
+      solution = [];
+      
+      const queue = [{x: 0, y: 0}];
+      const visited = new Set(['0,0']);
+      const speed = parseInt(document.getElementById('speed').value);
+      
+      while (queue.length > 0 && !stopSolve) {
+        const current = queue.shift();
+        
+        if (current.x === COLS - 1 && current.y === ROWS - 1) {
+          let x = current.x, y = current.y;
+          while (x !== undefined) {
+            solution.unshift({x, y});
+            const cell = grid[y][x];
+            x = cell.parent?.x;
+            y = cell.parent?.y;
+          }
+          solving = false;
+          draw();
+          document.getElementById('stats').textContent = `Solved! Path length: ${solution.length} cells`;
+          return;
+        }
+        
+        if (speed > 0) {
+          ctx.fillStyle = 'rgba(31, 111, 235, 0.5)';
+          ctx.fillRect(current.x * CELL + 2, current.y * CELL + 2, CELL - 4, CELL - 4);
+        }
+        
+        const dirs = [[0,-1], [0,1], [-1,0], [1,0]];
+        for (const [dx, dy] of dirs) {
+          const nx = current.x + dx, ny = current.y + dy;
+          if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+          if (grid[ny][nx].wall) continue;
+          if (visited.has(`${nx},${ny}`)) continue;
+          
+          visited.add(`${nx},${ny}`);
+          queue.push({x: nx, y: ny});
+          grid[ny][nx].parent = {x: current.x, y: current.y};
+        }
+        
+        if (speed > 0) await sleep(speed);
+      }
+      
+      solving = false;
+      document.getElementById('stats').textContent = 'No solution found';
+    }
+    
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    document.getElementById('generate').onclick = async () => {
+      stopSolve = true;
+      solving = false;
+      await sleep(50);
+      const algo = document.getElementById('algo').value;
+      document.getElementById('stats').textContent = `Generating ${algo} maze...`;
+      
+      if (algo === 'dfs') await generateDFS();
+      else if (algo === 'prims') await generatePrims();
+      else if (algo === 'kruskals') await generateKruskals();
+      else if (algo === 'binary') await generateBinary();
+      else if (algo === 'aldous') await generateAldous();
+      
+      document.getElementById('stats').textContent = 'Maze generated!';
+    };
+    
+    document.getElementById('solve').onclick = solveAStar;
+    document.getElementById('solveBFS').onclick = solveBFS;
+    document.getElementById('clear').onclick = () => {
+      stopSolve = true;
+      solving = false;
+      solution = [];
+      draw();
+      document.getElementById('stats').textContent = '';
+    };
+    
+    initGrid();
+    draw();
+  </script>
+</body>
+</html>
