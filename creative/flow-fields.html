@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Fields — Shadow's Garden</title>
+<meta name="description">Particles drifting through noise, connecting into webs that react to your cursor.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: #050508;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+  .controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  label {
+    color: #555;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  .info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #333;
+    font-size: 0.7rem;
+    font-family: monospace;
+  }
+  .hint {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: #444;
+    font-size: 0.75rem;
+    text-align: right;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="controls">
+    <div class="control-group">
+      <label>Particles</label>
+      <input type="range" id="count" min="100" max="1500" value="600">
+    </div>
+    <div class="control-group">
+      <label>Noise Scale</label>
+      <input type="range" id="scale" min="1" max="20" value="8">
+    </div>
+    <div class="control-group">
+      <label>Trail</label>
+      <input type="range" id="trail" min="1" max="50" value="15">
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.5" max="4" value="1.5" step="0.1">
+    </div>
+  </div>
+  
+  <div class="hint">move cursor to warm</div>
+  <canvas id="canvas"></canvas>
+  <div class="info" id="info">particles: 600</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let noiseScale = 8;
+    let trailLength = 15;
+    let speed = 1.5;
+    let mouseX = -1000;
+    let mouseY = -1000;
+    let mouseActive = false;
+    
+    // Simplex-like noise
+    const permutation = [];
+    for (let i = 0; i < 256; i++) permutation[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [permutation[i], permutation[j]] = [permutation[j], permutation[i]];
+    }
+    const p = [...permutation, ...permutation];
+    
+    function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function lerp(a, b, t) { return a + t * (b - a); }
+    function grad(hash, x, y) {
+      const h = hash & 3;
+      const u = h < 2 ? x : y;
+      const v = h < 2 ? y : x;
+      return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+    }
+    
+    function noise(x, y) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      x -= Math.floor(x);
+      y -= Math.floor(y);
+      const u = fade(x);
+      const v = fade(y);
+      const A = p[X] + Y, B = p[X + 1] + Y;
+      return lerp(
+        lerp(grad(p[A], x, y), grad(p[B], x - 1, y), u),
+        lerp(grad(p[A + 1], x, y - 1), grad(p[B + 1], x - 1, y - 1), u),
+        v
+      );
+    }
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    
+    function init() {
+      particles = [];
+      const count = parseInt(document.getElementById('count').value);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: 0,
+          vy: 0,
+          life: Math.random()
+        });
+      }
+    }
+    
+    function update() {
+      for (const p of particles) {
+        const nx = p.x * noiseScale * 0.003;
+        const ny = p.y * noiseScale * 0.003;
+        const angle = noise(nx, ny) * Math.PI * 4;
+        
+        let force = speed;
+        
+        // Mouse warmth
+        if (mouseActive) {
+          const dx = mouseX - p.x;
+          const dy = mouseY - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 200) {
+            force += (1 - dist / 200) * 2;
+          }
+        }
+        
+        p.vx += Math.cos(angle) * force * 0.1;
+        p.vy += Math.sin(angle) * force * 0.1;
+        
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        p.life += 0.002;
+        
+        // Wrap around
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+      }
+    }
+    
+    function draw() {
+      const trail = parseInt(document.getElementById('trail').value);
+      ctx.fillStyle = `rgba(5, 5, 8, ${1 / trail})`;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw connections
+      ctx.lineWidth = 0.3;
+      
+      for (let i = 0; i < particles.length; i++) {
+        const p1 = particles[i];
+        
+        // Color based on velocity and life
+        const vel = Math.sqrt(p1.vx * p1.vx + p1.vy * p1.vy);
+        const hue = (p1.life * 50 + vel * 20) % 360;
+        const sat = 60 + vel * 10;
+        const light = 40 + vel * 15;
+        
+        // Draw connections to nearby particles
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 40) {
+            const alpha = (1 - dist / 40) * 0.3;
+            ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+        
+        // Draw particle
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, 0.8)`;
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 1 + vel * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    let lastTime = performance.now();
+    let frames = 0;
+    
+    function animate() {
+      update();
+      draw();
+      
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('info').textContent = `particles: ${particles.length}`;
+        frames = 0;
+        lastTime = now;
+      }
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Events
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mouseActive = true;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      mouseActive = false;
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      for (let i = 0; i < 20; i++) {
+        particles.push({
+          x: x + (Math.random() - 0.5) * 30,
+          y: y + (Math.random() - 0.5) * 30,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: Math.random()
+        });
+      }
+    });
+    
+    document.getElementById('count').addEventListener('change', init);
+    document.getElementById('scale').addEventListener('input', (e) => {
+      noiseScale = parseInt(e.target.value);
+    });
+    document.getElementById('trail').addEventListener('input', (e) => {
+      trailLength = parseInt(e.target.value);
+    });
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speed = parseFloat(e.target.value);
+    });
+    
+    window.addEventListener('resize', () => {
+      resize();
+    });
+    
+    resize();
+    init();
+    animate();
+  </script>
+</body>
+</html>
