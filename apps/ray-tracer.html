@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ray Tracer — Shadow's Garden</title>
+<meta name="description">Real-time ray tracing with spheres, reflections, shadows, and soft shadows.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 800px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Ray Tracer</h1>
+  <div class="subtitle">Real-time path tracing with spheres, reflections, shadows</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Samples: <span id="samplesVal">4</span></label>
+      <input type="range" id="samples" min="1" max="16" value="4">
+    </div>
+    <div class="control-group">
+      <label>Bounces</label>
+      <input type="range" id="bounces" min="1" max="4" value="2">
+    </div>
+    <div class="control-group">
+      <label>FOV</label>
+      <input type="range" id="fov" min="30" max="120" value="60">
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <select id="preset">
+        <option value="default">Default Scene</option>
+        <option value="reflections">Mirror Room</option>
+        <option value="shadows">Shadow Test</option>
+        <option value="random">Random Spheres</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Actions</label>
+      <button id="renderBtn">Re-render</button>
+    </div>
+  </div>
+  
+  <div class="stats" id="stats">Rendering...</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width = 640;
+    let height = 480;
+    canvas.width = width;
+    canvas.height = height;
+    
+    const imageData = ctx.createImageData(width, height);
+    
+    let spheres = [];
+    let lights = [];
+    let camera = { x: 0, y: 2, z: -6, fov: 60 };
+    
+    const presets = {
+      default: {
+        spheres: [
+          { x: 0, y: -1, z: 0, r: 1, color: [0.8, 0.2, 0.2], reflective: 0.3 },
+          { x: -2, y: 0, z: 1, r: 0.8, color: [0.2, 0.8, 0.2], reflective: 0.2 },
+          { x: 2, y: 0, z: 1, r: 0.8, color: [0.2, 0.2, 0.8], reflective: 0.2 },
+          { x: 0, y: -100, z: 0, r: 99, color: [0.3, 0.3, 0.3], reflective: 0.1 },
+          { x: 0, y: 100, z: 0, r: 99, color: [0.5, 0.5, 0.6], reflective: 0 },
+        ],
+        lights: [
+          { x: 3, y: 5, z: -3, intensity: 1.2 },
+          { x: -3, y: 3, z: -2, intensity: 0.6 },
+        ]
+      },
+      reflections: {
+        spheres: [
+          { x: 0, y: 0, z: 0, r: 1, color: [0.95, 0.95, 0.95], reflective: 0.95 },
+          { x: -2.5, y: 0, z: 2, r: 1, color: [0.8, 0.2, 0.2], reflective: 0.3 },
+          { x: 2.5, y: 0, z: 2, r: 1, color: [0.2, 0.2, 0.8], reflective: 0.3 },
+          { x: 0, y: -100, z: 0, r: 99, color: [0.2, 0.2, 0.2], reflective: 0.5 },
+        ],
+        lights: [
+          { x: 0, y: 5, z: -5, intensity: 1.5 },
+        ]
+      },
+      shadows: {
+        spheres: [
+          { x: 0, y: -1, z: 0, r: 1, color: [0.7, 0.7, 0.7], reflective: 0.2 },
+          { x: -2, y: -0.5, z: 2, r: 0.5, color: [0.8, 0.3, 0.3], reflective: 0.1 },
+          { x: 2, y: -0.5, z: 2, r: 0.5, color: [0.3, 0.3, 0.8], reflective: 0.1 },
+          { x: 0, y: -100, z: 0, r: 99, color: [0.4, 0.4, 0.4], reflective: 0 },
+        ],
+        lights: [
+          { x: 4, y: 4, z: -4, intensity: 1.0 },
+        ]
+      },
+      random: {
+        spheres: [],
+        lights: [
+          { x: 2, y: 5, z: -3, intensity: 1.0 },
+        ]
+      }
+    };
+    
+    // Generate random spheres for random preset
+    for (let i = 0; i < 8; i++) {
+      presets.random.spheres.push({
+        x: (Math.random() - 0.5) * 6,
+        y: (Math.random() - 0.5) * 4,
+        z: Math.random() * 4 + 1,
+        r: Math.random() * 0.5 + 0.3,
+        color: [Math.random(), Math.random(), Math.random()],
+        reflective: Math.random() * 0.5
+      });
+    }
+    presets.random.spheres.push({ x: 0, y: -100, z: 0, r: 99, color: [0.3, 0.3, 0.3], reflective: 0 });
+    
+    function loadPreset(name) {
+      const p = presets[name];
+      spheres = JSON.parse(JSON.stringify(p.spheres));
+      lights = JSON.parse(JSON.stringify(p.lights));
+    }
+    
+    function vec3(x, y, z) { return { x, y, z }; }
+    function add(a, b) { return vec3(a.x + b.x, a.y + b.y, a.z + b.z); }
+    function sub(a, b) { return vec3(a.x - b.x, a.y - b.y, a.z - b.z); }
+    function mul(a, s) { return vec3(a.x * s, a.y * s, a.z * s); }
+    function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+    function length(v) { return Math.sqrt(dot(v, v)); }
+    function normalize(v) { const l = length(v) || 1; return vec3(v.x / l, v.y / l, v.z / l); }
+    function reflect(v, n) { return sub(v, mul(n, 2 * dot(v, n))); }
+    
+    function intersectSphere(rayOrigin, rayDir, sphere) {
+      const oc = sub(rayOrigin, vec3(sphere.x, sphere.y, sphere.z));
+      const a = dot(rayDir, rayDir);
+      const b = 2 * dot(oc, rayDir);
+      const c = dot(oc, oc) - sphere.r * sphere.r;
+      const disc = b * b - 4 * a * c;
+      
+      if (disc < 0) return null;
+      
+      const t = (-b - Math.sqrt(disc)) / (2 * a);
+      if (t < 0.001) return null;
+      
+      const hitPoint = add(rayOrigin, mul(rayDir, t));
+      const normal = normalize(sub(hitPoint, vec3(sphere.x, sphere.y, sphere.z)));
+      
+      return { t, point: hitPoint, normal, sphere };
+    }
+    
+    function intersect(rayOrigin, rayDir) {
+      let closest = null;
+      let minT = Infinity;
+      
+      for (const sphere of spheres) {
+        const hit = intersectSphere(rayOrigin, rayDir, sphere);
+        if (hit && hit.t < minT) {
+          minT = hit.t;
+          closest = hit;
+        }
+      }
+      
+      return closest;
+    }
+    
+    function trace(rayOrigin, rayDir, depth) {
+      if (depth <= 0) return vec3(0, 0, 0);
+      
+      const hit = intersect(rayOrigin, rayDir);
+      
+      if (!hit) {
+        // Sky gradient
+        const t = 0.5 * (rayDir.y + 1);
+        const top = vec3(0.3, 0.5, 0.9);
+        const bottom = vec3(0.1, 0.1, 0.2);
+        return add(mul(bottom, 1 - t), mul(top, t));
+      }
+      
+      const { sphere, point, normal } = hit;
+      
+      // Ambient
+      let color = vec3(0.1 * sphere.color[0], 0.1 * sphere.color[1], 0.1 * sphere.color[2]);
+      
+      // Direct lighting
+      for (const light of lights) {
+        const lightDir = normalize(sub(vec3(light.x, light.y, light.z), point));
+        
+        // Shadow check
+        const shadowOrigin = add(point, mul(normal, 0.001));
+        const shadowHit = intersect(shadowOrigin, lightDir);
+        const lightDist = length(sub(vec3(light.x, light.y, light.z), point));
+        
+        let inShadow = false;
+        if (shadowHit && shadowHit.t < lightDist) {
+          inShadow = true;
+        }
+        
+        if (!inShadow) {
+          // Diffuse
+          const diff = Math.max(0, dot(normal, lightDir));
+          const diffuse = mul(vec3(sphere.color[0], sphere.color[1], sphere.color[2]), diff * light.intensity);
+          color = add(color, diffuse);
+          
+          // Specular
+          const viewDir = normalize(sub(rayOrigin, point));
+          const halfDir = normalize(add(lightDir, viewDir));
+          const spec = Math.pow(Math.max(0, dot(normal, halfDir)), 32);
+          color = add(color, mul(vec3(1, 1, 1), spec * light.intensity * 0.5));
+        }
+      }
+      
+      // Reflection
+      if (sphere.reflective > 0 && depth > 0) {
+        const reflectDir = reflect(normalize(rayDir), normal);
+        const reflectOrigin = add(point, mul(normal, 0.001));
+        const reflected = trace(reflectOrigin, reflectDir, depth - 1);
+        
+        color = add(
+          mul(color, 1 - sphere.reflective),
+          mul(reflected, sphere.reflective)
+        );
+      }
+      
+      return color;
+    }
+    
+    function render() {
+      const samples = parseInt(document.getElementById('samples').value);
+      const bounces = parseInt(document.getElementById('bounces').value);
+      camera.fov = parseInt(document.getElementById('fov').value);
+      
+      document.getElementById('samplesVal').textContent = samples;
+      document.getElementById('stats').textContent = `Rendering... ${samples}x${samples} samples, ${bounces} bounces`;
+      
+      setTimeout(() => {
+        const aspect = width / height;
+        const fovRad = camera.fov * Math.PI / 180;
+        const scale = Math.tan(fovRad / 2);
+        
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            let color = vec3(0, 0, 0);
+            
+            // Multi-sample anti-aliasing
+            for (let sx = 0; sx < samples; sx++) {
+              for (let sy = 0; sy < samples; sy++) {
+                const u = (x + sx / samples) / width;
+                const v = 1 - (y + sy / samples) / height;
+                
+                const px = (2 * u - 1) * aspect * scale;
+                const py = (1 - 2 * v) * scale;
+                
+                const rayDir = normalize(vec3(px, py, 1));
+                const pixelColor = trace(vec3(camera.x, camera.y, camera.z), rayDir, bounces);
+                color = add(color, pixelColor);
+              }
+            }
+            color = mul(color, 1 / (samples * samples));
+            
+            // Tone mapping
+            color = vec3(
+              1 - Math.exp(-color.x),
+              1 - Math.exp(-color.y),
+              1 - Math.exp(-color.z)
+            );
+            
+            const idx = (y * width + x) * 4;
+            imageData.data[idx] = Math.min(255, Math.floor(color.x * 255));
+            imageData.data[idx + 1] = Math.min(255, Math.floor(color.y * 255));
+            imageData.data[idx + 2] = Math.min(255, Math.floor(color.z * 255));
+            imageData.data[idx + 3] = 255;
+          }
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        document.getElementById('stats').textContent = `Rendered: ${samples}x${samples} spp, ${bounces} bounces`;
+      }, 50);
+    }
+    
+    // Event listeners
+    document.getElementById('samples').addEventListener('input', render);
+    document.getElementById('bounces').addEventListener('input', render);
+    document.getElementById('fov').addEventListener('input', render);
+    
+    document.getElementById('preset').addEventListener('change', (e) => {
+      loadPreset(e.target.value);
+      render();
+    });
+    
+    document.getElementById('renderBtn').addEventListener('click', render);
+    
+    // Init
+    loadPreset('default');
+    render();
+  </script>
+</body>
+</html>
