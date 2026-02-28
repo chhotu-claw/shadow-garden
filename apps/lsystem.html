@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L-System Generator — Shadow's Garden</title>
+<meta name="description">Procedural plant and tree generation using Lindenmayer systems.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    background: #050508;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 900px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .preset-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+  .preset-btn.active {
+    background: #333;
+    border-color: #666;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>L-System Generator</h1>
+  <div class="subtitle">Procedural plants via Lindenmayer systems</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Iterations: <span id="iterVal">4</span></label>
+      <input type="range" id="iterations" min="1" max="7" value="4">
+    </div>
+    <div class="control-group">
+      <label>Angle</label>
+      <input type="range" id="angle" min="15" max="90" value="25">
+    </div>
+    <div class="control-group">
+      <label>Length</label>
+      <input type="range" id="length" min="2" max="20" value="8">
+    </div>
+    <div class="control-group">
+      <label>Actions</label>
+      <button id="generateBtn">Generate</button>
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <div class="presets">
+        <button class="preset-btn active" data-preset="fractal-tree">Fractal Tree</button>
+        <button class="preset-btn" data-preset="fern">Fern</button>
+        <button class="preset-btn" data-preset="weed">Weed</button>
+        <button class="preset-btn" data-preset="dragon">Dragon</button>
+        <button class="preset-btn" data-preset="gosper">Gosper</button>
+        <button class="preset-btn" data-preset="koch">Koch</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="stats" id="stats">Segments: 0</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    
+    const presets = {
+      'fractal-tree': {
+        axiom: 'F',
+        rules: { 'F': 'FF+[+F-F-F]-[-F+F+F]' },
+        angle: 25,
+        iterations: 4,
+        length: 8
+      },
+      'fern': {
+        axiom: 'X',
+        rules: { 
+          'X': 'F+[[X]-X]-F[-FX]+X',
+          'F': 'FF'
+        },
+        angle: 25,
+        iterations: 5,
+        length: 3
+      },
+      'weed': {
+        axiom: 'F',
+        rules: { 'F': 'F[+F]F[-F]F' },
+        angle: 25.7,
+        iterations: 5,
+        length: 4
+      },
+      'dragon': {
+        axiom: 'FX',
+        rules: {
+          'X': 'X+YF+',
+          'Y': '-FX-Y'
+        },
+        angle: 90,
+        iterations: 10,
+        length: 4
+      },
+      'gosper': {
+        axiom: 'A',
+        rules: {
+          'A': 'A-B--B+A++AA+B-',
+          'B': '+A-BB--B-A++A+B'
+        },
+        angle: 60,
+        iterations: 4,
+        length: 5
+      },
+      'koch': {
+        axiom: 'F',
+        rules: { 'F': 'F+F-F-F+F' },
+        angle: 90,
+        iterations: 4,
+        length: 6
+      }
+    };
+
+    let currentPreset = 'fractal-tree';
+    
+    function resize() {
+      width = Math.min(900, window.innerWidth - 40);
+      height = Math.min(600, window.innerHeight - 280);
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    function generateLSystem(axiom, rules, iterations) {
+      let result = axiom;
+      for (let i = 0; i < iterations; i++) {
+        let next = '';
+        for (const char of result) {
+          next += rules[char] || char;
+        }
+        result = next;
+      }
+      return result;
+    }
+
+    function drawLSystem(lstring, angle, length, hue) {
+      const stack = [];
+      let x = width / 2;
+      let y = height - 20;
+      let dir = -90;
+      let segCount = 0;
+      
+      ctx.strokeStyle = `hsl(${hue}, 60%, ${50 + Math.random() * 20}%)`;
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      
+      for (const char of lstring) {
+        switch (char) {
+          case 'F':
+          case 'A':
+          case 'B':
+            const rad = dir * Math.PI / 180;
+            const nx = x + Math.cos(rad) * length;
+            const ny = y + Math.sin(rad) * length;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(nx, ny);
+            ctx.stroke();
+            x = nx;
+            y = ny;
+            segCount++;
+            break;
+          case '+':
+            dir += angle;
+            break;
+          case '-':
+            dir -= angle;
+            break;
+          case '[':
+            stack.push({ x, y, dir, hue: hue + Math.random() * 20 - 10 });
+            break;
+          case ']':
+            if (stack.length > 0) {
+              const state = stack.pop();
+              x = state.x;
+              y = state.y;
+              dir = state.dir;
+              hue = state.hue;
+              ctx.strokeStyle = `hsl(${hue}, 60%, ${50 + Math.random() * 20}%)`;
+            }
+            break;
+        }
+      }
+      return segCount;
+    }
+
+    function generate() {
+      const preset = presets[currentPreset];
+      const iterations = parseInt(document.getElementById('iterations').value);
+      const angle = parseInt(document.getElementById('angle').value);
+      const length = parseInt(document.getElementById('length').value);
+      
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, width, height);
+      
+      const lstring = generateLSystem(preset.axiom, preset.rules, iterations);
+      const hue = 120 + Math.random() * 60;
+      const segCount = drawLSystem(lstring, angle, length, hue);
+      
+      document.getElementById('stats').textContent = `Segments: ${segCount.toLocaleString()}`;
+    }
+
+    // Event listeners
+    document.getElementById('iterations').addEventListener('input', (e) => {
+      document.getElementById('iterVal').textContent = e.target.value;
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', generate);
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPreset = btn.dataset.preset;
+        
+        const preset = presets[currentPreset];
+        document.getElementById('iterations').value = preset.iterations;
+        document.getElementById('iterVal').textContent = preset.iterations;
+        document.getElementById('angle').value = preset.angle;
+        document.getElementById('length').value = preset.length;
+        
+        generate();
+      });
+    });
+
+    canvas.addEventListener('click', (e) => {
+      generate();
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+      generate();
+    });
+
+    // Init
+    resize();
+    generate();
+  </script>
+</body>
+</html>
