@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plasma Field — Shadow's Garden</title>
+<meta name="description">Interactive plasma field with perlin noise-driven color cycling</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 10;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #666;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 80px;
+    accent-color: #444;
+  }
+  button {
+    background: rgba(20, 20, 30, 0.8);
+    color: #888;
+    border: 1px solid #333;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: rgba(40, 40, 60, 0.9);
+    color: #aaa;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.1" max="3" value="1" step="0.1">
+    </div>
+    <div class="control-group">
+      <label>Scale</label>
+      <input type="range" id="scale" min="2" max="8" value="4" step="0.5">
+    </div>
+    <div class="control-group">
+      <label>Color Shift</label>
+      <input type="range" id="colorShift" min="0" max="1" value="0.5" step="0.05">
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <select id="preset" style="background:#14141e;color:#888;border:1px solid #333;padding:8px;border-radius:4px;font-size:0.8rem;">
+        <option value="plasma">Plasma</option>
+        <option value="fire">Fire</option>
+        <option value="ocean">Ocean</option>
+        <option value="nebula">Nebula</option>
+        <option value="matrix">Matrix</option>
+      </select>
+    </div>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let time = 0;
+    let speed = 1;
+    let scale = 4;
+    let colorShift = 0.5;
+    
+    // Simplex-like noise
+    const perm = new Uint8Array(512);
+    const grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+    
+    function initPerm(seed = Math.random() * 256) {
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+      for (let i = 255; i > 0; i--) {
+        const j = Math.floor((seed * (i + 1)) % (i + 1));
+        [p[i], p[j]] = [p[j], p[i]];
+        seed = (seed * 16807) % 2147483647;
+      }
+      for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+    }
+    
+    function dot3(g, x, y, z) {
+      return g[0]*x + g[1]*y + g[2]*z;
+    }
+    
+    function noise3D(x, y, z) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      const Z = Math.floor(z) & 255;
+      x -= Math.floor(x);
+      y -= Math.floor(y);
+      z -= Math.floor(z);
+      const u = x * x * x * (x * (x * 6 - 15) + 10);
+      const v = y * y * y * (y * (y * 6 - 15) + 10);
+      const w = z * z * z * (z * (z * 6 - 15) + 10);
+      const A = perm[X] + Y;
+      const AA = perm[A] + Z;
+      const AB = perm[A + 1] + Z;
+      const B = perm[X + 1] + Y;
+      const BA = perm[B] + Z;
+      const BB = perm[B + 1] + Z;
+      
+      const lerp = (t, a, b) => a + t * (b - a);
+      
+      return lerp(w,
+        lerp(v,
+          lerp(u, dot3(grad3[perm[AA] % 12], x, y, z), dot3(grad3[perm[BA] % 12], x-1, y, z)),
+          lerp(u, dot3(grad3[perm[AB] % 12], x, y-1, z), dot3(grad3[perm[BB] % 12], x-1, y-1, z))
+        ),
+        lerp(v,
+          lerp(u, dot3(grad3[perm[AA+1] % 12], x, y, z-1), dot3(grad3[perm[BA+1] % 12], x-1, y, z-1)),
+          lerp(u, dot3(grad3[perm[AB+1] % 12], x, y-1, z-1), dot3(grad3[perm[BB+1] % 12], x-1, y-1, z-1))
+        )
+      );
+    }
+    
+    function fbm(x, y, z, octaves = 4) {
+      let value = 0;
+      let amp = 0.5;
+      for (let i = 0; i < octaves; i++) {
+        value += amp * noise3D(x, y, z);
+        x *= 2; y *= 2; z *= 2;
+        amp *= 0.5;
+      }
+      return value;
+    }
+    
+    const presets = {
+      plasma: { r: 0, g: 1, b: 2 },
+      fire: { r: 0, g: 1, b: 2 },
+      ocean: { r: 2, g: 0, b: 1 },
+      nebula: { r: 1, g: 2, b: 0 },
+      matrix: { r: 1, g: 2, b: 0 }
+    };
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    
+    function hsv2rgb(h, s, v) {
+      let r, g, b;
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)];
+    }
+    
+    let currentPreset = 'plasma';
+    
+    function draw() {
+      const preset = presets[currentPreset];
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const nx = (x - cx) / (width / scale);
+          const ny = (y - cy) / (height / scale);
+          
+          let v = fbm(nx + time * 0.3, ny + time * 0.2, time * 0.1, 4);
+          v = (v + 1) / 2;
+          
+          // Apply preset color mapping
+          let h = (v * 0.3 + time * 0.05 * colorShift + preset.r * 0.3) % 1;
+          let s = 0.8;
+          let br = v;
+          
+          if (currentPreset === 'fire') {
+            h = v * 0.15;
+            s = 1;
+            br = v > 0.5 ? 1 : v * 2;
+          } else if (currentPreset === 'ocean') {
+            h = (v * 0.2 + 0.5) % 1;
+            s = 0.9;
+          } else if (currentPreset === 'nebula') {
+            h = (v * 0.4 + time * 0.02) % 1;
+            s = 0.7;
+          } else if (currentPreset === 'matrix') {
+            h = 0.3;
+            s = 1;
+            br = Math.floor(v * 10) / 10;
+          }
+          
+          const [r, g, b] = hsv2rgb(h, s, br);
+          
+          const i = (y * width + x) * 4;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = 255;
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function animate() {
+      time += 0.01 * speed;
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speed = parseFloat(e.target.value);
+    });
+    
+    document.getElementById('scale').addEventListener('input', (e) => {
+      scale = parseFloat(e.target.value);
+    });
+    
+    document.getElementById('colorShift').addEventListener('input', (e) => {
+      colorShift = parseFloat(e.target.value);
+    });
+    
+    document.getElementById('preset').addEventListener('change', (e) => {
+      currentPreset = e.target.value;
+      initPerm();
+    });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      initPerm();
+      time = 0;
+    });
+    
+    canvas.addEventListener('click', () => {
+      initPerm();
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    // Init
+    resize();
+    initPerm();
+    animate();
+  </script>
+</body>
+</html>
