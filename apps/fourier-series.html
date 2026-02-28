@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fourier Series — Shadow's Garden</title>
+<meta name="description">Draw any shape and watch Fourier epicycles trace it out. Math meets art.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    cursor: crosshair;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+    align-items: center;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+  .info {
+    color: #666;
+    font-size: 0.8rem;
+    margin-top: 10px;
+    text-align: center;
+    max-width: 600px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Fourier Series</h1>
+  <div class="subtitle">Draw a shape • Watch epicycles trace it</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Circles: <span id="circlesVal">100</span></label>
+      <input type="range" id="numCircles" min="10" max="300" value="100">
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.1" max="3" value="1" step="0.1">
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <select id="preset">
+        <option value="custom">Custom (draw)</option>
+        <option value="heart">Heart</option>
+        <option value="star">Star</option>
+        <option value="spiral">Spiral</option>
+        <option value="circle">Circle</option>
+        <option value="square">Square</option>
+        <option value="triangle">Triangle</option>
+      </select>
+    </div>
+    <div class="control-group>Actions">
+      <label</label>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <div class="control-group">
+      <label>Mode</label>
+      <button id="drawMode">Draw Mode</button>
+    </div>
+  </div>
+  
+  <div class="info" id="info">Click and drag to draw a shape, then watch the epicycles trace it!</div>
+  <div class="stats" id="stats">Time: 0.00</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let path = [];
+    let epicycles = [];
+    let time = 0;
+    let drawing = false;
+    let drawMode = true;
+    let speed = 1;
+    let numCircles = 100;
+    
+    const presets = {
+      heart: () => {
+        const pts = [];
+        for (let t = 0; t < Math.PI * 2; t += 0.05) {
+          const x = 16 * Math.pow(Math.sin(t), 3);
+          const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+          pts.push({x: x * 12, y: y * 12});
+        }
+        return pts;
+      },
+      star: () => {
+        const pts = [];
+        for (let i = 0; i < 10; i++) {
+          const t = (i / 10) * Math.PI * 2;
+          const r = i % 2 === 0 ? 120 : 50;
+          pts.push({x: Math.cos(t) * r, y: Math.sin(t) * r});
+        }
+        return pts;
+      },
+      spiral: () => {
+        const pts = [];
+        for (let t = 0; t < Math.PI * 6; t += 0.1) {
+          const r = t * 15;
+          pts.push({x: Math.cos(t) * r, y: Math.sin(t) * r});
+        }
+        return pts;
+      },
+      circle: () => {
+        const pts = [];
+        for (let t = 0; t < Math.PI * 2; t += 0.05) {
+          pts.push({x: Math.cos(t) * 100, y: Math.sin(t) * 100});
+        }
+        return pts;
+      },
+      square: () => {
+        const pts = [];
+        const s = 100;
+        for (let i = 0; i <= s; i++) pts.push({x: -s + i, y: -s});
+        for (let i = 0; i <= s * 2; i++) pts.push({x: i - s, y: s - s});
+        for (let i = 0; i <= s * 2; i++) pts.push({x: s, y: s - i});
+        for (let i = 0; i <= s * 2; i++) pts.push({x: s - i, y: -s});
+        return pts;
+      },
+      triangle: () => {
+        const pts = [];
+        const s = 120;
+        for (let i = 0; i <= s; i++) pts.push({x: -s/2 + i/2, y: s - i * Math.sqrt(3)/2});
+        for (let i = 0; i <= s; i++) pts.push({x: i, y: -s + i * Math.sqrt(3)/2});
+        for (let i = 0; i <= s; i++) pts.push({x: s - i/2, y: i * Math.sqrt(3)/2});
+        return pts;
+      }
+    };
+
+    function resize() {
+      width = Math.min(700, window.innerWidth - 40);
+      height = Math.min(500, window.innerHeight - 250);
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    function dft(signal) {
+      const X = [];
+      const N = signal.length;
+      
+      for (let k = 0; k < N; k++) {
+        let re = 0, im = 0;
+        for (let n = 0; n < N; n++) {
+          const phi = (2 * Math.PI * k * n) / N;
+          re += signal[n].x * Math.cos(phi) + signal[n].y * Math.sin(phi);
+          im += signal[n].y * Math.cos(phi) - signal[n].x * Math.sin(phi);
+        }
+        re = re / N;
+        im = im / N;
+        
+        const freq = k;
+        const amp = Math.sqrt(re * re + im * im);
+        const phase = Math.atan2(im, re);
+        
+        X.push({ re, im, freq, amp, phase });
+      }
+      
+      return X.sort((a, b) => b.amp - a.amp);
+    }
+
+    function drawEpicycles(cx, cy, fourier, time) {
+      let x = cx, y = cy;
+      
+      for (let i = 0; i < Math.min(fourier.length, numCircles); i++) {
+        const prevX = x, prevY = y;
+        const { freq, amp, phase } = fourier[i];
+        
+        x += amp * Math.cos(freq * time + phase);
+        y += amp * Math.sin(freq * time + phase);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = `hsla(${i * 3}, 70%, 60%, 0.3)`;
+        ctx.lineWidth = 1;
+        ctx.arc(prevX, prevY, amp, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.strokeStyle = `hsla(${i * 3}, 70%, 70%, 0.6)`;
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+      
+      return { x, y };
+    }
+
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.2)';
+      ctx.fillRect(0, 0, width, height);
+      
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      if (path.length > 1 && !drawMode) {
+        const fourier = dft(path);
+        const point = drawEpicycles(cx, cy, fourier, time);
+        
+        // Draw trail
+        if (pathTrail.length > 0) {
+          ctx.beginPath();
+          ctx.strokeStyle = '#ff6b6b';
+          ctx.lineWidth = 2;
+          ctx.moveTo(pathTrail[0].x + cx, pathTrail[0].y + cy);
+          for (const p of pathTrail) {
+            ctx.lineTo(p.x + cx, p.y + cy);
+          }
+          ctx.stroke();
+        }
+        
+        pathTrail.push(point);
+        if (pathTrail.length > 500) pathTrail.shift();
+        
+        // Draw current point
+        ctx.beginPath();
+        ctx.fillStyle = '#fff';
+        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      if (drawMode && path.length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#4d96ff';
+        ctx.lineWidth = 2;
+        ctx.moveTo(path[0].x + cx, path[0].y + cy);
+        for (const p of path) {
+          ctx.lineTo(p.x + cx, p.y + cy);
+        }
+        ctx.stroke();
+        
+        // Draw points
+        for (const p of path) {
+          ctx.beginPath();
+          ctx.fillStyle = '#4d96ff88';
+          ctx.arc(p.x + cx, p.y + cy, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
+      document.getElementById('stats').textContent = `Time: ${time.toFixed(2)} | Path points: ${path.length}`;
+    }
+
+    let pathTrail = [];
+    let animationId;
+
+    function animate() {
+      if (!drawMode && path.length > 1) {
+        time += 0.03 * speed;
+      }
+      draw();
+      animationId = requestAnimationFrame(animate);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!drawMode) return;
+      drawing = true;
+      path = [];
+      pathTrail = [];
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left - width / 2;
+      const y = e.clientY - rect.top - height / 2;
+      path.push({x, y});
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!drawing || !drawMode) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left - width / 2;
+      const y = e.clientY - rect.top - height / 2;
+      
+      const last = path[path.length - 1];
+      const dist = Math.sqrt((x - last.x) ** 2 + (y - last.y) ** 2);
+      if (dist > 3) {
+        path.push({x, y});
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      drawing = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      drawing = false;
+    });
+
+    document.getElementById('numCircles').addEventListener('input', (e) => {
+      numCircles = parseInt(e.target.value);
+      document.getElementById('circlesVal').textContent = numCircles;
+    });
+
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speed = parseFloat(e.target.value);
+    });
+
+    document.getElementById('preset').addEventListener('change', (e) => {
+      const name = e.target.value;
+      if (name !== 'custom' && presets[name]) {
+        path = presets[name]();
+        pathTrail = [];
+        time = 0;
+        drawMode = false;
+        document.getElementById('info').textContent = `Watching "${name}" — switch to Draw Mode to create your own!`;
+        document.getElementById('drawMode').textContent = 'Draw Mode';
+      }
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      path = [];
+      pathTrail = [];
+      time = 0;
+    });
+
+    document.getElementById('drawMode').addEventListener('click', () => {
+      drawMode = !drawMode;
+      document.getElementById('drawMode').textContent = drawMode ? 'Draw Mode' : 'Watch Mode';
+      document.getElementById('info').textContent = drawMode 
+        ? 'Click and drag to draw a shape!' 
+        : 'Click a preset or draw your own shape, then switch to Watch Mode!';
+      if (drawMode) {
+        pathTrail = [];
+        time = 0;
+      }
+    });
+
+    window.addEventListener('resize', resize);
+
+    resize();
+    animate();
+  </script>
+</body>
+</html>
