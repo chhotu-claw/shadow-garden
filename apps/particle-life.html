@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Particle Life — Shadow's Garden</title>
+<meta name="description">Emergent artificial life from simple attraction and repulsion rules between colored particles.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    cursor: crosshair;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 800px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+  .palette-display {
+    display: flex;
+    gap: 2px;
+    margin-top: 5px;
+  }
+  .palette-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Particle Life</h1>
+  <div class="subtitle">Click to add particles • Watch emergent behavior</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Particles: <span id="countVal">1200</span></label>
+      <input type="range" id="particleCount" min="200" max="3000" value="1200" step="100">
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.5" max="3" value="1" step="0.1">
+    </div>
+    <div class="control-group">
+      <label>Interaction Radius</label>
+      <input type="range" id="radius" min="20" max="150" value="80">
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <select id="preset">
+        <option value="default">Default</option>
+        <option value="cells">Cells</option>
+        <option value="vortex">Vortex</option>
+        <option value="islands">Islands</option>
+        <option value="chaos">Chaos</option>
+        <option value="orbiters">Orbiters</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Actions</label>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="control-group">
+      <label>Colors</label>
+      <div class="palette-display" id="palette"></div>
+    </div>
+  </div>
+  
+  <div class="stats" id="stats">FPS: 0</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let colors = [];
+    let rules = [];
+    let numColors = 5;
+    let interactionRadius = 80;
+    let speedScale = 1;
+    
+    const presets = {
+      default: [
+        [-0.1, 0.1, 0.1, 0.1, 0.1],
+        [0.1, -0.1, 0.1, 0.1, 0.1],
+        [0.1, 0.1, -0.1, 0.1, 0.1],
+        [0.1, 0.1, 0.1, -0.1, 0.1],
+        [0.1, 0.1, 0.1, 0.1, -0.1]
+      ],
+      cells: [
+        [-0.2, -0.1, -0.1, -0.1, -0.1],
+        [-0.1, -0.2, -0.1, -0.1, -0.1],
+        [-0.1, -0.1, -0.2, -0.1, -0.1],
+        [-0.1, -0.1, -0.1, -0.2, -0.1],
+        [-0.1, -0.1, -0.1, -0.1, -0.2]
+      ],
+      vortex: [
+        [0.5, 0.5, 0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5, 0.5, 0.5]
+      ],
+      islands: [
+        [-0.3, 0.2, 0.0, 0.0, 0.0],
+        [0.0, -0.3, 0.2, 0.0, 0.0],
+        [0.0, 0.0, -0.3, 0.2, 0.0],
+        [0.0, 0.0, 0.0, -0.3, 0.2],
+        [0.2, 0.0, 0.0, 0.0, -0.3]
+      ],
+      chaos: [
+        [0.3, -0.2, 0.1, -0.1, 0.2],
+        [-0.1, 0.2, -0.3, 0.1, -0.2],
+        [0.2, -0.1, 0.1, -0.2, 0.3],
+        [-0.2, 0.3, -0.1, 0.2, -0.1],
+        [0.1, -0.2, 0.3, -0.1, 0.1]
+      ],
+      orbiters: [
+        [0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.5, -0.1, 0.0, 0.0, 0.0],
+        [0.0, 0.5, -0.1, 0.0, 0.0],
+        [0.0, 0.0, 0.5, -0.1, 0.0],
+        [0.0, 0.0, 0.0, 0.5, -0.1]
+      ]
+    };
+
+    const colorPalettes = [
+      ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6'],
+      ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db'],
+      ['#ff9ff3', '#feca57', '#48dbfb', '#ff6b6b', '#54a0ff'],
+      ['#00d2d3', '#01a3a4', '#2e86de', '#5f27cd', '#ee5a24'],
+      ['#fc5c65', '#fd9644', '#fed330', '#26de81', '#45aaf2']
+    ];
+
+    function resize() {
+      width = Math.min(900, window.innerWidth - 40);
+      height = Math.min(600, window.innerHeight - 250);
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    function initParticles(count) {
+      particles = [];
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          color: Math.floor(Math.random() * numColors)
+        });
+      }
+    }
+
+    function applyRules() {
+      for (let i = 0; i < particles.length; i++) {
+        const p1 = particles[i];
+        let fx = 0;
+        let fy = 0;
+        
+        for (let j = 0; j < particles.length; j++) {
+          if (i === j) continue;
+          const p2 = particles[j];
+          
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < interactionRadius && dist > 0) {
+            const force = rules[p1.color][p2.color] * (1 - dist / interactionRadius);
+            fx += (dx / dist) * force;
+            fy += (dy / dist) * force;
+          }
+        }
+        
+        p1.vx = (p1.vx + fx * speedScale) * 0.95;
+        p1.vy = (p1.vy + fy * speedScale) * 0.95;
+      }
+    }
+
+    function update() {
+      applyRules();
+      
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        if (p.x < 0) { p.x = 0; p.vx *= -0.5; }
+        if (p.x > width) { p.x = width; p.vx *= -0.5; }
+        if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
+        if (p.y > height) { p.y = height; p.vy *= -0.5; }
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+      
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = colors[p.color];
+        ctx.fill();
+      }
+    }
+
+    let lastTime = performance.now();
+    let frames = 0;
+    let fps = 0;
+
+    function animate() {
+      update();
+      draw();
+      
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastTime = now;
+        document.getElementById('stats').textContent = `FPS: ${fps} | Particles: ${particles.length}`;
+      }
+      
+      requestAnimationFrame(animate);
+    }
+
+    function loadPreset(name) {
+      rules = JSON.parse(JSON.stringify(presets[name]));
+      colors = [...colorPalettes[Math.floor(Math.random() * colorPalettes.length)]];
+      updatePaletteDisplay();
+    }
+
+    function updatePaletteDisplay() {
+      const paletteDiv = document.getElementById('palette');
+      paletteDiv.innerHTML = '';
+      for (const c of colors) {
+        const div = document.createElement('div');
+        div.className = 'palette-color';
+        div.style.background = c;
+        paletteDiv.appendChild(div);
+      }
+    }
+
+    // Event listeners
+    document.getElementById('particleCount').addEventListener('input', (e) => {
+      const count = parseInt(e.target.value);
+      document.getElementById('countVal').textContent = count;
+      initParticles(count);
+    });
+
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speedScale = parseFloat(e.target.value);
+    });
+
+    document.getElementById('radius').addEventListener('input', (e) => {
+      interactionRadius = parseInt(e.target.value);
+    });
+
+    document.getElementById('preset').addEventListener('change', (e) => {
+      loadPreset(e.target.value);
+      initParticles(parseInt(document.getElementById('particleCount').value));
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      const preset = document.getElementById('preset').value;
+      loadPreset(preset);
+      initParticles(parseInt(document.getElementById('particleCount').value));
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: x + (Math.random() - 0.5) * 20,
+          y: y + (Math.random() - 0.5) * 20,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          color: Math.floor(Math.random() * numColors)
+        });
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+    });
+
+    // Init
+    resize();
+    loadPreset('default');
+    initParticles(1200);
+    animate();
+  </script>
+</body>
+</html>
