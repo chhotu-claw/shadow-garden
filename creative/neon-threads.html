@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Threads — Shadow's Garden</title>
+<meta name="description">Interactive thread art — click to spawn glowing threads that dance and connect</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    cursor: crosshair;
+  }
+  canvas {
+    display: block;
+  }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-size: 0.8rem;
+    font-family: monospace;
+    pointer-events: none;
+    transition: opacity 2s;
+  }
+  .hint.hidden {
+    opacity: 0;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="hint" id="hint">click to spawn threads • drag to pull</div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    
+    let threads = [];
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    let hintHidden = false;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    class Thread {
+      constructor(x, y) {
+        this.segments = [];
+        const numSegments = 12 + Math.random() * 8;
+        for (let i = 0; i < numSegments; i++) {
+          this.segments.push({
+            x: x + Math.random() * 20,
+            y: y + Math.random() * 20,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3
+          });
+        }
+        this.hue = Math.random() * 60 + 160; // cyans and blues
+        this.saturation = 80 + Math.random() * 20;
+        this.decay = 0.3 + Math.random() * 0.4;
+        this.life = 1;
+        this.connected = false;
+      }
+      
+      update() {
+        const head = this.segments[0];
+        
+        // Mouse influence
+        if (mouseDown) {
+          const dx = mouseX - head.x;
+          const dy = mouseY - head.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 200) {
+            const force = (200 - dist) / 200 * 0.5;
+            head.vx += (dx / dist) * force;
+            head.vy += (dy / dist) * force;
+          }
+        }
+        
+        // Physics
+        for (let i = 0; i < this.segments.length; i++) {
+          const seg = this.segments[i];
+          seg.vy += 0.05; // gravity
+          seg.vx *= 0.98;
+          seg.vy *= 0.98;
+          seg.x += seg.vx;
+          seg.y += seg.vy;
+          
+          // Constraint to previous
+          if (i > 0) {
+            const prev = this.segments[i-1];
+            const dx = seg.x - prev.x;
+            const dy = seg.y - prev.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const targetLen = 15;
+            if (dist > 0) {
+              const diff = dist - targetLen;
+              const move = diff * 0.5;
+              seg.x -= (dx / dist) * move;
+              seg.y -= (dy / dist) * move;
+            }
+          }
+        }
+        
+        // Bounce off walls
+        for (const seg of this.segments) {
+          if (seg.x < 0) { seg.x = 0; seg.vx *= -0.5; }
+          if (seg.x > width) { seg.x = width; seg.vx *= -0.5; }
+          if (seg.y < 0) { seg.y = 0; seg.vy *= -0.5; }
+          if (seg.y > height) { seg.y = height; seg.vy *= -0.5; }
+        }
+        
+        this.life -= 0.001 * this.decay;
+      }
+      
+      draw() {
+        if (this.life <= 0) return;
+        
+        ctx.beginPath();
+        ctx.moveTo(this.segments[0].x, this.segments[0].y);
+        
+        for (let i = 1; i < this.segments.length; i++) {
+          const prev = this.segments[i-1];
+          const curr = this.segments[i];
+          const cx = (prev.x + curr.x) / 2;
+          const cy = (prev.y + curr.y) / 2;
+          ctx.quadraticCurveTo(prev.x, prev.y, cx, cy);
+        }
+        
+        ctx.lineTo(this.segments[this.segments.length-1].x, this.segments[this.segments.length-1].y);
+        
+        const alpha = this.life * 0.8;
+        ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 60%, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        
+        // Glow
+        ctx.shadowColor = `hsla(${this.hue}, ${this.saturation}%, 60%, ${alpha})`;
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    }
+    
+    // Thread-to-thread connections
+    function findConnections() {
+      for (let i = 0; i < threads.length; i++) {
+        for (let j = i + 1; j < threads.length; j++) {
+          const t1 = threads[i];
+          const t2 = threads[j];
+          if (t1.life <= 0 || t2.life <= 0) continue;
+          
+          const h1 = t1.segments[0];
+          const h2 = t2.segments[0];
+          const dx = h1.x - h2.x;
+          const dy = h1.y - h2.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          
+          if (dist < 100) {
+            const alpha = (1 - dist / 100) * Math.min(t1.life, t2.life) * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(h1.x, h1.y);
+            ctx.lineTo(h2.x, h2.y);
+            ctx.strokeStyle = `hsla(${(t1.hue + t2.hue)/2}, 70%, 50%, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Update and draw threads
+      for (const thread of threads) {
+        thread.update();
+        thread.draw();
+      }
+      
+      // Draw connections
+      findConnections();
+      
+      // Remove dead threads
+      threads = threads.filter(t => t.life > 0);
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Events
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (!hintHidden) {
+        document.getElementById('hint').classList.add('hidden');
+        hintHidden = true;
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      mouseDown = false;
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      for (let i = 0; i < 3; i++) {
+        threads.push(new Thread(e.clientX + (Math.random()-0.5)*30, e.clientY + (Math.random()-0.5)*30));
+      }
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    // Init
+    resize();
+    // Spawn a few initial threads
+    for (let i = 0; i < 3; i++) {
+      threads.push(new Thread(width/2 + (Math.random()-0.5)*100, height/2 + (Math.random()-0.5)*100));
+    }
+    animate();
+  </script>
+</body>
+</html>
