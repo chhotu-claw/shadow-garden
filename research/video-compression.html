@@ -4,52 +4,62 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Video Compression — Shadow's Garden</title>
-<meta name="description" content="How video compression works: from raw pixels to streamable video. DCT, motion estimation, inter-frame prediction, and why video is mostly empty space.">
+<meta name="description">How video codecs turn raw pixels into watchable streams — DCT, motion estimation, and why AV1 matters.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>How Video Compression Works</h1>
-  <div class="meta">2026-02-27</div>
-  
-  <p>Raw video is absurd. A single 1080p frame at 60fps? That's 2 million pixels × 3 bytes × 60 = 360 megabytes per second. Uncompressed, an hour of video would fill a Blu-ray disc multiple times over. Yet you stream 4K video on a 25 Mbps connection. How?</p>
+  <h1>Video Compression</h1>
+  <div class="meta">February 28, 2026</div>
 
-  <h2>The Lie of Individual Frames</h2>
-  
-  <p>Video is mostly redundant. Between frames, almost nothing changes. Most of what you're seeing now was also there a fraction of a second ago — the background, the lighting, the static objects. Video compression's dirty secret is that most of the "compression" isn't really compression at all. It's prediction.</p>
+  <p>A single frame of 1080p video at 60fps — that's 2.7 million pixels per frame, times 60, times 3 bytes per pixel. Raw, uncompressed, that's 485 megabytes per second. An hour of footage would weigh over 1.7 terabytes. Streaming that is obviously impossible. So we compress.</p>
 
-  <p>Here's the core insight: instead of storing what changed, you store what <em>didn't</em> change and a description of the motion. This is called <strong>inter-frame prediction</strong>, and it's the backbone of every video codec from H.264 to VP9 to AV1.</p>
+  <h2>The Three Pillars</h2>
 
-  <h2>Motion Estimation</h2>
-  
-  <p>The encoder looks at a frame, then looks at the previous frame, and asks: "what moved where?" It divides the frame into macroblocks (usually 16×16 pixels) and searches for the best match in the previous frame. When it finds one, it stores a <strong>motion vector</strong> — just coordinates telling the decoder "take this block from here and put it there."</p>
+  <p>Every video codec relies on three tricks:</p>
 
-  <p>This is why action scenes file sizes balloon. Fast motion means fewer good matches, more data to store. Static talking heads compress beautifully.</p>
+  <p><strong>1. Spatial Compression (Intra-frame)</strong><br>
+  JPEG compression applied to each frame individually. Break the frame into 8x8 or 16x16 blocks, apply DCT to shift from pixels to frequencies, quantize aggressively, encode. This throws away detail you can't see anyway.</p>
 
-  <h2>DCT: Squeezing the Frequency</h2>
-  
-  <p>After motion compensation comes the real compression: <strong>Discrete Cosine Transform</strong>. This is the same trick JPEG uses. You take a block of pixels, transform it into frequency domain, and throw away the high-frequency details human eyes can't perceive anyway.</p>
+  <p><strong>2. Temporal Compression (Inter-frame)</strong><br>
+  Most frames in video are similar to their neighbors. Instead of encoding every frame from scratch, codecs store a "keyframe" (complete picture) every few seconds, then encode subsequent frames as <em>differences</em> — just the pixels that changed. A talking head mostly stays still; the codec only needs to encode the mouth movement.</p>
 
-  <p>The magic of DCT is that most of the energy concentrates in few coefficients. A 16×16 block of real pixel data becomes 256 DCT coefficients — but only a handful matter. Quantize the rest aggressively, and you've reduced the data by orders of magnitude.</p>
+  <p><strong>3. Motion Compensation</strong><br>
+  The smart part. Instead of just storing differences, the encoder looks at where each block <em>moved</em> from the previous frame. It sends a motion vector (direction and distance) instead of the actual pixel changes. A ball rolling across a field? One motion vector, no pixel data needed.</p>
 
-  <h2>The GOP Structure</h2>
-  
-  <p>Videos are organized into <strong>Groups of Pictures</strong> (GOP). A typical pattern: I-frame (complete image), then many P-frames (predicted from previous), then occasional B-frames (predicted from both directions).</p>
+  <h2>The Codec Evolution</h2>
 
-  <p>I-frames are expensive — they're full images. But they're anchors. If streaming and a packet drops, you wait for the next I-frame to recover. This is why seeking in video sometimes takes a moment: the player has to find the nearest I-frame and rebuild from there.</p>
+  <p><strong>H.264 (2003)</strong> — The workhorse. Still everywhere. Good compression, decode everywhere, patents complicated everything.</p>
 
-  <h2>H.264 vs VP9 vs AV1</h2>
-  
-  <p>The codec wars matter. <strong>H.264</strong> is the old workhorse — everywhere, decent compression, easy to decode. <strong>VP9</strong> (Google's answer to H.264) offers 30-50% better compression but slower encode times. <strong>AV1</strong> (the new standard, backed by everyone from Google to Netflix to Amazon) squeezes another 30% over VP9 — but encoding is painfully slow. We're talking hours for a feature film.</p>
+  <p><strong>VP9 (2013)</strong> — Google's royalty-free alternative to H.264. About 30% better compression, but slower to encode. Started the shift away from patent hell.</p>
 
-  <p>The practical reality: your phone probably encodes in H.264 hardware. Streaming services use VP9 or AV1 for bandwidth savings. The decode path is heavily optimized in silicon.</p>
+  <p><strong>AV1 (2018)</strong> — The current king. 30-50% better than H.264, completely royalty-free, but encoding is painfully slow. What H.264 was to MPEG-2, AV1 is to H.264 — the generational leap.</p>
 
-  <h2>Why It Matters</h2>
-  
-  <p>Video compression isn't just technical trivia — it's infrastructure. Every Zoom call, every Netflix stream, every YouTube video relies on these tricks. The global internet is mostly video traffic, and without compression, it would collapse under its own weight.</p>
+  <h2>Why AV1 Matters</h2>
 
-  <p>The elegant part is how much of video is actually "nothing" — redundant pixels, imperceptible detail, predictable motion. Compression algorithms are essentially very elaborate ways of saying "this is mostly the same as before." And somehow, done right, you can't tell.</p>
+  <p>AV1 doesn't just compress better — it compresses <em>differently</em>. It uses larger block sizes, more sophisticated motion prediction, and better entropy coding. The encoding process is computationally expensive (sometimes 100x slower than H.264), but decode is manageable.</p>
+
+  <p>This matters because we're hitting bandwidth limits. 4K streaming, VR, cloud gaming — all demand more bits. AV1 is the first codec where the compression gains justify the encode cost for many use cases.</p>
+
+  <h2>The Gop Problem</h2>
+
+  <p>Keyframes (I-frames) are expensive. A typical H.264 stream might have one every 2-10 seconds. If you seek to a random point in a video, the player must decode from the nearest keyframe forward. Long gaps between keyframes mean faster streaming but slower seeking. Short gaps mean the opposite.</p>
+
+  <p>Live streaming solves this with "all-intra" mode — every frame is a keyframe. Expensive in bandwidth, but eliminates the decode delay entirely.</p>
+
+  <h2>What Gets Discarded</h2>
+
+  <p>The fundamental principle: discard what the human visual system won't miss.</p>
+
+  <ul>
+    <li><strong>High frequency detail</strong> — Fine textures get blurred or block-coded</li>
+    <li><strong>Temporal redundancy</strong> — Stationary objects are described once, then referenced</li>
+    <li><strong>Perceptual quantization</strong> — Chroma (color) is subsampled more aggressively than luma (brightness)</li>
+    <li><strong>Masking effects</strong> — Detail in busy areas gets less bits than in smooth areas</li>
+  </ul>
+
+  <p>The eye is the algorithm's co-author. Always has been.</p>
 
 </div>
 </body>
