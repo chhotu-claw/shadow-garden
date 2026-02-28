@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voronoi Bloom — Shadow's Garden</title>
+<meta name="description">Interactive Voronoi diagram that pulses and blooms. Click to seed new sites, watch regions compete for territory.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: #0a0a0f;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-size: 0.8rem;
+    font-family: monospace;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="hint">click to seed • regions compete for territory</div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let sites = [];
+    let targetSiteCount = 30;
+    let animating = true;
+    
+    // Color palette - jewel tones
+    const palettes = [
+      ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#10ac84'],
+      ['#ee5a24', '#f39c12', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6', '#e74c3c', '#1abc9c'],
+      ['#fd79a8', '#a29bfe', '#74b9ff', '#81ecec', '#55efc4', '#a3e4d7', '#f8c291', '#e77f67']
+    ];
+    let palette = palettes[0];
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    
+    function init() {
+      sites = [];
+      palette = palettes[Math.floor(Math.random() * palettes.length)];
+      
+      // Start with random sites
+      for (let i = 0; i < targetSiteCount; i++) {
+        addSite(Math.random() * width, Math.random() * height);
+      }
+    }
+    
+    function addSite(x, y) {
+      sites.push({
+        x: x,
+        y: y,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        birth: performance.now(),
+        targetX: x,
+        targetY: y,
+        vx: 0,
+        vy: 0
+      });
+    }
+    
+    // Voronoi computation (simplified - just finding closest site per pixel would be too slow)
+    // Instead we use a pixel-based approach with a grid
+    function drawVoronoi() {
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      // Subsample for performance
+      const step = 2;
+      
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          let minDist = Infinity;
+          let closest = null;
+          
+          // Find closest site
+          for (const site of sites) {
+            const dx = x - site.x;
+            const dy = y - site.y;
+            const dist = dx * dx + dy * dy;
+            if (dist < minDist) {
+              minDist = dist;
+              closest = site;
+            }
+          }
+          
+          if (closest) {
+            // Add some bloom/glow effect
+            const age = (performance.now() - closest.birth) / 1000;
+            const pulse = Math.sin(age * 2) * 0.1 + 0.9;
+            const dist = Math.sqrt(minDist);
+            const falloff = Math.max(0, 1 - dist / 300);
+            
+            // Parse color
+            const c = hexToRgb(closest.color);
+            const brightness = falloff * pulse;
+            
+            // Fill the pixel block
+            for (let dy = 0; dy < step && y + dy < height; dy++) {
+              for (let dx = 0; dx < step && x + dx < width; dx++) {
+                const idx = ((y + dy) * width + (x + dx)) * 4;
+                data[idx] = c.r * brightness;
+                data[idx + 1] = c.g * brightness;
+                data[idx + 2] = c.b * brightness;
+                data[idx + 3] = 255;
+              }
+            }
+          }
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 255, g: 255, b: 255 };
+    }
+    
+    function update() {
+      // Slowly drift sites toward interesting positions
+      for (const site of sites) {
+        // Add some gentle floating motion
+        const time = performance.now() / 1000;
+        const drift = Math.sin(time + site.birth / 1000) * 0.3;
+        
+        site.x += drift;
+        site.y += Math.cos(time * 0.7 + site.birth / 500) * 0.2;
+        
+        // Keep in bounds
+        if (site.x < 0) site.x = 0;
+        if (site.x > width) site.x = width;
+        if (site.y < 0) site.y = 0;
+        if (site.y > height) site.y = height;
+      }
+    }
+    
+    function draw() {
+      // Dark background with slight trail
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.3)';
+      ctx.fillRect(0, 0, width, height);
+      
+      drawVoronoi();
+      
+      // Draw site markers
+      for (const site of sites) {
+        const age = (performance.now() - site.birth) / 1000;
+        const pulse = Math.sin(age * 3) * 2 + 4;
+        
+        ctx.beginPath();
+        ctx.arc(site.x, site.y, pulse, 0, Math.PI * 2);
+        ctx.fillStyle = site.color;
+        ctx.fill();
+        
+        // White center
+        ctx.beginPath();
+        ctx.arc(site.x, site.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+    }
+    
+    function animate() {
+      if (animating) {
+        update();
+        draw();
+      }
+      requestAnimationFrame(animate);
+    }
+    
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Add a new site
+      addSite(x, y);
+      
+      // Occasionally pick new palette
+      if (Math.random() < 0.3) {
+        palette = palettes[Math.floor(Math.random() * palettes.length)];
+        sites.forEach(s => {
+          s.color = palette[Math.floor(Math.random() * palette.length)];
+        });
+      }
+    });
+    
+    canvas.addEventListener('dblclick', () => {
+      // Reset
+      init();
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    resize();
+    init();
+    animate();
+  </script>
+</body>
+</html>
