@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Falling Sand — Shadow's Garden</title>
+<meta name="description">Interactive falling sand cellular automata. Draw, watch particles fall, pile, and flow.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    cursor: crosshair;
+    image-rendering: pixelated;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 700px;
+  }
+  .material-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.2s;
+  }
+  .material-btn:hover {
+    transform: scale(1.1);
+  }
+  .material-btn.active {
+    border-color: #fff;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .action-btn {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .action-btn:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .brush-sizes {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .brush-sizes label {
+    color: #888;
+    font-size: 0.75rem;
+  }
+  .brush-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid #444;
+    background: #222;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .brush-btn.active {
+    border-color: #888;
+    background: #333;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+  .legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: #666;
+  }
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Falling Sand</h1>
+  <div class="subtitle">Click and drag to place particles • Watch them fall, pile, and flow</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <button class="material-btn active" data-type="sand" style="background: #e6c86e" title="Sand"></button>
+    <button class="material-btn" data-type="water" style="background: #4dabf7" title="Water"></button>
+    <button class="material-btn" data-type="stone" style="background: #868e96" title="Stone"></button>
+    <button class="material-btn" data-type="fire" style="background: #ff6b6b" title="Fire"></button>
+    <button class="material-btn" data-type="smoke" style="background: #495057" title="Smoke"></button>
+    <button class="material-btn" data-type="acid" style="background: #69db7c" title="Acid"></button>
+    <button class="material-btn" data-type="oil" style="background: #845ef7" title="Oil"></button>
+    <button class="material-btn" data-type="eraser" style="background: #0a0a0f; border: 1px solid #444" title="Eraser"></button>
+    
+    <div style="width: 20px"></div>
+    
+    <div class="brush-sizes">
+      <label>Brush:</label>
+      <button class="brush-btn active" data-size="1">·</button>
+      <button class="brush-btn" data-size="3">○</button>
+      <button class="brush-btn" data-size="5">◯</button>
+    </div>
+    
+    <div style="width: 20px"></div>
+    
+    <button class="action-btn" id="clearBtn">Clear</button>
+    <button class="action-btn" id="rainBtn">Rain</button>
+  </div>
+  
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#e6c86e"></div> Sand</div>
+    <div class="legend-item"><div class="legend-color" style="background:#4dabf7"></div> Water</div>
+    <div class="legend-item"><div class="legend-color" style="background:#868e96"></div> Stone</div>
+    <div class="legend-item"><div class="legend-color" style="background:#ff6b6b"></div> Fire</div>
+    <div class="legend-item"><div class="legend-color" style="background:#495057"></div> Smoke</div>
+    <div class="legend-item"><div class="legend-color" style="background:#69db7c"></div> Acid</div>
+    <div class="legend-item"><div class="legend-color" style="background:#845ef7"></div> Oil</div>
+  </div>
+  
+  <div class="stats" id="stats">Particles: 0</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const CELL_SIZE = 4;
+    let width = Math.min(900, window.innerWidth - 40);
+    let height = Math.min(550, window.innerHeight - 300);
+    let cols = Math.floor(width / CELL_SIZE);
+    let rows = Math.floor(height / CELL_SIZE);
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Cell types
+    const EMPTY = 0, SAND = 1, WATER = 2, STONE = 3, FIRE = 4, SMOKE = 5, ACID = 6, OIL = 7;
+    
+    let grid = new Uint8Array(cols * rows);
+    let colors = {
+      [EMPTY]: '#0a0a0f',
+      [SAND]: '#e6c86e',
+      [WATER]: '#4dabf7',
+      [STONE]: '#868e96',
+      [FIRE]: '#ff6b6b',
+      [SMOKE]: '#495057',
+      [ACID]: '#69db7c',
+      [OIL]: '#845ef7'
+    };
+    
+    let currentType = SAND;
+    let brushSize = 1;
+    let isDrawing = false;
+    let particleCount = 0;
+    
+    function getIdx(x, y) {
+      return y * cols + x;
+    }
+    
+    function drawCell(x, y, type) {
+      if (x < 0 || x >= cols || y < 0 || y >= rows) return;
+      grid[getIdx(x, y)] = type;
+    }
+    
+    function getCell(x, y) {
+      if (x < 0 || x >= cols || y < 0 || y >= rows) return STONE;
+      return grid[getIdx(x, y)];
+    }
+    
+    function clearCell(x, y) {
+      if (x < 0 || x >= cols || y < 0 || y >= rows) return;
+      grid[getIdx(x, y)] = EMPTY;
+    }
+    
+    function drawAt(screenX, screenY) {
+      const cx = Math.floor(screenX / CELL_SIZE);
+      const cy = Math.floor(screenY / CELL_SIZE);
+      
+      for (let dy = -brushSize; dy <= brushSize; dy++) {
+        for (let dx = -brushSize; dx <= brushSize; dx++) {
+          if (dx * dx + dy * dy <= brushSize * brushSize) {
+            if (currentType === EMPTY) {
+              clearCell(cx + dx, cy + dy);
+            } else {
+              drawCell(cx + dx, cy + dy, currentType);
+            }
+          }
+        }
+      }
+    }
+    
+    function update() {
+      let newGrid = new Uint8Array(grid);
+      particleCount = 0;
+      
+      // Process from bottom to top for falling particles
+      for (let y = rows - 1; y >= 0; y--) {
+        // Randomize horizontal direction
+        const leftFirst = Math.random() < 0.5;
+        
+        for (let i = 0; i < cols; i++) {
+          const x = leftFirst ? i : cols - 1 - i;
+          const idx = getIdx(x, y);
+          const cell = grid[idx];
+          
+          if (cell === EMPTY || cell === STONE) continue;
+          particleCount++;
+          
+          // SAND: falls down, piles, displaces water
+          if (cell === SAND) {
+            if (y + 1 < rows) {
+              const below = grid[getIdx(x, y + 1)];
+              if (below === EMPTY) {
+                newGrid[getIdx(x, y + 1)] = SAND;
+                newGrid[idx] = EMPTY;
+              } else if (below === WATER) {
+                newGrid[getIdx(x, y + 1)] = SAND;
+                newGrid[getIdx(x, y)] = WATER;
+              } else if (below === ACID) {
+                newGrid[idx] = EMPTY; // dissolved
+              } else if (x + 1 < cols && grid[getIdx(x + 1, y + 1)] === EMPTY) {
+                newGrid[getIdx(x + 1, y + 1)] = SAND;
+                newGrid[idx] = EMPTY;
+              } else if (x - 1 >= 0 && grid[getIdx(x - 1, y + 1)] === EMPTY) {
+                newGrid[getIdx(x - 1, y + 1)] = SAND;
+                newGrid[idx] = EMPTY;
+              }
+            }
+          }
+          
+          // WATER: flows down and sideways
+          if (cell === WATER) {
+            if (y + 1 < rows && grid[getIdx(x, y + 1)] === EMPTY) {
+              newGrid[getIdx(x, y + 1)] = WATER;
+              newGrid[idx] = EMPTY;
+            } else {
+              const dirs = [1, -1];
+              for (const dir of dirs) {
+                if (x + dir >= 0 && x + dir < cols && grid[getIdx(x + dir, y)] === EMPTY) {
+                  newGrid[getIdx(x + dir, y)] = WATER;
+                  newGrid[idx] = EMPTY;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // FIRE: rises, flickers, burns
+          if (cell === FIRE) {
+            if (Math.random() < 0.1) {
+              newGrid[idx] = EMPTY; // flicker out
+              continue;
+            }
+            // Rise up
+            if (y > 0 && grid[getIdx(x, y - 1)] === EMPTY) {
+              newGrid[getIdx(x, y - 1)] = FIRE;
+              newGrid[idx] = EMPTY;
+            } else if (y > 0 && grid[getIdx(x, y - 1)] === OIL) {
+              newGrid[getIdx(x, y - 1)] = FIRE;
+              newGrid[idx] = FIRE;
+            } else if (x + 1 < cols && y > 0 && grid[getIdx(x + 1, y - 1)] === EMPTY && Math.random() < 0.3) {
+              newGrid[getIdx(x + 1, y - 1)] = FIRE;
+              newGrid[idx] = EMPTY;
+            } else if (x - 1 >= 0 && y > 0 && grid[getIdx(x - 1, y - 1)] === EMPTY && Math.random() < 0.3) {
+              newGrid[getIdx(x - 1, y - 1)] = FIRE;
+              newGrid[idx] = EMPTY;
+            }
+            // Spread to oil
+            const neighbors = [[1,0],[-1,0],[0,1],[0,-1]];
+            for (const [dx, dy] of neighbors) {
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && grid[getIdx(nx, ny)] === OIL) {
+                if (Math.random() < 0.05) {
+                  newGrid[getIdx(nx, ny)] = FIRE;
+                }
+              }
+            }
+          }
+          
+          // SMOKE: rises slowly
+          if (cell === SMOKE) {
+            if (Math.random() < 0.02) {
+              newGrid[idx] = EMPTY; // dissipate
+              continue;
+            }
+            if (y > 0 && grid[getIdx(x, y - 1)] === EMPTY) {
+              newGrid[getIdx(x, y - 1)] = SMOKE;
+              newGrid[idx] = EMPTY;
+            } else if (y > 0 && x + 1 < cols && grid[getIdx(x + 1, y - 1)] === EMPTY && Math.random() < 0.3) {
+              newGrid[getIdx(x + 1, y - 1)] = SMOKE;
+              newGrid[idx] = EMPTY;
+            } else if (y > 0 && x - 1 >= 0 && grid[getIdx(x - 1, y - 1)] === EMPTY && Math.random() < 0.3) {
+              newGrid[getIdx(x - 1, y - 1)] = SMOKE;
+              newGrid[idx] = EMPTY;
+            } else if (x + 1 < cols && grid[getIdx(x + 1, y)] === EMPTY && Math.random() < 0.1) {
+              newGrid[getIdx(x + 1, y)] = SMOKE;
+              newGrid[idx] = EMPTY;
+            } else if (x - 1 >= 0 && grid[getIdx(x - 1, y)] === EMPTY && Math.random() < 0.1) {
+              newGrid[getIdx(x - 1, y)] = SMOKE;
+              newGrid[idx] = EMPTY;
+            }
+          }
+          
+          // ACID: falls, dissolves things below
+          if (cell === ACID) {
+            if (y + 1 < rows) {
+              const below = grid[getIdx(x, y + 1)];
+              if (below === EMPTY) {
+                newGrid[getIdx(x, y + 1)] = ACID;
+                newGrid[idx] = EMPTY;
+              } else if (below !== ACID && below !== STONE && Math.random() < 0.1) {
+                newGrid[getIdx(x, y + 1)] = ACID;
+                newGrid[idx] = EMPTY;
+              }
+            }
+          }
+          
+          // OIL: falls slowly, flammable
+          if (cell === OIL) {
+            if (y + 1 < rows && grid[getIdx(x, y + 1)] === EMPTY) {
+              newGrid[getIdx(x, y + 1)] = OIL;
+              newGrid[idx] = EMPTY;
+            } else if (y + 1 < rows && grid[getIdx(x, y + 1)] === WATER) {
+              newGrid[getIdx(x, y + 1)] = OIL;
+              newGrid[idx] = WATER;
+            } else {
+              const dirs = [1, -1];
+              for (const dir of dirs) {
+                if (x + dir >= 0 && x + dir < cols && grid[getIdx(x + dir, y)] === EMPTY) {
+                  newGrid[getIdx(x + dir, y)] = OIL;
+                  newGrid[idx] = EMPTY;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      grid = newGrid;
+    }
+    
+    function draw() {
+      const imgData = ctx.createImageData(width, height);
+      const data = imgData.data;
+      
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const cell = grid[getIdx(x, y)];
+          if (cell === EMPTY) continue;
+          
+          const color = colors[cell];
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+          
+          // Draw pixel with slight variation
+          for (let py = 0; py < CELL_SIZE; py++) {
+            for (let px = 0; px < CELL_SIZE; px++) {
+              const idx = ((y * CELL_SIZE + py) * width + (x * CELL_SIZE + px)) * 4;
+              const variation = Math.random() * 20 - 10;
+              data[idx] = Math.max(0, Math.min(255, r + variation));
+              data[idx + 1] = Math.max(0, Math.min(255, g + variation));
+              data[idx + 2] = Math.max(0, Math.min(255, b + variation));
+              data[idx + 3] = 255;
+            }
+          }
+        }
+      }
+      
+      ctx.putImageData(imgData, 0, 0);
+      document.getElementById('stats').textContent = `Particles: ${particleCount.toLocaleString()}`;
+    }
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      drawAt(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      drawAt(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+    
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      drawAt(touch.clientX - rect.left, touch.clientY - rect.top);
+    });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      drawAt(touch.clientX - rect.left, touch.clientY - rect.top);
+    });
+    
+    canvas.addEventListener('touchend', () => isDrawing = false);
+    
+    // Material buttons
+    document.querySelectorAll('.material-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.material-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const type = btn.dataset.type;
+        currentType = type === 'eraser' ? EMPTY : 
+          type === 'sand' ? SAND :
+          type === 'water' ? WATER :
+          type === 'stone' ? STONE :
+          type === 'fire' ? FIRE :
+          type === 'smoke' ? SMOKE :
+          type === 'acid' ? ACID :
+          type === 'oil' ? OIL : SAND;
+      });
+    });
+    
+    // Brush sizes
+    document.querySelectorAll('.brush-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        brushSize = parseInt(btn.dataset.size);
+      });
+    });
+    
+    // Clear button
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      grid = new Uint8Array(cols * rows);
+    });
+    
+    // Rain button
+    document.getElementById('rainBtn').addEventListener('click', () => {
+      for (let i = 0; i < 50; i++) {
+        const x = Math.floor(Math.random() * cols);
+        const y = Math.floor(Math.random() * 10);
+        grid[getIdx(x, y)] = Math.random() < 0.7 ? SAND : WATER;
+      }
+    });
+    
+    // Start
+    animate();
+  </script>
+</body>
+</html>
