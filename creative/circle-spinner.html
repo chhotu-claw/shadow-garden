@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Spinner — Shadow's Garden</title>
+<meta name="description">Harmonic circles that dance and weave patterns. Click to add energy.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.5rem;
+    font-weight: 300;
+    margin: 15px 0 5px;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    color: #555;
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+  }
+  canvas {
+    border-radius: 4px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    background: rgba(10,10,15,0.9);
+    padding: 12px 24px;
+    border-radius: 30px;
+    border: 1px solid #222;
+  }
+  label {
+    color: #666;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 80px;
+    accent-color: #888;
+  }
+  button {
+    background: #1a1a20;
+    color: #aaa;
+    border: 1px solid #333;
+    padding: 6px 14px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+    color: #ddd;
+  }
+  .hint {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: #333;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>CIRCLE SPINNER</h1>
+  <div class="subtitle">harmonic circles weaving patterns</div>
+  <canvas id="canvas"></canvas>
+  <div class="hint">click to add energy</div>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Circles</label>
+      <input type="range" id="count" min="3" max="30" value="12">
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.1" max="3" value="1" step="0.1">
+    </div>
+    <div class="control-group">
+      <label>Radius</label>
+      <input type="range" id="radius" min="50" max="300" value="150">
+    </div>
+    <div class="control-group">
+      <label>Spread</label>
+      <input type="range" id="spread" min="0.1" max="2" value="0.5" step="0.1">
+    </div>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let circles = [];
+    let time = 0;
+    let speedScale = 1;
+    let baseRadius = 150;
+    let circleCount = 12;
+    let spread = 0.5;
+    let mouseEnergy = 0;
+    
+    const palettes = [
+      ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff'],
+      ['#00d2d3', '#01a3a4', '#2e86de', '#5f27cd', '#ff9f43'],
+      ['#fc5c65', '#fd9644', '#fed330', '#26de81', '#45aaf2'],
+      ['#a55eea', '#26de81', '#fd9644', '#fc5c65', '#45aaf2'],
+      ['#f8b739', '#e17055', '#00cec9', '#6c5ce7', '#fd79a8']
+    ];
+    let colors = palettes[0];
+    
+    function resize() {
+      width = Math.min(900, window.innerWidth - 40);
+      height = Math.min(600, window.innerHeight - 150);
+      canvas.width = width;
+      canvas.height = height;
+    }
+    
+    function initCircles() {
+      colors = palettes[Math.floor(Math.random() * palettes.length)];
+      circles = [];
+      const centerX = width / 2;
+      const centerY = height / 2;
+      
+      for (let i = 0; i < circleCount; i++) {
+        const angle = (Math.PI * 2 / circleCount) * i;
+        const dist = baseRadius * 0.3;
+        circles.push({
+          angle: angle,
+          radiusOffset: 0.8 + Math.random() * 0.4,
+          speedOffset: 0.8 + Math.random() * 0.4,
+          phase: Math.random() * Math.PI * 2,
+          x: centerX,
+          y: centerY,
+          color: colors[i % colors.length],
+          lineWidth: 1 + Math.random() * 2
+        });
+      }
+    }
+    
+    function update() {
+      time += 0.016 * speedScale;
+      mouseEnergy *= 0.98;
+      
+      const centerX = width / 2;
+      const centerY = height / 2;
+      
+      for (let i = 0; i < circles.length; i++) {
+        const c = circles[i];
+        const angleVel = c.speedOffset * spread;
+        c.angle += angleVel * 0.016 * speedScale;
+        
+        const wobble = Math.sin(time * 2 + c.phase) * baseRadius * 0.2;
+        const r = baseRadius * c.radiusOffset + wobble + mouseEnergy * 50;
+        
+        c.x = centerX + Math.cos(c.angle) * r;
+        c.y = centerY + Math.sin(c.angle) * r;
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw connecting lines
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < circles.length; i++) {
+        for (let j = i + 1; j < circles.length; j++) {
+          const c1 = circles[i];
+          const c2 = circles[j];
+          const dx = c1.x - c2.x;
+          const dy = c1.y - c2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < baseRadius * 2) {
+            const alpha = (1 - dist / (baseRadius * 2)) * 0.3;
+            ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(c1.x, c1.y);
+            ctx.lineTo(c2.x, c2.y);
+            ctx.stroke();
+          }
+        }
+      }
+      
+      // Draw circles
+      for (const c of circles) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 8 + mouseEnergy * 5, 0, Math.PI * 2);
+        ctx.fillStyle = c.color;
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+      
+      // Center glow
+      const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, baseRadius);
+      gradient.addColorStop(0, `rgba(255,255,255,${0.02 + mouseEnergy * 0.02})`);
+      gradient.addColorStop(1, 'rgba(10,10,15,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    document.getElementById('count').addEventListener('input', (e) => {
+      circleCount = parseInt(e.target.value);
+      initCircles();
+    });
+    
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speedScale = parseFloat(e.target.value);
+    });
+    
+    document.getElementById('radius').addEventListener('input', (e) => {
+      baseRadius = parseInt(e.target.value);
+    });
+    
+    document.getElementById('spread').addEventListener('input', (e) => {
+      spread = parseFloat(e.target.value);
+    });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      initCircles();
+      time = 0;
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      mouseEnergy = 1;
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const dx = x - width/2;
+      const dy = y - height/2;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < baseRadius) {
+        mouseEnergy = Math.max(mouseEnergy, 0.5);
+      }
+    });
+    
+    window.addEventListener('resize', () => {
+      resize();
+    });
+    
+    // Init
+    resize();
+    initCircles();
+    animate();
+  </script>
+</body>
+</html>
