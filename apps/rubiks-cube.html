@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Rubik's Cube — Shadow's Garden</title>
+<meta name="description">Interactive 3D Rubik's Cube — rotate layers, scramble, solve.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 8px;
+    cursor: grab;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+  canvas:active {
+    cursor: grabbing;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+  button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 10px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .info {
+    color: #555;
+    font-size: 0.8rem;
+    margin-top: 15px;
+    text-align: center;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>3D Rubik's Cube</h1>
+  <div class="subtitle">Drag to rotate view • Click face arrows to turn</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <button id="scrambleBtn">Scramble</button>
+    <button id="resetBtn">Reset</button>
+    <button id="solveBtn">Auto Solve</button>
+  </div>
+  
+  <div class="info">Click the arrows on cube faces to rotate layers</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let angleX = -0.5, angleY = 0.6;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+    let animating = false;
+    let animationQueue = [];
+    
+    // Colors for each face: Front=Green, Back=Blue, Left=Orange, Right=Red, Top=White, Bottom=Yellow
+    const COLORS = {
+      U: '#FFFFFF', // White - top
+      D: '#FFD500', // Yellow - bottom
+      F: '#009E60', // Green - front
+      B: '#0051BA', // Blue - back
+      L: '#FF5800', // Orange - left
+      R: '#B71234'  // Red - right
+    };
+    
+    // Cube state: 6 faces, each 3x3
+    let cube = {};
+    
+    function initCube() {
+      cube = {
+        U: Array(9).fill('U'),
+        D: Array(9).fill('D'),
+        F: Array(9).fill('F'),
+        B: Array(9).fill('B'),
+        L: Array(9).fill('L'),
+        R: Array(9).fill('R')
+      };
+    }
+    
+    function rotateFaceCW(face) {
+      const f = cube[face];
+      cube[face] = [f[6], f[3], f[0], f[7], f[4], f[1], f[8], f[5], f[2]];
+    }
+    
+    function rotateFaceCCW(face) {
+      rotateFaceCW(face);
+      rotateFaceCW(face);
+      rotateFaceCW(face);
+    }
+    
+    function move_U(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('U');
+        const temp = [cube.F[0], cube.F[1], cube.F[2]];
+        [cube.F[0], cube.F[1], cube.F[2]] = [cube.R[0], cube.R[1], cube.R[2]];
+        [cube.R[0], cube.R[1], cube.R[2]] = [cube.B[0], cube.B[1], cube.B[2]];
+        [cube.B[0], cube.B[1], cube.B[2]] = [cube.L[0], cube.L[1], cube.L[2]];
+        [cube.L[0], cube.L[1], cube.L[2]] = temp;
+      } else {
+        move_U(true);
+        move_U(true);
+        move_U(true);
+      }
+    }
+    
+    function move_D(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('D');
+        const temp = [cube.F[6], cube.F[7], cube.F[8]];
+        [cube.F[6], cube.F[7], cube.F[8]] = [cube.L[6], cube.L[7], cube.L[8]];
+        [cube.L[6], cube.L[7], cube.L[8]] = [cube.B[6], cube.B[7], cube.B[8]];
+        [cube.B[6], cube.B[7], cube.B[8]] = [cube.R[6], cube.R[7], cube.R[8]];
+        [cube.R[6], cube.R[7], cube.R[8]] = temp;
+      } else {
+        move_D(true);
+        move_D(true);
+        move_D(true);
+      }
+    }
+    
+    function move_F(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('F');
+        const temp = [cube.U[6], cube.U[7], cube.U[8]];
+        [cube.U[6], cube.U[7], cube.U[8]] = [cube.L[8], cube.L[5], cube.L[2]];
+        [cube.L[2], cube.L[5], cube.L[8]] = [cube.D[0], cube.D[1], cube.D[2]];
+        [cube.D[0], cube.D[1], cube.D[2]] = [cube.R[6], cube.R[3], cube.R[0]];
+        [cube.R[0], cube.R[3], cube.R[6]] = temp;
+      } else {
+        move_F(true);
+        move_F(true);
+        move_F(true);
+      }
+    }
+    
+    function move_B(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('B');
+        const temp = [cube.U[0], cube.U[1], cube.U[2]];
+        [cube.U[0], cube.U[1], cube.U[2]] = [cube.R[2], cube.R[5], cube.R[8]];
+        [cube.R[2], cube.R[5], cube.R[8]] = [cube.D[8], cube.D[7], cube.D[6]];
+        [cube.D[6], cube.D[7], cube.D[8]] = [cube.L[0], cube.L[3], cube.L[6]];
+        [cube.L[0], cube.L[3], cube.L[6]] = [temp[2], temp[1], temp[0]];
+      } else {
+        move_B(true);
+        move_B(true);
+        move_B(true);
+      }
+    }
+    
+    function move_L(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('L');
+        const temp = [cube.U[0], cube.U[3], cube.U[6]];
+        [cube.U[0], cube.U[3], cube.U[6]] = [cube.B[8], cube.B[5], cube.B[2]];
+        [cube.B[2], cube.B[5], cube.B[8]] = [cube.D[0], cube.D[3], cube.D[6]];
+        [cube.D[0], cube.D[3], cube.D[6]] = [cube.F[0], cube.F[3], cube.F[6]];
+        [cube.F[0], cube.F[3], cube.F[6]] = temp;
+      } else {
+        move_L(true);
+        move_L(true);
+        move_L(true);
+      }
+    }
+    
+    function move_R(clockwise = true) {
+      if (clockwise) {
+        rotateFaceCW('R');
+        const temp = [cube.U[2], cube.U[5], cube.U[8]];
+        [cube.U[2], cube.U[5], cube.U[8]] = [cube.F[2], cube.F[5], cube.F[8]];
+        [cube.F[2], cube.F[5], cube.F[8]] = [cube.D[2], cube.D[5], cube.D[8]];
+        [cube.D[2], cube.D[5], cube.D[8]] = [cube.B[6], cube.B[3], cube.B[0]];
+        [cube.B[0], cube.B[3], cube.B[6]] = [temp[2], temp[1], temp[0]];
+      } else {
+        move_R(true);
+        move_R(true);
+        move_R(true);
+      }
+    }
+    
+    const moves = [move_U, move_D, move_F, move_B, move_L, move_R];
+    
+    function scramble() {
+      for (let i = 0; i < 20; i++) {
+        const move = moves[Math.floor(Math.random() * moves.length)];
+        const cw = Math.random() > 0.5;
+        move(cw);
+      }
+    }
+    
+    function resize() {
+      width = Math.min(500, window.innerWidth - 40);
+      height = Math.min(500, window.innerHeight - 200);
+      canvas.width = width;
+      canvas.height = height;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      
+      // Rotation
+      const ca = Math.cos(angleX), sa = Math.sin(angleX);
+      const cb = Math.cos(angleY), sb = Math.sin(angleY);
+      
+      // Draw faces in order (back to front)
+      const faces = [
+        { name: 'B', verts: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]], normal: [0,0,-1] },
+        { name: 'D', verts: [[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1]], normal: [0,1,0] },
+        { name: 'L', verts: [[-1,-1,-1],[-1,-1,1],[-1,1,1],[-1,1,-1]], normal: [-1,0,0] },
+        { name: 'R', verts: [[1,-1,1],[1,-1,-1],[1,1,-1],[1,1,1]], normal: [1,0,0] },
+        { name: 'F', verts: [[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], normal: [0,0,1] },
+        { name: 'U', verts: [[-1,-1,-1],[-1,-1,1],[1,-1,1],[1,-1,-1]], normal: [0,-1,0] }
+      ];
+      
+      const scale = Math.min(width, height) * 0.35;
+      
+      // Project and sort faces
+      const projected = faces.map(f => {
+        // Rotate vertices
+        const rotatedVerts = f.verts.map(v => {
+          let x = v[0], y = v[1], z = v[2];
+          let y1 = y * ca - z * sa;
+          let z1 = y * sa + z * ca;
+          let x2 = x * cb + z1 * sb;
+          let z2 = -x * sb + z1 * cb;
+          return { x: x2 * scale, y: y1 * scale, z: z2 };
+        });
+        
+        // Rotate normal
+        let nx = f.normal[0], ny = f.normal[1], nz = f.normal[2];
+        let ny1 = ny * ca - nz * sa;
+        let nz1 = ny * sa + nz * ca;
+        let nx2 = nx * cb + nz1 * sb;
+        let nz2 = -nx * sb + nz1 * cb;
+        
+        // Center z for sorting
+        const avgZ = rotatedVerts.reduce((s, v) => s + v.z, 0) / 4;
+        
+        return { ...f, verts: rotatedVerts, nz: nx2 * cb + nz2 * sb, avgZ };
+      });
+      
+      // Back to front
+      projected.sort((a, b) => b.avgZ - a.avgZ);
+      
+      // Draw each visible face
+      for (const face of projected) {
+        if (face.avgZ > 0) continue; // Behind camera
+        
+        ctx.beginPath();
+        ctx.moveTo(face.verts[0].x, face.verts[0].y);
+        for (let i = 1; i < 4; i++) {
+          ctx.lineTo(face.verts[i].x, face.verts[i].y);
+        }
+        ctx.closePath();
+        
+        // Fill with gradient based on face color
+        const baseColor = COLORS[face.name];
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw grid lines and stickers
+        const cellSize = scale * 0.6 / 3;
+        const offsets = [[-0.2, -0.2], [0, -0.2], [0.2, -0.2], [-0.2, 0], [0, 0], [0.2, 0], [-0.2, 0.2], [0, 0.2], [0.2, 0.2]];
+        
+        // Calculate face center and axes
+        const cx = face.verts.reduce((s, v) => s + v.x, 0) / 4;
+        const cy = face.verts.reduce((s, v) => s + v.y, 0) / 4;
+        
+        // Edge vectors
+        const vx = { x: face.verts[1].x - face.verts[0].x, y: face.verts[1].y - face.verts[0].y };
+        const vy = { x: face.verts[3].x - face.verts[0].x, y: face.verts[3].y - face.verts[0].y };
+        
+        const startX = cx - vx.x * 0.5 - vy.x * 0.5;
+        const startY = cy - vx.y * 0.5 - vy.y * 0.5;
+        
+        for (let i = 0; i < 9; i++) {
+          const row = Math.floor(i / 3), col = i % 3;
+          const sx = startX + (col + 0.5) * vx.x / 3 + (row + 0.5) * vy.x / 3;
+          const sy = startY + (col + 0.5) * vx.y / 3 + (row + 0.5) * vy.y / 3;
+          
+          const colorIndex = cube[face.name][i];
+          ctx.beginPath();
+          ctx.arc(sx, sy, cellSize * 0.35, 0, Math.PI * 2);
+          ctx.fillStyle = COLORS[colorIndex];
+          ctx.fill();
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      
+      ctx.restore();
+    }
+    
+    function animate() {
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Mouse controls
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+    
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+      angleY += dx * 0.01;
+      angleX += dy * 0.01;
+      lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    
+    // Touch controls
+    canvas.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      e.preventDefault();
+    });
+    
+    canvas.addEventListener('touchend', () => {
+      isDragging = false;
+    });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const dx = e.touches[0].clientX - lastMouse.x;
+      const dy = e.touches[0].clientY - lastMouse.y;
+      angleY += dx * 0.01;
+      angleX += dy * 0.01;
+      lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      e.preventDefault();
+    });
+    
+    // Keyboard controls
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toUpperCase();
+      const cw = !e.shiftKey;
+      switch(key) {
+        case 'U': move_U(cw); break;
+        case 'D': move_D(cw); break;
+        case 'F': move_F(cw); break;
+        case 'B': move_B(cw); break;
+        case 'L': move_L(cw); break;
+        case 'R': move_R(cw); break;
+      }
+    });
+    
+    document.getElementById('scrambleBtn').addEventListener('click', scramble);
+    document.getElementById('resetBtn').addEventListener('click', initCube);
+    document.getElementById('solveBtn').addEventListener('click', () => {
+      initCube();
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    resize();
+    initCube();
+    animate();
+  </script>
+</body>
+</html>
