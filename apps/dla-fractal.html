@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLA Fractal — Shadow's Garden</title>
+<meta name="description">Diffusion-Limited Aggregation simulator — particles drift and stick to form fractal structures.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    cursor: crosshair;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 800px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+  .preset-btns {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .preset-btns button {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>DLA Fractal</h1>
+  <div class="subtitle">Diffusion-Limited Aggregation — watch fractal structures emerge</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="50" value="10">
+    </div>
+    <div class="control-group">
+      <label>Particle Size</label>
+      <input type="range" id="particleSize" min="1" max="4" value="2">
+    </div>
+    <div class="control-group">
+      <label>Stick Distance</label>
+      <input type="range" id="stickDist" min="3" max="20" value="8">
+    </div>
+    <div class="control-group">
+      <label>Color</label>
+      <select id="colorMode">
+        <option value="gradient">Gradient</option>
+        <option value="monochrome">Monochrome</option>
+        <option value="rainbow">Rainbow</option>
+        <option value="fire">Fire</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <div class="preset-btns">
+        <button id="presetTree">Tree</button>
+        <button id="presetCrystal">Crystal</button>
+        <button id="presetBlob">Blob</button>
+        <button id="presetRing">Ring</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Actions</label>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+  
+  <div class="stats" id="stats">Particles: 0 | Stuck: 0</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let stuck = [];
+    let centerX, centerY;
+    let speed = 10;
+    let particleSize = 2;
+    let stickDistance = 8;
+    let colorMode = 'gradient';
+    let running = true;
+    let particleCount = 0;
+    let hue = 0;
+    
+    const presets = {
+      tree: { mode: 'center', count: 3000 },
+      crystal: { mode: 'center', count: 5000 },
+      blob: { mode: 'center', count: 4000 },
+      ring: { mode: 'ring', count: 3000 }
+    };
+
+    function resize() {
+      width = Math.min(700, window.innerWidth - 40);
+      height = Math.min(700, window.innerHeight - 250);
+      canvas.width = width;
+      canvas.height = height;
+      centerX = width / 2;
+      centerY = height / 2;
+    }
+
+    function init(mode = 'center') {
+      particles = [];
+      stuck = [];
+      particleCount = 0;
+      hue = 0;
+      
+      // Clear canvas
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Add seed
+      if (mode === 'center') {
+        stuck.push({ x: centerX, y: centerY, hue: 0 });
+        drawParticle(centerX, centerY, 0);
+      } else if (mode === 'ring') {
+        const radius = Math.min(width, height) * 0.35;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 20) {
+          const x = centerX + Math.cos(a) * radius;
+          const y = centerY + Math.sin(a) * radius;
+          stuck.push({ x, y, hue: (a / (Math.PI * 2)) * 360 });
+          drawParticle(x, y, (a / (Math.PI * 2)) * 360);
+        }
+      }
+    }
+
+    function spawnParticle() {
+      // Spawn from edges
+      const side = Math.floor(Math.random() * 4);
+      let x, y;
+      
+      if (side === 0) { // top
+        x = Math.random() * width;
+        y = -10;
+      } else if (side === 1) { // right
+        x = width + 10;
+        y = Math.random() * height;
+      } else if (side === 2) { // bottom
+        x = Math.random() * width;
+        y = height + 10;
+      } else { // left
+        x = -10;
+        y = Math.random() * height;
+      }
+      
+      particles.push({ x, y });
+    }
+
+    function drawParticle(x, y, h) {
+      ctx.beginPath();
+      ctx.arc(x, y, particleSize, 0, Math.PI * 2);
+      
+      if (colorMode === 'gradient') {
+        const saturation = 80 - (stuck.length / 50);
+        ctx.fillStyle = `hsl(${h % 360}, ${Math.max(40, saturation)}%, 60%)`;
+      } else if (colorMode === 'monochrome') {
+        ctx.fillStyle = '#88ccff';
+      } else if (colorMode === 'rainbow') {
+        ctx.fillStyle = `hsl(${h}, 100%, 60%)`;
+      } else if (colorMode === 'fire') {
+        const t = (h % 360) / 60;
+        const r = Math.min(255, t * 255);
+        const g = Math.min(255, (1 - Math.abs(t - 1)) * 255);
+        const b = Math.max(0, (t - 1) * 255);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+      }
+      
+      ctx.fill();
+    }
+
+    function checkCollision(p) {
+      for (let i = 0; i < stuck.length; i++) {
+        const s = stuck[i];
+        const dx = p.x - s.x;
+        const dy = p.y - s.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < stickDistance) {
+          return { stuck: s, dist };
+        }
+      }
+      return null;
+    }
+
+    function update() {
+      if (!running) return;
+      
+      // Spawn new particles
+      for (let i = 0; i < speed; i++) {
+        if (particles.length < speed * 2) {
+          spawnParticle();
+        }
+      }
+      
+      // Move particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        
+        // Random walk with slight drift toward center
+        p.x += (Math.random() - 0.5) * 4;
+        p.y += (Math.random() - 0.5) * 4;
+        
+        // Drift toward center slightly
+        const dx = centerX - p.x;
+        const dy = centerY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+          p.x += (dx / dist) * 0.3;
+          p.y += (dy / dist) * 0.3;
+        }
+        
+        // Check if out of bounds (far outside)
+        if (p.x < -50 || p.x > width + 50 || p.y < -50 || p.y > height + 50) {
+          particles.splice(i, 1);
+          continue;
+        }
+        
+        // Check collision with stuck particles
+        const collision = checkCollision(p);
+        if (collision) {
+          hue += 0.5;
+          stuck.push({ x: p.x, y: p.y, hue });
+          drawParticle(p.x, p.y, hue);
+          particles.splice(i, 1);
+          particleCount++;
+        }
+      }
+    }
+
+    function draw() {
+      // Draw active particles (faint)
+      ctx.fillStyle = 'rgba(100, 150, 200, 0.3)';
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, particleSize * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Update stats
+      document.getElementById('stats').textContent = 
+        `Particles: ${particles.length} | Stuck: ${stuck.length}`;
+    }
+
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    // Event listeners
+    document.getElementById('speed').addEventListener('input', (e) => {
+      speed = parseInt(e.target.value);
+    });
+
+    document.getElementById('particleSize').addEventListener('input', (e) => {
+      particleSize = parseInt(e.target.value);
+    });
+
+    document.getElementById('stickDist').addEventListener('input', (e) => {
+      stickDistance = parseInt(e.target.value);
+    });
+
+    document.getElementById('colorMode').addEventListener('change', (e) => {
+      colorMode = e.target.value;
+      // Redraw all stuck particles with new colors
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      for (const s of stuck) {
+        drawParticle(s.x, s.y, s.hue);
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      init();
+    });
+
+    document.getElementById('presetTree').addEventListener('click', () => {
+      init('center');
+    });
+
+    document.getElementById('presetCrystal').addEventListener('click', () => {
+      init('center');
+    });
+
+    document.getElementById('presetBlob').addEventListener('click', () => {
+      init('center');
+    });
+
+    document.getElementById('presetRing').addEventListener('click', () => {
+      init('ring');
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Add new seed point
+      stuck.push({ x, y, hue: Math.random() * 360 });
+      drawParticle(x, y, hue);
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+    });
+
+    // Init
+    resize();
+    init();
+    animate();
+  </script>
+</body>
+</html>
