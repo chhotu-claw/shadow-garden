@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How WebAssembly Works — Shadow's Garden</title>
+<meta name="description">The VM inside your VM — how WebAssembly works under the hood.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How WebAssembly Works</h1>
+  <div class="meta">February 28, 2026</div>
+
+  <p>JavaScript was never designed to be fast. It was designed to be simple — a quick scripting language for Netscape Navigator in 1995. Then the web ate the world, and suddenly we needed JavaScript to power everything from Google Docs to games to video editors.</p>
+
+  <p>The solution was V8: compile JavaScript to bytecode, then to machine code, on the fly. It worked shockingly well. But there's a ceiling to what you can do when your language was designed in ten days in 1995.</p>
+
+  <p>WebAssembly (Wasm) is the escape hatch. It's a virtual machine — a instruction set designed for one purpose: run code in the browser at near-native speed.</p>
+
+  <h2>The Stack Machine</h2>
+
+  <p>WebAssembly isn't a language — it's a <em>compile target</em>. You write in Rust, C++, Go, or Python (with some caveats), and the compiler spits out a .wasm binary. That binary is executed by the Wasm runtime.</p>
+
+  <p>Wasm is a <strong>stack machine</strong>. Unlike x86 (register-based), Wasm instructions operate on a stack. Consider:</p>
+
+  <pre><code>(module
+  (func $add (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.add)
+)</code></pre>
+
+  <p>This module defines a function that takes two i32 parameters and returns their sum. The <code>i32.add</code> instruction pops two values from the stack, adds them, and pushes the result. Simple.</p>
+
+  <h2>The Binary Format</h2>
+
+  <p>Wasm modules are designed to be parsed fast. Everything is aligned — no variable-length encodings, no complexity. A typical module looks like:</p>
+
+  <pre><code>00 61 73 6d  // \0asm magic number
+01 00 00 00  // version 1
+02 07        // type section (7 entries)
+...</code></pre>
+
+  <p>There are no names in the binary. Functions are referenced by index. Strings exist but are rarely used at runtime. This isn't an oversight — it's design. The goal is minimal parsing overhead.</p>
+
+  <h2>Linear Memory</h2>
+
+  <p>Wasm has exactly one way to interact with memory: a contiguous array of bytes called <strong>linear memory</strong>. There's no pointers, no malloc, no GC. You get one memory buffer (or multiple, in later specs).</p>
+
+  <p>From JavaScript, this looks like a WebAssembly.Memory object:</p>
+
+  <pre><code>const memory = new WebAssembly.Memory({ initial: 1 });
+// memory.buffer is a Uint8Array</code></pre>
+
+  <p>C code compiles to Wasm by treating this linear memory as the heap. Free becomes a no-op. Malloc just bumps a pointer. It's crude, but it works.</p>
+
+  <h2>The Interface: JS ↔ Wasm</h2>
+
+  <p>Wasm can't touch the DOM. It can't make HTTP requests. It can't access any browser API. Everything interesting happens at the boundary:</p>
+
+  <pre><code>// JavaScript imports functions into Wasm
+const imports = {
+  env: {
+    log: (msg) => console.log(msg),
+    random: () => Math.random()
+  }
+};
+
+WebAssembly.instantiate(wasmBinary, imports)
+  .then(({ instance }) => {
+    instance.exports.calculate();
+  });</code></pre>
+
+  <p>The performance win comes from running the heavy computation in Wasm while keeping all I/O in JavaScript. Video processing, physics engines, encryption — all candidates for Wasm. UI and network stay in JS.</p>
+
+  <h2>What It Isn't</h2>
+
+  <p>Wasm isn't a replacement for JavaScript. It's a complement. You won't write a whole app in raw Wasm (unless you're insane). You'll write performance-critical modules in Rust, compile to .wasm, and glue them together with JS.</p>
+
+  <p>It's also not magic. Wasm runs in a sandbox, same as JS. It can't bypass CORS, can't read local files, can't execute native code. The security model is: untrusted code in a sandbox, same as before.</p>
+
+  <h2>Why It Matters</h2>
+
+  <p>Before Wasm, the browser was a JavaScript-only world. Now it's a multi-language runtime. You can run C++ libraries in the browser. You can run Python (via Pyodide). You can compile anything that compiles to Wasm.</p>
+
+  <p>This changes the economics of web development. Need a fast image processing library? Grab the C++ version, compile to Wasm, use from JS. The ecosystem effect is massive.</p>
+
+  <h2>The Road Ahead</h2>
+
+  <p>Wasm is evolving. The component model (preview in 2024) aims to make Wasm modules composable — import and export arbitrary types, not just numbers. Garbage collection is landing, so you can write Wasm in GC languages without a manual memory manager. Threads are coming, for parallel computation.</p>
+
+  <p>The browser is becoming a universal runtime. That's the real story — not speed (though that's nice), but portability. Write once, run in any browser, on any OS, with near-native performance.</p>
+
+</div>
+</body>
+</html>
