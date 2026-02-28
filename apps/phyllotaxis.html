@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phyllotaxis — Shadow's Garden</title>
+<meta name="description">Mathematical spirals found in nature — sunflowers, pinecones, succulents. The golden angle in action.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  h1 {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    font-weight: 300;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 1px solid #222;
+    border-radius: 4px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+    cursor: crosshair;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+    justify-content: center;
+    max-width: 800px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  label {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 120px;
+    accent-color: #666;
+  }
+  select, button {
+    background: #1a1a20;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252530;
+    border-color: #555;
+  }
+  .value-display {
+    color: #aaa;
+    font-size: 0.8rem;
+    font-family: monospace;
+  }
+  .stats {
+    color: #555;
+    font-size: 0.75rem;
+    margin-top: 15px;
+    font-family: monospace;
+  }
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .presets button {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Phyllotaxis</h1>
+  <div class="subtitle">Nature's mathematics — the golden angle creates perfect spirals</div>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Dots: <span id="dotsVal" class="value-display">800</span></label>
+      <input type="range" id="dotCount" min="100" max="3000" value="800" step="50">
+    </div>
+    <div class="control-group">
+      <label>Angle: <span id="angleVal" class="value-display">137.508°</span></label>
+      <input type="range" id="angle" min="90" max="180" value="137.508" step="0.001">
+    </div>
+    <div class="control-group">
+      <label>Scale: <span id="scaleVal" class="value-display">6</span></label>
+      <input type="range" id="scale" min="2" max="15" value="6" step="0.5">
+    </div>
+    <div class="control-group">
+      <label>Spread</label>
+      <input type="range" id="spread" min="0.5" max="3" value="1" step="0.1">
+    </div>
+    <div class="control-group">
+      <label>Color Shift</label>
+      <input type="range" id="colorShift" min="0" max="360" value="0" step="1">
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <div class="presets">
+        <button data-angle="137.508" data-dots="800" data-scale="6">Sunflower</button>
+        <button data-angle="137.3" data-dots="500" data-scale="5">Pinecone</button>
+        <button data-angle="137.6" data-dots="1200" data-scale="4">Daisy</button>
+        <button data-angle="99.5" data-dots="400" data-scale="7">Aster</button>
+        <button data-angle="137.45" data-dots="600" data-scale="5.5">Succulent</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Actions</label>
+      <button id="animateBtn">Animate</button>
+    </div>
+  </div>
+  
+  <div class="stats" id="stats">Golden Angle: 137.50776...°</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let dots = 800;
+    let angle = 137.508;
+    let scale = 6;
+    let spread = 1;
+    let colorShift = 0;
+    let animating = false;
+    let animationDir = 1;
+    
+    function resize() {
+      width = Math.min(700, window.innerWidth - 40);
+      height = Math.min(700, window.innerHeight - 280);
+      canvas.width = width;
+      canvas.height = height;
+      draw();
+    }
+    
+    function hslToHex(h, s, l) {
+      l /= 100;
+      const a = s * Math.min(l, 1 - l) / 100;
+      const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+      };
+      return `#${f(0)}${f(8)}${f(4)}`;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      const cx = width / 2;
+      const cy = height / 2;
+      const goldenAngle = 137.50776405;
+      
+      for (let i = 0; i < dots; i++) {
+        const r = scale * Math.sqrt(i) * spread;
+        const theta = i * (angle || goldenAngle) * Math.PI / 180;
+        
+        const x = cx + r * Math.cos(theta);
+        const y = cy + r * Math.sin(theta);
+        
+        const hue = (i * 1.5 + colorShift) % 360;
+        const sat = 70 + 30 * (i / dots);
+        const light = 50 + 40 * (i / dots);
+        
+        const radius = 1.5 + (i / dots) * 2;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = hslToHex(hue, sat, light);
+        ctx.fill();
+      }
+      
+      document.getElementById('stats').textContent = 
+        `Golden Angle: 137.50776...° | Dots: ${dots}`;
+    }
+    
+    function animate() {
+      if (!animating) return;
+      
+      angle += 0.02 * animationDir;
+      if (angle > 180) angle = 90;
+      if (angle < 90) angle = 180;
+      
+      document.getElementById('angle').value = angle;
+      document.getElementById('angleVal').textContent = angle.toFixed(3) + '°';
+      
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    document.getElementById('dotCount').addEventListener('input', (e) => {
+      dots = parseInt(e.target.value);
+      document.getElementById('dotsVal').textContent = dots;
+      draw();
+    });
+    
+    document.getElementById('angle').addEventListener('input', (e) => {
+      angle = parseFloat(e.target.value);
+      document.getElementById('angleVal').textContent = angle.toFixed(3) + '°';
+      draw();
+    });
+    
+    document.getElementById('scale').addEventListener('input', (e) => {
+      scale = parseFloat(e.target.value);
+      document.getElementById('scaleVal').textContent = scale;
+      draw();
+    });
+    
+    document.getElementById('spread').addEventListener('input', (e) => {
+      spread = parseFloat(e.target.value);
+      draw();
+    });
+    
+    document.getElementById('colorShift').addEventListener('input', (e) => {
+      colorShift = parseInt(e.target.value);
+      draw();
+    });
+    
+    document.querySelectorAll('.presets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        angle = parseFloat(btn.dataset.angle);
+        dots = parseInt(btn.dataset.dots);
+        scale = parseFloat(btn.dataset.scale);
+        
+        document.getElementById('angle').value = angle;
+        document.getElementById('angleVal').textContent = angle.toFixed(3) + '°';
+        document.getElementById('dotCount').value = dots;
+        document.getElementById('dotsVal').textContent = dots;
+        document.getElementById('scale').value = scale;
+        document.getElementById('scaleVal').textContent = scale;
+        
+        draw();
+      });
+    });
+    
+    document.getElementById('animateBtn').addEventListener('click', () => {
+      animating = !animating;
+      document.getElementById('animateBtn').textContent = animating ? 'Stop' : 'Animate';
+      if (animating) animate();
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Add a new dot at clicked position
+      const cx = width / 2;
+      const cy = height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const r = Math.sqrt(dx*dx + dy*dy);
+      const theta = Math.atan2(dy, dx);
+      
+      // Reverse engineer which dot index this would be
+      const dotIndex = Math.round((r / scale / spread) ** 2);
+      
+      if (dotIndex > 0 && dotIndex < 5000) {
+        angle = (theta * 180 / Math.PI) / dotIndex;
+        if (angle < 90) angle += 180;
+        
+        document.getElementById('angle').value = angle;
+        document.getElementById('angleVal').textContent = angle.toFixed(3) + '°';
+        draw();
+      }
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    resize();
+  </script>
+</body>
+</html>
