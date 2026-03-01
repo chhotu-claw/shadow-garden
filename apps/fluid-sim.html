@@ -4,131 +4,101 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluid Simulation — Shadow's Garden</title>
-<meta name="description" content="Interactive fluid simulation with dye and velocity fields — click and drag to add fluid, watch it swirl and diffuse.">
+<meta name="description" content="Real-time Navier-Stokes fluid simulation with mouse interaction.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    padding: 0;
-    background: #0a0a0f;
-    overflow: hidden;
-  }
-  canvas {
-    display: block;
-  }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; cursor: crosshair; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+    flex-wrap: wrap;
+    max-width: 400px;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  button:hover { background: rgba(255,255,255,0.25); }
+  button.active { background: rgba(100,200,255,0.3); border-color: rgba(100,200,255,0.5); }
+  .info {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(10, 10, 15, 0.85);
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 16px;
-    color: #e0e0e0;
-    font-family: 'IBM Plex Mono', monospace;
+    color: rgba(255,255,255,0.4);
     font-size: 12px;
-    z-index: 100;
+    font-family: monospace;
   }
-  .controls h3 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    color: #fff;
-    font-weight: 500;
-  }
-  .control-row {
+  .slider-container {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-  .control-row label {
-    color: #888;
-  }
-  .control-row input[type="range"] {
-    width: 100px;
-  }
-  .control-row input[type="color"] {
-    border: none;
-    width: 30px;
-    height: 20px;
-    cursor: pointer;
-  }
-  .hint {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #555;
-    font-family: 'IBM Plex Mono', monospace;
+    gap: 8px;
+    color: rgba(255,255,255,0.5);
     font-size: 11px;
-    pointer-events: none;
+  }
+  input[type="range"] {
+    width: 80px;
+    accent-color: #6cf;
   }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  
+  <div class="info">Click and drag to add fluid • Scroll to change radius</div>
   <div class="controls">
-    <h3>Fluid Sim</h3>
-    <div class="control-row">
-      <label>Diffusion</label>
-      <input type="range" id="diffusion" min="0" max="0.002" step="0.0001" value="0.0001">
+    <button id="btn-smoke">Smoke</button>
+    <button id="btn-ink">Ink</button>
+    <button id="btn-fire">Fire</button>
+    <button id="btn-rainbow">Rainbow</button>
+    <button id="btn-clear">Clear</button>
+    <div class="slider-container">
+      <span>Radius</span>
+      <input type="range" id="radius" min="10" max="100" value="40">
     </div>
-    <div class="control-row">
-      <label>Viscosity</label>
-      <input type="range" id="viscosity" min="0" max="0.001" step="0.00005" value="0.0001">
-    </div>
-    <div class="control-row">
-      <label>Dye Fade</label>
-      <input type="range" id="fade" min="0" max="0.05" step="0.001" value="0.005">
-    </div>
-    <div class="control-row">
-      <label>Dye Color</label>
-      <input type="color" id="color" value="#00ffaa">
-    </div>
-    <div class="control-row">
-      <label>Pressure</label>
-      <input type="range" id="pressure" min="0.1" max="1" step="0.05" value="0.5">
+    <div class="slider-container">
+      <span>Diffusion</span>
+      <input type="range" id="diffusion" min="0" max="100" value="10">
     </div>
   </div>
-  
-  <div class="hint">Click and drag to add fluid · Scroll to add force</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let dye, velocityX, velocityY, density;
-    let prevX, prevY;
-    let isMouseDown = false;
+    let N = 128;
+    let size = (N + 2) * (N + 2);
+    let u = new Float32Array(size); // velocity x
+    let v = new Float32Array(size); // velocity y
+    let u_prev = new Float32Array(size);
+    let v_prev = new Float32Array(size);
+    let dens = new Float32Array(size); // density
+    let dens_prev = new Float32Array(size);
     
-    const N = 128;
-    const scale = 4;
-    
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-    
-    function init() {
-      resize();
-      const size = (N + 2) * (N + 2);
-      dye = new Float32Array(size);
-      velocityX = new Float32Array(size);
-      velocityY = new Float32Array(size);
-      density = new Float32Array(size);
-    }
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    let brushRadius = 40;
+    let diffusion = 0.0001;
+    let colorMode = 'smoke';
+    let hue = 0;
     
     function IX(x, y) {
       return x + (N + 2) * y;
     }
     
     function addSource(x, s, dt) {
-      for (let i = 0; i < x.length; i++) {
-        x[i] += dt * s[i];
-      }
+      for (let i = 0; i < size; i++) x[i] += dt * s[i];
     }
     
     function setBnd(b, x) {
@@ -144,272 +114,222 @@
       x[IX(N + 1, N + 1)] = 0.5 * (x[IX(N, N + 1)] + x[IX(N + 1, N)]);
     }
     
-    function diffuse(b, x, x0, diff, dt) {
-      const a = dt * diff * N * N;
+    function linSolve(b, x, x0, a, c) {
+      const cRecip = 1.0 / c;
       for (let k = 0; k < 4; k++) {
-        for (let i = 1; i <= N; i++) {
-          for (let j = 1; j <= N; j++) {
-            x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] + x[IX(i, j - 1)] + x[IX(i, j + 1)])) / (1 + 4 * a);
+        for (let j = 1; j <= N; j++) {
+          for (let i = 1; i <= N; i++) {
+            x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] + x[IX(i, j - 1)] + x[IX(i, j + 1)])) * cRecip;
           }
         }
         setBnd(b, x);
       }
     }
     
-    function advect(b, d, d0, velocX, velocY, dt) {
+    function diffuse(b, x, x0, diff, dt) {
+      const a = dt * diff * N * N;
+      linSolve(b, x, x0, a, 1 + 4 * a);
+    }
+    
+    function project(u, v, p, div) {
+      for (let j = 1; j <= N; j++) {
+        for (let i = 1; i <= N; i++) {
+          div[IX(i, j)] = -0.5 * (u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] - v[IX(i, j - 1)]) / N;
+          p[IX(i, j)] = 0;
+        }
+      }
+      setBnd(0, div);
+      setBnd(0, p);
+      linSolve(0, p, div, 1, 4);
+      
+      for (let j = 1; j <= N; j++) {
+        for (let i = 1; i <= N; i++) {
+          u[IX(i, j)] -= 0.5 * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) * N;
+          v[IX(i, j)] -= 0.5 * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) * N;
+        }
+      }
+      setBnd(1, u);
+      setBnd(2, v);
+    }
+    
+    function advect(b, d, d0, u, v, dt) {
       const dt0 = dt * N;
-      for (let i = 1; i <= N; i++) {
-        for (let j = 1; j <= N; j++) {
-          let x = i - dt0 * velocX[IX(i, j)];
-          let y = j - dt0 * velocY[IX(i, j)];
+      for (let j = 1; j <= N; j++) {
+        for (let i = 1; i <= N; i++) {
+          let x = i - dt0 * u[IX(i, j)];
+          let y = j - dt0 * v[IX(i, j)];
           if (x < 0.5) x = 0.5;
           if (x > N + 0.5) x = N + 0.5;
-          const i0 = Math.floor(x);
-          const i1 = i0 + 1;
           if (y < 0.5) y = 0.5;
           if (y > N + 0.5) y = N + 0.5;
+          const i0 = Math.floor(x);
+          const i1 = i0 + 1;
           const j0 = Math.floor(y);
           const j1 = j0 + 1;
           const s1 = x - i0;
           const s0 = 1 - s1;
           const t1 = y - j0;
           const t0 = 1 - t1;
-          d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) + s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+          d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
+                        s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
         }
       }
       setBnd(b, d);
     }
     
-    function project(velocX, velocY, p, div) {
-      const h = 1.0 / N;
-      for (let i = 1; i <= N; i++) {
-        for (let j = 1; j <= N; j++) {
-          div[IX(i, j)] = -0.5 * h * (velocX[IX(i + 1, j)] - velocX[IX(i - 1, j)] + velocY[IX(i, j + 1)] - velocY[IX(i, j - 1)]);
-          p[IX(i, j)] = 0;
-        }
-      }
-      setBnd(0, div);
-      setBnd(0, p);
-      
-      for (let k = 0; k < 4; k++) {
-        for (let i = 1; i <= N; i++) {
-          for (let j = 1; j <= N; j++) {
-            p[IX(i, j)] = (div[IX(i, j)] + p[IX(i - 1, j)] + p[IX(i + 1, j)] + p[IX(i, j - 1)] + p[IX(i, j + 1)]) / 4;
-          }
-        }
-        setBnd(0, p);
-      }
-      
-      for (let i = 1; i <= N; i++) {
-        for (let j = 1; j <= N; j++) {
-          velocX[IX(i, j)] -= 0.5 * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) / h;
-          velocY[IX(i, j)] -= 0.5 * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) / h;
-        }
-      }
-      setBnd(1, velocX);
-      setBnd(2, velocY);
+    function velStep(u, v, u0, v0, visc, dt) {
+      addSource(u, u0, dt);
+      addSource(v, v0, dt);
+      [u0, u] = [u, u0];
+      diffuse(1, u, u0, visc, dt);
+      [v0, v] = [v, v0];
+      diffuse(2, v, v0, visc, dt);
+      project(u, v, u0, v0);
+      [u0, u] = [u, u0];
+      [v0, v] = [v, v0];
+      advect(1, u, u0, u0, v0, dt);
+      advect(2, v, v0, u0, v0, dt);
+      project(u, v, u0, v0);
     }
     
-    function velStep(vx, vy, x0, y0, visc, dt) {
-      addSource(vx, x0, dt);
-      addSource(vy, y0, dt);
-      [vx0, x0] = [x0, vx];
-      diffuse(1, vx0, x0, visc, dt);
-      [vy0, y0] = [y0, vy];
-      diffuse(2, vy0, y0, visc, dt);
-      project(vx0, vy0, x0, y0);
-      [vx0, x0] = [x0, vx];
-      [vy0, y0] = [y0, vy];
-      advect(1, vx, vx0, vx0, vy0, dt);
-      advect(2, vy, vy0, vx0, vy0, dt);
-      project(vx, vy, x0, y0);
-    }
-    
-    function densStep(x, x0, vx, vy, diff, dt) {
+    function densStep(x, x0, u, v, diff, dt) {
       addSource(x, x0, dt);
       [x0, x] = [x, x0];
       diffuse(0, x, x0, diff, dt);
       [x0, x] = [x, x0];
-      advect(0, x, x0, vx, vy, dt);
+      advect(0, x, x0, u, v, dt);
     }
     
-    let vx = new Float32Array((N + 2) * (N + 2));
-    let vy = new Float32Array((N + 2) * (N + 2));
-    let vx0 = new Float32Array((N + 2) * (N + 2));
-    let vy0 = new Float32Array((N + 2) * (N + 2));
-    let s = new Float32Array((N + 2) * (N + 2));
-    let density0 = new Float32Array((N + 2) * (N + 2));
-    
-    function getMousePos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX || e.touches?.[0]?.clientX || 0);
-      const y = (e.clientY || e.touches?.[0]?.clientY || 0);
-      return {
-        x: Math.floor((x / rect.width) * N) + 1,
-        y: Math.floor((y / rect.height) * N) + 1
-      };
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     }
     
-    canvas.addEventListener('mousedown', (e) => {
-      isMouseDown = true;
-      const pos = getMousePos(e);
-      prevX = pos.x;
-      prevY = pos.y;
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      if (!isMouseDown) return;
-      const pos = getMousePos(e);
+    function getColor(d, i, j) {
+      const c = d[IX(i, j)];
+      if (c < 0.01) return 'rgba(0,0,0,0)';
       
-      const dx = pos.x - prevX;
-      const dy = pos.y - prevY;
-      
-      const idx = IX(pos.x, pos.y);
-      vx[idx] += dx * 50;
-      vy[idx] += dy * 50;
-      
-      const color = document.getElementById('color').value;
-      const r = parseInt(color.slice(1, 3), 16) / 255;
-      const g = parseInt(color.slice(3, 5), 16) / 255;
-      const b = parseInt(color.slice(5, 7), 16) / 255;
-      
-      const ci = idx * 4;
-      density[idx] = 200;
-      dye[ci] = r * 200;
-      dye[ci + 1] = g * 200;
-      dye[ci + 2] = b * 200;
-      dye[ci + 3] = 200;
-      
-      prevX = pos.x;
-      prevY = pos.y;
-    });
-    
-    canvas.addEventListener('mouseup', () => isMouseDown = false);
-    canvas.addEventListener('mouseleave', () => isMouseDown = false);
-    
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      isMouseDown = true;
-      const pos = getMousePos(e);
-      prevX = pos.x;
-      prevY = pos.y;
-    });
-    
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if (!isMouseDown) return;
-      const pos = getMousePos(e);
-      
-      const dx = pos.x - prevX;
-      const dy = pos.y - prevY;
-      
-      const idx = IX(pos.x, pos.y);
-      vx[idx] += dx * 50;
-      vy[idx] += dy * 50;
-      
-      const color = document.getElementById('color').value;
-      const r = parseInt(color.slice(1, 3), 16) / 255;
-      const g = parseInt(color.slice(3, 5), 16) / 255;
-      const b = parseInt(color.slice(5, 7), 16) / 255;
-      
-      density[idx] = 200;
-      dye[idx * 4] = r * 200;
-      dye[idx * 4 + 1] = g * 200;
-      dye[idx * 4 + 2] = b * 200;
-      dye[idx * 4 + 3] = 200;
-      
-      prevX = pos.x;
-      prevY = pos.y;
-    });
-    
-    canvas.addEventListener('touchend', () => isMouseDown = false);
-    
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const pos = getMousePos(e);
-      const idx = IX(pos.x, pos.y);
-      const force = e.deltaY > 0 ? -30 : 30;
-      vx[idx] += force;
-      vy[idx] += force;
-    });
-    
-    window.addEventListener('resize', resize);
-    
-    const diffusionSlider = document.getElementById('diffusion');
-    const viscositySlider = document.getElementById('viscosity');
-    const fadeSlider = document.getElementById('fade');
-    const pressureSlider = document.getElementById('pressure');
-    
-    function step() {
-      const diff = parseFloat(diffusionSlider.value);
-      const visc = parseFloat(viscositySlider.value);
-      const fade = parseFloat(fadeSlider.value);
-      const pressure = parseFloat(pressureSlider.value);
-      
-      velStep(vx, vy, vx0, vy0, visc * pressure, 0.1);
-      densStep(density, density0, vx, vy, diff, 0.1);
-      
-      for (let i = 0; i < dye.length; i += 4) {
-        dye[i] *= (1 - fade);
-        dye[i + 1] *= (1 - fade);
-        dye[i + 2] *= (1 - fade);
-        dye[i + 3] *= (1 - fade);
-      }
-      
-      for (let i = 0; i < density.length; i++) {
-        density[i] *= (1 - fade);
+      switch (colorMode) {
+        case 'ink':
+          return `rgba(20, 30, 40, ${Math.min(1, c * 0.5)})`;
+        case 'fire':
+          const r = Math.min(255, c * 400);
+          const g = Math.min(255, c * 150);
+          return `rgba(${r}, ${g}, 0, ${Math.min(0.9, c)})`;
+        case 'rainbow':
+          const h = (hue + c * 100) % 360;
+          return `hsla(${h}, 80%, 60%, ${Math.min(0.9, c)})`;
+        default: // smoke
+          const val = Math.min(255, c * 200);
+          return `rgba(${val}, ${val}, ${val + 20}, ${Math.min(0.8, c)})`;
       }
     }
     
-    function render() {
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, width, height);
-      
+    function draw() {
       const cellW = width / N;
       const cellH = height / N;
       
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      
       for (let j = 1; j <= N; j++) {
         for (let i = 1; i <= N; i++) {
-          const d = density[IX(i, j)];
-          if (d < 1) continue;
-          
-          const idx = IX(i, j) * 4;
-          const r = dye[idx] || 0;
-          const g = dye[idx + 1] || 0;
-          const b = dye[idx + 2] || 0;
-          
-          const x0 = Math.floor((i - 1) * cellW);
-          const y0 = Math.floor((j - 1) * cellH);
-          const x1 = Math.floor(i * cellW);
-          const y1 = Math.floor(j * cellH);
-          
-          for (let y = y0; y < y1 && y < height; y++) {
-            for (let x = x0; x < x1 && x < width; x++) {
-              const pi = (y * width + x) * 4;
-              const alpha = Math.min(d / 255, 1);
-              data[pi] = Math.min(255, data[pi] + r * alpha);
-              data[pi + 1] = Math.min(255, data[pi + 1] + g * alpha);
-              data[pi + 2] = Math.min(255, data[pi + 2] + b * alpha);
-              data[pi + 3] = 255;
+          if (dens[IX(i, j)] > 0.01) {
+            ctx.fillStyle = getColor(dens, i, j);
+            ctx.fillRect((i - 1) * cellW, (j - 1) * cellH, cellW + 1, cellH + 1);
+          }
+        }
+      }
+    }
+    
+    function step(dt) {
+      const visc = 0.00001;
+      
+      // Add velocity from mouse
+      if (mouseDown) {
+        const gridX = Math.floor((mouseX / width) * N) + 1;
+        const gridY = Math.floor((mouseY / height) * N) + 1;
+        const radius = Math.floor((brushRadius / width) * N);
+        
+        for (let dj = -radius; dj <= radius; dj++) {
+          for (let di = -radius; di <= radius; di++) {
+            if (di * di + dj * dj <= radius * radius) {
+              const i = Math.max(1, Math.min(N, gridX + di));
+              const j = Math.max(1, Math.min(N, gridY + dj));
+              const idx = IX(i, j);
+              
+              // Add density
+              dens[idx] = Math.min(dens[idx] + 5, 10);
+              
+              // Add velocity
+              const angle = Math.atan2(mouseY - height/2, mouseX - width/2) + Math.PI;
+              u[idx] += Math.cos(angle) * 20;
+              v[idx] += Math.sin(angle) * 20;
             }
           }
         }
       }
       
-      ctx.putImageData(imageData, 0, 0);
+      // Update
+      velStep(u, v, u_prev, v_prev, visc, dt);
+      densStep(dens, dens_prev, u, v, diffusion, dt);
+      
+      // Decay
+      for (let i = 0; i < size; i++) {
+        dens[i] *= 0.995;
+        u[i] *= 0.99;
+        v[i] *= 0.99;
+      }
+      
+      hue += 0.5;
     }
     
-    function loop() {
-      step();
-      render();
-      requestAnimationFrame(loop);
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+      
+      step(0.1);
+      draw();
+      requestAnimationFrame(animate);
     }
     
-    init();
-    loop();
+    // Events
+    canvas.addEventListener('mousedown', e => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mouseup', () => mouseDown = false);
+    canvas.addEventListener('mouseleave', () => mouseDown = false);
+    canvas.addEventListener('wheel', e => {
+      brushRadius = Math.max(10, Math.min(100, brushRadius - e.deltaY * 0.1));
+      document.getElementById('radius').value = brushRadius;
+    });
+    
+    // Controls
+    document.getElementById('radius').oninput = e => brushRadius = parseInt(e.target.value);
+    document.getElementById('diffusion').oninput = e => diffusion = parseInt(e.target.value) * 0.00001;
+    
+    const modes = ['smoke', 'ink', 'fire', 'rainbow'];
+    const buttons = {
+      'btn-smoke': 'smoke',
+      'btn-ink': 'ink',
+      'btn-fire': 'fire',
+      'btn-rainbow': 'rainbow'
+    };
+    
+    Object.entries(buttons).forEach(([id, mode]) => {
+      document.getElementById(id).onclick = () => {
+        colorMode = mode;
+        Object.values(buttons).forEach(m => document.getElementById('btn-' + m).classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+      };
+    });
+    document.getElementById('btn-smoke').classList.add('active');
+    
+    document.getElementById('btn-clear').onclick = () => {
+      dens.fill(0);
+      u.fill(0);
+      v.fill(0);
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
   </script>
 </body>
 </html>
