@@ -4,340 +4,306 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Strange Attractors — Shadow's Garden</title>
-<meta name="description">Explore chaotic dynamical systems — Lorenz, Rössler, Thomas, and more.</meta>
+<meta name="description" content="Interactive chaotic attractors. 8 mathematical systems that create beautiful, unpredictable paths.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #050508;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #1a1a20;
-    border-radius: 4px;
-    box-shadow: 0 0 60px rgba(0,0,0,0.8);
-    background: #000;
-  }
+  body { margin: 0; overflow: hidden; background: #050508; }
+  canvas { display: block; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
     display: flex;
+    gap: 10px;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 900px;
+    z-index: 10;
   }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #666;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 90px;
-    accent-color: #444;
-  }
-  select, button {
-    background: #0f0f14;
-    color: #aaa;
-    border: 1px solid #2a2a30;
-    padding: 8px 14px;
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-family: inherit;
+    font-size: 13px;
     transition: all 0.2s;
   }
-  button:hover {
-    background: #1a1a22;
-    border-color: #444;
-  }
-  .stats {
-    color: #444;
-    font-size: 0.75rem;
-    margin-top: 15px;
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
     font-family: monospace;
   }
-  .equation {
-    color: #555;
-    font-size: 0.7rem;
-    margin-top: 3px;
+  .title {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
     font-family: monospace;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Strange Attractors</h1>
-  <div class="subtitle">Chaotic dynamical systems • Deterministic but unpredictable</div>
   <canvas id="canvas"></canvas>
-  
+  <div class="info">Click to reset point • Drag to rotate view</div>
+  <div class="title" id="title">Lorenz</div>
   <div class="controls">
-    <div class="control-group">
-      <label>Attractor</label>
-      <select id="attractor">
-        <option value="lorenz">Lorenz</option>
-        <option value="rossler">Rössler</option>
-        <option value="thomas">Thomas</option>
-        <option value="halvorsen">Halvorsen</option>
-        <option value="aizawa">Aizawa</option>
-        <option value="dadras">Dadras</option>
-        <option value="threeScroll">Three-Scroll</option>
-        <option value="chen">Chen</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label>Speed</label>
-      <input type="range" id="speed" min="1" max="50" value="10">
-    </div>
-    <div class="control-group">
-      <label>Trail</label>
-      <input type="range" id="trail" min="0" max="100" value="15">
-    </div>
-    <div class="control-group">
-      <label>Point Size</label>
-      <input type="range" id="pointSize" min="0.5" max="3" value="1" step="0.1">
-    </div>
-    <div class="control-group">
-      <label>3D Rotate</label>
-      <input type="range" id="rotate" min="0" max="360" value="45">
-    </div>
-    <div class="control-group">
-      <label>Tilt</label>
-      <input type="range" id="tilt" min="-90" max="90" value="15">
-    </div>
-    <div class="control-group">
-      <label>Actions</label>
-      <button id="resetBtn">Reset</button>
-    </div>
+    <button id="p1">Lorenz</button>
+    <button id="p2">Rössler</button>
+    <button id="p3">Thomas</button>
+    <button id="p4">Halvorsen</button>
+    <button id="p5">Aizawa</button>
+    <button id="p6">Dadras</button>
+    <button id="p7">Three-Scroll</button>
+    <button id="p8">Chen</button>
+    <button id="color">Color: Rainbow</button>
   </div>
-  
-  <div class="stats" id="stats">Points: 0</div>
-  <div class="equation" id="equation"></div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let points = [];
     let x = 0.1, y = 0, z = 0;
-    let dt = 0.008;
-    let speed = 10;
-    let trailFade = 15;
-    let pointSize = 1;
-    let rotY = 45 * Math.PI / 180;
-    let rotX = 15 * Math.PI / 180;
-    let attractorName = 'lorenz';
+    let hue = 0;
+    let colorMode = 'rainbow';
+    let attractor = 'lorenz';
+    let rotation = { x: 0, y: 0 };
+    let dragging = false;
+    let lastMouse = { x: 0, y: 0 };
+    let points = [];
+    const MAX_POINTS = 15000;
     
     const attractors = {
       lorenz: {
-        equations: (x, y, z) => ({
-          dx: 10 * (y - x),
-          dy: x * (28 - z) - y,
-          dz: x * y - 8/3 * z
-        }),
-        scale: 12,
-        equation: 'dx=10(y-x), dy=x(28-z)-y, dz=xy-8/3z'
+        name: 'Lorenz',
+        scale: 15,
+        dx: (x, y, z) => 10 * (y - x),
+        dy: (x, y, z) => x * (28 - z) - y,
+        dz: (x, y, z) => x * y - 8/3 * z,
+        dt: 0.005
       },
       rossler: {
-        equations: (x, y, z) => ({
-          dx: -y - z,
-          dy: x + 0.2 * y,
-          dz: 0.2 + z * (x - 5.7)
-        }),
-        scale: 15,
-        equation: 'dx=-(y+z), dy=x+0.2y, dz=0.2+z(x-5.7)'
+        name: 'Rössler',
+        scale: 20,
+        dx: (x, y, z) => -y - z,
+        dy: (x, y, z) => x + 0.2 * y,
+        dz: (x, y, z) => 0.2 + z * (x - 5),
+        dt: 0.02
       },
       thomas: {
-        equations: (x, y, z) => ({
-          dx: -0.208186 * x + Math.sin(y),
-          dy: -0.208186 * y + Math.sin(z),
-          dz: -0.208186 * z + Math.sin(x)
-        }),
+        name: 'Thomas',
         scale: 20,
-        equation: 'dx=-0.21x+sin(y), dy=-0.21y+sin(z), dz=-0.21z+sin(x)'
+        dx: (x, y, z) => Math.sin(y) - 0.2 * x,
+        dy: (x, y, z) => Math.sin(z) - 0.2 * y,
+        dz: (x, y, z) => Math.sin(x) - 0.2 * z,
+        dt: 0.1
       },
       halvorsen: {
-        equations: (x, y, z) => ({
-          dx: -1.89 * x - 4.76 * y - 4.76 * z,
-          dy: -1.89 * y - 4.76 * z - 4.76 * x,
-          dz: -1.89 * z - 4.76 * x - 4.76 * y
-        }),
-        scale: 8,
-        equation: 'dx=-1.9x-4.8(y+z), dy=-1.9y-4.8(z+x), dz=-1.9z-4.8(x+y)'
+        name: 'Halvorsen',
+        scale: 15,
+        dx: (x, y, z) => -1.4 * x - 4 * y - 4 * z - y * y,
+        dy: (x, y, z) => -1.4 * y - 4 * z - 4 * x - z * z,
+        dz: (x, y, z) => -1.4 * z - 4 * x - 4 * y - x * x,
+        dt: 0.004
       },
       aizawa: {
-        equations: (x, y, z) => ({
-          dx: (z - 0.7) * x - 3.5 * y,
-          dy: 3.5 * x + (z - 0.7) * y,
-          dz: 0.6 + 0.95 * z - z**3 / 3 - (x**2 + y**2) * (1 + 0.25 * z) + 0.1 * z * x**3
-        }),
-        scale: 30,
-        equation: 'dx=(z-0.7)x-3.5y, dy=3.5x+(z-0.7)y, dz=0.6+0.95z-z³/3-(x²+y²)(1+0.25z)'
+        name: 'Aizawa',
+        scale: 60,
+        dx: (x, y, z) => (z - 0.7) * x - 3.5 * y,
+        dy: (x, y, z) => 3.5 * x + (z - 0.7) * y,
+        dz: (x, y, z) => 0.6 + 0.95 * z - z * z * z / 3 - (x * x + y * y) * (1 + 0.25 * z) + 0.1 * z * x * x * x,
+        dt: 0.01
       },
       dadras: {
-        equations: (x, y, z) => ({
-          dx: y - 3.7 * x + y * z,
-          dy: 2.8 * y - x * z + z,
-          dz: -1.1 * z + x * y
-        }),
-        scale: 15,
-        equation: 'dx=y-3.7x+yz, dy=2.8y-xz+z, dz=-1.1z+xy'
+        name: 'Dadras',
+        scale: 20,
+        dx: (x, y, z) => y - a * x + b * y * z,
+        dy: (x, y, z) => c * y - x * z + z,
+        dz: (x, y, z) => d * x * y - e * z,
+        dt: 0.003,
+        params: { a: 3, b: 2.7, c: 1.7, d: 2, e: 9 }
       },
-      threeScroll: {
-        equations: (x, y, z) => ({
-          dx: a = 40 * (y - x) + 0.5 * x * z,
-          dy: -5 * x - x * z + 22 * y,
-          dz: -1.8 * z + x * y
-        }),
-        scale: 8,
-        equation: 'dx=40(y-x)+0.5xz, dy=-5x-xz+22y, dz=-1.8z+xy'
+      threescroll: {
+        name: 'Three-Scroll',
+        scale: 15,
+        dx: (x, y, z) => a * (y - x),
+        dy: (x, y, z) => (c - a) * x - x * z + c * y,
+        dz: (x, y, z) => x * y - b * z,
+        dt: 0.005,
+        params: { a: 40, b: 3, c: 28 }
       },
       chen: {
-        equations: (x, y, z) => ({
-          dx: 40 * (y - x),
-          dy: -12 * x - x * z + 28 * y,
-          dz: -1.8 * z + x * y
-        }),
-        scale: 12,
-        equation: 'dx=40(y-x), dy=-12x-xz+28y, dz=-1.8z+xy'
+        name: 'Chen',
+        scale: 15,
+        dx: (x, y, z) => a * (y - x),
+        dy: (x, y, z) => (c - a) * x - x * z + c * y,
+        dz: (x, y, z) => x * y - b * z,
+        dt: 0.003,
+        params: { a: 40, b: 3, c: 28 }
       }
     };
-
+    
+    let a = attractors.lorenz.params || {};
+    
     function resize() {
-      width = Math.min(900, window.innerWidth - 40);
-      height = Math.min(600, window.innerHeight - 280);
-      canvas.width = width;
-      canvas.height = height;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     }
-
-    function reset() {
-      points = [];
-      x = 0.1 + Math.random() * 0.1;
-      y = Math.random() * 0.1;
-      z = Math.random() * 0.1;
-      
-      // Warm up to settle on attractor
-      for (let i = 0; i < 500; i++) {
-        step();
-      }
-    }
-
-    function step() {
-      const a = attractors[attractorName];
-      const { dx, dy, dz } = a.equations(x, y, z);
-      x += dx * dt;
-      y += dy * dt;
-      z += dz * dt;
-      
-      points.push({ x, y, z });
-      if (points.length > 5000) points.shift();
-    }
-
+    
     function project(x, y, z) {
-      // 3D rotation
-      let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
-      let z1 = x * Math.sin(rotY) + z * Math.cos(rotY);
-      let y1 = y;
+      // Rotate around Y axis
+      const cosY = Math.cos(rotation.y);
+      const sinY = Math.sin(rotation.y);
+      let x1 = x * cosY - z * sinY;
+      let z1 = x * sinY + z * cosY;
       
-      let y2 = y1 * Math.cos(rotX) - z1 * Math.sin(rotX);
-      let z2 = y1 * Math.sin(rotX) + z1 * Math.cos(rotX);
+      // Rotate around X axis
+      const cosX = Math.cos(rotation.x);
+      const sinX = Math.sin(rotation.x);
+      let y1 = y * cosX - z1 * sinX;
+      let z2 = y * sinX + z1 * cosX;
       
-      // Project to 2D
-      const scale = attractors[attractorName].scale;
-      const projX = width / 2 + x1 * scale;
-      const projY = height / 2 - y2 * scale;
+      // Perspective
+      const fov = 400;
+      const scale = fov / (fov + z2 + 100);
       
-      return { x: projX, y: projY, z: z2 };
+      return {
+        x: width / 2 + x1 * scale,
+        y: height / 2 + y1 * scale,
+        z: z2
+      };
     }
-
+    
+    function update() {
+      const att = attractors[attractor];
+      
+      for (let i = 0; i < 3; i++) {
+        const params = { ...att.params, ...a };
+        
+        // Custom param access for Dadras, Three-Scroll, Chen
+        let dx, dy, dz;
+        if (attractor === 'dadras') {
+          dx = att.dx(x, y, z, params.a, params.b, params.c, params.d, params.e);
+          dy = att.dy(x, y, z, params.a, params.b, params.c, params.d, params.e);
+          dz = att.dz(x, y, z, params.a, params.b, params.c, params.d, params.e);
+        } else if (attractor === 'threescroll' || attractor === 'chen') {
+          dx = att.dx(x, y, z, params.a, params.b, params.c);
+          dy = att.dy(x, y, z, params.a, params.b, params.c);
+          dz = att.dz(x, y, z, params.a, params.b, params.c);
+        } else {
+          dx = att.dx(x, y, z);
+          dy = att.dy(x, y, z);
+          dz = att.dz(x, y, z);
+        }
+        
+        x += dx * att.dt;
+        y += dy * att.dt;
+        z += dz * att.dt;
+      }
+      
+      const proj = project(x * att.scale, y * att.scale, z * att.scale);
+      
+      points.push(proj);
+      if (points.length > MAX_POINTS) points.shift();
+      
+      hue = (hue + 0.5) % 360;
+    }
+    
     function draw() {
-      const fade = trailFade / 100;
-      ctx.fillStyle = `rgba(5, 5, 8, ${fade})`;
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.08)';
       ctx.fillRect(0, 0, width, height);
       
-      const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, '#ff6b6b');
-      gradient.addColorStop(0.5, '#4d96ff');
-      gradient.addColorStop(1, '#9b59b6');
+      // Sort by z for depth
+      points.sort((a, b) => b.z - a.z);
       
-      for (let i = 0; i < speed; i++) {
-        step();
-      }
-      
-      for (let i = 0; i < points.length; i++) {
-        const p = points[i];
-        const proj = project(p.x, p.y, p.z);
+      for (let i = 1; i < points.length; i++) {
+        const p1 = points[i - 1];
+        const p2 = points[i];
         
-        const alpha = i / points.length;
+        let color;
+        if (colorMode === 'rainbow') {
+          color = `hsla(${(hue + i * 0.2) % 360}, 80%, 60%, ${0.3 + i/points.length * 0.7})`;
+        } else if (colorMode === 'fire') {
+          const t = i / points.length;
+          color = `rgb(${255 * t}, ${100 * t}, ${50 * (1-t)})`;
+        } else if (colorMode === 'ice') {
+          const t = i / points.length;
+          color = `rgb(${50 + 100 * (1-t)}, ${150 + 100 * (1-t)}, ${255 * t})`;
+        } else {
+          color = `rgba(255, 255, 255, ${0.3 + i/points.length * 0.7})`;
+        }
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(proj.x, proj.y, pointSize, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${200 + alpha * 60}, 70%, ${50 + alpha * 30}%, ${alpha * 0.8})`;
-        ctx.fill();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
       }
-      
-      document.getElementById('stats').textContent = `Points: ${points.length}`;
-      document.getElementById('equation').textContent = attractors[attractorName].equation;
     }
-
+    
     function animate() {
+      update();
       draw();
       requestAnimationFrame(animate);
     }
-
-    // Event listeners
-    document.getElementById('attractor').addEventListener('change', (e) => {
-      attractorName = e.target.value;
-      reset();
+    
+    function reset() {
+      x = 0.1 + (Math.random() - 0.5);
+      y = 0 + (Math.random() - 0.5);
+      z = 0 + (Math.random() - 0.5);
+      points = [];
+      hue = Math.random() * 360;
+    }
+    
+    // Events
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastMouse = { x: e.clientX, y: e.clientY };
     });
-
-    document.getElementById('speed').addEventListener('input', (e) => {
-      speed = parseInt(e.target.value);
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        rotation.y += (e.clientX - lastMouse.x) * 0.01;
+        rotation.x += (e.clientY - lastMouse.y) * 0.01;
+        lastMouse = { x: e.clientX, y: e.clientY };
+      }
     });
-
-    document.getElementById('trail').addEventListener('input', (e) => {
-      trailFade = parseInt(e.target.value);
+    
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    
+    canvas.addEventListener('click', (e) => {
+      if (!dragging) reset();
     });
-
-    document.getElementById('pointSize').addEventListener('input', (e) => {
-      pointSize = parseFloat(e.target.value);
+    
+    // Presets
+    const presets = ['p1','p2','p3','p4','p5','p6','p7','p8'];
+    presets.forEach(id => {
+      document.getElementById(id).onclick = () => {
+        attractor = id.replace('p', '');
+        document.getElementById('title').innerText = attractors[attractor].name;
+        reset();
+      };
     });
-
-    document.getElementById('rotate').addEventListener('input', (e) => {
-      rotY = parseInt(e.target.value) * Math.PI / 180;
-    });
-
-    document.getElementById('tilt').addEventListener('input', (e) => {
-      rotX = parseInt(e.target.value) * Math.PI / 180;
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', reset);
-
+    
+    const colors = ['rainbow', 'fire', 'ice', 'mono'];
+    let colorIdx = 0;
+    document.getElementById('color').onclick = () => {
+      colorIdx = (colorIdx + 1) % colors.length;
+      colorMode = colors[colorIdx];
+      document.getElementById('color').innerText = 'Color: ' + colors[colorIdx].charAt(0).toUpperCase() + colors[colorIdx].slice(1);
+    };
+    
     window.addEventListener('resize', resize);
-
-    // Init
     resize();
-    reset();
     animate();
   </script>
 </body>
