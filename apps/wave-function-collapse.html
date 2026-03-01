@@ -4,470 +4,309 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wave Function Collapse — Shadow's Garden</title>
-<meta name="description">Procedural cave generation using the WFC algorithm — entropy-based tile placement.</meta>
+<meta name="description" content="Procedural cave generation using quantum mechanics-inspired entropy.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #222;
-    border-radius: 4px;
-    cursor: pointer;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-  }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
     display: flex;
+    gap: 10px;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 800px;
+    z-index: 10;
   }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #888;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 100px;
-    accent-color: #666;
-  }
-  select, button {
-    background: #1a1a20;
-    color: #ccc;
-    border: 1px solid #333;
-    padding: 8px 14px;
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-family: inherit;
+    font-size: 13px;
     transition: all 0.2s;
   }
-  button:hover {
-    background: #252530;
-    border-color: #555;
-  }
-  .stats {
-    color: #555;
-    font-size: 0.75rem;
-    margin-top: 15px;
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
     font-family: monospace;
   }
-  .legend {
-    display: flex;
-    gap: 15px;
-    margin-top: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: #888;
-    font-size: 0.75rem;
-  }
-  .legend-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
+  .status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Wave Function Collapse</h1>
-  <div class="subtitle">Procedural cave generation • Click to observe collapsed cell</div>
   <canvas id="canvas"></canvas>
-  
+  <div class="info">Click to step • Hold to auto-run • Space to reset</div>
+  <div class="status" id="status">Collapsed: 0 / 1024</div>
   <div class="controls">
-    <div class="control-group">
-      <label>Width</label>
-      <input type="range" id="width" min="20" max="80" value="40">
-    </div>
-    <div class="control-group">
-      <label>Height</label>
-      <input type="range" id="height" min="20" max="60" value="30">
-    </div>
-    <div class="control-group">
-      <label>Speed</label>
-      <input type="range" id="speed" min="1" max="50" value="10">
-    </div>
-    <div class="control-group">
-      <label>Presets</label>
-      <select id="preset">
-        <option value="caves">Caves</option>
-        <option value="maze">Maze</option>
-        <option value="islands">Islands</option>
-        <option value="corridors">Corridors</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label>Actions</label>
-      <button id="stepBtn">Step</button>
-      <button id="runBtn">Run</button>
-      <button id="resetBtn">Reset</button>
-    </div>
+    <button id="step">Step</button>
+    <button id="run">Auto Run</button>
+    <button id="reset">Reset</button>
+    <button id="p1">Caves</button>
+    <button id="p2">Maze</button>
+    <button id="p3">Islands</button>
+    <button id="p4">Corridors</button>
   </div>
-  
-  <div class="legend" id="legend"></div>
-  <div class="stats" id="stats">Cells: 0/0 | Collapsed: 0</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
-    const TILE_SIZE = 14;
-    let gridWidth = 40;
-    let gridHeight = 30;
-    let cellSize = TILE_SIZE;
+    let width, height;
+    let cellSize = 20;
+    let cols, rows;
     let grid = [];
     let running = false;
-    let animationId = null;
-    let stepsPerFrame = 10;
-    let totalCells = 0;
-    let collapsedCells = 0;
+    let interval = null;
     
-    // Tile types
-    const WALL = 0;
-    const FLOOR = 1;
-    const CORRIDOR = 2;
+    // Tile types: 0 = empty, 1 = wall
+    const EMPTY = 0;
+    const WALL = 1;
     
-    // Tile colors
-    const colors = {
-      [WALL]: '#1a1a2e',
-      [FLOOR]: '#4a4a5a',
-      [CORRIDOR]: '#2d2d4a'
-    };
+    // Adjacency rules: for each tile type, which neighbors are allowed
+    let rules = {};
     
     const presets = {
-      caves: {
-        tiles: [WALL, FLOOR],
-        name: 'Caves',
-        legend: { [WALL]: '#1a1a2e', [FLOOR]: '#4a4a5a' },
-        constraints: {
-          [WALL]: { N:[WALL], S:[WALL], E:[WALL], W:[WALL], NW:[WALL], NE:[WALL], SW:[WALL], SE:[WALL] },
-          [FLOOR]: { N:[WALL,FLOOR], S:[WALL,FLOOR], E:[WALL,FLOOR], W:[WALL,FLOOR], NW:[WALL,FLOOR], NE:[WALL,FLOOR], SW:[WALL,FLOOR], SE:[WALL,FLOOR] }
+      p1: { // Caves
+        rules: {
+          0: { 0: [0,1], 1: [0,1] },
+          1: { 0: [0,1], 1: [1] }
+        },
+        init: () => {
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              grid[y][x] = Math.random() < 0.45 ? WALL : EMPTY;
+            }
+          }
         }
       },
-      maze: {
-        tiles: [WALL, CORRIDOR],
-        name: 'Maze',
-        legend: { [WALL]: '#1a1a2e', [CORRIDOR]: '#6a3a3a' },
-        constraints: {
-          [WALL]: { N:[WALL], S:[WALL], E:[WALL], W:[WALL], NW:[WALL], NE:[WALL], SW:[WALL], SE:[WALL] },
-          [CORRIDOR]: { N:[CORRIDOR], S:[CORRIDOR], E:[CORRIDOR], W:[CORRIDOR], NW:[CORRIDOR], NE:[CORRIDOR], SW:[CORRIDOR], SE:[CORRIDOR] }
+      p2: { // Maze
+        rules: {
+          0: { 0: [0], 1: [1] },
+          1: { 0: [0,1], 1: [0,1] }
+        },
+        init: () => {
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              if (x === 0 || x === cols-1 || y === 0 || y === rows-1) {
+                grid[y][x] = WALL;
+              } else if (x % 2 === 0 && y % 2 === 0) {
+                grid[y][x] = WALL;
+              } else {
+                grid[y][x] = EMPTY;
+              }
+            }
+          }
         }
       },
-      islands: {
-        tiles: [WALL, FLOOR],
-        name: 'Islands',
-        legend: { [WALL]: '#2a4a5a', [FLOOR]: '#4a5a3a' },
-        constraints: {
-          [WALL]: { N:[WALL,FLOOR], S:[WALL,FLOOR], E:[WALL,FLOOR], W:[WALL,FLOOR], NW:[WALL,FLOOR], NE:[WALL,FLOOR], SW:[WALL,FLOOR], SE:[WALL,FLOOR] },
-          [FLOOR]: { N:[FLOOR], S:[FLOOR], E:[FLOOR], W:[FLOOR], NW:[FLOOR], NE:[FLOOR], SW:[FLOOR], SE:[FLOOR] }
+      p3: { // Islands
+        rules: {
+          0: { 0: [0], 1: [0,1] },
+          1: { 0: [1], 1: [1] }
+        },
+        init: () => {
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const cx = cols/2, cy = rows/2;
+              const dist = Math.hypot(x-cx, y-cy);
+              const noise = (Math.random() - 0.5) * 10;
+              grid[y][x] = dist + noise < cols/3 ? EMPTY : WALL;
+            }
+          }
         }
       },
-      corridors: {
-        tiles: [WALL, CORRIDOR],
-        name: 'Corridors',
-        legend: { [WALL]: '#1a1a2e', [CORRIDOR]: '#3a3a5a' },
-        constraints: {
-          [WALL]: { N:[WALL,CORRIDOR], S:[WALL,CORRIDOR], E:[WALL,CORRIDOR], W:[WALL,CORRIDOR], NW:[WALL], NE:[WALL], SW:[WALL], SE:[WALL] },
-          [CORRIDOR]: { N:[CORRIDOR], S:[CORRIDOR], E:[WALL], W:[WALL], NW:[WALL], NE:[WALL], SW:[WALL], SE:[WALL] }
-        }
-      }
-    };
-    
-    let currentPreset = presets.caves;
-    
-    function resize() {
-      canvas.width = gridWidth * cellSize;
-      canvas.height = gridHeight * cellSize;
-    }
-    
-    function initGrid() {
-      grid = [];
-      totalCells = gridWidth * gridHeight;
-      collapsedCells = 0;
-      
-      for (let y = 0; y < gridHeight; y++) {
-        grid[y] = [];
-        for (let x = 0; x < gridWidth; x++) {
-          grid[y][x] = {
-            possible: [...currentPreset.tiles],
-            collapsed: false,
-            value: null
-          };
-        }
-      }
-      
-      // Run the WFC algorithm
-      runWFC();
-      draw();
-      updateStats();
-    }
-    
-    function getEntropy(x, y) {
-      if (grid[y][x].collapsed) return Infinity;
-      return grid[y][x].possible.length;
-    }
-    
-    function findMinEntropy() {
-      let minEntropy = Infinity;
-      let candidates = [];
-      
-      for (let y = 0; y < gridHeight; y++) {
-        for (let x = 0; x < gridWidth; x++) {
-          if (!grid[y][x].collapsed) {
-            const entropy = getEntropy(x, y);
-            if (entropy < minEntropy) {
-              minEntropy = entropy;
-              candidates = [{x, y}];
-            } else if (entropy === minEntropy) {
-              candidates.push({x, y});
+      p4: { // Corridors
+        rules: {
+          0: { 0: [0], 1: [1] },
+          1: { 0: [0,1], 1: [0,1] }
+        },
+        init: () => {
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              grid[y][x] = (x % 3 === 0 || y % 3 === 0) ? WALL : EMPTY;
             }
           }
         }
       }
-      
-      if (candidates.length === 0) return null;
-      return candidates[Math.floor(Math.random() * candidates.length)];
+    };
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      cols = Math.floor(width / cellSize);
+      rows = Math.floor(height / cellSize);
+      reset();
     }
     
-    function propagate(x, y) {
-      const stack = [{x, y}];
+    function reset() {
+      grid = [];
+      for (let y = 0; y < rows; y++) {
+        grid[y] = [];
+        for (let x = 0; x < cols; x++) {
+          grid[y][x] = -1; // Unknown
+        }
+      }
+      presets.p1.init();
+      draw();
+      updateStatus();
+    }
+    
+    function getValidNeighbors(x, y, value) {
+      const neighbors = [];
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
       
-      while (stack.length > 0) {
-        const current = stack.pop();
-        const cell = grid[current.y][current.x];
-        
-        if (!cell.collapsed || cell.value === null) continue;
-        
-        const neighbors = getNeighbors(current.x, current.y);
-        
-        for (const dir of neighbors) {
-          const neighbor = grid[dir.y][dir.x];
-          if (neighbor.collapsed) continue;
-          
-          const allowed = currentPreset.constraints[cell.value][dir.dir];
-          const newPossible = neighbor.possible.filter(t => allowed.includes(t));
-          
-          if (newPossible.length === 0) {
-            // Contradiction - reset this cell
-            neighbor.possible = [...currentPreset.tiles];
-            stack.push(dir);
-          } else if (newPossible.length < neighbor.possible.length) {
-            neighbor.possible = newPossible;
-            stack.push(dir);
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+          const nVal = grid[ny][nx];
+          if (nVal !== -1) {
+            if (!rules[value]) return [];
+            const valid = rules[value][nVal];
+            if (!valid || !valid.includes(value)) {
+              return [];
+            }
+            neighbors.push(nVal);
           }
         }
       }
-    }
-    
-    function getNeighbors(x, y) {
-      const neighbors = [];
-      const dirs = [
-        {dx: 0, dy: -1, dir: 'N'},
-        {dx: 0, dy: 1, dir: 'S'},
-        {dx: 1, dy: 0, dir: 'E'},
-        {dx: -1, dy: 0, dir: 'W'},
-        {dx: -1, dy: -1, dir: 'NW'},
-        {dx: 1, dy: -1, dir: 'NE'},
-        {dx: -1, dy: 1, dir: 'SW'},
-        {dx: 1, dy: 1, dir: 'SE'}
-      ];
-      
-      for (const d of dirs) {
-        const nx = x + d.dx;
-        const ny = y + d.dy;
-        if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
-          neighbors.push({x: nx, y: ny, dir: d.dir});
-        }
-      }
-      
       return neighbors;
     }
     
-    function step() {
-      const cell = findMinEntropy();
-      if (!cell) {
-        running = false;
-        document.getElementById('runBtn').textContent = 'Run';
-        return false;
-      }
+    function propagate() {
+      let changed = false;
       
-      // Collapse
-      const possible = grid[cell.y][cell.x].possible;
-      const value = possible[Math.floor(Math.random() * possible.length)];
-      grid[cell.y][cell.x].collapsed = true;
-      grid[cell.y][cell.x].value = value;
-      collapsedCells++;
+      // Find cells with lowest entropy (most constrained)
+      let minEntropy = 9;
+      let candidates = [];
       
-      // Propagate
-      propagate(cell.x, cell.y);
-      
-      return true;
-    }
-    
-    function runWFC() {
-      let count = 0;
-      while (step() && count < 5000) {
-        count++;
-      }
-    }
-    
-    function animate() {
-      if (!running) return;
-      
-      for (let i = 0; i < stepsPerFrame; i++) {
-        if (!step()) {
-          running = false;
-          document.getElementById('runBtn').textContent = 'Run';
-          break;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (grid[y][x] !== -1) continue;
+          
+          // Count possible values based on neighbors
+          let possible = [EMPTY, WALL];
+          
+          const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+          for (const [dx, dy] of dirs) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+              const nVal = grid[ny][nx];
+              if (nVal !== -1) {
+                possible = possible.filter(v => {
+                  const rule = rules[v];
+                  if (!rule) return false;
+                  const valid = rule[nVal];
+                  return valid && valid.includes(v);
+                });
+              }
+            }
+          }
+          
+          if (possible.length === 0) {
+            // Dead end, pick random
+            possible = [EMPTY, WALL];
+          }
+          
+          if (possible.length < minEntropy) {
+            minEntropy = possible.length;
+            candidates = [{x, y, possible}];
+          } else if (possible.length === minEntropy) {
+            candidates.push({x, y, possible});
+          }
         }
       }
       
-      draw();
-      updateStats();
-      
-      if (running) {
-        animationId = requestAnimationFrame(animate);
+      // Collapse lowest entropy cell
+      if (candidates.length > 0) {
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        const value = pick.possible[Math.floor(Math.random() * pick.possible.length)];
+        grid[pick.y][pick.x] = value;
+        changed = true;
       }
+      
+      return changed;
+    }
+    
+    function step() {
+      propagate();
+      draw();
+      updateStatus();
+    }
+    
+    function run() {
+      if (running) {
+        running = false;
+        clearInterval(interval);
+        document.getElementById('run').innerText = 'Auto Run';
+      } else {
+        running = true;
+        interval = setInterval(step, 50);
+        document.getElementById('run').innerText = 'Stop';
+      }
+    }
+    
+    function updateStatus() {
+      let collapsed = 0;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (grid[y][x] !== -1) collapsed++;
+        }
+      }
+      document.getElementById('status').innerText = `Collapsed: ${collapsed} / ${cols * rows}`;
     }
     
     function draw() {
       ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, width, height);
       
-      for (let y = 0; y < gridHeight; y++) {
-        for (let x = 0; x < gridWidth; x++) {
-          const cell = grid[y][x];
-          const px = x * cellSize;
-          const py = y * cellSize;
-          
-          if (cell.collapsed) {
-            ctx.fillStyle = colors[cell.value];
-          } else if (cell.possible.length === 1) {
-            ctx.fillStyle = colors[cell.possible[0]];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const val = grid[y][x];
+          if (val === WALL) {
+            ctx.fillStyle = '#2d3436';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
+          } else if (val === EMPTY) {
+            ctx.fillStyle = '#636e72';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
           } else {
-            // Show entropy as opacity
-            const entropy = cell.possible.length;
-            const maxEntropy = currentPreset.tiles.length;
-            const alpha = 1 - (entropy / maxEntropy) * 0.5;
-            ctx.fillStyle = `rgba(30, 30, 40, ${alpha})`;
-            
-            // Draw mini tiles to show possibilities
-            const miniSize = cellSize / entropy;
-            for (let i = 0; i < entropy; i++) {
-              ctx.fillStyle = colors[cell.possible[i]];
-              ctx.fillRect(px + i * miniSize + 1, py + 1, miniSize - 2, cellSize - 2);
-            }
-          }
-          
-          if (!cell.collapsed || cell.possible.length > 1) {
-            // Don't draw over the mini tiles
-          } else {
-            ctx.fillStyle = colors[cell.value];
-            ctx.fillRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
           }
         }
       }
     }
     
-    function updateStats() {
-      document.getElementById('stats').textContent = `Cells: ${collapsedCells}/${totalCells} | Collapsed: ${Math.round(collapsedCells/totalCells*100)}%`;
-    }
+    // Presets
+    document.getElementById('p1').onclick = () => { rules = presets.p1.rules; presets.p1.init(); draw(); updateStatus(); };
+    document.getElementById('p2').onclick = () => { rules = presets.p2.rules; presets.p2.init(); draw(); updateStatus(); };
+    document.getElementById('p3').onclick = () => { rules = presets.p3.rules; presets.p3.init(); draw(); updateStatus(); };
+    document.getElementById('p4').onclick = () => { rules = presets.p4.rules; presets.p4.init(); draw(); updateStatus(); };
     
-    function updateLegend() {
-      const legend = document.getElementById('legend');
-      legend.innerHTML = '';
-      for (const [tile, color] of Object.entries(currentPreset.legend)) {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<div class="legend-color" style="background:${color}"></div> ${tile === '0' ? 'Wall' : tile === '1' ? 'Floor' : 'Corridor'}`;
-        legend.appendChild(item);
-      }
-    }
+    document.getElementById('step').onclick = step;
+    document.getElementById('run').onclick = run;
+    document.getElementById('reset').onclick = reset;
     
-    // Event listeners
-    document.getElementById('width').addEventListener('input', (e) => {
-      gridWidth = parseInt(e.target.value);
-      resize();
-      initGrid();
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { reset(); e.preventDefault(); }
     });
     
-    document.getElementById('height').addEventListener('input', (e) => {
-      gridHeight = parseInt(e.target.value);
-      resize();
-      initGrid();
-    });
-    
-    document.getElementById('speed').addEventListener('input', (e) => {
-      stepsPerFrame = parseInt(e.target.value);
-    });
-    
-    document.getElementById('preset').addEventListener('change', (e) => {
-      currentPreset = presets[e.target.value];
-      updateLegend();
-      initGrid();
-    });
-    
-    document.getElementById('stepBtn').addEventListener('click', () => {
-      step();
-      draw();
-      updateStats();
-    });
-    
-    document.getElementById('runBtn').addEventListener('click', () => {
-      running = !running;
-      document.getElementById('runBtn').textContent = running ? 'Pause' : 'Run';
-      if (running) animate();
-    });
-    
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      running = false;
-      document.getElementById('runBtn').textContent = 'Run';
-      if (animationId) cancelAnimationFrame(animationId);
-      initGrid();
-    });
-    
-    canvas.addEventListener('click', () => {
-      if (!running) {
-        step();
-        draw();
-        updateStats();
-      }
-    });
-    
-    // Init
+    window.addEventListener('resize', resize);
     resize();
-    updateLegend();
-    initGrid();
   </script>
 </body>
 </html>
