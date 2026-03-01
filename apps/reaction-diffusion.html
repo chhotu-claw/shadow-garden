@@ -4,347 +4,252 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reaction Diffusion — Shadow's Garden</title>
-<meta name="description">Gray-Scott reaction-diffusion simulation — Turing's math for animal coat patterns.</meta>
+<meta name="description" content="Gray-Scott reaction-diffusion simulator. Coral, spots, fingerprints, worms, mazes.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #222;
-    border-radius: 4px;
-    cursor: crosshair;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-  }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
     display: flex;
+    gap: 10px;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 800px;
+    z-index: 10;
   }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #888;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 100px;
-    accent-color: #666;
-  }
-  select, button {
-    background: #1a1a20;
-    color: #ccc;
-    border: 1px solid #333;
-    padding: 8px 14px;
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 13px;
   }
-  button:hover {
-    background: #252530;
-    border-color: #555;
-  }
-  .stats {
-    color: #555;
-    font-size: 0.75rem;
-    margin-top: 15px;
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
     font-family: monospace;
   }
-  .value-display {
-    color: #aaa;
-    font-size: 0.8rem;
+  .stats {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 12px;
     font-family: monospace;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Reaction Diffusion</h1>
-  <div class="subtitle">Gray-Scott model — Click to add chemicals</div>
   <canvas id="canvas"></canvas>
-  
+  <div class="info">Click to add chemical • Space to pause</div>
+  <div class="stats" id="stats">FPS: 0</div>
   <div class="controls">
-    <div class="control-group">
-      <label>Preset</label>
-      <select id="preset">
-        <option value="coral">Coral</option>
-        <option value="spots">Spots</option>
-        <option value="fingerprint">Fingerprint</option>
-        <option value="worms">Worms</option>
-        <option value="maze">Maze</option>
-        <option value="holes">Holes</option>
-        <option value="chaos">Chaos</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label>Feed Rate</label>
-      <input type="range" id="feed" min="0.01" max="0.1" value="0.055" step="0.001">
-      <span class="value-display" id="feedVal">0.055</span>
-    </div>
-    <div class="control-group">
-      <label>Kill Rate</label>
-      <input type="range" id="kill" min="0.03" max="0.07" value="0.062" step="0.001">
-      <span class="value-display" id="killVal">0.062</span>
-    </div>
-    <div class="control-group">
-      <label>Speed</label>
-      <input type="range" id="speed" min="1" max="20" value="8">
-    </div>
-    <div class="control-group">
-      <label>Actions</label>
-      <button id="resetBtn">Reset</button>
-    </div>
+    <button id="coral">Coral</button>
+    <button id="spots">Spots</button>
+    <button id="fingerprints">Fingerprints</button>
+    <button id="worms">Worms</button>
+    <button id="mazes">Mazes</button>
+    <button id="clear">Clear</button>
   </div>
-  
-  <div class="stats" id="stats">Generating...</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let gridWidth, gridHeight;
-    let grid, nextGrid;
+    let cellSize = 4;
+    let cols, rows;
+    let grid = [];
+    let next = [];
+    let running = true;
+    let frameCount = 0;
+    let lastTime = Date.now();
+    let fps = 0;
+    
+    // Gray-Scott parameters
     let feed = 0.055;
     let kill = 0.062;
     let da = 1.0;
     let db = 0.5;
-    let dt = 1.0;
-    let iterations = 8;
     
     const presets = {
       coral: { feed: 0.0545, kill: 0.062 },
-      spots: { feed: 0.0367, kill: 0.0649 },
-      fingerprint: { feed: 0.055, kill: 0.062 },
+      spots: { feed: 0.0367, kill: 0.0644 },
+      fingerprints: { feed: 0.054, kill: 0.063 },
       worms: { feed: 0.078, kill: 0.061 },
-      maze: { feed: 0.029, kill: 0.057 },
-      holes: { feed: 0.039, kill: 0.058 },
-      chaos: { feed: 0.026, kill: 0.051 }
+      mazes: { feed: 0.029, kill: 0.057 }
     };
-
+    
     function resize() {
-      width = Math.min(700, window.innerWidth - 40);
-      height = Math.min(500, window.innerHeight - 250);
-      canvas.width = width;
-      canvas.height = height;
-      gridWidth = Math.floor(width / 2);
-      gridHeight = Math.floor(height / 2);
-      initGrid();
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      cols = Math.floor(width / cellSize);
+      rows = Math.floor(height / cellSize);
+      init();
     }
-
-    function initGrid() {
-      grid = new Float32Array(gridWidth * gridHeight * 2);
-      nextGrid = new Float32Array(gridWidth * gridHeight * 2);
-      
-      // Initialize with chemical A everywhere, B nowhere
-      for (let i = 0; i < gridWidth * gridHeight; i++) {
-        grid[i * 2] = 1.0;
-        grid[i * 2 + 1] = 0.0;
+    
+    function init() {
+      grid = [];
+      next = [];
+      for (let y = 0; y < rows; y++) {
+        grid[y] = [];
+        next[y] = [];
+        for (let x = 0; x < cols; x++) {
+          grid[y][x] = { a: 1, b: 0 };
+          next[y][x] = { a: 1, b: 0 };
+        }
       }
       
-      // Add seed spots of B
-      const numSeeds = 5;
-      for (let s = 0; s < numSeeds; s++) {
-        const cx = Math.floor(gridWidth / 2 + (Math.random() - 0.5) * gridWidth * 0.5);
-        const cy = Math.floor(gridHeight / 2 + (Math.random() - 0.5) * gridHeight * 0.5);
-        const radius = 5 + Math.random() * 10;
-        
-        for (let y = cy - radius; y < cy + radius; y++) {
-          for (let x = cx - radius; x < cx + radius; x++) {
-            if (x > 0 && x < gridWidth - 1 && y > 0 && y < gridHeight - 1) {
-              const dx = x - cx;
-              const dy = y - cy;
-              if (dx * dx + dy * dy < radius * radius) {
-                const idx = (y * gridWidth + x) * 2 + 1;
-                grid[idx] = 1.0;
-              }
+      // Add initial seed
+      for (let i = 0; i < 5; i++) {
+        const cx = Math.floor(cols / 2 + (Math.random() - 0.5) * 20);
+        const cy = Math.floor(rows / 2 + (Math.random() - 0.5) * 20);
+        for (let y = cy - 5; y < cy + 5; y++) {
+          for (let x = cx - 5; x < cx + 5; x++) {
+            if (y > 0 && y < rows - 1 && x > 0 && x < cols - 1) {
+              grid[y][x].b = 1;
             }
           }
         }
       }
     }
-
+    
     function update() {
-      for (let y = 1; y < gridHeight - 1; y++) {
-        for (let x = 1; x < gridWidth - 1; x++) {
-          const idx = (y * gridWidth + x) * 2;
-          const a = grid[idx];
-          const b = grid[idx + 1];
+      if (!running) return;
+      
+      for (let y = 1; y < rows - 1; y++) {
+        for (let x = 1; x < cols - 1; x++) {
+          const a = grid[y][x].a;
+          const b = grid[y][x].b;
           
           // Laplacian
-          let la = 0, lb = 0;
-          la += grid[(y-1) * gridWidth + x] * 0.2;
-          la += grid[(y+1) * gridWidth + x] * 0.2;
-          la += grid[y * gridWidth + (x-1)] * 0.2;
-          la += grid[y * gridWidth + (x+1)] * 0.2;
-          la += grid[(y-1) * gridWidth + (x-1)] * 0.05;
-          la += grid[(y-1) * gridWidth + (x+1)] * 0.05;
-          la += grid[(y+1) * gridWidth + (x-1)] * 0.05;
-          la += grid[(y+1) * gridWidth + (x+1)] * 0.05;
-          la -= a;
+          let lapA = 0;
+          let lapB = 0;
           
-          lb += grid[(y-1) * gridWidth + x + 1] * 0.2;
-          lb += grid[(y+1) * gridWidth + x + 1] * 0.2;
-          lb += grid[y * gridWidth + (x-1) + 1] * 0.2;
-          lb += grid[y * gridWidth + (x+1) + 1] * 0.2;
-          lb += grid[(y-1) * gridWidth + (x-1) + 1] * 0.05;
-          lb += grid[(y-1) * gridWidth + (x+1) + 1] * 0.05;
-          lb += grid[(y+1) * gridWidth + (x-1) + 1] * 0.05;
-          lb += grid[(y+1) * gridWidth + (x+1) + 1] * 0.05;
-          lb -= b;
+          lapA += grid[y][x].a * -1;
+          lapA += grid[y][x-1].a * 0.2;
+          lapA += grid[y][x+1].a * 0.2;
+          lapA += grid[y-1][x].a * 0.2;
+          lapA += grid[y+1][x].a * 0.2;
+          lapA += grid[y-1][x-1].a * 0.05;
+          lapA += grid[y-1][x+1].a * 0.05;
+          lapA += grid[y+1][x-1].a * 0.05;
+          lapA += grid[y+1][x+1].a * 0.05;
           
-          const nextA = a + (da * la - a * b * b + feed * (1 - a)) * dt;
-          const nextB = b + (db * lb + a * b * b - (kill + feed) * b) * dt;
+          lapB += grid[y][x].b * -1;
+          lapB += grid[y][x-1].b * 0.2;
+          lapB += grid[y][x+1].b * 0.2;
+          lapB += grid[y-1][x].b * 0.2;
+          lapB += grid[y+1][x].b * 0.2;
+          lapB += grid[y-1][x-1].b * 0.05;
+          lapB += grid[y-1][x+1].b * 0.05;
+          lapB += grid[y+1][x-1].b * 0.05;
+          lapB += grid[y+1][x+1].b * 0.05;
           
-          const nextIdx = (y * gridWidth + x) * 2;
-          nextGrid[nextIdx] = Math.max(0, Math.min(1, nextA));
-          nextGrid[nextIdx + 1] = Math.max(0, Math.min(1, nextB));
+          // Gray-Scott formulas
+          const newA = a + (da * lapA - a * b * b + feed * (1 - a));
+          const newB = b + (db * lapB + a * b * b - (kill + feed) * b);
+          
+          next[y][x].a = Math.max(0, Math.min(1, newA));
+          next[y][x].b = Math.max(0, Math.min(1, newB));
         }
       }
       
       // Swap grids
       const temp = grid;
-      grid = nextGrid;
-      nextGrid = temp;
+      grid = next;
+      next = temp;
     }
-
+    
     function draw() {
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
       
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const gx = Math.floor(x / 2);
-          const gy = Math.floor(y / 2);
-          const idx = (gy * gridWidth + gx) * 2;
-          const a = grid[idx];
-          const b = grid[idx + 1];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const val = grid[y][x].b - grid[y][x].a;
+          const c = Math.floor((1 - val) * 255);
           
-          const val = Math.floor((a - b) * 255);
-          const pixelIdx = (y * width + x) * 4;
+          // Color mapping
+          const r = Math.floor(c * 0.2);
+          const g = Math.floor(c * 0.8);
+          const b = Math.floor(c);
           
-          // Color palette - chemical B is red/orange
-          const c = Math.floor(b * 255);
-          data[pixelIdx] = c;           // R
-          data[pixelIdx + 1] = c * 0.3; // G  
-          data[pixelIdx + 2] = c * 0.1; // B
-          data[pixelIdx + 3] = 255;     // A
+          for (let sy = 0; sy < cellSize; sy++) {
+            for (let sx = 0; sx < cellSize; sx++) {
+              const px = x * cellSize + sx;
+              const py = y * cellSize + sy;
+              if (px < width && py < height) {
+                const i = (py * width + px) * 4;
+                data[i] = r;
+                data[i+1] = g;
+                data[i+2] = b;
+                data[i+3] = 255;
+              }
+            }
+          }
         }
       }
       
       ctx.putImageData(imageData, 0, 0);
     }
-
-    let lastTime = performance.now();
-    let frames = 0;
-    let fps = 0;
-    let gen = 0;
-
+    
     function animate() {
-      for (let i = 0; i < iterations; i++) {
+      // Multiple steps per frame for speed
+      for (let i = 0; i < 8; i++) {
         update();
-        gen++;
       }
       draw();
       
-      frames++;
-      const now = performance.now();
-      if (now - lastTime >= 1000) {
-        fps = frames;
-        frames = 0;
+      frameCount++;
+      const now = Date.now();
+      if (now - lastTime > 1000) {
+        fps = frameCount;
+        frameCount = 0;
         lastTime = now;
-        document.getElementById('stats').textContent = `FPS: ${fps} | Generation: ${gen}`;
+        document.getElementById('stats').innerText = `FPS: ${fps}`;
       }
       
       requestAnimationFrame(animate);
     }
-
-    // Event listeners
-    document.getElementById('preset').addEventListener('change', (e) => {
-      const p = presets[e.target.value];
-      feed = p.feed;
-      kill = p.kill;
-      document.getElementById('feed').value = feed;
-      document.getElementById('kill').value = kill;
-      document.getElementById('feedVal').textContent = feed.toFixed(3);
-      document.getElementById('killVal').textContent = kill.toFixed(3);
-      initGrid();
-      gen = 0;
-    });
-
-    document.getElementById('feed').addEventListener('input', (e) => {
-      feed = parseFloat(e.target.value);
-      document.getElementById('feedVal').textContent = feed.toFixed(3);
-    });
-
-    document.getElementById('kill').addEventListener('input', (e) => {
-      kill = parseFloat(e.target.value);
-      document.getElementById('killVal').textContent = kill.toFixed(3);
-    });
-
-    document.getElementById('speed').addEventListener('input', (e) => {
-      iterations = parseInt(e.target.value);
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      initGrid();
-      gen = 0;
-    });
-
+    
     canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) / 2);
-      const y = Math.floor((e.clientY - rect.top) / 2);
-      
-      const radius = 8;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          if (dx*dx + dy*dy <= radius*radius) {
-            const px = x + dx;
-            const py = y + dy;
-            if (px > 0 && px < gridWidth - 1 && py > 0 && py < gridHeight - 1) {
-              const idx = (py * gridWidth + px) * 2 + 1;
-              grid[idx] = 1.0;
-            }
+      const x = Math.floor(e.clientX / cellSize);
+      const y = Math.floor(e.clientY / cellSize);
+      for (let dy = -3; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          if (y + dy > 0 && y + dy < rows - 1 && x + dx > 0 && x + dx < cols - 1) {
+            grid[y + dy][x + dx].b = 1;
           }
         }
       }
     });
-
-    window.addEventListener('resize', () => {
-      resize();
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        running = !running;
+        e.preventDefault();
+      }
     });
-
-    // Init
+    
+    document.getElementById('coral').onclick = () => { feed = presets.coral.feed; kill = presets.coral.kill; init(); };
+    document.getElementById('spots').onclick = () => { feed = presets.spots.feed; kill = presets.spots.kill; init(); };
+    document.getElementById('fingerprints').onclick = () => { feed = presets.fingerprints.feed; kill = presets.fingerprints.kill; init(); };
+    document.getElementById('worms').onclick = () => { feed = presets.worms.feed; kill = presets.worms.kill; init(); };
+    document.getElementById('mazes').onclick = () => { feed = presets.mazes.feed; kill = presets.mazes.kill; init(); };
+    document.getElementById('clear').onclick = init;
+    
+    window.addEventListener('resize', resize);
     resize();
-    initGrid();
     animate();
   </script>
 </body>
