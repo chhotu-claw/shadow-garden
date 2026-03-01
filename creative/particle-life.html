@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Particle Life — Shadow's Garden</title>
+<meta name="description" content="Emergent behavior from simple attraction/repulsion rules. Particles that learn to flock, cluster, and create life.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #060608; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .stats {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 12px;
+    font-family: monospace;
+    text-align: right;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Click to randomize rules • Space to pause</div>
+  <div class="stats" id="stats">FPS: 60</div>
+  <div class="controls">
+    <button id="random">Random Rules</button>
+    <button id="ecosystem">Ecosystem</button>
+    <button id="cells">Cells</button>
+    <button id="metabolism">Metabolism</button>
+    <button id="chasing">Chasing</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let rules = [];
+    let numSpecies = 5;
+    let numParticles = 1200;
+    let paused = false;
+    let lastTime = Date.now();
+    let frameCount = 0;
+    let fps = 60;
+    
+    const COLORS = [
+      '#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181',
+      '#aa96da', '#fcbad3', '#a8d8ea', '#ff9a3c', '#00d2d3'
+    ];
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function randomizeRules() {
+      rules = [];
+      for (let i = 0; i < numSpecies; i++) {
+        rules[i] = [];
+        for (let j = 0; j < numSpecies; j++) {
+          rules[i][j] = (Math.random() - 0.5) * 3;
+        }
+      }
+    }
+    
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < numParticles; i++) {
+        const species = Math.floor(Math.random() * numSpecies);
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          species: species
+        });
+      }
+    }
+    
+    const presets = {
+      ecosystem: [
+        [0.8, -0.4, -0.4, -0.4, -0.4],
+        [-0.4, 0.8, -0.4, -0.4, -0.4],
+        [-0.4, -0.4, 0.8, -0.4, -0.4],
+        [-0.4, -0.4, -0.4, 0.8, -0.4],
+        [-0.4, -0.4, -0.4, -0.4, 0.8]
+      ],
+      cells: [
+        [-0.2, -0.5, -0.5, -0.5, -0.5],
+        [1.0, -0.1, -0.5, -0.5, -0.5],
+        [-0.5, 1.0, -0.1, -0.5, -0.5],
+        [-0.5, -0.5, 1.0, -0.1, -0.5],
+        [-0.5, -0.5, -0.5, 1.0, -0.1]
+      ],
+      metabolism: [
+        [0.3, -0.8, -0.8, -0.8, -0.8],
+        [0.5, 0.2, -0.3, -0.3, -0.3],
+        [-0.3, 0.5, 0.2, -0.3, -0.3],
+        [-0.3, -0.3, 0.5, 0.2, -0.3],
+        [-0.3, -0.3, -0.3, 0.5, 0.2]
+      ],
+      chasing: [
+        [0.5, 1.0, -0.5, -0.5, -0.5],
+        [-0.5, 0.5, 1.0, -0.5, -0.5],
+        [-0.5, -0.5, 0.5, 1.0, -0.5],
+        [-0.5, -0.5, -0.5, 0.5, 1.0],
+        [1.0, -0.5, -0.5, -0.5, 0.5]
+      ]
+    };
+    
+    function update() {
+      if (paused) return;
+      
+      const viewDist = 50;
+      const forceScale = 0.02;
+      
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        let fx = 0, fy = 0;
+        
+        for (let j = 0; j < particles.length; j++) {
+          if (i === j) continue;
+          const other = particles[j];
+          const dx = other.x - p.x;
+          const dy = other.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist < viewDist && dist > 0) {
+            const force = rules[p.species][other.species] * (1 - dist / viewDist) * forceScale;
+            fx += (dx / dist) * force;
+            fy += (dy / dist) * force;
+          }
+        }
+        
+        p.vx += fx;
+        p.vy += fy;
+        
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+        
+        const speed = Math.hypot(p.vx, p.vy);
+        if (speed > 3) {
+          p.vx = (p.vx / speed) * 3;
+          p.vy = (p.vy / speed) * 3;
+        }
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(6, 6, 8, 0.3)';
+      ctx.fillRect(0, 0, width, height);
+      
+      for (const p of particles) {
+        ctx.fillStyle = COLORS[p.species];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    function animate() {
+      update();
+      draw();
+      
+      frameCount++;
+      const now = Date.now();
+      if (now - lastTime > 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastTime = now;
+        document.getElementById('stats').innerText = `FPS: ${fps} | Particles: ${numParticles}`;
+      }
+      
+      requestAnimationFrame(animate);
+    }
+    
+    canvas.addEventListener('click', randomizeRules);
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        paused = !paused;
+        e.preventDefault();
+      }
+    });
+    
+    document.getElementById('random').onclick = randomizeRules;
+    document.getElementById('ecosystem').onclick = () => { rules = presets.ecosystem; };
+    document.getElementById('cells').onclick = () => { rules = presets.cells; };
+    document.getElementById('metabolism').onclick = () => { rules = presets.metabolism; };
+    document.getElementById('chasing').onclick = () => { rules = presets.chasing; };
+    
+    window.addEventListener('resize', resize);
+    resize();
+    randomizeRules();
+    initParticles();
+    animate();
+  </script>
+</body>
+</html>
