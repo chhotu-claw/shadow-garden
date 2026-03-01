@@ -4,316 +4,174 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>L-System Generator — Shadow's Garden</title>
-<meta name="description">Procedural plant and tree generation using Lindenmayer systems.</meta>
+<meta name="description" content="Procedural plant generator using Lindenmayer systems. 6 presets included.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #222;
-    border-radius: 4px;
-    background: #050508;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-  }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
     display: flex;
+    gap: 10px;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 900px;
+    z-index: 10;
   }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #888;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 100px;
-    accent-color: #666;
-  }
-  select, button {
-    background: #1a1a20;
-    color: #ccc;
-    border: 1px solid #333;
-    padding: 8px 14px;
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 13px;
   }
-  button:hover {
-    background: #252530;
-    border-color: #555;
-  }
-  .presets {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .preset-btn {
-    padding: 6px 12px;
-    font-size: 0.75rem;
-  }
-  .preset-btn.active {
-    background: #333;
-    border-color: #666;
-  }
-  .stats {
-    color: #555;
-    font-size: 0.75rem;
-    margin-top: 15px;
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
     font-family: monospace;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>L-System Generator</h1>
-  <div class="subtitle">Procedural plants via Lindenmayer systems</div>
   <canvas id="canvas"></canvas>
-  
+  <div class="info">Drag to rotate • Scroll to zoom</div>
   <div class="controls">
-    <div class="control-group">
-      <label>Iterations: <span id="iterVal">4</span></label>
-      <input type="range" id="iterations" min="1" max="7" value="4">
-    </div>
-    <div class="control-group">
-      <label>Angle</label>
-      <input type="range" id="angle" min="15" max="90" value="25">
-    </div>
-    <div class="control-group">
-      <label>Length</label>
-      <input type="range" id="length" min="2" max="20" value="8">
-    </div>
-    <div class="control-group">
-      <label>Actions</label>
-      <button id="generateBtn">Generate</button>
-    </div>
-    <div class="control-group">
-      <label>Presets</label>
-      <div class="presets">
-        <button class="preset-btn active" data-preset="fractal-tree">Fractal Tree</button>
-        <button class="preset-btn" data-preset="fern">Fern</button>
-        <button class="preset-btn" data-preset="weed">Weed</button>
-        <button class="preset-btn" data-preset="dragon">Dragon</button>
-        <button class="preset-btn" data-preset="gosper">Gosper</button>
-        <button class="preset-btn" data-preset="koch">Koch</button>
-      </div>
-    </div>
+    <button id="p1">Binary Tree</button>
+    <button id="p2">Fern</button>
+    <button id="p3">Weed</button>
+    <button id="p4">Dragon Curve</button>
+    <button id="p5">Sierpinski</button>
+    <button id="p6">Koch Curve</button>
+    <button id="regen">Regenerate</button>
   </div>
-  
-  <div class="stats" id="stats">Segments: 0</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
+    let rotation = -Math.PI / 2;
+    let zoom = 1;
+    let dragging = false;
+    let lastX, lastY;
     
     const presets = {
-      'fractal-tree': {
-        axiom: 'F',
-        rules: { 'F': 'FF+[+F-F-F]-[-F+F+F]' },
-        angle: 25,
-        iterations: 4,
-        length: 8
-      },
-      'fern': {
-        axiom: 'X',
-        rules: { 
-          'X': 'F+[[X]-X]-F[-FX]+X',
-          'F': 'FF'
-        },
-        angle: 25,
-        iterations: 5,
-        length: 3
-      },
-      'weed': {
-        axiom: 'F',
-        rules: { 'F': 'F[+F]F[-F]F' },
-        angle: 25.7,
-        iterations: 5,
-        length: 4
-      },
-      'dragon': {
-        axiom: 'FX',
-        rules: {
-          'X': 'X+YF+',
-          'Y': '-FX-Y'
-        },
-        angle: 90,
-        iterations: 10,
-        length: 4
-      },
-      'gosper': {
-        axiom: 'A',
-        rules: {
-          'A': 'A-B--B+A++AA+B-',
-          'B': '+A-BB--B-A++A+B'
-        },
-        angle: 60,
-        iterations: 4,
-        length: 5
-      },
-      'koch': {
-        axiom: 'F',
-        rules: { 'F': 'F+F-F-F+F' },
-        angle: 90,
-        iterations: 4,
-        length: 6
-      }
+      p1: { axiom: 'F', rules: { F: 'FF+[+F-F-F]-[-F+F+F]' }, angle: 22.5, iterations: 4 },
+      p2: { axiom: 'X', rules: { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' }, angle: 25, iterations: 5 },
+      p3: { axiom: 'F', rules: { F: 'FF-[-F+F+F]+[+F-F-F]' }, angle: 22.5, iterations: 4 },
+      p4: { axiom: 'FX', rules: { X: 'X+YF+', Y: '-FX-Y' }, angle: 90, iterations: 10 },
+      p5: { axiom: 'F-G-G', rules: { F: 'F-G+F+G-F', G: 'GG' }, angle: 120, iterations: 6 },
+      p6: { axiom: 'F', rules: { F: 'F+F-F-F+F' }, angle: 90, iterations: 4 }
     };
-
-    let currentPreset = 'fractal-tree';
+    
+    let currentPreset = 'p1';
     
     function resize() {
-      width = Math.min(900, window.innerWidth - 40);
-      height = Math.min(600, window.innerHeight - 280);
-      canvas.width = width;
-      canvas.height = height;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      draw();
     }
-
-    function generateLSystem(axiom, rules, iterations) {
-      let result = axiom;
+    
+    function generate(preset) {
+      let { axiom, rules, angle, iterations } = presets[preset];
+      
       for (let i = 0; i < iterations; i++) {
         let next = '';
-        for (const char of result) {
+        for (const char of axiom) {
           next += rules[char] || char;
         }
-        result = next;
+        axiom = next;
       }
-      return result;
+      
+      return { axiom, angle: angle * Math.PI / 180 };
     }
-
-    function drawLSystem(lstring, angle, length, hue) {
-      const stack = [];
-      let x = width / 2;
-      let y = height - 20;
-      let dir = -90;
-      let segCount = 0;
-      
-      ctx.strokeStyle = `hsl(${hue}, 60%, ${50 + Math.random() * 20}%)`;
-      ctx.lineWidth = 1;
-      ctx.lineCap = 'round';
-      
-      for (const char of lstring) {
-        switch (char) {
-          case 'F':
-          case 'A':
-          case 'B':
-            const rad = dir * Math.PI / 180;
-            const nx = x + Math.cos(rad) * length;
-            const ny = y + Math.sin(rad) * length;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(nx, ny);
-            ctx.stroke();
-            x = nx;
-            y = ny;
-            segCount++;
-            break;
-          case '+':
-            dir += angle;
-            break;
-          case '-':
-            dir -= angle;
-            break;
-          case '[':
-            stack.push({ x, y, dir, hue: hue + Math.random() * 20 - 10 });
-            break;
-          case ']':
-            if (stack.length > 0) {
-              const state = stack.pop();
-              x = state.x;
-              y = state.y;
-              dir = state.dir;
-              hue = state.hue;
-              ctx.strokeStyle = `hsl(${hue}, 60%, ${50 + Math.random() * 20}%)`;
-            }
-            break;
-        }
-      }
-      return segCount;
-    }
-
-    function generate() {
-      const preset = presets[currentPreset];
-      const iterations = parseInt(document.getElementById('iterations').value);
-      const angle = parseInt(document.getElementById('angle').value);
-      const length = parseInt(document.getElementById('length').value);
-      
-      ctx.fillStyle = '#050508';
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
       ctx.fillRect(0, 0, width, height);
       
-      const lstring = generateLSystem(preset.axiom, preset.rules, iterations);
-      const hue = 120 + Math.random() * 60;
-      const segCount = drawLSystem(lstring, angle, length, hue);
+      const { axiom, angle } = generate(currentPreset);
       
-      document.getElementById('stats').textContent = `Segments: ${segCount.toLocaleString()}`;
+      ctx.save();
+      ctx.translate(width / 2, height);
+      ctx.scale(zoom, zoom);
+      ctx.rotate(rotation);
+      
+      const len = 8;
+      
+      ctx.strokeStyle = '#4ecdc4';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      
+      let stack = [];
+      
+      for (const char of axiom) {
+        if (char === 'F' || char === 'G') {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -len);
+          ctx.stroke();
+          ctx.translate(0, -len);
+        } else if (char === '+') {
+          ctx.rotate(angle);
+        } else if (char === '-') {
+          ctx.rotate(-angle);
+        } else if (char === '[') {
+          stack.push({ transform: ctx.getTransform() });
+        } else if (char === ']') {
+          if (stack.length > 0) {
+            const state = stack.pop();
+            ctx.setTransform(state.transform);
+          }
+        }
+      }
+      
+      ctx.restore();
     }
-
-    // Event listeners
-    document.getElementById('iterations').addEventListener('input', (e) => {
-      document.getElementById('iterVal').textContent = e.target.value;
+    
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
     });
-
-    document.getElementById('generateBtn').addEventListener('click', generate);
-
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentPreset = btn.dataset.preset;
-        
-        const preset = presets[currentPreset];
-        document.getElementById('iterations').value = preset.iterations;
-        document.getElementById('iterVal').textContent = preset.iterations;
-        document.getElementById('angle').value = preset.angle;
-        document.getElementById('length').value = preset.length;
-        
-        generate();
-      });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        rotation += (e.clientX - lastX) * 0.01;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        draw();
+      }
     });
-
-    canvas.addEventListener('click', (e) => {
-      generate();
+    
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoom *= e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(0.1, Math.min(5, zoom));
+      draw();
     });
-
-    window.addEventListener('resize', () => {
-      resize();
-      generate();
-    });
-
-    // Init
+    
+    document.getElementById('p1').onclick = () => { currentPreset = 'p1'; draw(); };
+    document.getElementById('p2').onclick = () => { currentPreset = 'p2'; draw(); };
+    document.getElementById('p3').onclick = () => { currentPreset = 'p3'; draw(); };
+    document.getElementById('p4').onclick = () => { currentPreset = 'p4'; draw(); };
+    document.getElementById('p5').onclick = () => { currentPreset = 'p5'; draw(); };
+    document.getElementById('p6').onclick = () => { currentPreset = 'p6'; draw(); };
+    document.getElementById('regen').onclick = draw;
+    
+    window.addEventListener('resize', resize);
     resize();
-    generate();
   </script>
 </body>
 </html>
