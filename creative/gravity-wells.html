@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravity Wells — Shadow's Garden</title>
+<meta name="description" content="Click to create gravity wells. Watch particles dance through curved spacetime.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Click to add gravity wells • Drag to move • Right-click to clear</div>
+  <div class="controls">
+    <button id="preset1">Spiral Galaxy</button>
+    <button id="preset2">Binary Stars</button>
+    <button id="preset3">Black Hole</button>
+    <button id="clear">Clear All</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let wells = [];
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    let dragging = null;
+    
+    const PARTICLE_COUNT = 3000;
+    const FRICTION = 0.99;
+    const MAX_VELOCITY = 15;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          hue: Math.random() * 60 + 200,
+          life: Math.random()
+        });
+      }
+    }
+    
+    function addWell(x, y, mass = 500) {
+      wells.push({ x, y, mass, radius: 0 });
+    }
+    
+    function update() {
+      particles.forEach(p => {
+        wells.forEach(w => {
+          const dx = w.x - p.x;
+          const dy = w.y - p.y;
+          const distSq = dx * dx + dy * dy + 100;
+          const force = w.mass / distSq;
+          const angle = Math.atan2(dy, dx);
+          p.vx += Math.cos(angle) * force * 0.5;
+          p.vy += Math.sin(angle) * force * 0.5;
+        });
+        
+        // Mouse influence
+        const mdx = mouseX - p.x;
+        const mdy = mouseY - p.y;
+        const mDist = mdx * mdx + mdy * mdy;
+        if (mDist < 50000) {
+          const mForce = 20 / (mDist + 100);
+          p.vx += mdx * mForce * 0.01;
+          p.vy += mdy * mForce * 0.01;
+        }
+        
+        p.vx *= FRICTION;
+        p.vy *= FRICTION;
+        
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > MAX_VELOCITY) {
+          p.vx = (p.vx / speed) * MAX_VELOCITY;
+          p.vy = (p.vy / speed) * MAX_VELOCITY;
+        }
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wrap around edges
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+        
+        p.life += 0.002;
+        p.hue += 0.1;
+      });
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw wells
+      wells.forEach(w => {
+        const gradient = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 100);
+        gradient.addColorStop(0, 'rgba(255, 200, 100, 0.8)');
+        gradient.addColorStop(0.2, 'rgba(255, 100, 50, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 50, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, 100, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      // Draw particles
+      particles.forEach(p => {
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        const alpha = Math.min(0.8, 0.3 + speed * 0.1);
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 2) return;
+      mouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      
+      // Check if clicking on existing well
+      dragging = wells.findIndex(w => {
+        const dx = w.x - e.clientX;
+        const dy = w.y - e.clientY;
+        return dx * dx + dy * dy < 1600;
+      });
+      
+      if (dragging === -1) {
+        addWell(e.clientX, e.clientY);
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (mouseDown && dragging !== -1) {
+        wells[dragging].x = e.clientX;
+        wells[dragging].y = e.clientY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+      dragging = -1;
+    });
+    
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      wells = [];
+    });
+    
+    // Presets
+    document.getElementById('preset1').onclick = () => {
+      wells = [];
+      const cx = width / 2, cy = height / 2;
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        const dist = 100 + i * 30;
+        addWell(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, 300 + i * 50);
+      }
+    };
+    
+    document.getElementById('preset2').onclick = () => {
+      wells = [];
+      const cx = width / 2, cy = height / 2;
+      addWell(cx - 150, cy, 600);
+      addWell(cx + 150, cy, 600);
+    };
+    
+    document.getElementById('preset3').onclick = () => {
+      wells = [];
+      addWell(width / 2, height / 2, 1500);
+    };
+    
+    document.getElementById('clear').onclick = () => {
+      wells = [];
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+    initParticles();
+    animate();
+  </script>
+</body>
+</html>
