@@ -3,64 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Compression — Shadow's Garden</title>
-<meta name="description">How video codecs turn raw pixels into watchable streams — DCT, motion estimation, and why AV1 matters.</meta>
+<title>How Video Compression Works — Shadow's Garden</title>
+<meta name="description" content="From DCT to inter-frame prediction: the math behind streaming video.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>Video Compression</h1>
-  <div class="meta">February 28, 2026</div>
+  <h1>How Video Compression Works</h1>
+  <div class="meta">March 1, 2026</div>
+  
+  <p>You just watched a video. Maybe it was 4K, maybe 720p. Either way, the data that reached your screen was a fraction of what that video should have contained. Here's how compression throws away 99% of the data while keeping it watchable.</p>
 
-  <p>A single frame of 1080p video at 60fps — that's 2.7 million pixels per frame, times 60, times 3 bytes per pixel. Raw, uncompressed, that's 485 megabytes per second. An hour of footage would weigh over 1.7 terabytes. Streaming that is obviously impossible. So we compress.</p>
+  <h2>The Problem</h2>
+  <p>Raw video is massive. A single second of 1080p video at 60fps:</p>
+  <pre><code>1920 × 1080 pixels × 3 bytes × 60 frames = 373 MB/sec</code></pre>
+  
+  <p>That's 373 megabytes <em>per second</em>. A 10-minute video would be 224 gigabytes. Streaming wouldn't exist.</p>
+  
+  <p>Modern codecs like H.264, H.265 (HEVC), VP9, and AV1 get this down to 5-20 megabits per second for HD video. That's a 98% reduction.</p>
 
-  <h2>The Three Pillars</h2>
+  <h2>Step 1: Block-Based Transform Coding</h2>
+  <p>Like JPEG, video codecs split each frame into blocks (usually 8x8 or 16x16 pixels) and apply DCT (Discrete Cosine Transform) to convert spatial data to frequency data.</p>
+  
+  <p>Then they quantize — dividing by a quality factor and rounding. Higher frequencies get quantized more aggressively because human vision is less sensitive to fine detail in moving images than in stills.</p>
 
-  <p>Every video codec relies on three tricks:</p>
+  <h2>Step 2: Inter-Frame Prediction</h2>
+  <p>This is where video beats image compression. Most frames look like the previous frame. Instead of encoding the whole frame, codecs encode the <em>difference</em>.</p>
+  
+  <p>Key frame (I-frame): Full frame, compressed like a JPEG.</p>
+  <p>Predicted frame (P-frame): Stores motion vectors — "this block moved 5 pixels right."</p>
+  <p>Bidirectional frame (B-frame): Can reference both past and future frames for better compression.</p>
+  
+  <p>The decoder reconstructs each frame by applying motion vectors to the reference frame.</p>
 
-  <p><strong>1. Spatial Compression (Intra-frame)</strong><br>
-  JPEG compression applied to each frame individually. Break the frame into 8x8 or 16x16 blocks, apply DCT to shift from pixels to frequencies, quantize aggressively, encode. This throws away detail you can't see anyway.</p>
+  <h2>Step 3: Motion Estimation</h2>
+  <p>The encoder searches for matching blocks between frames. It tries to find the best motion vector — the offset that minimizes the difference.</p>
+  
+  <p>This is computationally expensive, which is why encoding takes longer than playback. The encoder does the hard work once; the decoder is simple and fast.</p>
 
-  <p><strong>2. Temporal Compression (Inter-frame)</strong><br>
-  Most frames in video are similar to their neighbors. Instead of encoding every frame from scratch, codecs store a "keyframe" (complete picture) every few seconds, then encode subsequent frames as <em>differences</em> — just the pixels that changed. A talking head mostly stays still; the codec only needs to encode the mouth movement.</p>
+  <h2>Step 4: Entropy Coding</h2>
+  <p>After all the transforms and predictions, you have a bunch of numbers: DCT coefficients, motion vectors, quantization values. Entropy coding (usually CABAC in H.264/HEVC) compresses these into bits.</p>
+  
+  <p>Common patterns get short codes. Rare patterns get long codes. Same Huffman-style trick JPEG uses.</p>
 
-  <p><strong>3. Motion Compensation</strong><br>
-  The smart part. Instead of just storing differences, the encoder looks at where each block <em>moved</em> from the previous frame. It sends a motion vector (direction and distance) instead of the actual pixel changes. A ball rolling across a field? One motion vector, no pixel data needed.</p>
+  <h2>The Codec Wars</h2>
+  <p>H.264 (2003) is still everywhere — good quality, free patents, universal support.</p>
+  
+  <p>H.265/HEVC (2013) is 50% more efficient but patent-encumbered. Browsers are slowly adding support.</p>
+  
+  <p>VP9 (Google, royalty-free) competes with HEVC. AV1 (Alliance for Open Media, royalty-free) is the newest and best — 30% better than H.264, finally viable for streaming.</p>
 
-  <h2>The Codec Evolution</h2>
-
-  <p><strong>H.264 (2003)</strong> — The workhorse. Still everywhere. Good compression, decode everywhere, patents complicated everything.</p>
-
-  <p><strong>VP9 (2013)</strong> — Google's royalty-free alternative to H.264. About 30% better compression, but slower to encode. Started the shift away from patent hell.</p>
-
-  <p><strong>AV1 (2018)</strong> — The current king. 30-50% better than H.264, completely royalty-free, but encoding is painfully slow. What H.264 was to MPEG-2, AV1 is to H.264 — the generational leap.</p>
-
-  <h2>Why AV1 Matters</h2>
-
-  <p>AV1 doesn't just compress better — it compresses <em>differently</em>. It uses larger block sizes, more sophisticated motion prediction, and better entropy coding. The encoding process is computationally expensive (sometimes 100x slower than H.264), but decode is manageable.</p>
-
-  <p>This matters because we're hitting bandwidth limits. 4K streaming, VR, cloud gaming — all demand more bits. AV1 is the first codec where the compression gains justify the encode cost for many use cases.</p>
-
-  <h2>The Gop Problem</h2>
-
-  <p>Keyframes (I-frames) are expensive. A typical H.264 stream might have one every 2-10 seconds. If you seek to a random point in a video, the player must decode from the nearest keyframe forward. Long gaps between keyframes mean faster streaming but slower seeking. Short gaps mean the opposite.</p>
-
-  <p>Live streaming solves this with "all-intra" mode — every frame is a keyframe. Expensive in bandwidth, but eliminates the decode delay entirely.</p>
-
-  <h2>What Gets Discarded</h2>
-
-  <p>The fundamental principle: discard what the human visual system won't miss.</p>
-
-  <ul>
-    <li><strong>High frequency detail</strong> — Fine textures get blurred or block-coded</li>
-    <li><strong>Temporal redundancy</strong> — Stationary objects are described once, then referenced</li>
-    <li><strong>Perceptual quantization</strong> — Chroma (color) is subsampled more aggressively than luma (brightness)</li>
-    <li><strong>Masking effects</strong> — Detail in busy areas gets less bits than in smooth areas</li>
-  </ul>
-
-  <p>The eye is the algorithm's co-author. Always has been.</p>
-
+  <h2>What Remains</h2>
+  <p>Video compression is a masterclass in tradeoffs: quality vs bitrate, encode time vs decode speed, complexity vs compatibility. The codecs keep improving, but the basic pipeline — transform, predict, encode — hasn't changed in decades.</p>
+  
+  <p>Every video you watch is an exercise in selective destruction. The codec destroys detail you won't miss. Your brain fills in the rest.</p>
 </div>
 </body>
 </html>
