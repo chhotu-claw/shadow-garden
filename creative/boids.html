@@ -3,137 +3,88 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boids — Shadow's Garden</title>
-<meta name="description">Flocking simulation with separation, alignment, and cohesion. Simple rules, complex emergent behavior.</meta>
+<title>Boids Flocking — Shadow's Garden</title>
+<meta name="description" description Emergent flocking behavior from three simple rules: separation, alignment, and cohesion.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #0a0a0f;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  canvas {
-    display: block;
-  }
+  body { margin: 0; overflow: hidden; background: #050508; }
+  canvas { display: block; }
   .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(10, 10, 15, 0.85);
-    border: 1px solid #2a2a3a;
-    border-radius: 8px;
-    padding: 16px;
-    color: #e0e0e0;
-    font-size: 12px;
-    z-index: 100;
-    backdrop-filter: blur(10px);
-    max-width: 220px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
   }
-  .controls h3 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    color: #00ff88;
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
-  .control-group {
-    margin-bottom: 10px;
-  }
-  .control-group label {
-    display: block;
-    margin-bottom: 4px;
-    color: #888;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .control-group input[type="range"] {
-    width: 100%;
-    height: 4px;
-    -webkit-appearance: none;
-    background: #2a2a3a;
-    border-radius: 2px;
-    outline: none;
-  }
-  .control-group input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    background: #00ff88;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: transform 0.1s;
-  }
-  .control-group input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-  }
-  .control-group span {
-    float: right;
-    color: #00ff88;
-    font-size: 10px;
-  }
-  .stats {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    color: #555;
-    font-size: 10px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .hint {
+  .sliders {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    color: #444;
-    font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
   }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+  }
+  input[type="range"] { width: 100px; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="controls">
-    <h3>⟳ BOIDS</h3>
-    <div class="control-group">
-      <label>Separation <span id="sepVal">1.5</span></label>
-      <input type="range" id="separation" min="0" max="5" step="0.1" value="1.5">
-    </div>
-    <div class="control-group">
-      <label>Alignment <span id="aliVal">1.0</span></label>
-      <input type="range" id="alignment" min="0" max="5" step="0.1" value="1.0">
-    </div>
-    <div class="control-group">
-      <label>Cohesion <span id="cohVal">1.0</span></label>
-      <input type="range" id="cohesion" min="0" max="5" step="0.1" value="1.0">
-    </div>
-    <div class="control-group">
-      <label>Speed <span id="spdVal">4</span></label>
-      <input type="range" id="speed" min="1" max="10" step="0.5" value="4">
-    </div>
-    <div class="control-group">
-      <label>Perception <span id="percVal">80</span></label>
-      <input type="range" id="perception" min="20" max="200" step="5" value="80">
-    </div>
-  </div>
-  <div class="stats" id="stats">boids: 150</div>
-  <div class="hint">move mouse to attract • click to scatter</div>
   <canvas id="canvas"></canvas>
+  <div class="info">Click to add boids • Drag to create flock</div>
+  <div class="sliders">
+    <div class="slider-row">Separation: <input type="range" id="sep" min="0" max="5" step="0.1" value="2"></div>
+    <div class="slider-row">Alignment: <input type="range" id="ali" min="0" max="5" step="0.1" value="1"></div>
+    <div class="slider-row">Cohesion: <input type="range" id="coh" min="0" max="5" step="0.1" value="1"></div>
+  </div>
+  <div class="controls">
+    <button id="clear">Clear</button>
+    <button id="predator">Add Predator</button>
+  </div>
+
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
     let boids = [];
-    const NUM_BOIDS = 150;
+    let predator = null;
     let mouseX = 0, mouseY = 0, mouseDown = false;
     
-    // Parameters
-    let separationWeight = 1.5;
-    let alignmentWeight = 1.0;
-    let cohesionWeight = 1.0;
-    let maxSpeed = 4;
-    let perception = 80;
+    const NUM_BOIDS = 300;
+    const PERCEPTION = 50;
+    const MAX_SPEED = 4;
+    const MAX_FORCE = 0.1;
+    
+    let separation = 2, alignment = 1, cohesion = 1;
     
     function resize() {
       width = canvas.width = window.innerWidth;
@@ -141,127 +92,164 @@
     }
     
     class Boid {
-      constructor() {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * maxSpeed;
-        this.vy = (Math.random() - 0.5) * maxSpeed;
-        this.hue = Math.random() * 60 + 120; // greens and cyans
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * MAX_SPEED * 2;
+        this.vy = (Math.random() - 0.5) * MAX_SPEED * 2;
+        this.hue = Math.random() * 60 + 200;
       }
       
-      update(boids) {
-        let sepX = 0, sepY = 0, sepCount = 0;
-        let aliX = 0, aliY = 0, aliCount = 0;
-        let cohX = 0, cohY = 0, cohCount = 0;
-        
-        for (let other of boids) {
-          if (other === this) continue;
-          
-          let dx = other.x - this.x;
-          let dy = other.y - this.y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist < perception && dist > 0) {
-            // Separation - avoid crowding
-            sepX -= dx / dist;
-            sepY -= dy / dist;
-            sepCount++;
-            
-            // Alignment - steer towards average heading
-            aliX += other.vx;
-            aliY += other.vy;
-            aliCount++;
-            
-            // Cohesion - steer towards average position
-            cohX += other.x;
-            cohY += other.y;
-            cohCount++;
+      edges() {
+        if (this.x > width) this.x = 0;
+        if (this.x < 0) this.x = width;
+        if (this.y > height) this.y = 0;
+        if (this.y < 0) this.y = height;
+      }
+      
+      align(boids) {
+        let steering = { vx: 0, vy: 0 };
+        let total = 0;
+        for (const other of boids) {
+          const d = Math.hypot(this.x - other.x, this.y - other.y);
+          if (other !== this && d < PERCEPTION) {
+            steering.vx += other.vx;
+            steering.vy += other.vy;
+            total++;
           }
         }
-        
-        let ax = 0, ay = 0;
-        
-        if (sepCount > 0) {
-          sepX /= sepCount;
-          sepY /= sepCount;
-          ax += sepX * separationWeight;
-          ay += sepY * separationWeight;
-        }
-        
-        if (aliCount > 0) {
-          aliX /= aliCount;
-          aliY /= aliCount;
-          ax += (aliX - this.vx) * alignmentWeight * 0.05;
-          ay += (aliY - this.vy) * alignmentWeight * 0.05;
-        }
-        
-        if (cohCount > 0) {
-          cohX /= cohCount;
-          cohY /= cohCount;
-          ax += (cohX - this.x) * cohesionWeight * 0.0005;
-          ay += (cohY - this.y) * cohesionWeight * 0.0005;
-        }
-        
-        // Mouse attraction
-        let mdx = mouseX - this.x;
-        let mdy = mouseY - this.y;
-        let mdist = Math.sqrt(mdx * mdx + mdy * mdy);
-        if (mdist < 300 && mdist > 0) {
-          ax += mdx / mdist * 0.5;
-          ay += mdy / mdist * 0.5;
-        }
-        
-        // Scatter on click
-        if (mouseDown) {
-          let sdx = this.x - mouseX;
-          let sdy = this.y - mouseY;
-          let sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-          if (sdist < 200 && sdist > 0) {
-            ax += sdx / sdist * 5;
-            ay += sdy / sdist * 5;
+        if (total > 0) {
+          steering.vx /= total;
+          steering.vy /= total;
+          const mag = Math.hypot(steering.vx, steering.vy);
+          if (mag > 0) {
+            steering.vx = (steering.vx / mag) * MAX_SPEED;
+            steering.vy = (steering.vy / mag) * MAX_SPEED;
+            steering.vx -= this.vx;
+            steering.vy -= this.vy;
           }
         }
-        
-        this.vx += ax;
-        this.vy += ay;
-        
-        // Limit speed
-        let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        if (speed > maxSpeed) {
-          this.vx = (this.vx / speed) * maxSpeed;
-          this.vy = (this.vy / speed) * maxSpeed;
+        return steering;
+      }
+      
+      cohesion(boids) {
+        let steering = { x: 0, y: 0 };
+        let total = 0;
+        for (const other of boids) {
+          const d = Math.hypot(this.x - other.x, this.y - other.y);
+          if (other !== this && d < PERCEPTION) {
+            steering.x += other.x;
+            steering.y += other.y;
+            total++;
+          }
         }
+        if (total > 0) {
+          steering.x /= total;
+          steering.y /= total;
+          steering.x -= this.x;
+          steering.y -= this.y;
+          const mag = Math.hypot(steering.x, steering.y);
+          if (mag > 0) {
+            steering.x = (steering.x / mag) * MAX_SPEED;
+            steering.y = (steering.y / mag) * MAX_SPEED;
+            steering.x -= this.vx;
+            steering.y -= this.vy;
+          }
+        }
+        return steering;
+      }
+      
+      separation(boids) {
+        let steering = { vx: 0, vy: 0 };
+        let total = 0;
+        for (const other of boids) {
+          const d = Math.hypot(this.x - other.x, this.y - other.y);
+          if (other !== this && d < PERCEPTION / 2) {
+            let diff = { vx: this.x - other.x, vy: this.y - other.y };
+            const mag = Math.hypot(diff.vx, diff.vy);
+            if (mag > 0) {
+              diff.vx /= mag;
+              diff.vy /= mag;
+            }
+            diff.vx /= d;
+            diff.vy /= d;
+            steering.vx += diff.vx;
+            steering.vy += diff.vy;
+            total++;
+          }
+        }
+        if (total > 0) {
+          steering.vx /= total;
+          steering.vy /= total;
+          const mag = Math.hypot(steering.vx, steering.vy);
+          if (mag > 0) {
+            steering.vx = (steering.vx / mag) * MAX_SPEED;
+            steering.vy = (steering.vy / mag) * MAX_SPEED;
+            steering.vx -= this.vx;
+            steering.vy -= this.vy;
+          }
+        }
+        return steering;
+      }
+      
+      flee(target) {
+        if (!target) return { vx: 0, vy: 0 };
+        let d = Math.hypot(this.x - target.x, this.y - target.y);
+        if (d < 150) {
+          let steering = { vx: this.x - target.x, vy: this.y - target.y };
+          const mag = Math.hypot(steering.vx, steering.vy);
+          if (mag > 0) {
+            steering.vx = (steering.vx / mag) * MAX_SPEED * 1.5;
+            steering.vy = (steering.vy / mag) * MAX_SPEED * 1.5;
+            steering.vx -= this.vx;
+            steering.vy -= this.vy;
+          }
+          return steering;
+        }
+        return { vx: 0, vy: 0 };
+      }
+      
+      flock(boids) {
+        let ali = this.align(boids);
+        let coh = this.cohesion(boids);
+        let sep = this.separation(boids);
+        let flee = this.flee(predator);
         
+        ali.vx *= alignment; ali.vy *= alignment;
+        coh.vx *= cohesion; coh.vy *= cohesion;
+        sep.vx *= separation; sep.vy *= separation;
+        flee.vx *= 3; flee.vy *= 3;
+        
+        this.vx += ali.vx + coh.vx + sep.vx + flee.vx;
+        this.vy += ali.vy + coh.vy + sep.vy + flee.vy;
+        
+        const speed = Math.hypot(this.vx, this.vy);
+        if (speed > MAX_SPEED) {
+          this.vx = (this.vx / speed) * MAX_SPEED;
+          this.vy = (this.vy / speed) * MAX_SPEED;
+        }
+      }
+      
+      update() {
         this.x += this.vx;
         this.y += this.vy;
-        
-        // Wrap around edges
-        if (this.x < 0) this.x = width;
-        if (this.x > width) this.x = 0;
-        if (this.y < 0) this.y = height;
-        if (this.y > height) this.y = 0;
+        this.edges();
       }
       
       draw() {
-        let angle = Math.atan2(this.vy, this.vx);
+        const angle = Math.atan2(this.vy, this.vx);
         
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(angle);
         
-        // Glow
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = `hsla(${this.hue}, 80%, 60%, 0.6)`;
-        
-        // Boid shape
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, 0.8)`;
         ctx.beginPath();
-        ctx.moveTo(12, 0);
-        ctx.lineTo(-6, -4);
-        ctx.lineTo(-3, 0);
+        ctx.moveTo(10, 0);
         ctx.lineTo(-6, 4);
+        ctx.lineTo(-3, 0);
+        ctx.lineTo(-6, -4);
         ctx.closePath();
-        
-        ctx.fillStyle = `hsla(${this.hue}, 70%, 55%, 0.9)`;
         ctx.fill();
         
         ctx.restore();
@@ -269,69 +257,84 @@
     }
     
     function init() {
-      resize();
       boids = [];
       for (let i = 0; i < NUM_BOIDS; i++) {
-        boids.push(new Boid());
+        boids.push(new Boid(Math.random() * width, Math.random() * height));
+      }
+    }
+    
+    function update() {
+      boids.forEach(b => {
+        b.flock(boids);
+        b.update();
+      });
+      
+      if (predator) {
+        predator.x += predator.vx;
+        predator.y += predator.vy;
+        
+        if (predator.x > width) predator.x = 0;
+        if (predator.x < 0) predator.x = width;
+        if (predator.y > height) predator.y = 0;
+        if (predator.y < 0) predator.y = height;
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.2)';
+      ctx.fillRect(0, 0, width, height);
+      
+      boids.forEach(b => b.draw());
+      
+      if (predator) {
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        ctx.arc(predator.x, predator.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+        ctx.beginPath();
+        ctx.arc(predator.x, predator.y, 150, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
     
     function animate() {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
-      ctx.fillRect(0, 0, width, height);
-      
-      for (let boid of boids) {
-        boid.update(boids);
-        boid.draw();
-      }
-      
+      update();
+      draw();
       requestAnimationFrame(animate);
     }
     
-    // Event listeners
-    window.addEventListener('resize', resize);
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      for (let i = 0; i < 10; i++) {
+        boids.push(new Boid(e.clientX + (Math.random()-0.5)*50, e.clientY + (Math.random()-0.5)*50));
+      }
+    });
     
     canvas.addEventListener('mousemove', (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
     });
     
-    canvas.addEventListener('mousedown', () => mouseDown = true);
     canvas.addEventListener('mouseup', () => mouseDown = false);
-    canvas.addEventListener('touchstart', (e) => {
-      mouseX = e.touches[0].clientX;
-      mouseY = e.touches[0].clientY;
-      mouseDown = true;
-    });
-    canvas.addEventListener('touchend', () => mouseDown = false);
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      mouseX = e.touches[0].clientX;
-      mouseY = e.touches[0].clientY;
-    });
     
-    // Controls
-    document.getElementById('separation').addEventListener('input', (e) => {
-      separationWeight = parseFloat(e.target.value);
-      document.getElementById('sepVal').textContent = separationWeight.toFixed(1);
-    });
-    document.getElementById('alignment').addEventListener('input', (e) => {
-      alignmentWeight = parseFloat(e.target.value);
-      document.getElementById('aliVal').textContent = alignmentWeight.toFixed(1);
-    });
-    document.getElementById('cohesion').addEventListener('input', (e) => {
-      cohesionWeight = parseFloat(e.target.value);
-      document.getElementById('cohVal').textContent = cohesionWeight.toFixed(1);
-    });
-    document.getElementById('speed').addEventListener('input', (e) => {
-      maxSpeed = parseFloat(e.target.value);
-      document.getElementById('spdVal').textContent = maxSpeed;
-    });
-    document.getElementById('perception').addEventListener('input', (e) => {
-      perception = parseFloat(e.target.value);
-      document.getElementById('percVal').textContent = perception;
-    });
+    document.getElementById('clear').onclick = init;
+    document.getElementById('predator').onclick = () => {
+      predator = {
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 3,
+        vy: (Math.random() - 0.5) * 3
+      };
+    };
     
+    document.getElementById('sep').oninput = (e) => separation = +e.target.value;
+    document.getElementById('ali').oninput = (e) => alignment = +e.target.value;
+    document.getElementById('coh').oninput = (e) => cohesion = +e.target.value;
+    
+    window.addEventListener('resize', resize);
+    resize();
     init();
     animate();
   </script>
