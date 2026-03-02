@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spirograph — Shadow's Garden</title>
+<meta name="description" content="Interactive spirograph. Click and drag to create beautiful geometric patterns.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .sliders {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+  }
+  input[type="range"] { width: 120px; }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Click and drag to draw</div>
+  <div class="sliders">
+    <div class="slider-row">Outer R: <input type="range" id="outer" min="50" max="200" value="150"></div>
+    <div class="slider-row">Inner r: <input type="range" id="inner" min="10" max="100" value="52"></div>
+    <div class="slider-row">Offset d: <input type="range" id="offset" min="10" max="150" value="70"></div>
+    <div class="slider-row">Speed: <input type="range" id="speed" min="1" max="20" value="5"></div>
+  </div>
+  <div class="controls">
+    <button id="clear">Clear</button>
+    <button id="screenshot">Save Image</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let outerR = 150;
+    let innerR = 52;
+    let offsetD = 70;
+    let speed = 5;
+    let t = 0;
+    let points = [];
+    let dragging = false;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.03)';
+      ctx.fillRect(0, 0, width, height);
+      
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      // Parametric equations for spirograph (epitrochoid)
+      const x = (outerR - innerR) * Math.cos(t) + offsetD * Math.cos((outerR - innerR) / innerR * t);
+      const y = (outerR - innerR) * Math.sin(t) - offsetD * Math.sin((outerR - innerR) / innerR * t);
+      
+      points.push({ x: cx + x, y: cy + y });
+      
+      if (points.length > 10000) points.shift();
+      
+      // Draw with gradient
+      if (points.length > 1) {
+        for (let i = 1; i < points.length; i++) {
+          const hue = (i / points.length * 360 + t * 10) % 360;
+          ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(points[i-1].x, points[i-1].y);
+          ctx.lineTo(points[i].x, points[i].y);
+          ctx.stroke();
+        }
+      }
+      
+      t += speed * 0.01;
+      requestAnimationFrame(draw);
+    }
+    
+    document.getElementById('outer').oninput = (e) => { outerR = +e.target.value; points = []; };
+    document.getElementById('inner').oninput = (e) => { innerR = +e.target.value; points = []; };
+    document.getElementById('offset').oninput = (e) => { offsetD = +e.target.value; points = []; };
+    document.getElementById('speed').oninput = (e) => { speed = +e.target.value; };
+    
+    document.getElementById('clear').onclick = () => { points = []; };
+    document.getElementById('screenshot').onclick = () => {
+      const link = document.createElement('a');
+      link.download = 'spirograph.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  </script>
+</body>
+</html>
