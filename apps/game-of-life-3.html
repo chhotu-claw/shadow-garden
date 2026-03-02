@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conway's Game of Life — Shadow's Garden</title>
+<meta name="description" content="Classic cellular automaton. Click to draw, space to pause.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info" id="info">Generation: 0 | Cells: 0</div>
+  <div class="controls">
+    <button id="step">Step</button>
+    <button id="run">Run</button>
+    <button id="clear">Clear</button>
+    <button id="random">Random</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let cellSize = 8;
+    let cols, rows;
+    let grid = {};
+    let running = false;
+    let generation = 0;
+    let interval;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      cols = Math.ceil(width / cellSize);
+      rows = Math.ceil(height / cellSize);
+    }
+    
+    function clear() {
+      grid = {};
+      generation = 0;
+      draw();
+      updateInfo();
+    }
+    
+    function randomize() {
+      grid = {};
+      for (let i = 0; i < cols * rows * 0.15; i++) {
+        const x = Math.floor(Math.random() * cols);
+        const y = Math.floor(Math.random() * rows);
+        grid[`${x},${y}`] = true;
+      }
+      generation = 0;
+      draw();
+      updateInfo();
+    }
+    
+    function step() {
+      const counts = {};
+      
+      for (const key in grid) {
+        const [x, y] = key.split(',').map(Number);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            const nkey = `${nx},${ny}`;
+            counts[nkey] = (counts[nkey] || 0) + 1;
+          }
+        }
+      }
+      
+      const next = {};
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const key = `${x},${y}`;
+          const neighbors = counts[key] || 0;
+          const alive = grid[key];
+          
+          if (alive && (neighbors === 2 || neighbors === 3)) {
+            next[key] = true;
+          } else if (!alive && neighbors === 3) {
+            next[key] = true;
+          }
+        }
+      }
+      
+      grid = next;
+      generation++;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      ctx.fillStyle = '#4ecdc4';
+      for (const key in grid) {
+        const [x, y] = key.split(',').map(Number);
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
+      }
+    }
+    
+    function updateInfo() {
+      const count = Object.keys(grid).length;
+      document.getElementById('info').innerText = `Generation: ${generation} | Cells: ${count}`;
+    }
+    
+    function run() {
+      if (running) {
+        running = false;
+        clearInterval(interval);
+        document.getElementById('run').innerText = 'Run';
+      } else {
+        running = true;
+        interval = setInterval(() => {
+          step();
+          draw();
+          updateInfo();
+        }, 100);
+        document.getElementById('run').innerText = 'Stop';
+      }
+    }
+    
+    canvas.addEventListener('mousedown', (e) => {
+      const x = Math.floor(e.clientX / cellSize);
+      const y = Math.floor(e.clientY / cellSize);
+      const key = `${x},${y}`;
+      
+      if (grid[key]) delete grid[key];
+      else grid[key] = true;
+      
+      draw();
+      updateInfo();
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (e.buttons === 1) {
+        const x = Math.floor(e.clientX / cellSize);
+        const y = Math.floor(e.clientY / cellSize);
+        grid[`${x},${y}`] = true;
+        draw();
+        updateInfo();
+      }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { run(); e.preventDefault(); }
+    });
+    
+    document.getElementById('step').onclick = () => { step(); draw(); updateInfo(); };
+    document.getElementById('run').onclick = run;
+    document.getElementById('clear').onclick = clear;
+    document.getElementById('random').onclick = randomize;
+    
+    window.addEventListener('resize', resize);
+    resize();
+    randomize();
+  </script>
+</body>
+</html>
