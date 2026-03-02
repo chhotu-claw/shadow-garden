@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mandelbrot Explorer — Shadow's Garden</title>
+<meta name="description" description Interactive Mandelbrot set explorer with zoom and pan.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info" id="info">Click to center • Scroll to zoom</div>
+  <div class="controls">
+    <button id="reset">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let centerX = -0.5;
+    let centerY = 0;
+    let zoom = 200;
+    let maxIter = 100;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      render();
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      for (let py = 0; py < height; py++) {
+        for (let px = 0; px < width; px++) {
+          const x0 = (px - width/2) / zoom + centerX;
+          const y0 = (py - height/2) / zoom + centerY;
+          
+          let x = 0;
+          let y = 0;
+          let iter = 0;
+          
+          while (x*x + y*y <= 4 && iter < maxIter) {
+            const xTemp = x*x - y*y + x0;
+            y = 2*x*y + y0;
+            x = xTemp;
+            iter++;
+          }
+          
+          const i = (py * width + px) * 4;
+          if (iter === maxIter) {
+            data[i] = 0;
+            data[i+1] = 0;
+            data[i+2] = 0;
+          } else {
+            const hue = iter * 10;
+            const sat = 80;
+            const light = iter < 20 ? iter * 5 : 100 - iter * 2;
+            const [r, g, b] = hslToRgb(hue/360, sat/100, light/100);
+            data[i] = r;
+            data[i+1] = g;
+            data[i+2] = b;
+          }
+          data[i+3] = 255;
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+    
+    canvas.addEventListener('click', (e) => {
+      centerX = (e.clientX - width/2) / zoom + centerX;
+      centerY = (e.clientY - height/2) / zoom + centerY;
+      render();
+    });
+    
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.8 : 1.25;
+      zoom *= factor;
+      document.getElementById('info').innerText = `Zoom: ${zoom.toFixed(0)}x`;
+      render();
+    });
+    
+    document.getElementById('reset').onclick = () => {
+      centerX = -0.5;
+      centerY = 0;
+      zoom = 200;
+      render();
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+  </script>
+</body>
+</html>
