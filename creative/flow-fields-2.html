@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Fields — Shadow's Garden</title>
+<meta name="description" description Particle flow through Perlin noise fields. Click to interact.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #050508; }
+  canvas { display: block; }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Click and drag to interact</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    
+    const NUM_PARTICLES = 2000;
+    const NOISE_SCALE = 0.005;
+    const TIME_SCALE = 0.0005;
+    
+    // Simple noise
+    const perm = new Uint8Array(512);
+    for (let i = 0; i < 256; i++) perm[i] = perm[i + 256] = Math.floor(Math.random() * 256);
+    
+    function noise(x, y) {
+      const xi = Math.floor(x) & 255;
+      const yi = Math.floor(y) & 255;
+      const xf = x - Math.floor(x);
+      const yf = y - Math.floor(y);
+      const u = xf * xf * (3 - 2 * xf);
+      const v = yf * yf * (3 - 2 * yf);
+      const a = perm[perm[xi] + yi];
+      const b = perm[perm[xi + 1] + yi];
+      const c = perm[perm[xi] + yi + 1];
+      const d = perm[perm[xi + 1] + yi + 1];
+      return a + u * (b - a) + v * (c - a) + u * v * (a - b - c + d);
+    }
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function init() {
+      particles = [];
+      for (let i = 0; i < NUM_PARTICLES; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: 0,
+          vy: 0,
+          hue: Math.random() * 60 + 180
+        });
+      }
+    }
+    
+    let time = 0;
+    
+    function update() {
+      time += TIME_SCALE;
+      
+      particles.forEach(p => {
+        const n = noise(p.x * NOISE_SCALE + time, p.y * NOISE_SCALE) * Math.PI * 4;
+        const n2 = noise(p.x * NOISE_SCALE + 100, p.y * NOISE_SCALE + 100 + time) * Math.PI * 4;
+        
+        p.vx += Math.cos(n) * 0.2;
+        p.vy += Math.sin(n2) * 0.2;
+        
+        // Mouse interaction
+        if (mouseDown) {
+          const dx = mouseX - p.x;
+          const dy = mouseY - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 200) {
+            p.vx += dx * 0.01;
+            p.vy += dy * 0.01;
+          }
+        }
+        
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wrap
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+        
+        p.hue = (p.hue + 0.5) % 360;
+      });
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+      
+      particles.forEach(p => {
+        const speed = Math.hypot(p.vx, p.vy);
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${0.3 + speed * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5 + speed, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    canvas.addEventListener('mousedown', (e) => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mouseup', () => mouseDown = false);
+    canvas.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+    
+    window.addEventListener('resize', resize);
+    resize();
+    init();
+    animate();
+  </script>
+</body>
+</html>
