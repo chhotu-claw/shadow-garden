@@ -33,7 +33,7 @@
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.4);
     font-size: 13px;
     font-family: monospace;
   }
@@ -43,10 +43,10 @@
   <canvas id="canvas"></canvas>
   <div class="info">Click to add bodies</div>
   <div class="controls">
-    <button id="clear">Clear</button>
     <button id="solar">Solar System</button>
     <button id="binary">Binary Stars</button>
     <button id="cluster">Cluster</button>
+    <button id="clear">Clear</button>
   </div>
 
   <script>
@@ -55,70 +55,72 @@
     
     let width, height;
     let bodies = [];
+    const G = 0.5;
     
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     }
     
-    function addBody(x, y, mass, vx = 0, vy = 0) {
-      bodies.push({ x, y, vx, vy, mass, hue: Math.random() * 360 });
+    class Body {
+      constructor(x, y, mass, vx = 0, vy = 0, color = null) {
+        this.x = x;
+        this.y = y;
+        this.mass = mass;
+        this.vx = vx;
+        this.vy = vy;
+        this.radius = Math.sqrt(mass) * 2;
+        this.color = color || `hsl(${Math.random() * 360}, 70%, 60%)`;
+      }
+      
+      update() {
+        for (const other of bodies) {
+          if (other === this) continue;
+          
+          const dx = other.x - this.x;
+          const dy = other.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist > this.radius + other.radius) {
+            const force = G * this.mass * other.mass / (dist * dist);
+            const ax = force * dx / dist / this.mass;
+            const ay = force * dy / dist / this.mass;
+            this.vx += ax;
+            this.vy += ay;
+          }
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+      
+      draw() {
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        gradient.addColorStop(0, this.color);
+        gradient.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glow
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
     }
     
     function update() {
-      for (let i = 0; i < bodies.length; i++) {
-        for (let j = i + 1; j < bodies.length; j++) {
-          const a = bodies[i];
-          const b = bodies[j];
-          
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const dist = Math.hypot(dx, dy);
-          
-          if (dist > 5) {
-            const force = a.mass * b.mass / (dist * dist) * 0.5;
-            const ax = force * dx / dist / a.mass;
-            const ay = force * dy / dist / a.mass;
-            const bx = force * dx / dist / b.mass;
-            const by = force * dy / dist / b.mass;
-            
-            a.vx += ax;
-            a.vy += ay;
-            b.vx -= bx;
-            b.vy -= by;
-          }
-        }
-      }
-      
-      for (const b of bodies) {
-        b.x += b.vx;
-        b.y += b.vy;
-        
-        // Wrap around
-        if (b.x < 0) b.x = width;
-        if (b.x > width) b.x = 0;
-        if (b.y < 0) b.y = height;
-        if (b.y > height) b.y = 0;
-      }
+      bodies.forEach(b => b.update());
     }
     
     function draw() {
       ctx.fillStyle = 'rgba(10, 10, 18, 0.2)';
       ctx.fillRect(0, 0, width, height);
       
-      for (const b of bodies) {
-        const size = Math.sqrt(b.mass) * 2;
-        ctx.fillStyle = `hsl(${b.hue}, 80%, 60%)`;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Glow
-        ctx.shadowColor = `hsl(${b.hue}, 80%, 60%)`;
-        ctx.shadowBlur = 15;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
+      bodies.forEach(b => b.draw());
     }
     
     function animate() {
@@ -128,36 +130,44 @@
     }
     
     canvas.addEventListener('click', (e) => {
-      addBody(e.clientX, e.clientY, 50 + Math.random() * 100);
+      const mass = 10 + Math.random() * 40;
+      bodies.push(new Body(e.clientX, e.clientY, mass));
     });
     
-    document.getElementById('clear').onclick = () => { bodies = []; };
     document.getElementById('solar').onclick = () => {
       bodies = [];
-      addBody(width/2, height/2, 500, 0, 0);
-      for (let i = 0; i < 5; i++) {
-        const dist = 50 + i * 40;
-        const speed = Math.sqrt(500 / dist) * 2;
-        addBody(width/2 + dist, height/2, 10, 0, speed);
-      }
+      const cx = width / 2, cy = height / 2;
+      bodies.push(new Body(cx, cy, 500, 0, 0, '#ffd700'));
+      bodies.push(new Body(cx + 100, cy, 20, 0, 3, '#4ecdc4''));
+      bodies.push(new Body(cx + 180, cy, 30, 0, 2.2, '#ff6b6b'));
+      bodies.push(new Body(cx + 280, cy, 40, 0, 1.8, '#95e1d3'));
     };
+    
     document.getElementById('binary').onclick = () => {
       bodies = [];
-      addBody(width/2 - 80, height/2, 200, 0, 1);
-      addBody(width/2 + 80, height/2, 200, 0, -1);
+      const cx = width / 2, cy = height / 2;
+      bodies.push(new Body(cx - 80, cy, 200, 0, -2, '#ff6b6b'));
+      bodies.push(new Body(cx + 80, cy, 200, 0, 2, '#4ecdc4''));
     };
+    
     document.getElementById('cluster').onclick = () => {
       bodies = [];
+      const cx = width / 2, cy = height / 2;
       for (let i = 0; i < 30; i++) {
-        addBody(
-          width/2 + (Math.random() - 0.5) * 200,
-          height/2 + (Math.random() - 0.5) * 200,
-          20 + Math.random() * 40,
-          (Math.random() - 0.5) * 2,
-          (Math.random() - 0.5) * 2
-        );
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 100;
+        const speed = Math.sqrt(500 / dist) * 0.3;
+        bodies.push(new Body(
+          cx + Math.cos(angle) * dist,
+          cy + Math.sin(angle) * dist,
+          5 + Math.random() * 20,
+          -Math.sin(angle) * speed,
+          Math.cos(angle) * speed
+        ));
       }
     };
+    
+    document.getElementById('clear').onclick = () => { bodies = []; };
     
     window.addEventListener('resize', resize);
     resize();
