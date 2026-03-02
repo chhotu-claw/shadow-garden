@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mandelbrot Explorer — Shadow's Garden</title>
-<meta name="description" description Interactive Mandelbrot set explorer with zoom and pan.">
+<meta name="description" content="Interactive Mandelbrot set explorer. Click to pan, scroll to zoom.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -68,16 +68,16 @@
       
       for (let py = 0; py < height; py++) {
         for (let px = 0; px < width; px++) {
-          const x0 = (px - width/2) / zoom + centerX;
-          const y0 = (py - height/2) / zoom + centerY;
+          const x0 = (px - width / 2) / zoom + centerX;
+          const y0 = (py - height / 2) / zoom + centerY;
           
           let x = 0;
           let y = 0;
           let iter = 0;
           
-          while (x*x + y*y <= 4 && iter < maxIter) {
-            const xTemp = x*x - y*y + x0;
-            y = 2*x*y + y0;
+          while (x * x + y * y <= 4 && iter < maxIter) {
+            const xTemp = x * x - y * y + x0;
+            y = 2 * x * y + y0;
             x = xTemp;
             iter++;
           }
@@ -85,49 +85,25 @@
           const i = (py * width + px) * 4;
           if (iter === maxIter) {
             data[i] = 0;
-            data[i+1] = 0;
-            data[i+2] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
           } else {
-            const hue = iter * 10;
-            const sat = 80;
-            const light = iter < 20 ? iter * 5 : 100 - iter * 2;
-            const [r, g, b] = hslToRgb(hue/360, sat/100, light/100);
-            data[i] = r;
-            data[i+1] = g;
-            data[i+2] = b;
+            const t = iter / maxIter;
+            data[i] = Math.floor(9 * (1 - t) * t * 255);
+            data[i + 1] = Math.floor(15 * (1 - t) * t * 255);
+            data[i + 2] = Math.floor(20 * (1 - t) * t * 255);
           }
-          data[i+3] = 255;
+          data[i + 3] = 255;
         }
       }
       
       ctx.putImageData(imageData, 0, 0);
     }
     
-    function hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    }
-    
     canvas.addEventListener('click', (e) => {
-      centerX = (e.clientX - width/2) / zoom + centerX;
-      centerY = (e.clientY - height/2) / zoom + centerY;
+      centerX = (e.clientX - width / 2) / zoom + centerX;
+      centerY = (e.clientY - height / 2) / zoom + centerY;
+      zoom *= 2;
       render();
     });
     
