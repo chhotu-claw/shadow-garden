@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spirograph — Shadow's Garden</title>
-<meta name="description" content="Interactive spirograph. Click and drag to create beautiful geometric patterns.">
+<meta name="description" content="Interactive spirograph. Parametric curves that create beautiful geometric patterns.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -54,12 +54,12 @@
     color: rgba(255,255,255,0.5);
     font-size: 12px;
   }
-  input[type="range"] { width: 120px; }
+  input[type="range"] { width: 100px; }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click and drag to draw</div>
+  <div class="info">Spirograph — click and watch</div>
   <div class="sliders">
     <div class="slider-row">Outer R: <input type="range" id="outer" min="50" max="200" value="150"></div>
     <div class="slider-row">Inner r: <input type="range" id="inner" min="10" max="100" value="52"></div>
@@ -68,7 +68,6 @@
   </div>
   <div class="controls">
     <button id="clear">Clear</button>
-    <button id="screenshot">Save Image</button>
   </div>
 
   <script>
@@ -76,13 +75,9 @@
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let outerR = 150;
-    let innerR = 52;
-    let offsetD = 70;
-    let speed = 5;
+    let outerR = 150, innerR = 52, offsetD = 70, speed = 5;
     let t = 0;
     let points = [];
-    let dragging = false;
     
     function resize() {
       width = canvas.width = window.innerWidth;
@@ -96,15 +91,12 @@
       const cx = width / 2;
       const cy = height / 2;
       
-      // Parametric equations for spirograph (epitrochoid)
       const x = (outerR - innerR) * Math.cos(t) + offsetD * Math.cos((outerR - innerR) / innerR * t);
       const y = (outerR - innerR) * Math.sin(t) - offsetD * Math.sin((outerR - innerR) / innerR * t);
       
       points.push({ x: cx + x, y: cy + y });
+      if (points.length > 15000) points.shift();
       
-      if (points.length > 10000) points.shift();
-      
-      // Draw with gradient
       if (points.length > 1) {
         for (let i = 1; i < points.length; i++) {
           const hue = (i / points.length * 360 + t * 10) % 360;
@@ -121,18 +113,11 @@
       requestAnimationFrame(draw);
     }
     
-    document.getElementById('outer').oninput = (e) => { outerR = +e.target.value; points = []; };
-    document.getElementById('inner').oninput = (e) => { innerR = +e.target.value; points = []; };
-    document.getElementById('offset').oninput = (e) => { offsetD = +e.target.value; points = []; };
-    document.getElementById('speed').oninput = (e) => { speed = +e.target.value; };
-    
+    document.getElementById('outer').oninput = e => { outerR = +e.target.value; points = []; };
+    document.getElementById('inner').oninput = e => { innerR = +e.target.value; points = []; };
+    document.getElementById('offset').oninput = e => { offsetD = +e.target.value; points = []; };
+    document.getElementById('speed').oninput = e => { speed = +e.target.value; };
     document.getElementById('clear').onclick = () => { points = []; };
-    document.getElementById('screenshot').onclick = () => {
-      const link = document.createElement('a');
-      link.download = 'spirograph.png';
-      link.href = canvas.toDataURL();
-      link.click();
-    };
     
     window.addEventListener('resize', resize);
     resize();
