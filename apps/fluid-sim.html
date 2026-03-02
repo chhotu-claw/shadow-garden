@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluid Simulation — Shadow's Garden</title>
-<meta name="description" description Real-time Navier-Stokes fluid simulation. Click and drag to add fluid.">
+<meta name="description" content="Real-time Navier-Stokes fluid simulation. Click and drag to add fluid.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -16,7 +16,6 @@
     left: 20px;
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
     z-index: 10;
   }
   button {
@@ -65,14 +64,10 @@
     let dens, dens_prev;
     let mode = 'smoke';
     
-    function IX(x, y) {
-      return x + y * size;
-    }
+    function IX(x, y) { return x + y * size; }
     
     function addSource(x, s, dt) {
-      for (let i = 0; i < size * size; i++) {
-        x[i] += dt * s[i];
-      }
+      for (let i = 0; i < size * size; i++) x[i] += dt * s[i];
     }
     
     function setBnd(b, x) {
@@ -91,11 +86,9 @@
     function linSolve(b, x, x0, a, c) {
       const cRecip = 1.0 / c;
       for (let k = 0; k < 4; k++) {
-        for (let j = 1; j < size - 1; j++) {
-          for (let i = 1; i < size - 1; i++) {
+        for (let j = 1; j < size - 1; j++)
+          for (let i = 1; i < size - 1; i++)
             x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i + 1, j)] + x[IX(i - 1, j)] + x[IX(i, j + 1)] + x[IX(i, j - 1)])) * cRecip;
-          }
-        }
         setBnd(b, x);
       }
     }
@@ -106,55 +99,40 @@
     }
     
     function project(u, v, p, div) {
-      for (let j = 1; j < size - 1; j++) {
+      for (let j = 1; j < size - 1; j++)
         for (let i = 1; i < size - 1; i++) {
           div[IX(i, j)] = -0.5 * (u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] - v[IX(i, j - 1)]) / size;
           p[IX(i, j)] = 0;
         }
-      }
-      setBnd(0, div);
-      setBnd(0, p);
+      setBnd(0, div); setBnd(0, p);
       linSolve(0, p, div, 1, 4);
-      
-      for (let j = 1; j < size - 1; j++) {
+      for (let j = 1; j < size - 1; j++)
         for (let i = 1; i < size - 1; i++) {
           u[IX(i, j)] -= 0.5 * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) * size;
           v[IX(i, j)] -= 0.5 * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) * size;
         }
-      }
-      setBnd(1, u);
-      setBnd(2, v);
+      setBnd(1, u); setBnd(2, v);
     }
     
     function advect(b, d, d0, u, v, dt) {
       const dt0 = dt * (size - 2);
-      for (let j = 1; j < size - 1; j++) {
+      for (let j = 1; j < size - 1; j++)
         for (let i = 1; i < size - 1; i++) {
           let x = i - dt0 * u[IX(i, j)];
           let y = j - dt0 * v[IX(i, j)];
-          if (x < 0.5) x = 0.5;
-          if (x > size - 1.5) x = size - 1.5;
-          const i0 = Math.floor(x);
-          const i1 = i0 + 1;
-          if (y < 0.5) y = 0.5;
-          if (y > size - 1.5) y = size - 1.5;
-          const j0 = Math.floor(y);
-          const j1 = j0 + 1;
-          const s1 = x - i0;
-          const s0 = 1 - s1;
-          const t1 = y - j0;
-          const t0 = 1 - t1;
-          d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
-                        s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+          if (x < 0.5) x = 0.5; if (x > size - 1.5) x = size - 1.5;
+          const i0 = Math.floor(x), i1 = i0 + 1;
+          if (y < 0.5) y = 0.5; if (y > size - 1.5) y = size - 1.5;
+          const j0 = Math.floor(y), j1 = j0 + 1;
+          const s1 = x - i0, s0 = 1 - s1, t1 = y - j0, t0 = 1 - t1;
+          d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) + s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
         }
-      }
       setBnd(b, d);
     }
     
     function velStep(u, v, u0, v0, visc, dt) {
-      addSource(u, u0, dt);
-      addSource(v, v0, dt);
-      const tmp = u0; u0 = u; u = tmp;
+      addSource(u, u0, dt); addSource(v, v0, dt);
+      let tmp = u0; u0 = u; u = tmp;
       diffuse(1, u, u0, visc, dt);
       tmp = v0; v0 = v; v = tmp;
       diffuse(2, v, v0, visc, dt);
@@ -168,13 +146,11 @@
     
     function densStep(x, x0, u, v, diff, dt) {
       addSource(x, x0, dt);
-      tmp = x0; x0 = x; x = tmp;
+      let tmp = x0; x0 = x; x = tmp;
       diffuse(0, x, x0, diff, dt);
       tmp = x0; x0 = x; x = tmp;
       advect(0, x, x0, u, v, dt);
     }
-    
-    let tmp;
     
     function init() {
       u = new Float32Array(size * size);
@@ -190,138 +166,59 @@
       height = canvas.height = window.innerHeight;
     }
     
+    let mouseDown = false, mouseX = 0, mouseY = 0, lastX = 0, lastY = 0;
+    
     function update() {
-      // Mouse input
       if (mouseDown) {
         const x = Math.floor(mouseX / width * size);
         const y = Math.floor(mouseY / height * size);
         if (x > 1 && x < size - 1 && y > 1 && y < size - 1) {
-          u_prev[IX(x, y)] = mouseVelX * 10;
-          v_prev[IX(x, y)] = mouseVelY * 10;
-          if (mode === 'rainbow') {
-            const hue = (Date.now() * 0.1) % 360;
-            for (let dy = -2; dy <= 2; dy++) {
-              for (let dx = -2; dx <= 2; dx++) {
-                dens_prev[IX(x + dx, y + dy)] = 200;
-              }
-            }
-          } else {
-            for (let dy = -2; dy <= 2; dy++) {
-              for (let dx = -2; dx <= 2; dx++) {
-                dens_prev[IX(x + dx, y + dy)] = 150;
-              }
-            }
-          }
+          u_prev[IX(x, y)] = (mouseX - lastX) * 10;
+          v_prev[IX(x, y)] = (mouseY - lastY) * 10;
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++)
+              dens_prev[IX(x + dx, y + dy)] = 150;
         }
       }
-      
       velStep(u, v, u_prev, v_prev, visc, dt);
       densStep(dens, dens_prev, u, v, diff, dt);
-      
-      // Fade density
-      for (let i = 0; i < size * size; i++) {
-        dens[i] *= 0.99;
-      }
-      
-      // Clear prev arrays
-      u_prev.fill(0);
-      v_prev.fill(0);
-      dens_prev.fill(0);
+      for (let i = 0; i < size * size; i++) dens[i] *= 0.99;
+      u_prev.fill(0); v_prev.fill(0); dens_prev.fill(0);
     }
     
     function draw() {
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
-      const scaleX = width / size;
-      const scaleY = height / size;
+      const scaleX = width / size, scaleY = height / size;
       
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          const sx = Math.floor(x / scaleX);
-          const sy = Math.floor(y / scaleY);
+          const sx = Math.floor(x / scaleX), sy = Math.floor(y / scaleY);
           const d = dens[IX(sx, sy)] || 0;
-          
           let r, g, b;
-          if (mode === 'fire') {
-            r = Math.min(255, d * 2);
-            g = Math.min(255, d * 1.5);
-            b = d * 0.5;
-          } else if (mode === 'ink') {
-            r = g = b = d;
-          } else if (mode === 'rainbow') {
-            const hue = (d * 2 + Date.now() * 0.05) % 360;
-            const s = 80;
-            const l = Math.min(50, d * 0.3);
-            // Simple HSL to RGB
-            const c = (1 - Math.abs(2 * l / 100 - 1)) * s / 100;
-            const x2 = c * (1 - Math.abs((hue / 60) % 2 - 1));
-            const m = l / 100 - c / 2;
-            let r1, g1, b1;
-            if (hue < 60) { r1 = c; g1 = x2; b1 = 0; }
-            else if (hue < 120) { r1 = x2; g1 = c; b1 = 0; }
-            else if (hue < 180) { r1 = 0; g1 = c; b1 = x2; }
-            else if (hue < 240) { r1 = 0; g1 = x2; b1 = c; }
-            else if (hue < 300) { r1 = x2; g1 = 0; b1 = c; }
-            else { r1 = c; g1 = 0; b1 = x2; }
-            r = (r1 + m) * 255;
-            g = (g1 + m) * 255;
-            b = (b1 + m) * 255;
-          } else {
-            r = g = b = d;
-          }
-          
+          if (mode === 'fire') { r = Math.min(255, d * 2); g = Math.min(255, d * 1.5); b = d * 0.5; }
+          else if (mode === 'ink' || mode === 'smoke') { r = g = b = d; }
+          else { const hue = (d * 2 + Date.now() * 0.05) % 360; r = 100 + d * 0.5; g = 50 + d * 0.3; b = 200 + d * 0.5; }
           const i = (y * width + x) * 4;
-          data[i] = Math.min(255, r + 10);
-          data[i + 1] = Math.min(255, g + 10);
-          data[i + 2] = Math.min(255, b + 18);
-          data[i + 3] = 255;
+          data[i] = Math.min(255, r + 10); data[i+1] = Math.min(255, g + 10); data[i+2] = Math.min(255, b + 18); data[i+3] = 255;
         }
       }
-      
       ctx.putImageData(imageData, 0, 0);
     }
     
-    let mouseDown = false;
-    let mouseX = 0, mouseY = 0;
-    let mouseVelX = 0, mouseVelY = 0;
-    let lastMouseX = 0, lastMouseY = 0;
+    function animate() { update(); draw(); requestAnimationFrame(animate); }
     
-    canvas.addEventListener('mousedown', (e) => {
-      mouseDown = true;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      mouseVelX = e.clientX - lastMouseX;
-      mouseVelY = e.clientY - lastMouseY;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    });
-    
+    canvas.addEventListener('mousedown', e => { mouseDown = true; lastX = e.clientX; lastY = e.clientY; mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; lastX = e.clientX; lastY = e.clientY; });
     canvas.addEventListener('mouseup', () => mouseDown = false);
     canvas.addEventListener('mouseleave', () => mouseDown = false);
-    
     document.getElementById('smoke').onclick = () => mode = 'smoke';
     document.getElementById('ink').onclick = () => mode = 'ink';
     document.getElementById('fire').onclick = () => mode = 'fire';
     document.getElementById('rainbow').onclick = () => mode = 'rainbow';
     document.getElementById('clear').onclick = () => { dens.fill(0); u.fill(0); v.fill(0); };
-    
-    function animate() {
-      update();
-      draw();
-      requestAnimationFrame(animate);
-    }
-    
     window.addEventListener('resize', resize);
-    resize();
-    init();
-    animate();
+    resize(); init(); animate();
   </script>
 </body>
 </html>
