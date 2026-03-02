@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plasma Field — Shadow's Garden</title>
-<meta name="description" content="Perlin noise-driven color cycling plasma visualizer.">
+<meta name="description" content="Interactive plasma field visualizer with perlin noise.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #000; }
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
   canvas { display: block; }
   .controls {
     position: fixed;
@@ -29,25 +29,16 @@
     font-size: 13px;
   }
   button:hover { background: rgba(255,255,255,0.2); }
-  .info {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 13px;
-    font-family: monospace;
-  }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Move mouse to influence • Click to reset</div>
   <div class="controls">
-    <button id="p1">Preset 1</button>
-    <button id="p2">Preset 2</button>
-    <button id="p3">Preset 3</button>
-    <button id="p4">Preset 4</button>
-    <button id="p5">Preset 5</button>
+    <button id="p1">Plasma</button>
+    <button id="p2">Nebula</button>
+    <button id="p3">Fire</button>
+    <button id="p4">Ocean</button>
+    <button id="p5">Matrix</button>
   </div>
 
   <script>
@@ -56,128 +47,75 @@
     
     let width, height;
     let time = 0;
-    let preset = 0;
-    let mouseX = 0, mouseY = 0;
+    let mode = 'plasma';
+    
+    // Simple noise function
+    function noise(x, y, t) {
+      return Math.sin(x * 0.01 + t) * Math.cos(y * 0.01 + t * 0.5) +
+             Math.sin(x * 0.02 - t * 0.3) * Math.cos(y * 0.015 + t * 0.7) * 0.5 +
+             Math.sin(x * 0.005 + y * 0.005 + t * 0.2);
+    }
     
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     }
     
-    // Simple Perlin noise
-    const p = new Uint8Array(512);
-    for (let i = 0; i < 256; i++) p[i] = i;
-    for (let i = 255; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [p[i], p[j]] = [p[j], p[i]];
-    }
-    for (let i = 0; i < 256; i++) p[256 + i] = p[i];
-    
-    function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
-    function lerp(a, b, t) { return a + t * (b - a); }
-    function grad(hash, x, y) {
-      const h = hash & 3;
-      const u = h < 2 ? x : y;
-      const v = h < 2 ? y : x;
-      return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
-    }
-    
-    function noise(x, y) {
-      const X = Math.floor(x) & 255;
-      const Y = Math.floor(y) & 255;
-      x -= Math.floor(x);
-      y -= Math.floor(y);
-      const u = fade(x);
-      const v = fade(y);
-      const A = p[X] + Y;
-      const B = p[X + 1] + Y;
-      return lerp(
-        lerp(grad(p[A], x, y), grad(p[B], x - 1, y), u),
-        lerp(grad(p[A + 1], x, y - 1), grad(p[B + 1], x - 1, y - 1), u),
-        v
-      );
-    }
-    
-    function fbm(x, y, octaves) {
-      let value = 0;
-      let amplitude = 1;
-      let frequency = 1;
-      for (let i = 0; i < octaves; i++) {
-        value += amplitude * noise(x * frequency, y * frequency);
-        amplitude *= 0.5;
-        frequency *= 2;
-      }
-      return value;
-    }
-    
-    const palettes = [
-      // Rainbow
-      (x, y, t) => [Math.sin(x * 3 + t) * 127 + 128, Math.sin(y * 3 + t + 2) * 127 + 128, Math.sin((x + y) * 3 + t + 4) * 127 + 128],
-      // Fire
-      (x, y, t) => [Math.min(255, x * 200 + t * 50), Math.min(255, y * 100), Math.max(0, 50 - y * 50)],
-      // Ocean
-      (x, y, t) => [Math.max(0, 50 - x * 50), Math.min(255, 100 + y * 50), Math.min(255, 150 + Math.sin(t + x) * 50)],
-      // Neon
-      (x, y, t) => [Math.sin(x * 5 + t) * 127 + 128, Math.sin(y * 5 + t + 2) * 127 + 128, Math.sin((x + y) * 5 + t + 4) * 127 + 128],
-      // Aurora
-      (x, y, t) => [Math.sin(x * 2 + t) * 50 + 100, Math.sin(y * 3 + t + 1) * 50 + 100, Math.sin((x + y) * 4 + t + 2) * 50 + 150]
-    ];
-    
     function draw() {
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
-      const t = time * 0.001;
       
-      for (let y = 0; y < height; y += 4) {
-        for (let x = 0; x < width; x += 4) {
-          const nx = x / width + mouseX * 0.001;
-          const ny = y / height + mouseY * 0.001;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let r, g, b;
           
-          const n = fbm(nx * 3 + t * 0.5, ny * 3 + t * 0.3, 4);
-          const c = (n + 1) / 2;
+          const n = noise(x, y, time);
           
-          const [r, g, b] = palettes[preset](c, c, t);
-          
-          for (let dy = 0; dy < 4 && y + dy < height; dy++) {
-            for (let dx = 0; dx < 4 && x + dx < width; dx++) {
-              const i = ((y + dy) * width + (x + dx)) * 4;
-              data[i] = r;
-              data[i + 1] = g;
-              data[i + 2] = b;
-              data[i + 3] = 255;
-            }
+          if (mode === 'plasma') {
+            r = 128 + 127 * Math.sin(n * Math.PI);
+            g = 128 + 127 * Math.sin(n * Math.PI + 2);
+            b = 128 + 127 * Math.sin(n * Math.PI + 4);
+          } else if (mode === 'nebula') {
+            r = 100 + 100 * Math.sin(n * 3);
+            g = 50 + 50 * Math.sin(n * 2 + 1);
+            b = 150 + 100 * Math.sin(n * 4 + 2);
+          } else if (mode === 'fire') {
+            const t = (n + 1) / 2;
+            r = 255 * t;
+            g = 150 * t * t;
+            b = 50 * t * t * t;
+          } else if (mode === 'ocean') {
+            const t = (n + 1) / 2;
+            r = 20 + 30 * t;
+            g = 80 + 80 * t;
+            b = 150 + 100 * t;
+          } else if (mode === 'matrix') {
+            const t = Math.floor((n + 1) * 10) % 26;
+            r = g = b = t * 10;
           }
+          
+          const i = (y * width + x) * 4;
+          data[i] = r;
+          data[i+1] = g;
+          data[i+2] = b;
+          data[i+3] = 255;
         }
       }
       
       ctx.putImageData(imageData, 0, 0);
+      time += 0.02;
+      requestAnimationFrame(draw);
     }
     
-    function animate() {
-      time++;
-      draw();
-      requestAnimationFrame(animate);
-    }
-    
-    canvas.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    });
-    
-    canvas.addEventListener('click', () => {
-      mouseX = 0;
-      mouseY = 0;
-    });
-    
-    document.getElementById('p1').onclick = () => preset = 0;
-    document.getElementById('p2').onclick = () => preset = 1;
-    document.getElementById('p3').onclick = () => preset = 2;
-    document.getElementById('p4').onclick = () => preset = 3;
-    document.getElementById('p5').onclick = () => preset = 4;
+    document.getElementById('p1').onclick = () => mode = 'plasma';
+    document.getElementById('p2').onclick = () => mode = 'nebula';
+    document.getElementById('p3').onclick = () => mode = 'fire';
+    document.getElementById('p4').onclick = () => mode = 'ocean';
+    document.getElementById('p5').onclick = () => mode = 'matrix';
     
     window.addEventListener('resize', resize);
     resize();
-    animate();
+    draw();
   </script>
 </body>
 </html>
