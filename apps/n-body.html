@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>N-Body Gravity — Shadow's Garden</title>
-<meta name="description" content="Interactive N-body gravity simulation. Click to add bodies, watch them interact.">
+<meta name="description" content="Interactive N-body gravity simulation. Click to add bodies.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #050508; }
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
   canvas { display: block; }
   .controls {
     position: fixed;
@@ -33,7 +33,7 @@
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 13px;
     font-family: monospace;
   }
@@ -41,12 +41,12 @@
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click to add bodies • Space to pause</div>
+  <div class="info">Click to add bodies</div>
   <div class="controls">
+    <button id="clear">Clear</button>
     <button id="solar">Solar System</button>
     <button id="binary">Binary Stars</button>
     <button id="cluster">Cluster</button>
-    <button id="clear">Clear</button>
   </div>
 
   <script>
@@ -55,140 +55,70 @@
     
     let width, height;
     let bodies = [];
-    let paused = false;
-    let dragging = null;
-    
-    const G = 0.5;
-    const SOFTENING = 5;
     
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     }
     
-    class Body {
-      constructor(x, y, vx, vy, mass, color) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.mass = mass;
-        this.radius = Math.sqrt(mass) * 2;
-        this.color = color || `hsl(${Math.random() * 360}, 80%, 60%)`;
-        this.trail = [];
-      }
-      
-      update() {
-        // Calculate gravitational forces
-        for (const other of bodies) {
-          if (other === this) continue;
-          
-          const dx = other.x - this.x;
-          const dy = other.y - this.y;
-          const distSq = dx * dx + dy * dy + SOFTENING * SOFTENING;
-          const dist = Math.sqrt(distSq);
-          const force = G * this.mass * other.mass / distSq;
-          
-          this.vx += force * dx / dist / this.mass;
-          this.vy += force * dy / dist / this.mass;
-        }
-        
-        this.x += this.vx;
-        this.y += this.vy;
-        
-        // Trail
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > 50) this.trail.shift();
-        
-        // Wrap around edges
-        if (this.x < 0) this.x = width;
-        if (this.x > width) this.x = 0;
-        if (this.y < 0) this.y = height;
-        if (this.y > height) this.y = 0;
-      }
-      
-      draw() {
-        // Draw trail
-        if (this.trail.length > 1) {
-          ctx.strokeStyle = this.color;
-          ctx.lineWidth = 1;
-          ctx.globalAlpha = 0.3;
-          ctx.beginPath();
-          ctx.moveTo(this.trail[0].x, this.trail[0].y);
-          for (let i = 1; i < this.trail.length; i++) {
-            ctx.lineTo(this.trail[i].x, this.trail[i].y);
-          }
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-        
-        // Draw body
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
-        gradient.addColorStop(0, this.color);
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    
-    function initSolar() {
-      bodies = [];
-      const cx = width / 2;
-      const cy = height / 2;
-      
-      // Sun
-      bodies.push(new Body(cx, cy, 0, 0, 500, '#ffd93d'));
-      
-      // Planets
-      bodies.push(new Body(cx + 100, cy, 0, 2.2, 10, '#6bcb77'));
-      bodies.push(new Body(cx + 180, cy, 0, 1.6, 20, '#4d96ff'));
-      bodies.push(new Body(cx + 280, cy, 0, 1.2, 30, '#ff6b6b'));
-    }
-    
-    function initBinary() {
-      bodies = [];
-      const cx = width / 2;
-      const cy = height / 2;
-      
-      bodies.push(new Body(cx - 80, cy, 0, -1.5, 200, '#ffd93d'));
-      bodies.push(new Body(cx + 80, cy, 0, 1.5, 200, '#ff6b6b'));
-    }
-    
-    function initCluster() {
-      bodies = [];
-      const cx = width / 2;
-      const cy = height / 2;
-      
-      for (let i = 0; i < 30; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * 150;
-        const speed = 1 + Math.random();
-        bodies.push(new Body(
-          cx + Math.cos(angle) * dist,
-          cy + Math.sin(angle) * dist,
-          -Math.sin(angle) * speed,
-          Math.cos(angle) * speed,
-          5 + Math.random() * 20
-        ));
-      }
+    function addBody(x, y, mass, vx = 0, vy = 0) {
+      bodies.push({ x, y, vx, vy, mass, hue: Math.random() * 360 });
     }
     
     function update() {
-      if (paused) return;
-      bodies.forEach(b => b.update());
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const a = bodies[i];
+          const b = bodies[j];
+          
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist > 5) {
+            const force = a.mass * b.mass / (dist * dist) * 0.5;
+            const ax = force * dx / dist / a.mass;
+            const ay = force * dy / dist / a.mass;
+            const bx = force * dx / dist / b.mass;
+            const by = force * dy / dist / b.mass;
+            
+            a.vx += ax;
+            a.vy += ay;
+            b.vx -= bx;
+            b.vy -= by;
+          }
+        }
+      }
+      
+      for (const b of bodies) {
+        b.x += b.vx;
+        b.y += b.vy;
+        
+        // Wrap around
+        if (b.x < 0) b.x = width;
+        if (b.x > width) b.x = 0;
+        if (b.y < 0) b.y = height;
+        if (b.y > height) b.y = 0;
+      }
     }
     
     function draw() {
-      ctx.fillStyle = 'rgba(5, 5, 8, 0.1)';
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.2)';
       ctx.fillRect(0, 0, width, height);
-      bodies.forEach(b => b.draw());
+      
+      for (const b of bodies) {
+        const size = Math.sqrt(b.mass) * 2;
+        ctx.fillStyle = `hsl(${b.hue}, 80%, 60%)`;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glow
+        ctx.shadowColor = `hsl(${b.hue}, 80%, 60%)`;
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
     }
     
     function animate() {
@@ -197,22 +127,40 @@
       requestAnimationFrame(animate);
     }
     
-    canvas.addEventListener('mousedown', (e) => {
-      bodies.push(new Body(e.clientX, e.clientY, (Math.random()-0.5)*2, (Math.random()-0.5)*2, 30));
+    canvas.addEventListener('click', (e) => {
+      addBody(e.clientX, e.clientY, 50 + Math.random() * 100);
     });
     
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
-    });
-    
-    document.getElementById('solar').onclick = initSolar;
-    document.getElementById('binary').onclick = initBinary;
-    document.getElementById('cluster').onclick = initCluster;
     document.getElementById('clear').onclick = () => { bodies = []; };
+    document.getElementById('solar').onclick = () => {
+      bodies = [];
+      addBody(width/2, height/2, 500, 0, 0);
+      for (let i = 0; i < 5; i++) {
+        const dist = 50 + i * 40;
+        const speed = Math.sqrt(500 / dist) * 2;
+        addBody(width/2 + dist, height/2, 10, 0, speed);
+      }
+    };
+    document.getElementById('binary').onclick = () => {
+      bodies = [];
+      addBody(width/2 - 80, height/2, 200, 0, 1);
+      addBody(width/2 + 80, height/2, 200, 0, -1);
+    };
+    document.getElementById('cluster').onclick = () => {
+      bodies = [];
+      for (let i = 0; i < 30; i++) {
+        addBody(
+          width/2 + (Math.random() - 0.5) * 200,
+          height/2 + (Math.random() - 0.5) * 200,
+          20 + Math.random() * 40,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2
+        );
+      }
+    };
     
     window.addEventListener('resize', resize);
     resize();
-    initSolar();
     animate();
   </script>
 </body>
