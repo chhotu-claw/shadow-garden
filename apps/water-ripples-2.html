@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Water Ripples — Shadow's Garden</title>
+<meta name="description" content="Interactive water ripple simulation. Click and drag to create ripples.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Click and drag to create ripples</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let current, previous;
+    let damping = 0.99;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      current = new Float32Array(width * height);
+      previous = new Float32Array(width * height);
+    }
+    
+    function update() {
+      for (let i = width; i < width * height - width; i++) {
+        const val = (
+          current[i - 1] +
+          current[i + 1] +
+          current[i - width] +
+          current[i + width]
+        ) / 2 - previous[i];
+        
+        val *= damping;
+        previous[i] = val;
+      }
+      
+      const temp = current;
+      current = previous;
+      previous = temp;
+    }
+    
+    function draw() {
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < width * height; i++) {
+        const val = previous[i];
+        const c = Math.floor(val * 128 + 128);
+        const idx = i * 4;
+        
+        data[idx] = Math.max(0, Math.min(255, c + 20));
+        data[idx + 1] = Math.max(0, Math.min(255, c + 40));
+        data[idx + 2] = Math.max(0, Math.min(255, c + 60));
+        data[idx + 3] = 255;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function ripple(x, y) {
+      if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+        const i = y * width + x;
+        current[i] = 500;
+        current[i - 1] = 500;
+        current[i + 1] = 500;
+        current[i - width] = 500;
+        current[i + width] = 500;
+      }
+    }
+    
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      ripple(Math.floor(e.clientX), Math.floor(e.clientY));
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 3) {
+          ripple(Math.floor(e.clientX), Math.floor(e.clientY));
+          lastX = e.clientX;
+          lastY = e.clientY;
+        }
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+  </script>
+</body>
+</html>
