@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Particle Swarm — Shadow's Garden</title>
+<meta name="description" content="Particle swarm that evolves to find targets. Genetic algorithm in action.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .stats {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: monospace;
+    text-align: right;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Particles evolve to find targets</div>
+  <div class="stats" id="stats">Generation: 0 | Best Fitness: 0</div>
+  <div class="controls">
+    <button id="start">Start</button>
+    <button id="reset">Reset</button>
+    <button id="target">New Target</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let running = false;
+    let generation = 0;
+    let target = { x: 0, y: 0 };
+    
+    const POPULATION = 100;
+    const LIFESPAN = 200;
+    const MUTATION_RATE = 0.02;
+    
+    let population = [];
+    let lifespan = 0;
+    
+    class DNA {
+      constructor(genes) {
+        if (genes) {
+          this.genes = genes;
+        } else {
+          this.genes = [];
+          for (let i = 0; i < LIFESPAN; i++) {
+            this.genes.push({
+              x: (Math.random() - 0.5) * 2,
+              y: (Math.random() - 0.5) * 2
+            });
+          }
+        }
+        this.fitness = 0;
+      }
+      
+      crossover(partner) {
+        const midpoint = Math.floor(Math.random() * this.genes.length);
+        const newGenes = [];
+        for (let i = 0; i < this.genes.length; i++) {
+          if (i > midpoint) {
+            newGenes.push({ ...this.genes[i] });
+          } else {
+            newGenes.push({ ...partner.genes[i] });
+          }
+        }
+        return new DNA(newGenes);
+      }
+      
+      mutate() {
+        for (let i = 0; i < this.genes.length; i++) {
+          if (Math.random() < MUTATION_RATE) {
+            this.genes[i] = {
+              x: (Math.random() - 0.5) * 2,
+              y: (Math.random() - 0.5) * 2
+            };
+          }
+        }
+      }
+    }
+    
+    class Rocket {
+      constructor(dna) {
+        this.pos = { x: width / 2, y: height - 50 };
+        this.vel = { x: 0, y: 0 };
+        this.acc = { x: 0, y: 0 };
+        this.dna = dna || new DNA();
+        this.completed = false;
+        this.crashed = false;
+        this.fitness = 0;
+      }
+      
+      applyForce(force) {
+        this.acc.x += force.x;
+        this.acc.y += force.y;
+      }
+      
+      update() {
+        if (this.completed || this.crashed) return;
+        
+        // Apply DNA
+        const gene = this.dna.genes[lifespan];
+        if (gene) {
+          this.applyForce(gene);
+        }
+        
+        this.vel.x += this.acc.x;
+        this.vel.y += this.acc.y;
+        this.pos.x += this.vel.x;
+        this.pos.y += this.vel.y;
+        this.acc.x = 0;
+        this.acc.y = 0;
+        
+        // Check target
+        const d = Math.hypot(this.pos.x - target.x, this.pos.y - target.y);
+        if (d < 20) {
+          this.completed = true;
+          this.pos.x = target.x;
+          this.pos.y = target.y;
+        }
+        
+        // Check bounds
+        if (this.pos.x < 0 || this.pos.x > width || this.pos.y < 0 || this.pos.y > height) {
+          this.crashed = true;
+        }
+        
+        // Check obstacle (center block)
+        if (this.pos.x > width/2 - 30 && this.pos.x < width/2 + 30 &&
+            this.pos.y > height/2 - 30 && this.pos.y < height/2 + 30) {
+          this.crashed = true;
+        }
+      }
+      
+      calcFitness() {
+        const d = Math.hypot(this.pos.x - target.x, this.pos.y - target.y);
+        this.fitness = 1 / (d + 1);
+        if (this.completed) this.fitness *= 10;
+        if (this.crashed) this.fitness /= 10;
+        this.fitness = Math.pow(this.fitness, 2);
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        const angle = Math.atan2(this.vel.y, this.vel.x);
+        ctx.rotate(angle);
+        
+        if (this.completed) ctx.fillStyle = '#4ecdc4';
+        else if (this.crashed) ctx.fillStyle = '#ff6b6b';
+        else ctx.fillStyle = '#fff';
+        
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-6, 4);
+        ctx.lineTo(-6, -4);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+      }
+    }
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function init() {
+      population = [];
+      for (let i = 0; i < POPULATION; i++) {
+        population.push(new Rocket());
+      }
+      generation = 0;
+      lifespan = 0;
+      setTarget();
+    }
+    
+    function setTarget() {
+      target = {
+        x: Math.random() * (width - 100) + 50,
+        y: Math.random() * (height / 2) + 50
+      };
+    }
+    
+    function evaluate() {
+      let maxFit = 0;
+      let sumFit = 0;
+      
+      for (const rocket of population) {
+        rocket.calcFitness();
+        if (rocket.fitness > maxFit) maxFit = rocket.fitness;
+        sumFit += rocket.fitness;
+      }
+      
+      document.getElementById('stats').innerText = `Generation: ${generation} | Best Fitness: ${maxFit.toFixed(4)}`;
+      
+      // Selection
+      const matingPool = [];
+      for (const rocket of population) {
+        const n = Math.floor(rocket.fitness / maxFit * 100);
+        for (let i = 0; i < n; i++) {
+          matingPool.push(rocket);
+        }
+      }
+      
+      // Reproduction
+      const newPopulation = [];
+      for (let i = 0; i < POPULATION; i++) {
+        const a = matingPool[Math.floor(Math.random() * matingPool.length)];
+        const b = matingPool[Math.floor(Math.random() * matingPool.length)];
+        const childDNA = a.dna.crossover(b.dna);
+        childDNA.mutate();
+        newPopulation.push(new Rocket(childDNA));
+      }
+      
+      population = newPopulation;
+      generation++;
+      lifespan = 0;
+    }
+    
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.3)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw target
+      ctx.fillStyle = '#4ecdc4';
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(78, 205, 196, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, 25, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Draw obstacle
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(width/2 - 30, height/2 - 30, 60, 60);
+      
+      // Draw rockets
+      for (const rocket of population) {
+        rocket.update();
+        rocket.draw();
+      }
+      
+      lifespan++;
+      
+      if (lifespan >= LIFESPAN) {
+        evaluate();
+      }
+      
+      if (running) {
+        requestAnimationFrame(draw);
+      }
+    }
+    
+    document.getElementById('start').onclick = () => {
+      running = !running;
+      document.getElementById('start').innerText = running ? 'Stop' : 'Start';
+      if (running) draw();
+    };
+    
+    document.getElementById('reset').onclick = () => {
+      init();
+    };
+    
+    document.getElementById('target').onclick = () => {
+      setTarget();
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+    init();
+  </script>
+</body>
+</html>
