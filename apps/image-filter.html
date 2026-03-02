@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Filter — Shadow's Garden</title>
+<meta name="description" content="Apply real-time filters to images. Upload or use sample.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; margin: auto; }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+  button, input {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover { background: rgba(255,255,255,0.2); }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+  }
+  input[type="file"] { display: none; }
+  .sliders {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+  }
+  input[type="range"] { width: 100px; }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">Upload an image or use sample</div>
+  <div class="controls">
+    <button onclick="document.getElementById('file').click()">Upload Image</button>
+    <input type="file" id="file" accept="image/*">
+    <button id="sample">Load Sample</button>
+    <button id="download">Download</button>
+  </div>
+  <div class="sliders">
+    <div class="slider-row">Brightness: <input type="range" id="bright" min="-100" max="100" value="0"></div>
+    <div class="slider-row">Contrast: <input type="range" id="contrast" min="-100" max="100" value="0"></div>
+    <div class="slider-row">Saturation: <input type="range" id="saturate" min="-100" max="100" value="0"></div>
+    <div class="slider-row">Hue Rotate: <input type="range" id="hue" min="0" max="360" value="0"></div>
+    <div class="slider-row">Blur: <input type="range" id="blur" min="0" max="20" value="0"></div>
+    <div class="slider-row">Invert: <input type="range" id="invert" min="0" max="100" value="0"></div>
+    <div class="slider-row">Sepia: <input type="range" id="sepia" min="0" max="100" value="0"></div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let img = new Image();
+    let loaded = false;
+    
+    function resize() {
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 150;
+      if (loaded) {
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        applyFilters();
+      }
+    }
+    
+    function applyFilters() {
+      if (!loaded) return;
+      
+      const bright = document.getElementById('bright').value;
+      const contrast = document.getElementById('contrast').value;
+      const saturate = document.getElementById('saturate').value;
+      const hue = document.getElementById('hue').value;
+      const blur = document.getElementById('blur').value;
+      const invert = document.getElementById('invert').value;
+      const sepia = document.getElementById('sepia').value;
+      
+      ctx.filter = `brightness(\${100 + bright}%) contrast(\${100 + contrast}%) saturate(\${100 + saturate}%) hue-rotate(\${hue}deg) blur(\${blur}px) invert(\${invert}%) sepia(\${sepia}%)`;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+    
+    function loadImage(src) {
+      img.onload = () => {
+        loaded = true;
+        resize();
+      };
+      img.src = src;
+    }
+    
+    document.getElementById('file').onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => loadImage(e.target.result);
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    document.getElementById('sample').onclick = () => {
+      loadImage('https://picsum.photos/800/600');
+    };
+    
+    document.getElementById('download').onclick = () => {
+      const link = document.createElement('a');
+      link.download = 'filtered.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    };
+    
+    ['bright', 'contrast', 'saturate', 'hue', 'blur', 'invert', 'sepia'].forEach(id => {
+      document.getElementById(id).oninput = applyFilters;
+    });
+    
+    window.addEventListener('resize', resize);
+    
+    // Load sample on start
+    loadImage('https://picsum.photos/800/600');
+  </script>
+</body>
+</html>
