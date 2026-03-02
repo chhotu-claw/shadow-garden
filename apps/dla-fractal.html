@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+<!DOCTYPE html> html>DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Diffusion-Limited Aggregation — Shadow's Garden</title>
-<meta name="description" content="Particles drift and stick to form fractal structures. Watch crystals grow.">
+<title>DLA Fractal — Shadow's Garden</title>
+<meta name="description" content="Diffusion-Limited Aggregation. Particles drift randomly until they collide and stick, forming fractal crystals.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
   canvas { display: block; }
   .controls {
     position: fixed;
@@ -41,7 +41,7 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 13px;
     font-family: monospace;
   }
@@ -49,10 +49,10 @@
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click to add seed • Space to pause</div>
-  <div class="stats" id="stats">Particles: 0 | Stuck: 0</div>
+  <div class="info">Particles drift randomly, stick on contact</div>
+  <div class="stats" id="stats">Particles: 0 | Crystal: 0</div>
   <div class="controls">
-    <button id="clear">Clear</button>
+    <button id="reset">Reset</button>
     <button id="add">Add Particles</button>
   </div>
 
@@ -61,28 +61,32 @@
     const ctx = canvas.getContext('2d');
     
     let width, height;
+    let crystal = [];
     let particles = [];
-    let stuck = [];
-    let running = true;
-    let seedX, seedY;
-    let numParticles = 100;
+    let animating = true;
+    const MAX_PARTICLES = 200;
+    const PARTICLE_RADIUS = 2;
+    const CRYSTAL_COLOR = '#4ecdc4';
     
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
-      seedX = width / 2;
-      seedY = height / 2;
-      draw();
+      reset();
     }
     
     function reset() {
-      stuck = [{ x: seedX, y: seedY }];
+      crystal = [];
       particles = [];
-      addParticles();
+      
+      // Start with seed in center
+      crystal.push({ x: width / 2, y: height / 2 });
+      
+      // Spawn particles
+      spawnParticles();
     }
     
-    function addParticles() {
-      for (let i = 0; i < numParticles; i++) {
+    function spawnParticles() {
+      while (particles.length < MAX_PARTICLES) {
         particles.push({
           x: Math.random() * width,
           y: Math.random() * height,
@@ -93,8 +97,6 @@
     }
     
     function update() {
-      if (!running) return;
-      
       particles.forEach((p, idx) => {
         p.x += p.vx;
         p.y += p.vy;
@@ -103,77 +105,75 @@
         if (p.x < 0 || p.x > width) p.vx *= -1;
         if (p.y < 0 || p.y > height) p.vy *= -1;
         
-        // Keep in bounds
-        p.x = Math.max(0, Math.min(width, p.x));
-        p.y = Math.max(0, Math.min(height, p.y));
-        
-        // Check collision with stuck particles
-        for (const s of stuck) {
-          const dx = p.x - s.x;
-          const dy = p.y - s.y;
+        // Check collision with crystal
+        for (const c of crystal) {
+          const dx = p.x - c.x;
+          const dy = p.y - c.y;
           const dist = Math.hypot(dx, dy);
           
-          if (dist < 3) {
-            stuck.push({ x: p.x, y: p.y });
+          if (dist < PARTICLE_RADIUS * 3) {
+            // Stick to crystal
+            crystal.push({ x: p.x, y: p.y });
             particles.splice(idx, 1);
-            addParticles();
+            particles.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: (Math.random() - 0.5) * 2,
+              vy: (Math.random() - 0.5) * 2
+            });
             break;
           }
         }
       });
       
-      updateStats();
+      document.getElementById('stats').innerText = `Particles: ${particles.length} | Crystal: ${crystal.length}`;
     }
     
     function draw() {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+      ctx.fillStyle = '#0a0a12';
       ctx.fillRect(0, 0, width, height);
       
-      // Draw stuck particles
-      stuck.forEach((s, i) => {
-        const hue = (i * 0.5) % 360;
-        ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+      // Draw crystal
+      crystal.forEach(c => {
+        const dist = Math.hypot(c.x - width/2, c.y - height/2);
+        const hue = (dist * 0.5 + Date.now() * 0.01) % 360;
+        ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+        ctx.arc(c.x, c.y, PARTICLE_RADIUS, 0, Math.PI * 2);
         ctx.fill();
       });
       
-      // Draw moving particles
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      // Draw particles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
       particles.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, PARTICLE_RADIUS, 0, Math.PI * 2);
         ctx.fill();
       });
-    }
-    
-    function updateStats() {
-      document.getElementById('stats').innerText = `Particles: ${particles.length} | Stuck: ${stuck.length}`;
     }
     
     function animate() {
-      update();
-      draw();
+      if (animating) {
+        update();
+        draw();
+      }
       requestAnimationFrame(animate);
     }
     
-    canvas.addEventListener('click', (e) => {
-      stuck.push({ x: e.clientX, y: e.clientY });
-    });
-    
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        running = !running;
-        e.preventDefault();
+    document.getElementById('reset').onclick = reset;
+    document.getElementById('add').onclick = () => {
+      for (let i = 0; i < 50; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2
+        });
       }
-    });
-    
-    document.getElementById('clear').onclick = reset;
-    document.getElementById('add').onclick = addParticles;
+    };
     
     window.addEventListener('resize', resize);
     resize();
-    reset();
     animate();
   </script>
 </body>
