@@ -4,359 +4,340 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reaction Diffusion — Shadow's Garden</title>
-<meta name="description" description="Gray-Scott reaction-diffusion simulator — Turing patterns emerging from simple chemical rules">
+<meta name="description" description="Gray-Scott reaction-diffusion simulator — organic coral-like patterns emerge from simple chemical rules"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    background: #0a0a0a;
-    color: #ddd;
-    font-family: 'Courier New', monospace;
-    overflow: hidden;
-  }
-  .controls {
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; image-rendering: pixelated; }
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(0,0,0,0.85);
-    padding: 20px;
-    border-radius: 8px;
-    z-index: 100;
+    background: rgba(10, 10, 15, 0.92);
     border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    min-width: 200px;
   }
-  .controls h3 {
-    margin: 0 0 15px 0;
-    font-size: 14px;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-  }
-  .control-group {
-    margin-bottom: 12px;
-  }
-  .control-group label {
-    display: block;
-    font-size: 11px;
-    color: #666;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-  }
-  .control-group input[type="range"] {
-    width: 180px;
-    accent-color: #00ff88;
-  }
-  .control-group span {
-    font-size: 12px;
-    color: #00ff88;
-    font-family: monospace;
-  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
   button {
-    background: #00ff88;
-    color: #000;
+    background: #2a4a6a;
     border: none;
-    padding: 8px 16px;
-    font-family: monospace;
-    font-size: 12px;
-    cursor: pointer;
-    border-radius: 4px;
-    margin-right: 8px;
-    margin-top: 8px;
-  }
-  button:hover {
-    background: #00cc6a;
-  }
-  canvas {
-    display: block;
-  }
-  .presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 12px;
-  }
-  .presets button {
-    background: #222;
-    color: #aaa;
-    font-size: 10px;
-    padding: 6px 10px;
-  }
-  .presets button:hover {
-    background: #333;
     color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  .preset-btns { margin-top: 12px; }
+  .preset-btns button { margin-bottom: 4px; display: block; width: 100%; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+  }
+  #fps {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: #445;
+    font-size: 12px;
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="controls">
-  <h3>Gray-Scott Model</h3>
-  <div class="control-group">
-    <label>Feed Rate</label>
-    <input type="range" id="feed" min="0.01" max="0.1" step="0.001" value="0.055">
-    <span id="feedVal">0.055</span>
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>Reaction Diffusion</h3>
+    <div class="control-row">
+      <label>Feed Rate <span id="feedVal">0.055</span></label>
+      <input type="range" id="feed" min="0.01" max="0.1" step="0.001" value="0.055">
+    </div>
+    <div class="control-row">
+      <label>Kill Rate <span id="killVal">0.062</span></label>
+      <input type="range" id="kill" min="0.01" max="0.1" step="0.001" value="0.062">
+    </div>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">8</span></label>
+      <input type="range" id="speed" min="1" max="20" value="8">
+    </div>
+    <div class="control-row">
+      <label>Diffusion A <span id="daVal">1.0</span></label>
+      <input type="range" id="da" min="0.5" max="1.5" step="0.01" value="1.0">
+    </div>
+    <div class="control-row">
+      <label>Diffusion B <span id="dbVal">0.5</span></label>
+      <input type="range" id="db" min="0.1" max="1.0" step="0.01" value="0.5">
+    </div>
+    <div class="preset-btns">
+      <button id="reset">Reset</button>
+      <button id="seed">Seed Cells</button>
+    </div>
+    <div class="preset-btns">
+      <button id="preset-coral">Coral</button>
+      <button id="preset-mitosis">Mitosis</button>
+      <button id="preset-spots">Spots</button>
+      <button id="preset-loops">Loops</button>
+      <button id="preset-worms">Worms</button>
+      <button id="preset-maze">Maze</button>
+    </div>
   </div>
-  <div class="control-group">
-    <label>Kill Rate</label>
-    <input type="range" id="kill" min="0.03" max="0.07" step="0.001" value="0.062">
-    <span id="killVal">0.062</span>
-  </div>
-  <div class="control-group">
-    <label>Diffusion A</label>
-    <input type="range" id="diffA" min="0.8" max="1.2" step="0.01" value="1.0">
-    <span id="diffAVal">1.0</span>
-  </div>
-  <div class="control-group">
-    <label>Diffusion B</label>
-    <input type="range" id="diffB" min="0.2" max="0.6" step="0.01" value="0.5">
-    <span id="diffBVal">0.5</span>
-  </div>
-  <div class="control-group">
-    <label>Iterations/Frame</label>
-    <input type="range" id="iterations" min="1" max="20" step="1" value="8">
-    <span id="iterVal">8</span>
-  </div>
-  <button id="clearBtn">Clear</button>
-  <button id="splashBtn">Splash</button>
-  <div class="presets">
-    <button data-f="0.055" data-k="0.062">Coral</button>
-    <button data-f="0.029" data-k="M0.057">itosis</button>
-    <button data-f="0.039" data-k="0.058">Fingerprints</button>
-    <button data-f="0.037" data-k="0.06">Spots</button>
-    <button data-f="0.034" data-k="0.057">Worms</button>
-    <button data-f="0.025" data-k="0.056">Maze</button>
-    <button data-f="0.014" data-k="0.054">Chaos</button>
-  </div>
-</div>
-<canvas id="canvas"></canvas>
-
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-let width, height;
-let gridA, gridB, nextA, nextB;
-let feed = 0.055;
-let kill = 0.062;
-let diffA = 1.0;
-let diffB = 0.5;
-let iterations = 8;
-
-function resize() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
-  init();
-}
-
-function init() {
-  const size = width * height;
-  gridA = new Float32Array(size);
-  gridB = new Float32Array(size);
-  nextA = new Float32Array(size);
-  nextB = new Float32Array(size);
-  
-  // Fill A with 1
-  for (let i = 0; i < size; i++) {
-    gridA[i] = 1.0;
-    gridB[i] = 0.0;
-  }
-  
-  // Add some random B in the center
-  splash(3);
-}
-
-function splash(radius = 5) {
-  const cx = Math.floor(width / 2);
-  const cy = Math.floor(height / 2);
-  for (let y = -radius * 10; y <= radius * 10; y++) {
-    for (let x = -radius * 10; x <= radius * 10; x++) {
-      if (x*x + y*y < radius * radius * 100) {
-        const idx = (cy + y) * width + (cx + x);
-        if (idx >= 0 && idx < gridB.length) {
-          gridB[idx] = 1.0;
+  <div id="fps">FPS: 60</div>
+  <div id="info">Click/drag to add chemical B</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let grid, next;
+    let feed = 0.055;
+    let kill = 0.062;
+    let speed = 8;
+    let da = 1.0;
+    let db = 0.5;
+    let isDrawing = false;
+    let lastTime = performance.now();
+    let frameCount = 0;
+    
+    // Simulation scale (smaller = faster but coarser)
+    const scale = 4;
+    
+    function resize() {
+      width = Math.floor(window.innerWidth / scale);
+      height = Math.floor(window.innerHeight / scale);
+      canvas.width = width;
+      canvas.height = height;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      initGrid();
+    }
+    
+    function initGrid() {
+      grid = [];
+      next = [];
+      for (let y = 0; y < height; y++) {
+        grid[y] = [];
+        next[y] = [];
+        for (let x = 0; x < width; x++) {
+          grid[y][x] = { a: 1, b: 0 };
+          next[y][x] = { a: 1, b: 0 };
+        }
+      }
+      seedRandom();
+    }
+    
+    function seedRandom() {
+      for (let i = 0; i < 20; i++) {
+        const cx = Math.floor(Math.random() * (width - 20)) + 10;
+        const cy = Math.floor(Math.random() * (height - 20)) + 10;
+        const r = Math.floor(Math.random() * 10) + 3;
+        for (let y = cy - r; y < cy + r; y++) {
+          for (let x = cx - r; x < cx + r; x++) {
+            if (y > 0 && y < height - 1 && x > 0 && x < width - 1) {
+              const d = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+              if (d < r) grid[y][x].b = 1;
+            }
+          }
         }
       }
     }
-  }
-}
-
-function laplaceA(x, y) {
-  let sum = 0;
-  sum += gridA[y * width + x] * -1;
-  sum += gridA[y * width + (x - 1)] * 0.2;
-  sum += gridA[y * width + (x + 1)] * 0.2;
-  sum += gridA[(y - 1) * width + x] * 0.2;
-  sum += gridA[(y + 1) * width + x] * 0.2;
-  sum += gridA[(y - 1) * width + (x - 1)] * 0.05;
-  sum += gridA[(y - 1) * width + (x + 1)] * 0.05;
-  sum += gridA[(y + 1) * width + (x - 1)] * 0.05;
-  sum += gridA[(y + 1) * width + (x + 1)] * 0.05;
-  return sum;
-}
-
-function laplaceB(x, y) {
-  let sum = 0;
-  sum += gridB[y * width + x] * -1;
-  sum += gridB[y * width + (x - 1)] * 0.2;
-  sum += gridB[y * width + (x + 1)] * 0.2;
-  sum += gridB[(y - 1) * width + x] * 0.2;
-  sum += gridB[(y + 1) * width + x] * 0.2;
-  sum += gridB[(y - 1) * width + (x - 1)] * 0.05;
-  sum += gridB[(y - 1) * width + (x + 1)] * 0.05;
-  sum += gridB[(y + 1) * width + (x - 1)] * 0.05;
-  sum += gridB[(y + 1) * width + (x + 1)] * 0.05;
-  return sum;
-}
-
-function update() {
-  for (let iter = 0; iter < iterations; iter++) {
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const i = y * width + x;
-        
-        const a = gridA[i];
-        const b = gridB[i];
-        
-        const lapA = laplaceA(x, y);
-        const lapB = laplaceB(x, y);
-        
-        const reaction = a * b * b;
-        
-        let newA = a + (diffA * lapA - reaction + feed * (1 - a));
-        let newB = b + (diffB * lapB + reaction - (kill + feed) * b);
-        
-        newA = Math.max(0, Math.min(1, newA));
-        newB = Math.max(0, Math.min(1, newB));
-        
-        nextA[i] = newA;
-        nextB[i] = newB;
+    
+    function seedCircle(x, y, r) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (dy * dy + dx * dx <= r * r) {
+            const gy = y + dy;
+            const gx = x + dx;
+            if (gx > 0 && gx < width - 1 && gy > 0 && gy < height - 1) {
+              grid[gy][gx].b = 1;
+            }
+          }
+        }
       }
     }
     
-    // Swap buffers
-    [gridA, nextA] = [nextA, gridA];
-    [gridB, nextB] = [nextB, gridB];
-  }
-}
-
-function draw() {
-  const imageData = ctx.createImageData(width, height);
-  const data = imageData.data;
-  
-  for (let i = 0; i < width * height; i++) {
-    const b = gridB[i];
-    const a = gridA[i];
-    const v = Math.floor((a - b) * 255);
-    
-    const idx = i * 4;
-    
-    // Color palette: dark purple to cyan to white
-    if (b > 0.4) {
-      // White/cyan for high B
-      const t = (b - 0.4) / 0.6;
-      data[idx] = Math.floor(50 + t * 205);
-      data[idx + 1] = Math.floor(100 + t * 155);
-      data[idx + 2] = Math.floor(150 + t * 105);
-    } else if (b > 0.2) {
-      // Purple for medium B
-      const t = (b - 0.2) / 0.2;
-      data[idx] = Math.floor(40 + t * 10);
-      data[idx + 1] = Math.floor(20 + t * 80);
-      data[idx + 2] = Math.floor(60 + t * 90);
-    } else {
-      // Dark for low B
-      data[idx] = 10;
-      data[idx + 1] = 8;
-      data[idx + 2] = 15;
+    function laplaceA(x, y) {
+      let sum = 0;
+      sum += grid[y][x].a * -1;
+      sum += grid[y][x-1].a * 0.2;
+      sum += grid[y][x+1].a * 0.2;
+      sum += grid[y-1][x].a * 0.2;
+      sum += grid[y+1][x].a * 0.2;
+      sum += grid[y-1][x-1].a * 0.05;
+      sum += grid[y-1][x+1].a * 0.05;
+      sum += grid[y+1][x-1].a * 0.05;
+      sum += grid[y+1][x+1].a * 0.05;
+      return sum;
     }
-    data[idx + 3] = 255;
-  }
-  
-  ctx.putImageData(imageData, 0, 0);
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-// Event listeners
-document.getElementById('feed').addEventListener('input', e => {
-  feed = parseFloat(e.target.value);
-  document.getElementById('feedVal').textContent = feed.toFixed(3);
-});
-
-document.getElementById('kill').addEventListener('input', e => {
-  kill = parseFloat(e.target.value);
-  document.getElementById('killVal').textContent = kill.toFixed(3);
-});
-
-document.getElementById('diffA').addEventListener('input', e => {
-  diffA = parseFloat(e.target.value);
-  document.getElementById('diffAVal').textContent = diffA.toFixed(2);
-});
-
-document.getElementById('diffB').addEventListener('input', e => {
-  diffB = parseFloat(e.target.value);
-  document.getElementById('diffBVal').textContent = diffB.toFixed(2);
-});
-
-document.getElementById('iterations').addEventListener('input', e => {
-  iterations = parseInt(e.target.value);
-  document.getElementById('iterVal').textContent = iterations;
-});
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-  for (let i = 0; i < gridA.length; i++) {
-    gridA[i] = 1.0;
-    gridB[i] = 0.0;
-  }
-});
-
-document.getElementById('splashBtn').addEventListener('click', () => {
-  splash(3);
-});
-
-// Presets
-document.querySelectorAll('.presets button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    feed = parseFloat(btn.dataset.f);
-    kill = parseFloat(btn.dataset.k);
-    document.getElementById('feed').value = feed;
-    document.getElementById('kill').value = kill;
-    document.getElementById('feedVal').textContent = feed.toFixed(3);
-    document.getElementById('killVal').textContent = kill.toFixed(3);
     
-    // Clear and splash
-    for (let i = 0; i < gridA.length; i++) {
-      gridA[i] = 1.0;
-      gridB[i] = 0.0;
+    function laplaceB(x, y) {
+      let sum = 0;
+      sum += grid[y][x].b * -1;
+      sum += grid[y][x-1].b * 0.2;
+      sum += grid[y][x+1].b * 0.2;
+      sum += grid[y-1][x].b * 0.2;
+      sum += grid[y+1][x].b * 0.2;
+      sum += grid[y-1][x-1].b * 0.05;
+      sum += grid[y-1][x+1].b * 0.05;
+      sum += grid[y+1][x-1].b * 0.05;
+      sum += grid[y+1][x+1].b * 0.05;
+      return sum;
     }
-    splash(3);
-  });
-});
-
-// Mouse interaction
-canvas.addEventListener('click', e => {
-  const x = Math.floor(e.clientX);
-  const y = Math.floor(e.clientY);
-  
-  for (let dy = -3; dy <= 3; dy++) {
-    for (let dx = -3; dx <= 3; dx++) {
-      const idx = (y + dy) * width + (x + dx);
-      if (idx >= 0 && idx < gridB.length) {
-        gridB[idx] = 1.0;
+    
+    function update() {
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const a = grid[y][x].a;
+          const b = grid[y][x].b;
+          const lapA = laplaceA(x, y);
+          const lapB = laplaceB(x, y);
+          const reaction = a * b * b;
+          
+          next[y][x].a = a + (da * lapA - reaction + feed * (1 - a));
+          next[y][x].b = b + (db * lapB + reaction - (kill + feed) * b);
+          
+          next[y][x].a = Math.max(0, Math.min(1, next[y][x].a));
+          next[y][x].b = Math.max(0, Math.min(1, next[y][x].b));
+        }
       }
+      
+      // Swap grids
+      const temp = grid;
+      grid = next;
+      next = temp;
     }
-  }
-});
-
-window.addEventListener('resize', resize);
-
-resize();
-loop();
-</script>
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const val = grid[y][x].b;
+          const idx = (y * width + x) * 4;
+          // Color mapping: black to cyan to white
+          let r, g, b;
+          if (val < 0.5) {
+            r = Math.floor(val * 2 * 20);
+            g = Math.floor(val * 2 * 80);
+            b = Math.floor(val * 2 * 60 + 40);
+          } else {
+            const t = (val - 0.5) * 2;
+            r = Math.floor(20 + t * 235);
+            g = Math.floor(80 + t * 175);
+            b = Math.floor(100 + t * 155);
+          }
+          imageData.data[idx] = r;
+          imageData.data[idx + 1] = g;
+          imageData.data[idx + 2] = b;
+          imageData.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function loop() {
+      for (let i = 0; i < speed; i++) {
+        update();
+      }
+      render();
+      
+      // FPS counter
+      frameCount++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('fps').textContent = 'FPS: ' + frameCount;
+        frameCount = 0;
+        lastTime = now;
+      }
+      
+      requestAnimationFrame(loop);
+    }
+    
+    // Event listeners
+    document.getElementById('feed').addEventListener('input', e => {
+      feed = +e.target.value;
+      document.getElementById('feedVal').textContent = feed.toFixed(3);
+    });
+    document.getElementById('kill').addEventListener('input', e => {
+      kill = +e.target.value;
+      document.getElementById('killVal').textContent = kill.toFixed(3);
+    });
+    document.getElementById('speed').addEventListener('input', e => {
+      speed = +e.target.value;
+      document.getElementById('speedVal').textContent = speed;
+    });
+    document.getElementById('da').addEventListener('input', e => {
+      da = +e.target.value;
+      document.getElementById('daVal').textContent = da.toFixed(2);
+    });
+    document.getElementById('db').addEventListener('input', e => {
+      db = +e.target.value;
+      document.getElementById('dbVal').textContent = db.toFixed(2);
+    });
+    
+    document.getElementById('reset').addEventListener('click', initGrid);
+    document.getElementById('seed').addEventListener('click', seedRandom);
+    
+    // Presets
+    const presets = {
+      coral: { feed: 0.0545, kill: 0.062 },
+      mitosis: { feed: 0.0367, kill: 0.064 },
+      spots: { feed: 0.03, kill: 0.062 },
+      loops: { feed: 0.082, kill: 0.06 },
+      worms: { feed: 0.078, kill: 0.061 },
+      maze: { feed: 0.029, kill: 0.057 }
+    };
+    
+    function applyPreset(p) {
+      feed = p.feed;
+      kill = p.kill;
+      document.getElementById('feed').value = feed;
+      document.getElementById('feedVal').textContent = feed.toFixed(3);
+      document.getElementById('kill').value = kill;
+      document.getElementById('killVal').textContent = kill.toFixed(3);
+      initGrid();
+    }
+    
+    document.getElementById('preset-coral').addEventListener('click', () => applyPreset(presets.coral));
+    document.getElementById('preset-mitosis').addEventListener('click', () => applyPreset(presets.mitosis));
+    document.getElementById('preset-spots').addEventListener('click', () => applyPreset(presets.spots));
+    document.getElementById('preset-loops').addEventListener('click', () => applyPreset(presets.loops));
+    document.getElementById('preset-worms').addEventListener('click', () => applyPreset(presets.worms));
+    document.getElementById('preset-maze').addEventListener('click', () => applyPreset(presets.maze));
+    
+    // Mouse interaction
+    canvas.addEventListener('mousedown', e => {
+      isDrawing = true;
+      addB(e);
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (isDrawing) addB(e);
+    });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+    
+    function addB(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / scale);
+      const y = Math.floor((e.clientY - rect.top) / scale);
+      seedCircle(x, y, 5);
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    loop();
+  </script>
 </body>
 </html>
