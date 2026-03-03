@@ -3,73 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boids Flocking — Shadow's Garden</title>
-<meta name="description" description Emergent flocking behavior from three simple rules: separation, alignment, and cohesion.">
+<title>Boids — Shadow's Garden</title>
+<meta name="description" content="Flocking simulation with emergent behavior — simple rules create complex group dynamics"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #050508; }
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
   canvas { display: block; }
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    z-index: 10;
-  }
-  button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }
-  button:hover { background: rgba(255,255,255,0.2); }
-  .info {
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 13px;
-    font-family: monospace;
+    background: rgba(10, 10, 18, 0.9);
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 16px;
+    color: #aaa;
+    font-size: 12px;
+    z-index: 100;
+    min-width: 180px;
   }
-  .sliders {
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 8px; }
+  .control-row label { display: block; margin-bottom: 2px; color: #666; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #6af; }
+  button {
+    background: #2a3a4a;
+    border: none;
+    color: #ccc;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  button:hover { background: #3a4a5a; }
+  #info {
     position: fixed;
     bottom: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 10;
+    left: 20px;
+    color: #445;
+    font-size: 11px;
   }
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(255,255,255,0.5);
-    font-size: 12px;
-  }
-  input[type="range"] { width: 100px; }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click to add boids • Drag to create flock</div>
-  <div class="sliders">
-    <div class="slider-row">Separation: <input type="range" id="sep" min="0" max="5" step="0.1" value="2"></div>
-    <div class="slider-row">Alignment: <input type="range" id="ali" min="0" max="5" step="0.1" value="1"></div>
-    <div class="slider-row">Cohesion: <input type="range" id="coh" min="0" max="5" step="0.1" value="1"></div>
-  </div>
-  <div class="controls">
-    <button id="clear">Clear</button>
+  <div id="controls">
+    <h3>Boids</h3>
+    <div class="control-row">
+      <label>Separation <span id="sepVal">1.5</span></label>
+      <input type="range" id="separation" min="0" max="5" step="0.1" value="1.5">
+    </div>
+    <div class="control-row">
+      <label>Alignment <span id="aliVal">1.0</span></label>
+      <input type="range" id="alignment" min="0" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="control-row">
+      <label>Cohesion <span id="cohVal">1.0</span></label>
+      <input type="range" id="cohesion" min="0" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="control-row">
+      <label>Perception <span id="percVal">80</span></label>
+      <input type="range" id="perception" min="20" max="200" value="80">
+    </div>
+    <div class="control-row">
+      <label>Speed Limit <span id="speedVal">4</span></label>
+      <input type="range" id="speed" min="1" max="10" value="4">
+    </div>
+    <button id="add">Add 50</button>
+    <button id="reset">Reset</button>
     <button id="predator">Add Predator</button>
   </div>
-
+  <div id="info">Click to add boids | Scroll to zoom</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -77,56 +85,54 @@
     let width, height;
     let boids = [];
     let predator = null;
-    let mouseX = 0, mouseY = 0, mouseDown = false;
     
-    const NUM_BOIDS = 300;
-    const PERCEPTION = 50;
-    const MAX_SPEED = 4;
-    const MAX_FORCE = 0.1;
-    
-    let separation = 2, alignment = 1, cohesion = 1;
-    
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
+    let separationWeight = 1.5;
+    let alignmentWeight = 1.0;
+    let cohesionWeight = 1.0;
+    let perceptionRadius = 80;
+    let maxSpeed = 4;
+    let maxForce = 0.1;
     
     class Boid {
       constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * MAX_SPEED * 2;
-        this.vy = (Math.random() - 0.5) * MAX_SPEED * 2;
-        this.hue = Math.random() * 60 + 200;
+        this.position = { x: x || Math.random() * width, y: y || Math.random() * height };
+        this.velocity = { x: (Math.random() - 0.5) * 4, y: (Math.random() - 0.5) * 4 };
+        this.acceleration = { x: 0, y: 0 };
+        this.color = `hsl(${180 + Math.random() * 60}, 70%, 60%)`;
       }
       
       edges() {
-        if (this.x > width) this.x = 0;
-        if (this.x < 0) this.x = width;
-        if (this.y > height) this.y = 0;
-        if (this.y < 0) this.y = height;
+        if (this.position.x > width) this.position.x = 0;
+        else if (this.position.x < 0) this.position.x = width;
+        if (this.position.y > height) this.position.y = 0;
+        else if (this.position.y < 0) this.position.y = height;
       }
       
       align(boids) {
-        let steering = { vx: 0, vy: 0 };
+        let steering = { x: 0, y: 0 };
         let total = 0;
-        for (const other of boids) {
-          const d = Math.hypot(this.x - other.x, this.y - other.y);
-          if (other !== this && d < PERCEPTION) {
-            steering.vx += other.vx;
-            steering.vy += other.vy;
+        for (let other of boids) {
+          let d = Math.hypot(this.position.x - other.position.x, this.position.y - other.position.y);
+          if (other !== this && d < perceptionRadius) {
+            steering.x += other.velocity.x;
+            steering.y += other.velocity.y;
             total++;
           }
         }
         if (total > 0) {
-          steering.vx /= total;
-          steering.vy /= total;
-          const mag = Math.hypot(steering.vx, steering.vy);
+          steering.x /= total;
+          steering.y /= total;
+          let mag = Math.hypot(steering.x, steering.y);
           if (mag > 0) {
-            steering.vx = (steering.vx / mag) * MAX_SPEED;
-            steering.vy = (steering.vy / mag) * MAX_SPEED;
-            steering.vx -= this.vx;
-            steering.vy -= this.vy;
+            steering.x = (steering.x / mag) * maxSpeed;
+            steering.y = (steering.y / mag) * maxSpeed;
+            steering.x -= this.velocity.x;
+            steering.y -= this.velocity.y;
+            let steerMag = Math.hypot(steering.x, steering.y);
+            if (steerMag > maxForce) {
+              steering.x = (steering.x / steerMag) * maxForce;
+              steering.y = (steering.y / steerMag) * maxForce;
+            }
           }
         }
         return steering;
@@ -135,206 +141,313 @@
       cohesion(boids) {
         let steering = { x: 0, y: 0 };
         let total = 0;
-        for (const other of boids) {
-          const d = Math.hypot(this.x - other.x, this.y - other.y);
-          if (other !== this && d < PERCEPTION) {
-            steering.x += other.x;
-            steering.y += other.y;
+        for (let other of boids) {
+          let d = Math.hypot(this.position.x - other.position.x, this.position.y - other.position.y);
+          if (other !== this && d < perceptionRadius) {
+            steering.x += other.position.x;
+            steering.y += other.position.y;
             total++;
           }
         }
         if (total > 0) {
           steering.x /= total;
           steering.y /= total;
-          steering.x -= this.x;
-          steering.y -= this.y;
-          const mag = Math.hypot(steering.x, steering.y);
+          steering.x -= this.position.x;
+          steering.y -= this.position.y;
+          let mag = Math.hypot(steering.x, steering.y);
           if (mag > 0) {
-            steering.x = (steering.x / mag) * MAX_SPEED;
-            steering.y = (steering.y / mag) * MAX_SPEED;
-            steering.x -= this.vx;
-            steering.y -= this.vy;
+            steering.x = (steering.x / mag) * maxSpeed;
+            steering.y = (steering.y / mag) * maxSpeed;
+            steering.x -= this.velocity.x;
+            steering.y -= this.velocity.y;
+            let steerMag = Math.hypot(steering.x, steering.y);
+            if (steerMag > maxForce) {
+              steering.x = (steering.x / steerMag) * maxForce;
+              steering.y = (steering.y / steerMag) * maxForce;
+            }
           }
         }
         return steering;
       }
       
       separation(boids) {
-        let steering = { vx: 0, vy: 0 };
+        let steering = { x: 0, y: 0 };
         let total = 0;
-        for (const other of boids) {
-          const d = Math.hypot(this.x - other.x, this.y - other.y);
-          if (other !== this && d < PERCEPTION / 2) {
-            let diff = { vx: this.x - other.x, vy: this.y - other.y };
-            const mag = Math.hypot(diff.vx, diff.vy);
+        for (let other of boids) {
+          let d = Math.hypot(this.position.x - other.position.x, this.position.y - other.position.y);
+          if (other !== this && d < perceptionRadius / 2) {
+            let diff = { x: this.position.x - other.position.x, y: this.position.y - other.position.y };
+            let mag = Math.hypot(diff.x, diff.y);
             if (mag > 0) {
-              diff.vx /= mag;
-              diff.vy /= mag;
+              diff.x /= mag;
+              diff.y /= mag;
             }
-            diff.vx /= d;
-            diff.vy /= d;
-            steering.vx += diff.vx;
-            steering.vy += diff.vy;
+            diff.x /= d;
+            diff.y /= d;
+            steering.x += diff.x;
+            steering.y += diff.y;
             total++;
           }
         }
         if (total > 0) {
-          steering.vx /= total;
-          steering.vy /= total;
-          const mag = Math.hypot(steering.vx, steering.vy);
+          steering.x /= total;
+          steering.y /= total;
+          let mag = Math.hypot(steering.x, steering.y);
           if (mag > 0) {
-            steering.vx = (steering.vx / mag) * MAX_SPEED;
-            steering.vy = (steering.vy / mag) * MAX_SPEED;
-            steering.vx -= this.vx;
-            steering.vy -= this.vy;
+            steering.x = (steering.x / mag) * maxSpeed;
+            steering.y = (steering.y / mag) * maxSpeed;
+            steering.x -= this.velocity.x;
+            steering.y -= this.velocity.y;
+            let steerMag = Math.hypot(steering.x, steering.y);
+            if (steerMag > maxForce) {
+              steering.x = (steering.x / steerMag) * maxForce;
+              steering.y = (steering.y / steerMag) * maxForce;
+            }
           }
         }
         return steering;
       }
       
-      flee(target) {
-        if (!target) return { vx: 0, vy: 0 };
-        let d = Math.hypot(this.x - target.x, this.y - target.y);
+      flee(predator) {
+        if (!predator) return { x: 0, y: 0 };
+        let d = Math.hypot(this.position.x - predator.position.x, this.position.y - predator.position.y);
         if (d < 150) {
-          let steering = { vx: this.x - target.x, vy: this.y - target.y };
-          const mag = Math.hypot(steering.vx, steering.vy);
+          let diff = { x: this.position.x - predator.position.x, y: this.position.y - predator.position.y };
+          let mag = Math.hypot(diff.x, diff.y);
           if (mag > 0) {
-            steering.vx = (steering.vx / mag) * MAX_SPEED * 1.5;
-            steering.vy = (steering.vy / mag) * MAX_SPEED * 1.5;
-            steering.vx -= this.vx;
-            steering.vy -= this.vy;
+            diff.x /= mag;
+            diff.y /= mag;
           }
-          return steering;
+          diff.x *= 2;
+          diff.y *= 2;
+          return diff;
         }
-        return { vx: 0, vy: 0 };
+        return { x: 0, y: 0 };
       }
       
       flock(boids) {
-        let ali = this.align(boids);
-        let coh = this.cohesion(boids);
-        let sep = this.separation(boids);
+        let alignment = this.align(boids);
+        let cohesion = this.cohesion(boids);
+        let separation = this.separation(boids);
         let flee = this.flee(predator);
         
-        ali.vx *= alignment; ali.vy *= alignment;
-        coh.vx *= cohesion; coh.vy *= cohesion;
-        sep.vx *= separation; sep.vy *= separation;
-        flee.vx *= 3; flee.vy *= 3;
+        alignment.x *= alignmentWeight;
+        alignment.y *= alignmentWeight;
+        cohesion.x *= cohesionWeight;
+        cohesion.y *= cohesionWeight;
+        separation.x *= separationWeight;
+        separation.y *= separationWeight;
         
-        this.vx += ali.vx + coh.vx + sep.vx + flee.vx;
-        this.vy += ali.vy + coh.vy + sep.vy + flee.vy;
-        
-        const speed = Math.hypot(this.vx, this.vy);
-        if (speed > MAX_SPEED) {
-          this.vx = (this.vx / speed) * MAX_SPEED;
-          this.vy = (this.vy / speed) * MAX_SPEED;
-        }
+        this.acceleration.x += alignment.x + cohesion.x + separation.x + flee.x;
+        this.acceleration.y += alignment.y + cohesion.y + separation.y + flee.y;
       }
       
       update() {
-        this.x += this.vx;
-        this.y += this.vy;
+        this.velocity.x += this.acceleration.x;
+        this.velocity.y += this.acceleration.y;
+        
+        let speed = Math.hypot(this.velocity.x, this.velocity.y);
+        if (speed > maxSpeed) {
+          this.velocity.x = (this.velocity.x / speed) * maxSpeed;
+          this.velocity.y = (this.velocity.y / speed) * maxSpeed;
+        }
+        
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+        
+        this.acceleration.x = 0;
+        this.acceleration.y = 0;
+        
         this.edges();
       }
       
       draw() {
-        const angle = Math.atan2(this.vy, this.vx);
+        let angle = Math.atan2(this.velocity.y, this.velocity.x);
         
         ctx.save();
-        ctx.translate(this.x, this.y);
+        ctx.translate(this.position.x, this.position.y);
         ctx.rotate(angle);
         
-        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, 0.8)`;
         ctx.beginPath();
-        ctx.moveTo(10, 0);
-        ctx.lineTo(-6, 4);
+        ctx.moveTo(8, 0);
+        ctx.lineTo(-5, -4);
         ctx.lineTo(-3, 0);
-        ctx.lineTo(-6, -4);
+        ctx.lineTo(-5, 4);
         ctx.closePath();
-        ctx.fill();
         
+        ctx.fillStyle = this.color;
+        ctx.fill();
         ctx.restore();
       }
     }
     
+    class Predator {
+      constructor(x, y) {
+        this.position = { x: x || width / 2, y: y || height / 2 };
+        this.velocity = { x: (Math.random() - 0.5) * 3, y: (Math.random() - 0.5) * 3 };
+        this.acceleration = { x: 0, y: 0 };
+        this.maxSpeed = 5;
+        this.maxForce = 0.15;
+      }
+      
+      hunt(boids) {
+        let closest = null;
+        let closestDist = Infinity;
+        
+        for (let boid of boids) {
+          let d = Math.hypot(this.position.x - boid.position.x, this.position.y - boid.position.y);
+          if (d < closestDist) {
+            closestDist = d;
+            closest = boid;
+          }
+        }
+        
+        if (closest) {
+          let desired = {
+            x: closest.position.x - this.position.x,
+            y: closest.position.y - this.position.y
+          };
+          let mag = Math.hypot(desired.x, desired.y);
+          if (mag > 0) {
+            desired.x = (desired.x / mag) * this.maxSpeed;
+            desired.y = (desired.y / mag) * this.maxSpeed;
+          }
+          
+          let steer = {
+            x: desired.x - this.velocity.x,
+            y: desired.y - this.velocity.y
+          };
+          let steerMag = Math.hypot(steer.x, steer.y);
+          if (steerMag > this.maxForce) {
+            steer.x = (steer.x / steerMag) * this.maxForce;
+            steer.y = (steer.y / steerMag) * this.maxForce;
+          }
+          
+          this.acceleration.x += steer.x;
+          this.acceleration.y += steer.y;
+        }
+        
+        // Avoid edges
+        let margin = 50;
+        if (this.position.x < margin) this.acceleration.x += 0.5;
+        if (this.position.x > width - margin) this.acceleration.x -= 0.5;
+        if (this.position.y < margin) this.acceleration.y += 0.5;
+        if (this.position.y > height - margin) this.acceleration.y -= 0.5;
+      }
+      
+      update() {
+        this.velocity.x += this.acceleration.x;
+        this.velocity.y += this.acceleration.y;
+        
+        let speed = Math.hypot(this.velocity.x, this.velocity.y);
+        if (speed > this.maxSpeed) {
+          this.velocity.x = (this.velocity.x / speed) * this.maxSpeed;
+          this.velocity.y = (this.velocity.y / speed) * this.maxSpeed;
+        }
+        
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+        
+        this.acceleration.x = 0;
+        this.acceleration.y = 0;
+        
+        // Wrap
+        if (this.position.x > width) this.position.x = 0;
+        else if (this.position.x < 0) this.position.x = width;
+        if (this.position.y > height) this.position.y = 0;
+        else if (this.position.y < 0) this.position.y = height;
+      }
+      
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.position.x, this.position.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#f44';
+        ctx.fill();
+        ctx.strokeStyle = '#f00';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+    
     function init() {
-      boids = [];
-      for (let i = 0; i < NUM_BOIDS; i++) {
-        boids.push(new Boid(Math.random() * width, Math.random() * height));
-      }
-    }
-    
-    function update() {
-      boids.forEach(b => {
-        b.flock(boids);
-        b.update();
-      });
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.height = height;
       
-      if (predator) {
-        predator.x += predator.vx;
-        predator.y += predator.vy;
-        
-        if (predator.x > width) predator.x = 0;
-        if (predator.x < 0) predator.x = width;
-        if (predator.y > height) predator.y = 0;
-        if (predator.y < 0) predator.y = height;
-      }
-    }
-    
-    function draw() {
-      ctx.fillStyle = 'rgba(5, 5, 8, 0.2)';
-      ctx.fillRect(0, 0, width, height);
-      
-      boids.forEach(b => b.draw());
-      
-      if (predator) {
-        ctx.fillStyle = '#ff4444';
-        ctx.beginPath();
-        ctx.arc(predator.x, predator.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
-        ctx.beginPath();
-        ctx.arc(predator.x, predator.y, 150, 0, Math.PI * 2);
-        ctx.fill();
+      for (let i = 0; i < 150; i++) {
+        boids.push(new Boid());
       }
     }
     
     function animate() {
-      update();
-      draw();
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+      
+      for (let boid of boids) {
+        boid.flock(boids);
+        boid.update();
+        boid.draw();
+      }
+      
+      if (predator) {
+        predator.hunt(boids);
+        predator.update();
+        predator.draw();
+      }
+      
       requestAnimationFrame(animate);
     }
     
-    canvas.addEventListener('mousedown', (e) => {
-      mouseDown = true;
-      for (let i = 0; i < 10; i++) {
-        boids.push(new Boid(e.clientX + (Math.random()-0.5)*50, e.clientY + (Math.random()-0.5)*50));
+    document.getElementById('separation').addEventListener('input', e => {
+      separationWeight = +e.target.value;
+      document.getElementById('sepVal').textContent = separationWeight;
+    });
+    document.getElementById('alignment').addEventListener('input', e => {
+      alignmentWeight = +e.target.value;
+      document.getElementById('aliVal').textContent = alignmentWeight;
+    });
+    document.getElementById('cohesion').addEventListener('input', e => {
+      cohesionWeight = +e.target.value;
+      document.getElementById('cohVal').textContent = cohesionWeight;
+    });
+    document.getElementById('perception').addEventListener('input', e => {
+      perceptionRadius = +e.target.value;
+      document.getElementById('percVal').textContent = perceptionRadius;
+    });
+    document.getElementById('speed').addEventListener('input', e => {
+      maxSpeed = +e.target.value;
+      document.getElementById('speedVal').textContent = maxSpeed;
+    });
+    
+    document.getElementById('add').addEventListener('click', () => {
+      for (let i = 0; i < 50; i++) {
+        boids.push(new Boid());
       }
     });
     
-    canvas.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
+    document.getElementById('reset').addEventListener('click', () => {
+      boids = [];
+      predator = null;
+      for (let i = 0; i < 150; i++) {
+        boids.push(new Boid());
+      }
     });
     
-    canvas.addEventListener('mouseup', () => mouseDown = false);
+    document.getElementById('predator').addEventListener('click', () => {
+      predator = new Predator();
+    });
     
-    document.getElementById('clear').onclick = init;
-    document.getElementById('predator').onclick = () => {
-      predator = {
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 3,
-        vy: (Math.random() - 0.5) * 3
-      };
-    };
+    canvas.addEventListener('click', e => {
+      boids.push(new Boid(e.clientX, e.clientY));
+    });
     
-    document.getElementById('sep').oninput = (e) => separation = +e.target.value;
-    document.getElementById('ali').oninput = (e) => alignment = +e.target.value;
-    document.getElementById('coh').oninput = (e) => cohesion = +e.target.value;
+    window.addEventListener('resize', () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    });
     
-    window.addEventListener('resize', resize);
-    resize();
     init();
     animate();
   </script>
