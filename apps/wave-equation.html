@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Equation — Shadow's Garden</title>
+<meta name="description" content="Interactive 2D wave equation simulator — click and drag to create ripples"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; cursor: crosshair; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 18, 0.92);
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    min-width: 180px;
+  }
+  #controls h3 { margin: 0 0 14px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 12px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .control-row input[type="range"] { width: 100%; cursor: pointer; }
+  .control-row span { float: right; color: #5af; font-size: 12px; }
+  button {
+    background: #2a3a4a;
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+    transition: background 0.2s;
+  }
+  button:hover { background: #3a4a5a; }
+  .preset-btns { margin-top: 14px; }
+  .preset-btns button { margin-bottom: 4px; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>Wave Equation</h3>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">0.99</span></label>
+      <input type="range" id="speed" min="0.9" max="1.0" step="0.002" value="0.99">
+    </div>
+    <div class="control-row">
+      <label>Damping <span id="dampingVal">0.02</span></label>
+      <input type="range" id="damping" min="0.005" max="0.1" step="0.005" value="0.02">
+    </div>
+    <div class="control-row">
+      <label>Brush Size <span id="brushVal">15</span></label>
+      <input type="range" id="brush" min="3" max="40" value="15">
+    </div>
+    <div class="control-row">
+      <label>Brush Strength <span id="strengthVal">150</span></label>
+      <input type="range" id="strength" min="20" max="300" value="150">
+    </div>
+    <div class="preset-btns">
+      <button id="clear">Clear</button>
+      <button id="drop">Rain Drop</button>
+      <button id="ripple">Ripple</button>
+      <button id="wave">Sine Wave</button>
+    </div>
+  </div>
+  <div id="info">Click or drag to create waves</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let current, previous;
+    let damping = 0.02;
+    let brushSize = 15;
+    let brushStrength = 150;
+    let isMouseDown = false;
+    let mouseX = 0, mouseY = 0;
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      current = new Float32Array(width * height);
+      previous = new Float32Array(width * height);
+    }
+    
+    function idx(x, y) {
+      x = Math.floor(x);
+      y = Math.floor(y);
+      if (x < 0 || x >= width || y < 0 || y >= height) return -1;
+      return y * width + x;
+    }
+    
+    function disturb(x, y, strength) {
+      const bx = Math.floor(brushSize);
+      for (let dy = -bx; dy <= bx; dy++) {
+        for (let dx = -bx; dx <= bx; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= brushSize) {
+            const falloff = 1 - dist / brushSize;
+            const i = idx(x + dx, y + dy);
+            if (i >= 0) {
+              current[i] += strength * falloff * falloff;
+            }
+          }
+        }
+      }
+    }
+    
+    function update() {
+      const newBuf = new Float32Array(width * height);
+      
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const i = y * width + x;
+          
+          const val = (
+            previous[i - 1] +
+            previous[i + 1] +
+            previous[i - width] +
+            previous[i + width]
+          ) / 2 - current[i];
+          
+          newBuf[i] = val * (1 - damping);
+        }
+      }
+      
+      const temp = previous;
+      previous = current;
+      current = newBuf;
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < width * height; i++) {
+        const val = current[i];
+        const c = Math.floor(Math.abs(val) * 8);
+        
+        const idx = i * 4;
+        if (val > 0) {
+          data[idx] = 20 + c * 3;
+          data[idx + 1] = 60 + c * 5;
+          data[idx + 2] = 180 + c * 2;
+        } else {
+          data[idx] = 20 + c * 2;
+          data[idx + 1] = 40 + c * 3;
+          data[idx + 2] = 100 + c * 3;
+        }
+        data[idx + 3] = 255;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function animate() {
+      if (isMouseDown) {
+        disturb(mouseX, mouseY, brushStrength);
+      }
+      update();
+      render();
+      requestAnimationFrame(animate);
+    }
+    
+    // Event listeners
+    document.getElementById('speed').addEventListener('input', e => {
+      const speed = +e.target.value;
+      document.getElementById('speedVal').textContent = speed.toFixed(3);
+      damping = 1 - speed;
+    });
+    document.getElementById('damping').addEventListener('input', e => {
+      damping = +e.target.value;
+      document.getElementById('dampingVal').textContent = damping.toFixed(3);
+    });
+    document.getElementById('brush').addEventListener('input', e => {
+      brushSize = +e.target.value;
+      document.getElementById('brushVal').textContent = brushSize;
+    });
+    document.getElementById('strength').addEventListener('input', e => {
+      brushStrength = +e.target.value;
+      document.getElementById('strengthVal').textContent = brushStrength;
+    });
+    
+    document.getElementById('clear').addEventListener('click', () => {
+      current.fill(0);
+      previous.fill(0);
+    });
+    
+    document.getElementById('drop').addEventListener('click', () => {
+      disturb(width / 2, height / 2, 300);
+    });
+    
+    document.getElementById('ripple').addEventListener('click', () => {
+      for (let i = 0; i < 20; i++) {
+        setTimeout(() => {
+          disturb(width / 2 + (Math.random() - 0.5) * 100, height / 2 + (Math.random() - 0.5) * 100, 200);
+        }, i * 100);
+      }
+    });
+    
+    document.getElementById('wave').addEventListener('click', () => {
+      for (let x = 0; x < width; x += 5) {
+        current[idx(x, height / 2)] = 100;
+      }
+    });
+    
+    canvas.addEventListener('mousedown', e => {
+      isMouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => isMouseDown = false);
+    canvas.addEventListener('mouseleave', () => isMouseDown = false);
+    
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      isMouseDown = true;
+      const touch = e.touches[0];
+      mouseX = touch.clientX;
+      mouseY = touch.clientY;
+    });
+    
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      mouseX = touch.clientX;
+      mouseY = touch.clientY;
+    });
+    
+    canvas.addEventListener('touchend', () => isMouseDown = false);
+    
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+  </script>
+</body>
+</html>

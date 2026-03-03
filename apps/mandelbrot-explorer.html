@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mandelbrot Explorer — Shadow's Garden</title>
+<meta name="description" content="Interactive Mandelbrot set explorer — click to pan, scroll to zoom, explore the famous fractal"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; cursor: crosshair; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  #coords {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+    font-family: monospace;
+  }
+  #zoom-display {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    color: #556;
+    font-size: 11px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>Mandelbrot Explorer</h3>
+    <div class="control-row">
+      <label>Max Iterations <span id="iterVal">100</span></label>
+      <input type="range" id="iterations" min="20" max="500" value="100">
+    </div>
+    <div class="control-row">
+      <label>Color Offset <span id="colorVal">0</span></label>
+      <input type="range" id="colorOffset" min="0" max="360" value="0">
+    </div>
+    <div class="control-row">
+      <label>Color Speed <span id="speedVal">1</span></label>
+      <input type="range" id="colorSpeed" min="0" max="10" value="1">
+    </div>
+    <div class="control-row">
+      <label>Escape Radius <span id="escapeVal">4</span></label>
+      <input type="range" id="escape" min="2" max="20" value="4">
+    </div>
+    <div class="preset-btns">
+      <button id="reset">Reset View</button>
+      <button id="zoom-in">Zoom In</button>
+      <button id="zoom-out">Zoom Out</button>
+    </div>
+    <div class="preset-btns">
+      <button id="preset-seahorse">Seahorse Valley</button>
+      <button id="preset-spiral">Spiral</button>
+      <button id="preset-elephant">Elephant Valley</button>
+    </div>
+  </div>
+  <div id="coords">x: 0.000 y: 0.000</div>
+  <div id="zoom-display">Zoom: 1x</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let centerX = -0.5;
+    let centerY = 0;
+    let zoom = 1;
+    let maxIter = 100;
+    let colorOffset = 0;
+    let colorSpeed = 1;
+    let escapeRadius = 4;
+    let animating = true;
+    let lastFrame = Date.now();
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      render();
+    }
+    
+    function hsvToRgb(h, s, v) {
+      let c = v * s;
+      let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      let m = v - c;
+      let r, g, b;
+      if (h < 60) { r = c; g = x; b = 0; }
+      else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; }
+      else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+      return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      const scale = 3 / zoom;
+      const xMin = centerX - scale / 2;
+      const yMin = centerY - (scale * height / width) / 2;
+      
+      for (let py = 0; py < height; py++) {
+        for (let px = 0; px < width; px++) {
+          let x0 = xMin + (px / width) * scale;
+          let y0 = yMin + (py / height) * (scale * height / width);
+          
+          let x = 0, y = 0;
+          let iter = 0;
+          while (x * x + y * y <= escapeRadius && iter < maxIter) {
+            let xTemp = x * x - y * y + x0;
+            y = 2 * x * y + y0;
+            x = xTemp;
+            iter++;
+          }
+          
+          let idx = (py * width + px) * 4;
+          if (iter === maxIter) {
+            imageData.data[idx] = 0;
+            imageData.data[idx + 1] = 0;
+            imageData.data[idx + 2] = 0;
+          } else {
+            let hue = (iter / maxIter) * 360 + colorOffset;
+            let [r, g, b] = hsvToRgb(hue % 360, 0.8, iter / maxIter);
+            imageData.data[idx] = r;
+            imageData.data[idx + 1] = g;
+            imageData.data[idx + 2] = b;
+          }
+          imageData.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      updateDisplay();
+    }
+    
+    function updateDisplay() {
+      document.getElementById('coords').textContent = `x: ${centerX.toFixed(6)} y: ${centerY.toFixed(6)}`;
+      document.getElementById('zoom-display').textContent = `Zoom: ${zoom.toExponential(2)}x`;
+    }
+    
+    function animate() {
+      if (!animating) return;
+      let now = Date.now();
+      if (now - lastFrame > 50) {
+        colorOffset += colorSpeed;
+        render();
+        lastFrame = now;
+      }
+      requestAnimationFrame(animate);
+    }
+    
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const scale = 3 / zoom;
+      const xMin = centerX - scale / 2;
+      const yMin = centerY - (scale * height / width) / 2;
+      centerX = xMin + (px / width) * scale;
+      centerY = yMin + (py / height) * (scale * height / width);
+      zoom *= 2;
+      render();
+    });
+    
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const scale = 3 / zoom;
+      const xMin = centerX - scale / 2;
+      const yMin = centerY - (scale * height / width) / 2;
+      const clickX = xMin + (px / width) * scale;
+      const clickY = yMin + (py / height) * (scale * height / width);
+      
+      if (e.deltaY > 0) {
+        zoom /= 1.5;
+      } else {
+        zoom *= 1.5;
+      }
+      
+      const newScale = 3 / zoom;
+      centerX = clickX - (px / width) * newScale + newScale / 2;
+      centerY = clickY - (py / height) * (newScale * height / width) + (newScale * height / width) / 2;
+      render();
+    });
+    
+    document.getElementById('iterations').addEventListener('input', e => {
+      maxIter = +e.target.value;
+      document.getElementById('iterVal').textContent = maxIter;
+      render();
+    });
+    
+    document.getElementById('colorOffset').addEventListener('input', e => {
+      colorOffset = +e.target.value;
+      document.getElementById('colorVal').textContent = colorOffset;
+      render();
+    });
+    
+    document.getElementById('colorSpeed').addEventListener('input', e => {
+      colorSpeed = +e.target.value;
+      document.getElementById('speedVal').textContent = colorSpeed;
+    });
+    
+    document.getElementById('escape').addEventListener('input', e => {
+      escapeRadius = +e.target.value;
+      document.getElementById('escapeVal').textContent = escapeRadius;
+      render();
+    });
+    
+    document.getElementById('reset').addEventListener('click', () => {
+      centerX = -0.5;
+      centerY = 0;
+      zoom = 1;
+      render();
+    });
+    
+    document.getElementById('zoom-in').addEventListener('click', () => {
+      zoom *= 2;
+      render();
+    });
+    
+    document.getElementById('zoom-out').addEventListener('click', () => {
+      zoom /= 2;
+      render();
+    });
+    
+    document.getElementById('preset-seahorse').addEventListener('click', () => {
+      centerX = -0.747;
+      centerY = 0.1;
+      zoom = 50;
+      maxIter = 200;
+      document.getElementById('iterations').value = 200;
+      document.getElementById('iterVal').textContent = 200;
+      render();
+    });
+    
+    document.getElementById('preset-spiral').addEventListener('click', () => {
+      centerX = -0.3904;
+      centerY = -0.5868;
+      zoom = 100;
+      maxIter = 250;
+      document.getElementById('iterations').value = 250;
+      document.getElementById('iterVal').textContent = 250;
+      render();
+    });
+    
+    document.getElementById('preset-elephant').addEventListener('click', () => {
+      centerX = 0.285;
+      centerY = 0.01;
+      zoom = 50;
+      maxIter = 200;
+      document.getElementById('iterations').value = 200;
+      document.getElementById('iterVal').textContent = 200;
+      render();
+    });
+    
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+  </script>
+</body>
+</html>
