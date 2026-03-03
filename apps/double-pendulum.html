@@ -3,294 +3,322 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Double Pendulum Chaos — Shadow's Garden</title>
-<meta name="description" content="Drag to set angles, watch chaotic trajectories unfold. RK4 integration for accurate physics.">
+<title>Double Pendulum — Shadow's Garden</title>
+<meta name="description" content="Interactive double pendulum simulation — chaos in motion, the math that models weather and turbulence"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0d0d12; }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
   canvas { display: block; }
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    z-index: 10;
-  }
-  button, input, label {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: #ccc;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 12px;
-  }
-  button:hover { background: rgba(255,255,255,0.15); }
-  input[type="range"] { padding: 0; width: 80px; }
-  label { padding: 8px; cursor: default; }
-  .info {
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 12px;
-    font-family: monospace;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
   }
-  .presets { display: flex; gap: 8px; margin-bottom: 8px; }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  #trace-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+  }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+  }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Drag the pendulums to set angles • Space to pause • R to reset</div>
-  <div class="controls">
-    <div class="presets">
-      <button id="p1">Classic</button>
-      <button id="p2">Chaos Start</button>
-      <button id="p3">High Energy</button>
-      <button id="p4">Inverted</button>
+  <div id="controls">
+    <h3>Double Pendulum</h3>
+    <div class="control-row">
+      <label>Mass 1 <span id="m1Val">10</span></label>
+      <input type="range" id="m1" min="1" max="30" value="10">
     </div>
-    <label>Mass 1: <input type="range" id="m1" min="1" max="20" value="10"></label>
-    <label>Mass 2: <input type="range" id="m2" min="1" max="20" value="10"></label>
-    <label>Length 1: <input type="range" id="l1" min="50" max="200" value="150"></label>
-    <label>Length 2: <input type="range" id="l2" min="50" max="200" value="150"></label>
-    <label>Gravity: <input type="range" id="g" min="1" max="30" value="9"></label>
-    <button id="trace">Trace: ON</button>
+    <div class="control-row">
+      <label>Mass 2 <span id="m2Val">10</span></label>
+      <input type="range" id="m2" min="1" max="30" value="10">
+    </div>
+    <div class="control-row">
+      <label>Length 1 <span id="l1Val">150</span></label>
+      <input type="range" id="l1" min="50" max="250" value="150">
+    </div>
+    <div class="control-row">
+      <label>Length 2 <span id="l2Val">150</span></label>
+      <input type="range" id="l2" min="50" max="250" value="150">
+    </div>
+    <div class="control-row">
+      <label>Gravity <span id="gVal">1</span></label>
+      <input type="range" id="g" min="0.1" max="3" step="0.1" value="1">
+    </div>
+    <div class="control-row">
+      <label>Damping <span id="dVal">0</span></label>
+      <input type="range" id="d" min="0" max="0.1" step="0.001" value="0">
+    </div>
+    <button id="reset">Reset</button>
+    <button id="pause">Pause</button>
+  </div>
+  <div id="trace-controls">
+    <h3>Trace</h3>
+    <div class="control-row">
+      <label>Trail Length <span id="trailVal">500</span></label>
+      <input type="range" id="trail" min="0" max="2000" value="500">
+    </div>
+    <div class="control-row">
+      <label>Hue Speed <span id="hueVal">1</span></label>
+      <input type="range" id="hueSpeed" min="0" max="5" step="0.1" value="1">
+    </div>
     <button id="clear">Clear Trail</button>
   </div>
-
+  <div id="info">Drag bobs to set initial position | Double-click to reset</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
-    let width, height;
-    let paused = false;
-    let showTrace = true;
-    
+    let width, height, cx, cy;
     let theta1 = Math.PI / 2;
     let theta2 = Math.PI / 2;
     let omega1 = 0;
     let omega2 = 0;
-    
-    let m1 = 10, m2 = 10, l1 = 150, l2 = 150, g = 9;
+    let m1 = 10, m2 = 10;
+    let l1 = 150, l2 = 150;
+    let g = 1;
+    let damping = 0;
     let trail = [];
-    const MAX_TRAIL = 800;
+    let maxTrail = 500;
+    let hueOffset = 0;
+    let hueSpeed = 1;
+    let paused = false;
+    let dragging = null;
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      cx = width / 2;
+      cy = height / 2 + 50;
     }
     
-    // Runge-Kutta 4th order integration
-    function computeDerivatives(t1, t2, w1, w2) {
-      const delta = t1 - t2;
-      const sinD = Math.sin(delta);
-      const cosD = Math.cos(delta);
-      const den1 = (m1 + m2) * l1 - m2 * l1 * cosD * cosD;
-      const den2 = (l2 / l1) * den1;
+    function derivatives(th1, th2, om1, om2) {
+      let d = m1 + m2;
+      let dth = th1 - th2;
+      let den1 = (d) - m2 * Math.cos(dth) * Math.cos(dth);
+      let den2 = (d * l2 / l1) - m2 * Math.cos(dth) * Math.cos(dth);
       
-      const alpha1 = (m2 * l1 * w1 * w1 * sinD * cosD + 
-                      m2 * g * Math.sin(t2) * cosD + 
-                      m2 * l2 * w2 * w2 * sinD - 
-                      (m1 + m2) * g * Math.sin(t1)) / den1;
-                      
-      const alpha2 = (-m2 * l2 * w2 * w2 * sinD * cosD + 
-                      (m1 + m2) * g * Math.sin(t1) * cosD - 
-                      (m1 + m2) * l1 * w1 * w1 * sinD - 
-                      (m1 + m2) * g * Math.sin(t2)) / den2;
+      let alpha1 = (m2 * l1 * om1 * om1 * Math.sin(dth) * Math.cos(dth) +
+                    m2 * g * Math.sin(th2) * Math.cos(dth) +
+                    m2 * l2 * om2 * om2 * Math.sin(dth) -
+                    d * g * Math.sin(th1)) / (d * l1);
+      let alpha2 = (-m2 * l2 * om2 * om2 * Math.sin(dth) * Math.cos(dth) +
+                    d * g * Math.sin(th1) * Math.cos(dth) -
+                    d * l1 * om1 * om1 * Math.sin(dth) -
+                    d * g * Math.sin(th2)) / (d * l2);
       
-      return { dw1: alpha1, dw2: alpha2, dt1: w1, dt2: w2 };
+      return [om1, om2, alpha1, alpha2];
     }
     
-    function rk4Step(dt) {
-      const k1 = computeDerivatives(theta1, theta2, omega1, omega2);
+    function rk4(th1, th2, om1, om2, dt) {
+      let k1 = derivatives(th1, th2, om1, om2);
+      let k2 = derivatives(th1 + k1[0]*dt/2, th2 + k1[1]*dt/2, om1 + k1[2]*dt/2, om2 + k1[3]*dt/2);
+      let k3 = derivatives(th1 + k2[0]*dt/2, th2 + k2[1]*dt/2, om1 + k2[2]*dt/2, om2 + k2[3]*dt/2);
+      let k4 = derivatives(th1 + k3[0]*dt, th2 + k3[1]*dt, om1 + k3[2]*dt, om2 + k3[3]*dt);
       
-      const k2 = computeDerivatives(
-        theta1 + k1.dt1 * dt/2, theta2 + k1.dt2 * dt/2,
-        omega1 + k1.dw1 * dt/2, omega2 + k1.dw2 * dt/2
-      );
-      
-      const k3 = computeDerivatives(
-        theta1 + k2.dt1 * dt/2, theta2 + k2.dt2 * dt/2,
-        omega1 + k2.dw1 * dt/2, omega2 + k2.dw2 * dt/2
-      );
-      
-      const k4 = computeDerivatives(
-        theta1 + k3.dt1 * dt, theta2 + k3.dt2 * dt,
-        omega1 + k3.dw1 * dt, omega2 + k3.dw2 * dt
-      );
-      
-      theta1 += (k1.dt1 + 2*k2.dt1 + 2*k3.dt1 + k4.dt1) * dt / 6;
-      theta2 += (k1.dt2 + 2*k2.dt2 + 2*k3.dt2 + k4.dt2) * dt / 6;
-      omega1 += (k1.dw1 + 2*k2.dw1 + 2*k3.dw1 + k4.dw1) * dt / 6;
-      omega2 += (k1.dw2 + 2*k2.dw2 + 2*k3.dw2 + k4.dw2) * dt / 6;
-    }
-    
-    function getPositions() {
-      const cx = width / 2;
-      const cy = height / 3;
-      const x1 = cx + l1 * Math.sin(theta1);
-      const y1 = cy + l1 * Math.cos(theta1);
-      const x2 = x1 + l2 * Math.sin(theta2);
-      const y2 = y1 + l2 * Math.cos(theta2);
-      return { cx, cy, x1, y1, x2, y2 };
+      return [
+        th1 + (k1[0] + 2*k2[0] + 2*k3[0] + k4[0]) * dt / 6,
+        th2 + (k1[1] + 2*k2[1] + 2*k3[1] + k4[1]) * dt / 6,
+        om1 + (k1[2] + 2*k2[2] + 2*k3[2] + k4[2]) * dt / 6,
+        om2 + (k1[3] + 2*k2[3] + 2*k3[3] + k4[3]) * dt / 6
+      ];
     }
     
     function update() {
-      if (paused) return;
-      
-      // Multiple sub-steps for stability
-      for (let i = 0; i < 4; i++) {
-        rk4Step(0.02);
+      if (paused || dragging) return;
+      let dt = 0.3;
+      for (let i = 0; i < 3; i++) {
+        [theta1, theta2, omega1, omega2] = rk4(theta1, theta2, omega1, omega2, dt);
       }
+      omega1 *= (1 - damping);
+      omega2 *= (1 - damping);
       
-      const pos = getPositions();
-      if (showTrace) {
-        trail.push({ x: pos.x2, y: pos.y2 });
-        if (trail.length > MAX_TRAIL) trail.shift();
-      }
+      let x2 = cx + l1 * Math.sin(theta1) + l2 * Math.sin(theta2);
+      let y2 = cy + l1 * Math.cos(theta1) + l2 * Math.cos(theta2);
+      trail.push({ x: x2, y: y2, hue: hueOffset });
+      if (trail.length > maxTrail) trail.shift();
+      hueOffset += hueSpeed;
     }
     
     function draw() {
-      ctx.fillStyle = 'rgba(13, 13, 18, 0.15)';
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
       ctx.fillRect(0, 0, width, height);
       
-      const pos = getPositions();
+      let x1 = cx + l1 * Math.sin(theta1);
+      let y1 = cy + l1 * Math.cos(theta1);
+      let x2 = x1 + l2 * Math.sin(theta2);
+      let y2 = y1 + l2 * Math.cos(theta2);
       
       // Draw trail
-      if (showTrace && trail.length > 1) {
+      if (trail.length > 1) {
         for (let i = 1; i < trail.length; i++) {
-          const alpha = i / trail.length;
-          const hue = (i * 0.5 + Date.now() * 0.01) % 360;
-          ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${alpha})`;
-          ctx.lineWidth = 2;
+          let alpha = i / trail.length;
           ctx.beginPath();
           ctx.moveTo(trail[i-1].x, trail[i-1].y);
           ctx.lineTo(trail[i].x, trail[i].y);
+          ctx.strokeStyle = `hsla(${(trail[i].hue + i) % 360}, 80%, 60%, ${alpha})`;
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
       }
       
       // Draw rods
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.strokeStyle = '#666';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(pos.cx, pos.cy);
-      ctx.lineTo(pos.x1, pos.y1);
-      ctx.lineTo(pos.x2, pos.y2);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
       ctx.stroke();
       
+      // Draw bobs
+      ctx.beginPath();
+      ctx.arc(x1, y1, 8 + m1 * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#4af';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x2, y2, 8 + m2 * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f4a';
+      ctx.fill();
+      
       // Draw pivot
-      ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.arc(pos.cx, pos.cy, 5, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Draw masses
-      const grad1 = ctx.createRadialGradient(pos.x1, pos.y1, 0, pos.x1, pos.y1, m1 * 2);
-      grad1.addColorStop(0, '#ff6b6b');
-      grad1.addColorStop(1, '#c92a2a');
-      ctx.fillStyle = grad1;
-      ctx.beginPath();
-      ctx.arc(pos.x1, pos.y1, m1 * 2, 0, Math.PI * 2);
-      ctx.fill();
-      
-      const grad2 = ctx.createRadialGradient(pos.x2, pos.y2, 0, pos.x2, pos.y2, m2 * 2);
-      grad2.addColorStop(0, '#4ecdc4');
-      grad2.addColorStop(1, '#087f5b');
-      ctx.fillStyle = grad2;
-      ctx.beginPath();
-      ctx.arc(pos.x2, pos.y2, m2 * 2, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#888';
       ctx.fill();
     }
     
-    function animate() {
+    function loop() {
       update();
       draw();
-      requestAnimationFrame(animate);
+      requestAnimationFrame(loop);
     }
     
-    // Mouse drag
-    let dragging = null;
-    canvas.addEventListener('mousedown', (e) => {
-      const pos = getPositions();
-      const d1 = Math.hypot(e.clientX - pos.x1, e.clientY - pos.y1);
-      const d2 = Math.hypot(e.clientX - pos.x2, e.clientY - pos.y2);
-      
-      if (d2 < m2 * 3 + 20) {
-        dragging = 2;
-      } else if (d1 < m1 * 3 + 20) {
-        dragging = 1;
-      }
+    function getBobAt(x, y) {
+      let x1 = cx + l1 * Math.sin(theta1);
+      let y1 = cy + l1 * Math.cos(theta1);
+      let x2 = x1 + l2 * Math.sin(theta2);
+      let y2 = y1 + l2 * Math.cos(theta2);
+      if (Math.hypot(x - x1, y - y1) < 20) return 1;
+      if (Math.hypot(x - x2, y - y2) < 20) return 2;
+      return null;
+    }
+    
+    canvas.addEventListener('mousedown', e => {
+      let bob = getBobAt(e.clientX, e.clientY);
+      if (bob) dragging = bob;
     });
     
-    canvas.addEventListener('mousemove', (e) => {
-      const cx = width / 2;
-      const cy = height / 3;
-      
+    canvas.addEventListener('mousemove', e => {
       if (dragging === 1) {
         theta1 = Math.atan2(e.clientX - cx, e.clientY - cy);
         omega1 = 0;
-        omega2 = 0;
-        trail = [];
       } else if (dragging === 2) {
-        theta2 = Math.atan2(e.clientX - pos.x1, e.clientY - pos.y1);
-        omega1 = 0;
+        let x1 = cx + l1 * Math.sin(theta1);
+        let y1 = cy + l1 * Math.cos(theta1);
+        theta2 = Math.atan2(e.clientX - x1, e.clientY - y1);
         omega2 = 0;
-        trail = [];
       }
     });
     
-    canvas.addEventListener('mouseup', () => { dragging = null; });
-    canvas.addEventListener('mouseleave', () => { dragging = null; });
-    
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
-      if (e.code === 'KeyR') { trail = []; omega1 = 0; omega2 = 0; }
+    canvas.addEventListener('mouseup', () => dragging = null);
+    canvas.addEventListener('dblclick', () => {
+      theta1 = Math.PI / 2;
+      theta2 = Math.PI / 2;
+      omega1 = 0;
+      omega2 = 0;
+      trail = [];
     });
     
-    // Controls
-    document.getElementById('m1').oninput = (e) => { m1 = +e.target.value; trail = []; };
-    document.getElementById('m2').oninput = (e) => { m2 = +e.target.value; trail = []; };
-    document.getElementById('l1').oninput = (e) => { l1 = +e.target.value; trail = []; };
-    document.getElementById('l2').oninput = (e) => { l2 = +e.target.value; trail = []; };
-    document.getElementById('g').oninput = (e) => { g = +e.target.value; };
-    
-    document.getElementById('trace').onclick = (e) => {
-      showTrace = !showTrace;
-      e.target.innerText = 'Trace: ' + (showTrace ? 'ON' : 'OFF');
-    };
-    document.getElementById('clear').onclick = () => { trail = []; };
-    
-    // Presets
-    document.getElementById('p1').onclick = () => {
-      theta1 = Math.PI / 2; theta2 = Math.PI / 2;
-      omega1 = 0; omega2 = 0;
+    document.getElementById('m1').addEventListener('input', e => {
+      m1 = +e.target.value;
+      document.getElementById('m1Val').textContent = m1;
+    });
+    document.getElementById('m2').addEventListener('input', e => {
+      m2 = +e.target.value;
+      document.getElementById('m2Val').textContent = m2;
+    });
+    document.getElementById('l1').addEventListener('input', e => {
+      l1 = +e.target.value;
+      document.getElementById('l1Val').textContent = l1;
+    });
+    document.getElementById('l2').addEventListener('input', e => {
+      l2 = +e.target.value;
+      document.getElementById('l2Val').textContent = l2;
+    });
+    document.getElementById('g').addEventListener('input', e => {
+      g = +e.target.value;
+      document.getElementById('gVal').textContent = g;
+    });
+    document.getElementById('d').addEventListener('input', e => {
+      damping = +e.target.value;
+      document.getElementById('dVal').textContent = damping;
+    });
+    document.getElementById('trail').addEventListener('input', e => {
+      maxTrail = +e.target.value;
+      document.getElementById('trailVal').textContent = maxTrail;
+    });
+    document.getElementById('hueSpeed').addEventListener('input', e => {
+      hueSpeed = +e.target.value;
+      document.getElementById('hueVal').textContent = hueSpeed;
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      theta1 = Math.PI / 2;
+      theta2 = Math.PI / 2;
+      omega1 = 0;
+      omega2 = 0;
       trail = [];
-    };
-    document.getElementById('p2').onclick = () => {
-      theta1 = Math.PI / 2; theta2 = Math.PI / 2 + 0.01;
-      omega1 = 0; omega2 = 0;
-      trail = [];
-    };
-    document.getElementById('p3').onclick = () => {
-      theta1 = 0; theta2 = 0;
-      omega1 = 5; omega2 = 5;
-      trail = [];
-    };
-    document.getElementById('p4').onclick = () => {
-      theta1 = Math.PI; theta2 = Math.PI;
-      omega1 = 0; omega2 = 0;
-      trail = [];
-    };
+    });
+    document.getElementById('pause').addEventListener('click', () => {
+      paused = !paused;
+      document.getElementById('pause').textContent = paused ? 'Resume' : 'Pause';
+    });
+    document.getElementById('clear').addEventListener('click', () => trail = []);
     
     window.addEventListener('resize', resize);
     resize();
-    animate();
+    loop();
   </script>
 </body>
 </html>
