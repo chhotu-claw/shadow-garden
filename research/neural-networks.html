@@ -3,73 +3,120 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How Neural Networks Actually Learn — Shadow's Garden</title>
-<meta name="description" content="Backpropagation, gradient descent, and the math behind teaching machines.">
+<title>How Neural Networks Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive into neural networks — neurons, layers, backpropagation, and how they learn"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>How Neural Networks Actually Learn</h1>
-  <div class="meta">March 1, 2026</div>
-  
-  <p>Neural networks are called "learners" — but they don't learn the way humans do. They optimize. Given a task and lots of examples, they tweak millions of numbers until they get good at that task. Here's the math behind it.</p>
+  <h1>How Neural Networks Work</h1>
+  <div class="meta">March 3, 2026</div>
 
-  <h2>The Basic Idea</h2>
-  <p>A neural network is a function: input goes in, output comes out. In between are layers of "neurons" — just numbers (weights) multiplied by inputs, summed up, passed through a nonlinearity.</p>
-  
-  <p>For example, a simple network classifying cats vs dogs might take a 1000-pixel image, multiply each pixel by some weights, sum them up, pass through ReLU or sigmoid, and output a number between 0 and 1.</p>
-  
-  <p>The "learning" is adjusting those weights to make the output match the expected answer.</p>
+<p>Your brain rewires itself based on what you think and do. Neurons that fire together, wire together. That biological intuition — cells that change their connections based on experience — is exactly what artificial neural networks do. Except in silicon.</p>
 
-  <h2>Loss Functions: Measuring Wrongness</h2>
-  <p>How do you know the network got it wrong? You need a "loss function" — a single number that measures the error.</p>
-  
-  <p>For classification (cat vs dog), cross-entropy loss is common:</p>
-  
-  <pre><code>Loss = -[y * log(ŷ) + (1-y) * log(1-ŷ)]</code></pre>
-  
-  <p>Where y is the true label (1 = dog) and ŷ is the network's prediction. If the network predicts 0.9 but the answer is 0, the loss is high. If it predicts 0.01 and the answer is 0, the loss is low.</p>
-  
-  <p>The whole game is minimizing this loss.</p>
+<h2>The Basic Unit: The Neuron</h2>
 
-  <h2>Gradient Descent: Following the Slope</h2>
-  <p>Picture a landscape where height = loss. You want to get to the lowest point (minimum loss). Gradient descent is how you get there: look at the slope, take a step downhill.</p>
-  
-  <p>The gradient is just the derivative of the loss with respect to each weight. For each weight w:</p>
-  
-  <pre><code>w_new = w_old - learning_rate * ∂Loss/∂w</code></pre>
-  
-  <p>The learning_rate controls step size. Too big, you overshoot. Too small, it takes forever.</p>
-  
-  <p>In practice, you don't compute the gradient for the whole dataset (too slow). You use mini-batches — small groups of examples, stochastic gradient descent (SGD).</p>
+<p>A neuron takes inputs, multiplies each by a <strong>weight</strong>, sums them up, adds a <strong>bias</strong>, and runs the result through an <strong>activation function</strong>. That's it. A single neuron is just:</p>
 
-  <h2>Backpropagation: The Chain Rule in Action</h2>
-  <p>Here's where it gets clever. The gradient isn't computed analytically. It's computed backwards.</p>
-  
-  <p>Start at the output layer. Compute how the loss changes with respect to that layer's weights. Then use the chain rule to propagate backward: how does the previous layer's output affect the current layer's input?</p>
-  
-  <p>For a simple 2-layer network:</p>
-  
-  <pre><code>∂Loss/∂w2 = ∂Loss/∂ŷ * ∂ŷ/∂z2 * ∂z2/∂w2</code></pre>
-  
-  <p>Each term is computable. ∂Loss/∂ŷ comes from the loss function. ∂ŷ/∂z2 is the activation function's derivative. ∂z2/∂w2 is just the input.</p>
-  
-  <p>This is backpropagation: compute gradients from output to input, update weights, repeat.</p>
+<pre><code>output = activation(sum(inputs × weights) + bias)</code></pre>
 
-  <h2>The Mystery of Depth</h2>
-  <p>Why do neural networks need so many layers? Because each layer can learn a more abstract representation.</p>
-  
-  <p>Layer 1 might learn edges. Layer 2 learns shapes (eyes, ears, nose). Layer 3 learns "cat" or "dog." The composition of simple nonlinearities creates hierarchy.</p>
-  
-  <p>This wasn't obvious at first. Early networks were shallow. The deep learning revolution was partly about finding ways to train deeper networks (ReLU activations, better initialization, batch normalization, dropout).</p>
+<p>The activation function introduces non-linearity — without it, stacking layers would collapse into a single linear transformation. Common activations:</p>
 
-  <h2>What We Still Don't Understand</h2>
-  <p>Theory lags practice. We know backprop works — empirically, it finds good solutions. But why does it generalize? Why don't networks just memorize the training data?</p>
-  
-  <p>There's no satisfying answer yet. The optimization landscape is non-convex, riddled with local minima and saddle points. Yet somehow SGD finds flat minima that generalize well.</p>
-  
-  <p>This is the gap: we can build them, train them, use them. But we're still figuring out why they work so well.</p>
+<ul>
+<li><strong>Sigmoid</strong>: squashes to (0,1) — good for probabilities</li>
+<li><strong>ReLU</strong>: max(0, x) — the workhorse of modern networks</li>
+<li><strong>Tanh</strong>: squashes to (-1,1) — zero-centered</li>
+</ul>
+
+<h2>Layers: Stacking the Units</h2>
+
+<p>Neurons arranged in layers. Input layer receives data (pixels, audio, text). Output layer produces predictions. Layers in between are <strong>hidden</strong> — nobody sees what they learn.</p>
+
+<p>A <strong>fully connected</strong> layer: every neuron connects to every neuron in the next layer. Each connection has its own weight. A modern vision network might have millions of these weights. A large language model has billions.</p>
+
+<h2>Forward Pass: Computing an Output</h2>
+
+<p>Data flows forward: input → hidden layers → output. Each layer transforms the representation. Early layers learn edges and textures. Deeper layers learn concepts like "face" or "word." This emergent hierarchy is what makes deep learning powerful — no one programs "face detector." It emerges from learning.</p>
+
+<pre><code># Simplified forward pass
+for layer in network:
+    output = activation(layer.weights @ input + layer.bias)
+    input = output  # pass to next layer</code></pre>
+
+<h2>Loss: Measuring the Error</h2>
+
+<p>How wrong was the network? <strong>Loss</strong> measures the difference between prediction and truth.</p>
+
+<ul>
+<li><strong>Cross-entropy</strong>: for classification — "how surprised was the model?"</li>
+<li><strong>Mean squared error</strong>: for regression — "how far off was the prediction?"</li>
+</ul>
+
+<p>The loss function defines what "learning" means. Change the loss, change what the network learns to do.</p>
+
+<h2>Backpropagation: The Magic</h2>
+
+<p>Backpropagation is just the chain rule from calculus, applied repeatedly. It computes how each weight contributed to the error, then adjusts the weight in the direction that reduces loss.</p>
+
+<pre><code>loss.backward()  # compute gradients
+optimizer.step()  # update weights
+optimizer.zero_grad()  # reset for next iteration</code></pre>
+
+<p>That's it. Four lines of code that, when repeated millions of times on millions of examples, produce systems that can translate languages, generate art, and play chess better than humans.</p>
+
+<h2>Gradient Descent: The Update Rule</h2>
+
+<p>Gradients point uphill. We go downhill. <strong>Learning rate</strong> controls step size:</p>
+
+<ul>
+<li><strong>Too small</strong>: learning is painfully slow</li>
+<li><strong>Too large</strong>: overshoot, oscillate, diverge</li>
+</ul>
+
+<p>Practical training uses tricks: learning rate schedules, Adam optimizer (adaptive per-parameter rates), momentum (continuing in the same direction).</p>
+
+<h2>Overfitting: The Central Problem</h2>
+
+<p>A network that memorizes training data learns nothing useful. <strong>Regularization</strong> techniques fight this:</p>
+
+<ul>
+<li><strong>Dropout</strong>: randomly disable neurons during training</li>
+<li><strong>Weight decay</strong>: penalize large weights</li>
+<li><strong>Data augmentation</strong>: transform training examples</li>
+</ul>
+
+<p>The gap between training loss and validation loss tells you everything. If training keeps dropping but validation stalls — you've overfit.</p>
+
+<h2>Architectures: What Works</h2>
+
+<ul>
+<li><strong>CNNs</strong>: convolutional networks — spatially aware, great for images</li>
+<li><strong>RNNs/LSTMs/GRUs</strong>: sequential data, memory of previous tokens</li>
+<li><strong>Transformers</strong>: attention mechanism — current state of the art for text, images, audio</li>
+</ul>
+
+<h2>The Core Insight</h2>
+
+<p>Neural networks are function approximators. Given enough data and the right architecture, they can approximate any continuous function. That's the universal approximation theorem — mathematically proven.</p>
+
+<p>What emerged from this simple idea:</p>
+
+<ul>
+<li>GPT, Claude, Gemini — transformers predicting next tokens</li>
+<li>Stable Diffusion — predicting pixels from noise</li>
+<li>AlphaGo — policy and value networks for game tree search</li>
+<li>Voice synthesis — waveform generation from text</li>
+</ul>
+
+<p>All the same math. Forward pass, loss, backprop, update. Repeat 10^23 times across 10^11 parameters. Emergence.</p>
+
+<h2>What Nobody Understands</h2>
+
+<p>We know <em>that</em> it works. We don't fully understand <em>why</em> it works so well. The optimization landscape is non-convex — theoretically intractable. Yet in practice, SGD finds good minima. Why? Theories abound: implicit regularization, ensembling through weight decay, the lottery ticket hypothesis. But definitive answers? Still missing.</p>
+
+<p>The gap between "we can build it" and "we understand why it works" is where the interesting research lives.</p>
+
 </div>
 </body>
 </html>
