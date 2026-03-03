@@ -4,390 +4,321 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terrain Generator — Shadow's Garden</title>
-<meta name="description">Procedural terrain using Perlin noise — mountains, valleys, coastlines generated from mathematical noise.</meta>
+<meta name="description" content="Procedural terrain generator using Simplex noise — mountains, valleys, islands, and caves"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #222;
-    border-radius: 4px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-    cursor: pointer;
-  }
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 900px;
-  }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #888;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 100px;
-    accent-color: #666;
-  }
-  select, button {
-    background: #1a1a20;
-    color: #ccc;
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
     border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    max-width: 220px;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
     padding: 8px 14px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
   }
-  button:hover {
-    background: #252530;
-    border-color: #555;
-  }
-  .presets {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .presets button {
-    padding: 6px 10px;
-    font-size: 0.75rem;
-  }
-  .stats {
-    color: #555;
-    font-size: 0.75rem;
-    margin-top: 15px;
-    font-family: monospace;
+  button:hover { background: #3a5a7a; }
+  .preset-btns { margin-top: 12px; }
+  .preset-btns button { margin-bottom: 4px; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Procedural Terrain</h1>
-  <div class="subtitle">Click to regenerate • Drag to pan</div>
   <canvas id="canvas"></canvas>
-  
-  <div class="controls">
-    <div class="control-group">
-      <label>Scale</label>
-      <input type="range" id="scale" min="50" max="500" value="200">
+  <div id="controls">
+    <h3>Terrain Generator</h3>
+    <div class="control-row">
+      <label>Scale <span id="scaleVal">80</span></label>
+      <input type="range" id="scale" min="20" max="200" value="80">
     </div>
-    <div class="control-group">
-      <label>Octaves</label>
+    <div class="control-row">
+      <label>Octaves <span id="octavesVal">6</span></label>
       <input type="range" id="octaves" min="1" max="8" value="6">
     </div>
-    <div class="control-group">
-      <label>Persistence</label>
-      <input type="range" id="persistence" min="0.3" max="0.7" value="0.5" step="0.05">
+    <div class="control-row">
+      <label>Persistence <span id="persistenceVal">0.5</span></label>
+      <input type="range" id="persistence" min="0.1" max="0.9" step="0.05" value="0.5">
     </div>
-    <div class="control-group">
-      <label>Sea Level</label>
-      <input type="range" id="seaLevel" min="0.2" max="0.6" value="0.35" step="0.02">
+    <div class="control-row">
+      <label>Height <span id="heightVal">0.6</span></label>
+      <input type="range" id="height" min="0.2" max="1.5" step="0.05" value="0.6">
     </div>
-    <div class="control-group">
-      <label>Height</label>
-      <input type="range" id="height" min="0.5" max="2" value="1" step="0.1">
+    <div class="control-row">
+      <label>Water Level <span id="waterVal">0.35</span></label>
+      <input type="range" id="water" min="0" max="0.8" step="0.02" value="0.35">
     </div>
-    <div class="control-group">
-      <label>Seed</label>
-      <button id="newSeed">New Seed</button>
+    <div class="preset-btns">
+      <button id="regen">Regenerate</button>
+      <button id="download">Download</button>
     </div>
-  </div>
-  
-  <div class="controls">
-    <div class="presets">
-      <button data-preset="mountains">Mountains</button>
-      <button data-preset="islands">Islands</button>
-      <button data-preset="hills">Rolling Hills</button>
-      <button data-preset="desert">Desert</button>
-      <button data-preset="frozen">Frozen World</button>
+    <div class="preset-btns">
+      <button id="preset-mountains">Mountains</button>
+      <button id="preset-islands">Islands</button>
+      <button id="preset-canyons">Canyons</button>
+      <button id="preset-hills">Rolling Hills</button>
     </div>
   </div>
-
-  <div class="stats" id="stats">Seed: 0</div>
-
+  <div id="info">Click to place trees | Scroll to zoom</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let seed = Math.random() * 10000;
-    let offsetX = 0, offsetY = 0;
-    let isDragging = false;
-    let lastX, lastY;
+    let noiseData = [];
+    let scale = 80;
+    let octaves = 6;
+    let persistence = 0.5;
+    let heightMult = 0.6;
+    let waterLevel = 0.35;
+    let offsetX = Math.random() * 10000;
+    let offsetY = Math.random() * 10000;
+    let trees = [];
+    let zoom = 1;
     
     // Simplex noise implementation
     const F2 = 0.5 * (Math.sqrt(3) - 1);
     const G2 = (3 - Math.sqrt(3)) / 6;
+    const grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
     
-    const grad3 = [
-      [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
-      [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
-      [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]
-    ];
+    function mod(a, b) { return ((a % b) + b) % b; }
     
-    const perm = new Array(512);
-    const gradP = new Array(512);
+    function dot(g, x, y) { return g[0] * x + g[1] * y; }
     
-    function seedNoise(s) {
-      s = s | 0;
-      const p = new Array(256);
-      for (let i = 0; i < 256; i++) p[i] = i;
-      
-      // Fisher-Yates shuffle with seed
-      let n = s;
-      for (let i = 255; i > 0; i--) {
-        n = (n * 16807) % 2147483647;
-        const j = n % (i + 1);
-        [p[i], p[j]] = [p[j], p[i]];
-      }
-      
-      for (let i = 0; i < 512; i++) {
-        perm[i] = p[i & 255];
-        gradP[i] = grad3[perm[i] % 12];
-      }
-    }
-    
-    function dot2(g, x, y) {
-      return g[0] * x + g[1] * y;
-    }
-    
-    function noise2D(xin, yin) {
-      let n0, n1, n2;
-      const s = (xin + yin) * F2;
-      const i = Math.floor(xin + s);
-      const j = Math.floor(yin + s);
-      const t = (i + j) * G2;
-      const X0 = i - t;
-      const Y0 = j - t;
-      const x0 = xin - X0;
-      const y0 = yin - Y0;
-      
+    function noise2D(x, y) {
+      let s = (x + y) * F2;
+      let i = Math.floor(x + s);
+      let j = Math.floor(y + s);
+      let t = (i + j) * G2;
+      let X0 = i - t;
+      let Y0 = j - t;
+      let x0 = x - X0;
+      let y0 = y - Y0;
       let i1, j1;
       if (x0 > y0) { i1 = 1; j1 = 0; }
       else { i1 = 0; j1 = 1; }
-      
-      const x1 = x0 - i1 + G2;
-      const y1 = y0 - j1 + G2;
-      const x2 = x0 - 1 + 2 * G2;
-      const y2 = y0 - 1 + 2 * G2;
-      
-      const ii = i & 255;
-      const jj = j & 255;
-      const gi0 = gradP[ii + perm[jj]];
-      const gi1 = gradP[ii + i1 + perm[jj + j1]];
-      const gi2 = gradP[ii + 1 + perm[jj + 1]];
-      
-      let t0 = 0.5 - x0 * x0 - y0 * y0;
+      let x1 = x0 - i1 + G2;
+      let y1 = y0 - j1 + G2;
+      let x2 = x0 - 1 + 2 * G2;
+      let y2 = y0 - 1 + 2 * G2;
+      let ii = mod(i, 256);
+      let jj = mod(j, 256);
+      let gi0 = mod(ii + jj * 57, 12);
+      let gi1 = mod(ii + i1 + jj * 57, 12);
+      let gi2 = mod(ii + 1 + jj * 57 + 1 * 57, 12);
+      let n0, n1, n2;
+      let t0 = 0.5 - x0*x0 - y0*y0;
       if (t0 < 0) n0 = 0;
-      else {
-        t0 *= t0;
-        n0 = t0 * t0 * dot2(gi0, x0, y0);
-      }
-      
-      let t1 = 0.5 - x1 * x1 - y1 * y1;
+      else { t0 *= t0; n0 = t0 * t0 * dot(grad3[gi0], x0, y0); }
+      let t1 = 0.5 - x1*x1 - y1*y1;
       if (t1 < 0) n1 = 0;
-      else {
-        t1 *= t1;
-        n1 = t1 * t1 * dot2(gi1, x1, y1);
-      }
-      
-      let t2 = 0.5 - x2 * x2 - y2 * y2;
+      else { t1 *= t1; n1 = t1 * t1 * dot(grad3[gi1], x1, y1); }
+      let t2 = 0.5 - x2*x2 - y2*y2;
       if (t2 < 0) n2 = 0;
-      else {
-        t2 *= t2;
-        n2 = t2 * t2 * dot2(gi2, x2, y2);
-      }
-      
+      else { t2 *= t2; n2 = t2 * t2 * dot(grad3[gi2], x2, y2); }
       return 70 * (n0 + n1 + n2);
     }
     
-    function fbm(x, y, octaves, persistence) {
+    function fbm(x, y) {
       let total = 0;
-      let frequency = 1;
       let amplitude = 1;
+      let frequency = 1;
       let maxValue = 0;
-      
       for (let i = 0; i < octaves; i++) {
         total += noise2D(x * frequency, y * frequency) * amplitude;
         maxValue += amplitude;
         amplitude *= persistence;
         frequency *= 2;
       }
-      
       return total / maxValue;
     }
     
-    const palettes = {
-      mountains: { deep: '#1a1a2e', low: '#16213e', mid: '#0f3460', high: '#533483', peak: '#e94560', snow: '#ffffff' },
-      islands: { deep: '#0a2342', low: '#1e5f74', mid: '#8ecae6', high: '#c4d4a5', peak: '#f5f5dc', snow: '#ffffff' },
-      hills: { deep: '#2d5016', low: '#3d7a06', mid: '#6ab04c', high: '#badc58', peak: '#f6e58d', snow: '#ffffff' },
-      desert: { deep: '#3d2314', low: '#6b4226', mid: '#a0522d', high: '#d2691e', peak: '#f4d03f', snow: '#ffffff' },
-      frozen: { deep: '#0c1445', low: '#1a237e', mid: '#534bae', high: '#b3e5fc', peak: '#ffffff', snow: '#ffffff' }
-    };
-    
-    let currentPalette = 'mountains';
-    
-    function getColor(height, palette) {
-      const p = palettes[palette];
-      if (height < 0.25) return p.deep;
-      if (height < 0.35) return p.low;
-      if (height < 0.55) return p.mid;
-      if (height < 0.75) return p.high;
-      if (height < 0.9) return p.peak;
-      return p.snow;
-    }
-    
     function resize() {
-      width = Math.min(900, window.innerWidth - 40);
-      height = Math.min(600, window.innerHeight - 280);
+      width = window.innerWidth;
+      height = window.innerHeight;
       canvas.width = width;
       canvas.height = height;
+      generate();
+    }
+    
+    function generate() {
+      noiseData = [];
+      offsetX = Math.random() * 10000;
+      offsetY = Math.random() * 10000;
+      for (let y = 0; y < height; y++) {
+        noiseData[y] = [];
+        for (let x = 0; x < width; x++) {
+          let nx = (x + offsetX) / scale;
+          let ny = (y + offsetY) / scale;
+          let h = fbm(nx, ny);
+          h = (h + 1) / 2;
+          h = Math.pow(h, 1.3);
+          noiseData[y][x] = h;
+        }
+      }
+      generateTrees();
+      render();
+    }
+    
+    function generateTrees() {
+      trees = [];
+      const spacing = 30;
+      for (let y = 20; y < height - 20; y += spacing + Math.random() * 10) {
+        for (let x = 20; x < width - 20; x += spacing + Math.random() * 10) {
+          let h = noiseData[Math.floor(y)][Math.floor(x)];
+          if (h > waterLevel + 0.08 && h < 0.7) {
+            trees.push({ x, y, h, size: 4 + Math.random() * 6 });
+          }
+        }
+      }
+    }
+    
+    function getColor(h) {
+      if (h < waterLevel) {
+        let deep = Math.max(0, waterLevel - 0.1);
+        return lerpColor('#1a3a5c', '#0d2840', (h - deep) / (waterLevel - deep));
+      }
+      if (h < waterLevel + 0.03) return '#2a5a7a';
+      if (h < 0.25) return '#2d5a2d';
+      if (h < 0.45) return '#3a7a3a';
+      if (h < 0.65) return '#5a5a4a';
+      if (h < 0.8) return '#7a7a6a';
+      return '#cacaca';
+    }
+    
+    function lerpColor(c1, c2, t) {
+      let r1 = parseInt(c1.slice(1,3), 16), g1 = parseInt(c1.slice(3,5), 16), b1 = parseInt(c1.slice(5,7), 16);
+      let r2 = parseInt(c2.slice(1,3), 16), g2 = parseInt(c2.slice(3,5), 16), b2 = parseInt(c2.slice(5,7), 16);
+      let r = Math.round(r1 + (r2 - r1) * t);
+      let g = Math.round(g1 + (g2 - g1) * t);
+      let b = Math.round(b1 + (b2 - b1) * t);
+      return `rgb(${r},${g},${b})`;
     }
     
     function render() {
-      const scale = parseInt(document.getElementById('scale').value) / 1000;
-      const octaves = parseInt(document.getElementById('octaves').value);
-      const persistence = parseFloat(document.getElementById('persistence').value);
-      const seaLevel = parseFloat(document.getElementById('seaLevel').value);
-      const heightMult = parseFloat(document.getElementById('height').value);
-      
       const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      
-      seedNoise(seed);
-      
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          const nx = (x + offsetX) * scale;
-          const ny = (y + offsetY) * scale;
-          
-          let h = fbm(nx, ny, octaves, persistence);
-          h = (h + 1) / 2; // Normalize to 0-1
-          h = Math.pow(h, heightMult); // Adjust contrast
-          
-          // Apply sea level
-          if (h < seaLevel) {
-            h = seaLevel * 0.3; // Underwater
-          }
-          
-          const color = getColor(h, currentPalette);
-          const idx = (y * width + x) * 4;
-          
-          // Parse hex color
-          const r = parseInt(color.slice(1,3), 16);
-          const g = parseInt(color.slice(3,5), 16);
-          const b = parseInt(color.slice(5,7), 16);
-          
-          data[idx] = r;
-          data[idx + 1] = g;
-          data[idx + 2] = b;
-          data[idx + 3] = 255;
+          let h = noiseData[y][x];
+          let color = getColor(h);
+          let idx = (y * width + x) * 4;
+          let rgb = color.match(/\d+/g).map(Number);
+          imageData.data[idx] = rgb[0];
+          imageData.data[idx + 1] = rgb[1];
+          imageData.data[idx + 2] = rgb[2];
+          imageData.data[idx + 3] = 255;
         }
       }
-      
       ctx.putImageData(imageData, 0, 0);
-      document.getElementById('stats').textContent = `Seed: ${Math.floor(seed)} | Scale: ${scale * 1000}`;
-    }
-    
-    function newSeed() {
-      seed = Math.random() * 10000;
-      offsetX = 0;
-      offsetY = 0;
-      render();
+      
+      // Draw trees
+      ctx.fillStyle = '#1a3a1a';
+      for (let tree of trees) {
+        ctx.beginPath();
+        ctx.arc(tree.x, tree.y, tree.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     
     // Event listeners
-    document.getElementById('newSeed').addEventListener('click', newSeed);
-    
-    ['scale', 'octaves', 'persistence', 'seaLevel', 'height'].forEach(id => {
-      document.getElementById(id).addEventListener('input', render);
+    document.getElementById('scale').addEventListener('input', e => {
+      scale = +e.target.value;
+      document.getElementById('scaleVal').textContent = scale;
+      generate();
+    });
+    document.getElementById('octaves').addEventListener('input', e => {
+      octaves = +e.target.value;
+      document.getElementById('octavesVal').textContent = octaves;
+      generate();
+    });
+    document.getElementById('persistence').addEventListener('input', e => {
+      persistence = +e.target.value;
+      document.getElementById('persistenceVal').textContent = persistence;
+      generate();
+    });
+    document.getElementById('height').addEventListener('input', e => {
+      heightMult = +e.target.value;
+      document.getElementById('heightVal').textContent = heightMult;
+      generate();
+    });
+    document.getElementById('water').addEventListener('input', e => {
+      waterLevel = +e.target.value;
+      document.getElementById('waterVal').textContent = waterLevel;
+      generate();
+    });
+    document.getElementById('regen').addEventListener('click', generate);
+    document.getElementById('download').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'terrain.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+    document.getElementById('preset-mountains').addEventListener('click', () => {
+      scale = 60; octaves = 7; persistence = 0.55; waterLevel = 0.2;
+      updateControls(); generate();
+    });
+    document.getElementById('preset-islands').addEventListener('click', () => {
+      scale = 100; octaves = 5; persistence = 0.45; waterLevel = 0.4;
+      updateControls(); generate();
+    });
+    document.getElementById('preset-canyons').addEventListener('click', () => {
+      scale = 70; octaves = 6; persistence = 0.6; waterLevel = 0.25;
+      updateControls(); generate();
+    });
+    document.getElementById('preset-hills').addEventListener('click', () => {
+      scale = 120; octaves = 4; persistence = 0.4; waterLevel = 0.3;
+      updateControls(); generate();
     });
     
-    document.querySelectorAll('[data-preset]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
-        currentPalette = preset;
-        
-        const presets = {
-          mountains: { scale: 200, octaves: 6, persistence: 0.5, seaLevel: 0.35, height: 1 },
-          islands: { scale: 180, octaves: 5, persistence: 0.55, seaLevel: 0.4, height: 0.9 },
-          hills: { scale: 150, octaves: 4, persistence: 0.45, seaLevel: 0.25, height: 0.7 },
-          desert: { scale: 200, octaves: 4, persistence: 0.5, seaLevel: 0.2, height: 0.8 },
-          frozen: { scale: 250, octaves: 7, persistence: 0.55, seaLevel: 0.45, height: 1.1 }
-        };
-        
-        const p = presets[preset];
-        document.getElementById('scale').value = p.scale;
-        document.getElementById('octaves').value = p.octaves;
-        document.getElementById('persistence').value = p.persistence;
-        document.getElementById('seaLevel').value = p.seaLevel;
-        document.getElementById('height').value = p.height;
-        
-        newSeed();
-      });
+    function updateControls() {
+      document.getElementById('scale').value = scale;
+      document.getElementById('scaleVal').textContent = scale;
+      document.getElementById('octaves').value = octaves;
+      document.getElementById('octavesVal').textContent = octaves;
+      document.getElementById('persistence').value = persistence;
+      document.getElementById('persistenceVal').textContent = persistence;
+      document.getElementById('water').value = waterLevel;
+      document.getElementById('waterVal').textContent = waterLevel;
+    }
+    
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      scale += e.deltaY > 0 ? 10 : -10;
+      scale = Math.max(20, Math.min(200, scale));
+      document.getElementById('scale').value = scale;
+      document.getElementById('scaleVal').textContent = scale;
+      generate();
     });
     
-    canvas.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      offsetX -= dx * 2;
-      offsetY -= dy * 2;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      render();
-    });
-    
-    canvas.addEventListener('mouseup', () => isDragging = false);
-    canvas.addEventListener('mouseleave', () => isDragging = false);
-    
-    canvas.addEventListener('click', (e) => {
-      if (!isDragging) newSeed();
-    });
-    
-    window.addEventListener('resize', () => {
-      resize();
-      render();
-    });
-    
-    // Init
+    window.addEventListener('resize', resize);
     resize();
-    render();
   </script>
 </body>
 </html>
