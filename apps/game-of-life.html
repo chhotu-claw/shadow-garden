@@ -3,62 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game of Life — Shadow's Garden</title>
-<meta name="description" content="Conway's Game of Life with 30+ presets and custom rules.">
+<title>Conway's Game of Life — Shadow's Garden</title>
+<meta name="description" content="Classic cellular automaton — click to draw cells, space to pause"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body { margin: 0; overflow: hidden; background: #0a0a0f; }
-  canvas { display: block; }
-  .controls {
+  canvas { display: block; cursor: crosshair; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    color: #ccc;
+    font-size: 12px;
+    z-index: 100;
+  }
+  #controls h3 { margin: 0 0 10px 0; color: #fff; font-size: 13px; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  button:hover { background: #3a5a7a; }
+  button.active { background: #4a7a5a; }
+  #info {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    z-index: 10;
+    color: #556;
+    font-size: 11px;
   }
-  button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }
-  button:hover { background: rgba(255,255,255,0.2); }
-  .info {
+  #stats {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 13px;
-    font-family: monospace;
-  }
-  .stats {
-    position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 13px;
-    font-family: monospace;
+    color: #556;
+    font-size: 11px;
   }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click to draw • Space to pause</div>
-  <div class="stats" id="stats">Generation: 0 | Cells: 0</div>
-  <div class="controls">
+  <div id="controls">
+    <h3>Conway's Game of Life</h3>
+    <button id="play">Play</button>
+    <button id="pause">Pause</button>
     <button id="step">Step</button>
-    <button id="run">Run</button>
     <button id="clear">Clear</button>
     <button id="random">Random</button>
+    <div style="margin-top: 8px;">
+      <button id="preset-glider">Glider</button>
+      <button id="preset-gosper">Gosper</button>
+      <button id="preset-pulsar">Pulsar</button>
+    </div>
   </div>
-
+  <div id="info">Click to draw | Space to pause | Click + drag to paint</div>
+  <div id="stats">Gen: 0 | Cells: 0</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -66,72 +76,67 @@
     let width, height;
     let cellSize = 8;
     let cols, rows;
-    let grid = {};
+    let grid = [];
     let running = false;
     let generation = 0;
-    let interval = null;
-    
-    // Neighbors: orthogonal + diagonal
-    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    let mouseDown = false;
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      cols = Math.ceil(width / cellSize);
-      rows = Math.ceil(height / cellSize);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      cols = Math.floor(width / cellSize);
+      rows = Math.floor(height / cellSize);
+      initGrid();
     }
     
-    function clear() {
-      grid = {};
+    function initGrid() {
+      grid = [];
+      for (let i = 0; i < cols; i++) {
+        grid[i] = [];
+        for (let j = 0; j < rows; j++) {
+          grid[i][j] = 0;
+        }
+      }
       generation = 0;
-      draw();
-      updateStats();
     }
     
     function randomize() {
-      grid = {};
-      for (let i = 0; i < cols * rows * 0.15; i++) {
-        const x = Math.floor(Math.random() * cols);
-        const y = Math.floor(Math.random() * rows);
-        grid[`${x},${y}`] = true;
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          grid[i][j] = Math.random() > 0.85 ? 1 : 0;
+        }
       }
       generation = 0;
-      draw();
-      updateStats();
+    }
+    
+    function countNeighbors(x, y) {
+      let sum = 0;
+      for (let i = -1; i < 2; i++) {
+        for (let j = -1; j < 2; j++) {
+          let col = (x + i + cols) % cols;
+          let row = (y + j + rows) % rows;
+          sum += grid[col][row];
+        }
+      }
+      sum -= grid[x][y];
+      return sum;
     }
     
     function step() {
-      const next = {};
-      const counts = {};
-      
-      // Count neighbors
-      for (const key in grid) {
-        const [x, y] = key.split(',').map(Number);
-        
-        for (const [dx, dy] of dirs) {
-          const nx = x + dx;
-          const ny = y + dy;
-          const nkey = `${nx},${ny}`;
-          counts[nkey] = (counts[nkey] || 0) + 1;
-        }
-      }
-      
-      // Apply rules
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const key = `${x},${y}`;
-          const neighbors = counts[key] || 0;
-          const alive = grid[key];
-          
-          // Classic rules: B3/S23
-          if (alive && (neighbors === 2 || neighbors === 3)) {
-            next[key] = true;
-          } else if (!alive && neighbors === 3) {
-            next[key] = true;
+      let next = [];
+      for (let i = 0; i < cols; i++) {
+        next[i] = [];
+        for (let j = 0; j < rows; j++) {
+          let neighbors = countNeighbors(i, j);
+          if (grid[i][j] === 1) {
+            next[i][j] = (neighbors === 2 || neighbors === 3) ? 1 : 0;
+          } else {
+            next[i][j] = (neighbors === 3) ? 1 : 0;
           }
         }
       }
-      
       grid = next;
       generation++;
     }
@@ -140,71 +145,110 @@
       ctx.fillStyle = '#0a0a0f';
       ctx.fillRect(0, 0, width, height);
       
-      ctx.fillStyle = '#4ecdc4';
-      for (const key in grid) {
-        const [x, y] = key.split(',').map(Number);
-        ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          if (grid[i][j] === 1) {
+            ctx.fillStyle = '#4af';
+            ctx.fillRect(i * cellSize, j * cellSize, cellSize - 1, cellSize - 1);
+          }
+        }
       }
-    }
-    
-    function updateStats() {
-      const count = Object.keys(grid).length;
-      document.getElementById('stats').innerText = `Generation: ${generation} | Cells: ${count}`;
-    }
-    
-    function run() {
-      if (running) {
-        running = false;
-        clearInterval(interval);
-        document.getElementById('run').innerText = 'Run';
-      } else {
-        running = true;
-        interval = setInterval(() => {
-          step();
-          draw();
-          updateStats();
-        }, 100);
-        document.getElementById('run').innerText = 'Stop';
-      }
-    }
-    
-    canvas.addEventListener('mousedown', (e) => {
-      const x = Math.floor(e.clientX / cellSize);
-      const y = Math.floor(e.clientY / cellSize);
-      const key = `${x},${y}`;
       
-      if (grid[key]) {
-        delete grid[key];
-      } else {
-        grid[key] = true;
+      let count = 0;
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          if (grid[i][j]) count++;
+        }
+      }
+      document.getElementById('stats').textContent = `Gen: ${generation} | Cells: ${count}`;
+    }
+    
+    function loop() {
+      if (running) {
+        step();
       }
       draw();
-      updateStats();
-    });
+      requestAnimationFrame(loop);
+    }
     
-    canvas.addEventListener('mousemove', (e) => {
-      if (e.buttons === 1) {
-        const x = Math.floor(e.clientX / cellSize);
-        const y = Math.floor(e.clientY / cellSize);
-        grid[`${x},${y}`] = true;
-        draw();
-        updateStats();
+    canvas.addEventListener('mousedown', e => {
+      mouseDown = true;
+      let x = Math.floor(e.clientX / cellSize);
+      let y = Math.floor(e.clientY / cellSize);
+      if (x >= 0 && x < cols && y >= 0 && y < rows) {
+        grid[x][y] = grid[x][y] ? 0 : 1;
       }
     });
     
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') { run(); e.preventDefault(); }
+    canvas.addEventListener('mousemove', e => {
+      if (mouseDown) {
+        let x = Math.floor(e.clientX / cellSize);
+        let y = Math.floor(e.clientY / cellSize);
+        if (x >= 0 && x < cols && y >= 0 && y < rows) {
+          grid[x][y] = 1;
+        }
+      }
     });
     
-    document.getElementById('step').onclick = () => { step(); draw(); updateStats(); };
-    document.getElementById('run').onclick = run;
-    document.getElementById('clear').onclick = clear;
-    document.getElementById('random').onclick = randomize;
+    canvas.addEventListener('mouseup', () => mouseDown = false);
+    canvas.addEventListener('mouseleave', () => mouseDown = false);
+    
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        running = !running;
+      }
+    });
+    
+    document.getElementById('play').addEventListener('click', () => running = true);
+    document.getElementById('pause').addEventListener('click', () => running = false);
+    document.getElementById('step').addEventListener('click', () => { running = false; step(); });
+    document.getElementById('clear').addEventListener('click', initGrid);
+    document.getElementById('random').addEventListener('click', randomize);
+    
+    document.getElementById('preset-glider').addEventListener('click', () => {
+      initGrid();
+      let cx = Math.floor(cols / 2);
+      let cy = Math.floor(rows / 2);
+      grid[cx][cy] = 1;
+      grid[cx+1][cy+1] = 1;
+      grid[cx+2][cy-1] = 1;
+      grid[cx+2][cy] = 1;
+      grid[cx+2][cy+1] = 1;
+    });
+    
+    document.getElementById('preset-gosper').addEventListener('click', () => {
+      initGrid();
+      let cx = Math.floor(cols / 2);
+      let cy = Math.floor(rows / 2);
+      // Gosper glider gun
+      let g = [
+        [0,4],[0,5],[1,4],[1,5],[2,4],[2,5],
+        [3,4],[3,5],[3,6],[4,3],[4,7],[5,2],[5,8],[6,2],[6,8],[7,2],[7,8],[7,9],[8,3],[8,7],[9,4],[9,5],[9,6],[10,5],[10,4],[11,6],[12,3],[12,7],[13,5],[14,4],[14,5],[15,6],[15,10],[15,11],[16,10],[17,11],[17,12],[18,11],[20,2],[20,3],[20,4],[21,2],[21,3],[21,4],[22,1],[22,5],[24,0],[24,1],[24,5],[24,6],[26,0],[26,1],[26,2],[26,5],[26,6],[26,7],[36,2],[36,3],[37,2],[37,3]
+      ];
+      for (let p of g) {
+        if (cx + p[0] - 20 >= 0 && cx + p[0] - 20 < cols && cy + p[1] - 10 >= 0 && cy + p[1] - 10 < rows) {
+          grid[cx + p[0] - 20][cy + p[1] - 10] = 1;
+        }
+      }
+    });
+    
+    document.getElementById('preset-pulsar').addEventListener('click', () => {
+      initGrid();
+      let cx = Math.floor(cols / 2);
+      let cy = Math.floor(rows / 2);
+      let p = [[2,4],[2,5],[2,6],[2,10],[2,11],[2,12],[4,2],[4,7],[4,9],[4,14],[5,2],[5,7],[5,9],[5,14],[6,2],[6,7],[6,9],[6,14],[7,4],[7,5],[7,6],[7,10],[7,11],[7,12],[9,4],[9,5],[9,6],[9,10],[9,11],[9,12],[10,2],[10,7],[10,9],[10,14],[11,2],[11,7],[11,9],[11,14],[12,2],[12,7],[12,9],[12,14],[14,4],[14,5],[14,6],[14,10],[14,11],[14,12]];
+      for (let q of p) {
+        if (cx + q[0] - 8 >= 0 && cx + q[0] - 8 < cols && cy + q[1] - 8 >= 0 && cy + q[1] - 8 < rows) {
+          grid[cx + q[0] - 8][cy + q[1] - 8] = 1;
+        }
+      }
+    });
     
     window.addEventListener('resize', resize);
     resize();
     randomize();
-    draw();
+    loop();
   </script>
 </body>
 </html>
