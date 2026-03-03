@@ -4,357 +4,295 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Particle Life — Shadow's Garden</title>
-<meta name="description">Emergent artificial life from simple attraction and repulsion rules between colored particles.</meta>
+<meta name="description" content="Particle life simulation — particles with virtual DNA interact and form emergent structures"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  h1 {
-    color: #e0e0e0;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    font-weight: 300;
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-  canvas {
-    border: 1px solid #222;
-    border-radius: 4px;
-    cursor: crosshair;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-  }
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: center;
-    max-width: 800px;
-  }
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: #888;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  input[type="range"] {
-    width: 100px;
-    accent-color: #666;
-  }
-  select, button {
-    background: #1a1a20;
-    color: #ccc;
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
     border: 1px solid #333;
-    padding: 8px 14px;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    max-width: 200px;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    margin-right: 4px;
+    margin-top: 8px;
+    font-size: 11px;
   }
-  button:hover {
-    background: #252530;
-    border-color: #555;
-  }
-  .stats {
-    color: #555;
-    font-size: 0.75rem;
-    margin-top: 15px;
-    font-family: monospace;
-  }
-  .palette-display {
-    display: flex;
-    gap: 2px;
-    margin-top: 5px;
-  }
-  .palette-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
+  button:hover { background: #3a5a7a; }
+  .preset-btns { margin-top: 10px; }
+  .preset-btns button { margin-bottom: 4px; display: block; width: 100%; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Particle Life</h1>
-  <div class="subtitle">Click to add particles • Watch emergent behavior</div>
   <canvas id="canvas"></canvas>
-  
-  <div class="controls">
-    <div class="control-group">
-      <label>Particles: <span id="countVal">1200</span></label>
-      <input type="range" id="particleCount" min="200" max="3000" value="1200" step="100">
+  <div id="controls">
+    <h3>Particle Life</h3>
+    <div class="control-row">
+      <label>Particles <span id="countVal">1500</span></label>
+      <input type="range" id="count" min="200" max="3000" value="1500">
     </div>
-    <div class="control-group">
-      <label>Speed</label>
-      <input type="range" id="speed" min="0.5" max="3" value="1" step="0.1">
+    <div class="control-row">
+      <label>Species <span id="speciesVal">5</span></label>
+      <input type="range" id="species" min="2" max="10" value="5">
     </div>
-    <div class="control-group">
-      <label>Interaction Radius</label>
-      <input type="range" id="radius" min="20" max="150" value="80">
+    <div class="control-row">
+      <label>Interaction Radius <span id="radiusVal">60</span></label>
+      <input type="range" id="radius" min="20" max="150" value="60">
     </div>
-    <div class="control-group">
-      <label>Presets</label>
-      <select id="preset">
-        <option value="default">Default</option>
-        <option value="cells">Cells</option>
-        <option value="vortex">Vortex</option>
-        <option value="islands">Islands</option>
-        <option value="chaos">Chaos</option>
-        <option value="orbiters">Orbiters</option>
-      </select>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">2</span></label>
+      <input type="range" id="speed" min="0.5" max="5" step="0.5" value="2">
     </div>
-    <div class="control-group">
-      <label>Actions</label>
-      <button id="resetBtn">Reset</button>
+    <div class="control-row">
+      <label>Trail <span id="trailVal">0</span></label>
+      <input type="range" id="trail" min="0" max="0.95" step="0.05" value="0">
     </div>
-    <div class="control-group">
-      <label>Colors</label>
-      <div class="palette-display" id="palette"></div>
+    <button id="regen">Regenerate</button>
+    <div class="preset-btns">
+      <button id="preset-cells">Cells</button>
+      <button id="preset-predator">Predator/Prey</button>
+      <button id="preset-solitons">Solitons</button>
+      <button id="preset-random">Random</button>
     </div>
   </div>
-  
-  <div class="stats" id="stats">FPS: 0</div>
-
+  <div id="info">Click to add particles | Drag to interact</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
     let particles = [];
+    let numParticles = 1500;
+    let numSpecies = 5;
+    let interactionRadius = 60;
+    let maxSpeed = 2;
+    let trail = 0;
     let colors = [];
-    let rules = [];
-    let numColors = 5;
-    let interactionRadius = 80;
-    let speedScale = 1;
+    let interactionMatrix = [];
     
-    const presets = {
-      default: [
-        [-0.1, 0.1, 0.1, 0.1, 0.1],
-        [0.1, -0.1, 0.1, 0.1, 0.1],
-        [0.1, 0.1, -0.1, 0.1, 0.1],
-        [0.1, 0.1, 0.1, -0.1, 0.1],
-        [0.1, 0.1, 0.1, 0.1, -0.1]
-      ],
-      cells: [
-        [-0.2, -0.1, -0.1, -0.1, -0.1],
-        [-0.1, -0.2, -0.1, -0.1, -0.1],
-        [-0.1, -0.1, -0.2, -0.1, -0.1],
-        [-0.1, -0.1, -0.1, -0.2, -0.1],
-        [-0.1, -0.1, -0.1, -0.1, -0.2]
-      ],
-      vortex: [
-        [0.5, 0.5, 0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 0.5, 0.5]
-      ],
-      islands: [
-        [-0.3, 0.2, 0.0, 0.0, 0.0],
-        [0.0, -0.3, 0.2, 0.0, 0.0],
-        [0.0, 0.0, -0.3, 0.2, 0.0],
-        [0.0, 0.0, 0.0, -0.3, 0.2],
-        [0.2, 0.0, 0.0, 0.0, -0.3]
-      ],
-      chaos: [
-        [0.3, -0.2, 0.1, -0.1, 0.2],
-        [-0.1, 0.2, -0.3, 0.1, -0.2],
-        [0.2, -0.1, 0.1, -0.2, 0.3],
-        [-0.2, 0.3, -0.1, 0.2, -0.1],
-        [0.1, -0.2, 0.3, -0.1, 0.1]
-      ],
-      orbiters: [
-        [0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.5, -0.1, 0.0, 0.0, 0.0],
-        [0.0, 0.5, -0.1, 0.0, 0.0],
-        [0.0, 0.0, 0.5, -0.1, 0.0],
-        [0.0, 0.0, 0.0, 0.5, -0.1]
-      ]
-    };
-
-    const colorPalettes = [
-      ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6'],
-      ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db'],
-      ['#ff9ff3', '#feca57', '#48dbfb', '#ff6b6b', '#54a0ff'],
-      ['#00d2d3', '#01a3a4', '#2e86de', '#5f27cd', '#ee5a24'],
-      ['#fc5c65', '#fd9644', '#fed330', '#26de81', '#45aaf2']
+    const speciesColors = [
+      '#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181',
+      '#aa96da', '#fcbad3', '#a8d8ea', '#ff9a3c', '#b8f2e6'
     ];
-
+    
     function resize() {
-      width = Math.min(900, window.innerWidth - 40);
-      height = Math.min(600, window.innerHeight - 250);
+      width = window.innerWidth;
+      height = window.innerHeight;
       canvas.width = width;
       canvas.height = height;
     }
-
-    function initParticles(count) {
+    
+    function initParticles() {
       particles = [];
-      for (let i = 0; i < count; i++) {
+      colors = [];
+      for (let i = 0; i < numSpecies; i++) {
+        colors.push(speciesColors[i % speciesColors.length]);
+      }
+      
+      for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * width,
           y: Math.random() * height,
           vx: (Math.random() - 0.5) * 2,
           vy: (Math.random() - 0.5) * 2,
-          color: Math.floor(Math.random() * numColors)
+          species: Math.floor(Math.random() * numSpecies)
         });
       }
+      
+      initInteractionMatrix();
     }
-
-    function applyRules() {
-      for (let i = 0; i < particles.length; i++) {
-        const p1 = particles[i];
-        let fx = 0;
-        let fy = 0;
+    
+    function initInteractionMatrix() {
+      interactionMatrix = [];
+      for (let i = 0; i < numSpecies; i++) {
+        interactionMatrix[i] = [];
+        for (let j = 0; j < numSpecies; j++) {
+          interactionMatrix[i][j] = (Math.random() - 0.5) * 2;
+        }
+      }
+    }
+    
+    function setInteractionPreset(preset) {
+      initInteractionMatrix();
+      if (preset === 'cells') {
+        for (let i = 0; i < numSpecies; i++) {
+          for (let j = 0; j < numSpecies; j++) {
+            if (i === j) interactionMatrix[i][j] = -0.8;
+            else interactionMatrix[i][j] = 0.3;
+          }
+        }
+      } else if (preset === 'predator') {
+        for (let i = 0; i < numSpecies; i++) {
+          for (let j = 0; j < numSpecies; j++) {
+            let diff = (i - j + numSpecies) % numSpecies;
+            if (diff === 1) interactionMatrix[i][j] = -1;
+            else if (diff === numSpecies - 1) interactionMatrix[i][j] = 1;
+            else interactionMatrix[i][j] = 0;
+          }
+        }
+      } else if (preset === 'solitons') {
+        for (let i = 0; i < numSpecies; i++) {
+          for (let j = 0; j < numSpecies; j++) {
+            if (i === j) interactionMatrix[i][j] = -0.5;
+            else interactionMatrix[i][j] = 0.2;
+          }
+        }
+      }
+    }
+    
+    function update() {
+      const radiusSq = interactionRadius * interactionRadius;
+      
+      for (let p of particles) {
+        let fx = 0, fy = 0;
         
-        for (let j = 0; j < particles.length; j++) {
-          if (i === j) continue;
-          const p2 = particles[j];
+        for (let other of particles) {
+          if (p === other) continue;
           
-          const dx = p1.x - p2.x;
-          const dy = p1.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          let dx = other.x - p.x;
+          let dy = other.y - p.y;
           
-          if (dist < interactionRadius && dist > 0) {
-            const force = rules[p1.color][p2.color] * (1 - dist / interactionRadius);
-            fx += (dx / dist) * force;
-            fy += (dy / dist) * force;
+          if (dx > width / 2) dx -= width;
+          if (dx < -width / 2) dx += width;
+          if (dy > height / 2) dy -= height;
+          if (dy < -height / 2) dy += height;
+          
+          let distSq = dx * dx + dy * dy;
+          
+          if (distSq > 0 && distSq < radiusSq) {
+            let dist = Math.sqrt(distSq);
+            let force = interactionMatrix[p.species][other.species];
+            
+            // Attract or repel based on distance
+            if (dist < interactionRadius / 3) {
+              force *= -1; // Repel when very close
+            }
+            
+            let f = (1 - dist / interactionRadius) * force;
+            fx += f * dx / dist;
+            fy += f * dy / dist;
           }
         }
         
-        p1.vx = (p1.vx + fx * speedScale) * 0.95;
-        p1.vy = (p1.vy + fy * speedScale) * 0.95;
-      }
-    }
-
-    function update() {
-      applyRules();
-      
-      for (const p of particles) {
+        p.vx += fx * 0.05;
+        p.vy += fy * 0.05;
+        
+        // Limit speed
+        let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > maxSpeed) {
+          p.vx = (p.vx / speed) * maxSpeed;
+          p.vy = (p.vy / speed) * maxSpeed;
+        }
+        
         p.x += p.vx;
         p.y += p.vy;
         
-        if (p.x < 0) { p.x = 0; p.vx *= -0.5; }
-        if (p.x > width) { p.x = width; p.vx *= -0.5; }
-        if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
-        if (p.y > height) { p.y = height; p.vy *= -0.5; }
+        // Wrap around edges
+        if (p.x < 0) p.x += width;
+        if (p.x > width) p.x -= width;
+        if (p.y < 0) p.y += height;
+        if (p.y > height) p.y -= height;
       }
     }
-
-    function draw() {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
-      ctx.fillRect(0, 0, width, height);
+    
+    function render() {
+      if (trail > 0) {
+        ctx.fillStyle = `rgba(10, 10, 15, ${1 - trail})`;
+        ctx.fillRect(0, 0, width, height);
+      } else {
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, width, height);
+      }
       
-      for (const p of particles) {
+      for (let p of particles) {
+        ctx.fillStyle = colors[p.species];
         ctx.beginPath();
         ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = colors[p.color];
         ctx.fill();
       }
     }
-
-    let lastTime = performance.now();
-    let frames = 0;
-    let fps = 0;
-
+    
     function animate() {
       update();
-      draw();
-      
-      frames++;
-      const now = performance.now();
-      if (now - lastTime >= 1000) {
-        fps = frames;
-        frames = 0;
-        lastTime = now;
-        document.getElementById('stats').textContent = `FPS: ${fps} | Particles: ${particles.length}`;
-      }
-      
+      render();
       requestAnimationFrame(animate);
     }
-
-    function loadPreset(name) {
-      rules = JSON.parse(JSON.stringify(presets[name]));
-      colors = [...colorPalettes[Math.floor(Math.random() * colorPalettes.length)]];
-      updatePaletteDisplay();
-    }
-
-    function updatePaletteDisplay() {
-      const paletteDiv = document.getElementById('palette');
-      paletteDiv.innerHTML = '';
-      for (const c of colors) {
-        const div = document.createElement('div');
-        div.className = 'palette-color';
-        div.style.background = c;
-        paletteDiv.appendChild(div);
-      }
-    }
-
+    
     // Event listeners
-    document.getElementById('particleCount').addEventListener('input', (e) => {
-      const count = parseInt(e.target.value);
-      document.getElementById('countVal').textContent = count;
-      initParticles(count);
+    document.getElementById('count').addEventListener('input', e => {
+      numParticles = +e.target.value;
+      document.getElementById('countVal').textContent = numParticles;
+      initParticles();
     });
-
-    document.getElementById('speed').addEventListener('input', (e) => {
-      speedScale = parseFloat(e.target.value);
+    document.getElementById('species').addEventListener('input', e => {
+      numSpecies = +e.target.value;
+      document.getElementById('speciesVal').textContent = numSpecies;
+      initParticles();
     });
-
-    document.getElementById('radius').addEventListener('input', (e) => {
-      interactionRadius = parseInt(e.target.value);
+    document.getElementById('radius').addEventListener('input', e => {
+      interactionRadius = +e.target.value;
+      document.getElementById('radiusVal').textContent = interactionRadius;
     });
-
-    document.getElementById('preset').addEventListener('change', (e) => {
-      loadPreset(e.target.value);
-      initParticles(parseInt(document.getElementById('particleCount').value));
+    document.getElementById('speed').addEventListener('input', e => {
+      maxSpeed = +e.target.value;
+      document.getElementById('speedVal').textContent = maxSpeed;
     });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      const preset = document.getElementById('preset').value;
-      loadPreset(preset);
-      initParticles(parseInt(document.getElementById('particleCount').value));
+    document.getElementById('trail').addEventListener('input', e => {
+      trail = +e.target.value;
+      document.getElementById('trailVal').textContent = trail;
     });
-
-    canvas.addEventListener('click', (e) => {
+    document.getElementById('regen').addEventListener('click', initParticles);
+    document.getElementById('preset-cells').addEventListener('click', () => setInteractionPreset('cells'));
+    document.getElementById('preset-predator').addEventListener('click', () => setInteractionPreset('predator'));
+    document.getElementById('preset-solitons').addEventListener('click', () => setInteractionPreset('solitons'));
+    document.getElementById('preset-random').addEventListener('click', initInteractionMatrix);
+    
+    canvas.addEventListener('click', e => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         particles.push({
-          x: x + (Math.random() - 0.5) * 20,
-          y: y + (Math.random() - 0.5) * 20,
+          x: x + (Math.random() - 0.5) * 30,
+          y: y + (Math.random() - 0.5) * 30,
           vx: (Math.random() - 0.5) * 2,
           vy: (Math.random() - 0.5) * 2,
-          color: Math.floor(Math.random() * numColors)
+          species: Math.floor(Math.random() * numSpecies)
         });
       }
     });
-
-    window.addEventListener('resize', () => {
-      resize();
-    });
-
-    // Init
+    
+    window.addEventListener('resize', resize);
     resize();
-    loadPreset('default');
-    initParticles(1200);
+    initParticles();
     animate();
   </script>
 </body>
