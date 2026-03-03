@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langton's Ant — Shadow's Garden</title>
+<meta name="description" content="Langton's Ant — cellular automaton with simple rules that create complex highway patterns"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  #stats {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+    font-family: monospace;
+  }
+  #rule-display {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    max-width: 200px;
+  }
+  #rule-display h3 { margin: 0 0 8px 0; color: #fff; font-size: 14px; }
+  .rule-color { display: inline-block; width: 16px; height: 16px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .rule-white { background: #fff; }
+  .rule-black { background: #000; border: 1px solid #444; }
+  .rule-arrow { color: #888; margin: 0 4px; }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>Langton's Ant</h3>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">500</span></label>
+      <input type="range" id="speed" min="1" max="1000" value="500">
+    </div>
+    <div class="control-row">
+      <label>Cell Size <span id="sizeVal">4</span></label>
+      <input type="range" id="cellSize" min="1" max="10" value="4">
+    </div>
+    <div class="preset-btns">
+      <button id="play">Play</button>
+      <button id="pause">Pause</button>
+      <button id="step">Step</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="preset-btns">
+      <button id="preset-basic">Classic (R/L)</button>
+      <button id="preset-simples">Simples (RLLR)</button>
+      <button id="preset-chaos">Chaos (LLRR)</button>
+      <button id="preset-binary">Binary (RL)</button>
+    </div>
+  </div>
+  <div id="rule-display">
+    <h3>Current Rule</h3>
+    <div id="rule-text">White → Right → Black<br>Black → Left → White</div>
+  </div>
+  <div id="stats">Steps: 0 | Cells: 0</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let grid = {};
+    let ant = { x: 0, y: 0, dir: 0 };
+    let steps = 0;
+    let running = false;
+    let cellSize = 4;
+    let rule = 'RL';
+    let directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    
+    function resize() {
+      width = Math.ceil(window.innerWidth / cellSize);
+      height = Math.ceil(window.innerHeight / cellSize);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    function getKey(x, y) { return `${x},${y}`; }
+    
+    function getCell(x, y) {
+      return grid[getKey(x, y)] || 0;
+    }
+    
+    function setCell(x, y, val) {
+      grid[getKey(x, y)] = val;
+    }
+    
+    function drawCell(x, y, val) {
+      ctx.fillStyle = val === 1 ? '#4af' : '#0a0a0f';
+      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+    }
+    
+    function step() {
+      let currentVal = getCell(ant.x, ant.y);
+      let ruleIndex = currentVal % rule.length;
+      let action = rule[ruleIndex];
+      
+      // Turn
+      if (action === 'R') ant.dir = (ant.dir + 1) % 4;
+      else if (action === 'L') ant.dir = (ant.dir + 3) % 4;
+      else if (action === 'N') ant.dir = (ant.dir + 2) % 4; // 180
+      
+      // Flip color
+      setCell(ant.x, ant.y, 1 - currentVal);
+      drawCell(ant.x, ant.y, 1 - currentVal);
+      
+      // Move forward
+      ant.x += directions[ant.dir][0];
+      ant.y += directions[ant.dir][1];
+      
+      steps++;
+      updateStats();
+    }
+    
+    function updateStats() {
+      const cellCount = Object.keys(grid).filter(k => grid[k] === 1).length;
+      document.getElementById('stats').textContent = `Steps: ${steps.toLocaleString()} | Cells: ${cellCount.toLocaleString()}`;
+    }
+    
+    function reset() {
+      grid = {};
+      ant = { x: Math.floor(width / 2), y: Math.floor(height / 2), dir: 0 };
+      steps = 0;
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      updateStats();
+    }
+    
+    function updateRuleDisplay() {
+      let html = '';
+      for (let i = 0; i < rule.length; i++) {
+        let color = i % 2 === 0 ? 'white' : 'black';
+        let arrow = rule[i] === 'R' ? '→' : rule[i] === 'L' ? '←' : '↔';
+        html += `<span class="rule-color rule-${color}"></span>${arrow}`;
+        if (i < rule.length - 1) html += ' ';
+      }
+      html += '<br>';
+      for (let i = 0; i < rule.length; i++) {
+        let nextColor = (i + 1) % 2 === 0 ? 'white' : 'black';
+        let arrow = rule[(i + 1) % rule.length] === 'R' ? '→' : rule[(i + 1) % rule.length] === 'L' ? '←' : '↔';
+        html += `<span class="rule-color rule-${nextColor}"></span>${arrow}`;
+        if (i < rule.length - 1) html += ' ';
+      }
+      document.getElementById('rule-text').innerHTML = html;
+    }
+    
+    let lastStep = 0;
+    let animationId;
+    
+    function loop(timestamp) {
+      if (!running) return;
+      let speed = 1001 - document.getElementById('speed').value;
+      if (timestamp - lastStep > speed) {
+        step();
+        lastStep = timestamp;
+      }
+      animationId = requestAnimationFrame(loop);
+    }
+    
+    document.getElementById('play').addEventListener('click', () => {
+      running = true;
+      lastStep = performance.now();
+      loop(lastStep);
+    });
+    
+    document.getElementById('pause').addEventListener('click', () => {
+      running = false;
+      cancelAnimationFrame(animationId);
+    });
+    
+    document.getElementById('step').addEventListener('click', () => {
+      step();
+    });
+    
+    document.getElementById('reset').addEventListener('click', reset);
+    
+    document.getElementById('cellSize').addEventListener('input', e => {
+      cellSize = +e.target.value;
+      document.getElementById('sizeVal').textContent = cellSize;
+      resize();
+      reset();
+    });
+    
+    document.getElementById('speed').addEventListener('input', e => {
+      document.getElementById('speedVal').textContent = e.target.value;
+    });
+    
+    document.getElementById('preset-basic').addEventListener('click', () => {
+      rule = 'RL';
+      updateRuleDisplay();
+      reset();
+    });
+    
+    document.getElementById('preset-simples').addEventListener('click', () => {
+      rule = 'RLLR';
+      updateRuleDisplay();
+      reset();
+    });
+    
+    document.getElementById('preset-chaos').addEventListener('click', () => {
+      rule = 'LLRR';
+      updateRuleDisplay();
+      reset();
+    });
+    
+    document.getElementById('preset-binary').addEventListener('click', () => {
+      rule = 'RL';
+      updateRuleDisplay();
+      reset();
+    });
+    
+    canvas.addEventListener('click', e => {
+      let x = Math.floor(e.clientX / cellSize);
+      let y = Math.floor(e.clientY / cellSize);
+      let current = getCell(x, y);
+      setCell(x, y, 1 - current);
+      drawCell(x, y, 1 - current);
+      updateStats();
+    });
+    
+    window.addEventListener('resize', resize);
+    resize();
+    reset();
+    updateRuleDisplay();
+  </script>
+</body>
+</html>
