@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L-System Generator — Shadow's Garden</title>
+<meta name="description" content="Procedural plant generator using Lindenmayer systems — binary trees, ferns, weeds, dragon curves"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    max-width: 240px;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  .preset-btns { margin-top: 12px; }
+  .preset-btns button { display: block; width: 100%; margin-bottom: 4px; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>L-System Generator</h3>
+    <div class="control-row">
+      <label>Iterations <span id="iterVal">5</span></label>
+      <input type="range" id="iterations" min="1" max="8" value="5">
+    </div>
+    <div class="control-row">
+      <label>Angle <span id="angleVal">25</span></label>
+      <input type="range" id="angle" min="5" max="90" value="25">
+    </div>
+    <div class="control-row">
+      <label>Length <span id="lenVal">10</span></label>
+      <input type="range" id="length" min="2" max="20" value="10">
+    </div>
+    <div class="control-row">
+      <label>Branch Width <span id="widthVal">10</span></label>
+      <input type="range" id="width" min="1" max="20" value="10">
+    </div>
+    <button id="regen">Regenerate</button>
+    <div class="preset-btns">
+      <button id="preset-tree">Binary Tree</button>
+      <button id="preset-fern">Fern</button>
+      <button id="preset-weed">Weed</button>
+      <button id="preset-dragon">Dragon Curve</button>
+      <button id="preset-sierpinski">Sierpinski</button>
+      <button id="preset-crystal">Crystal</button>
+    </div>
+  </div>
+  <div id="info">Lindenmayer systems — the math of plant growth</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let iterations = 5;
+    let angle = 25;
+    let length = 10;
+    let branchWidth = 10;
+    let axiom = 'F';
+    let rules = { F: 'FF' };
+    let presets = {
+      tree: { axiom: 'X', rules: { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' }, angle: 25, iterations: 5 },
+      fern: { axiom: 'X', rules: { X: 'F+[[X]-X]-F[-FX]+F', F: 'FF' }, angle: 25, iterations: 6 },
+      weed: { axiom: 'X', rules: { X: 'F+[[X]-X]-F[-F]X', F: 'FF' }, angle: 30, iterations: 6 },
+      dragon: { axiom: 'FX', rules: { X: 'X+YF+', Y: '-FX-Y' }, angle: 90, iterations: 10 },
+      sierpinski: { axiom: 'F-G-G', rules: { F: 'F-G+F+G-F', G: 'GG' }, angle: 120, iterations: 6 },
+      crystal: { axiom: 'F-F-F-F', rules: { F: 'F-F+F+F-F' }, angle: 90, iterations: 4 }
+    };
+    let currentPreset = 'tree';
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      render();
+    }
+    
+    function generate() {
+      let result = axiom;
+      for (let i = 0; i < iterations; i++) {
+        let next = '';
+        for (let char of result) {
+          next += rules[char] || char;
+        }
+        result = next;
+      }
+      return result;
+    }
+    
+    function render() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      let str = generate();
+      ctx.save();
+      
+      if (currentPreset === 'dragon') {
+        ctx.translate(width * 0.9, height * 0.5);
+        ctx.scale(1, -1);
+      } else if (currentPreset === 'sierpinski') {
+        ctx.translate(width * 0.1, height * 0.85);
+        ctx.scale(1, 1);
+      } else if (currentPreset === 'crystal') {
+        ctx.translate(width * 0.5, height * 0.9);
+      } else {
+        ctx.translate(width * 0.5, height * 0.95);
+        ctx.scale(1, -1);
+      }
+      
+      ctx.strokeStyle = '#8fbc8f';
+      ctx.lineCap = 'round';
+      
+      for (let char of str) {
+        if (char === 'F' || char === 'G') {
+          ctx.beginPath();
+          ctx.lineWidth = branchWidth;
+          ctx.strokeStyle = `hsl(${120 + branchWidth * 5}, 40%, ${30 + branchWidth * 2}%)`;
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, length);
+          ctx.stroke();
+          ctx.translate(0, length);
+        } else if (char === '+') {
+          ctx.rotate(angle * Math.PI / 180);
+        } else if (char === '-') {
+          ctx.rotate(-angle * Math.PI / 180);
+        } else if (char === '[') {
+          ctx.save();
+          branchWidth *= 0.75;
+        } else if (char === ']') {
+          ctx.restore();
+          branchWidth = 10;
+        }
+      }
+      ctx.restore();
+    }
+    
+    document.getElementById('iterations').addEventListener('input', e => {
+      iterations = +e.target.value;
+      document.getElementById('iterVal').textContent = iterations;
+      render();
+    });
+    
+    document.getElementById('angle').addEventListener('input', e => {
+      angle = +e.target.value;
+      document.getElementById('angleVal').textContent = angle;
+      render();
+    });
+    
+    document.getElementById('length').addEventListener('input', e => {
+      length = +e.target.value;
+      document.getElementById('lenVal').textContent = length;
+      render();
+    });
+    
+    document.getElementById('width').addEventListener('input', e => {
+      branchWidth = +e.target.value;
+      document.getElementById('widthVal').textContent = branchWidth;
+      render();
+    });
+    
+    document.getElementById('regen').addEventListener('click', render);
+    
+    function loadPreset(name) {
+      let p = presets[name];
+      axiom = p.axiom;
+      rules = p.rules;
+      angle = p.angle;
+      iterations = p.iterations;
+      currentPreset = name;
+      document.getElementById('iterations').value = iterations;
+      document.getElementById('iterVal').textContent = iterations;
+      document.getElementById('angle').value = angle;
+      document.getElementById('angleVal').textContent = angle;
+      branchWidth = 10;
+      document.getElementById('width').value = 10;
+      document.getElementById('widthVal').textContent = 10;
+      render();
+    }
+    
+    document.getElementById('preset-tree').addEventListener('click', () => loadPreset('tree'));
+    document.getElementById('preset-fren').addEventListener('click', () => loadPreset('fern'));
+    document.getElementById('preset-fern').addEventListener('click', () => loadPreset('fern'));
+    document.getElementById('preset-weed').addEventListener('click', () => loadPreset('weed'));
+    document.getElementById('preset-dragon').addEventListener('click', () => loadPreset('dragon'));
+    document.getElementById('preset-sierpinski').addEventListener('click', () => loadPreset('sierpinski'));
+    document.getElementById('preset-crystal').addEventListener('click', () => loadPreset('crystal'));
+    
+    window.addEventListener('resize', resize);
+    loadPreset('tree');
+  </script>
+</body>
+</html>
