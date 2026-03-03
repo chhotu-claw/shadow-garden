@@ -4,137 +4,265 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Filter — Shadow's Garden</title>
-<meta name="description" content="Real-time image filters. Adjust brightness, contrast, saturation, and more.">
+<meta name="description" content="Real-time image filter app with brightness, contrast, saturation, hue, blur, and more"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a12; }
-  canvas { display: block; margin: auto; }
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
-    z-index: 10;
-  }
-  .slider-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
-  label {
-    color: rgba(255,255,255,0.6);
-    font-size: 11px;
-    font-family: monospace;
-  }
-  input[type="range"] {
-    width: 100px;
-  }
-  input[type="file"] {
-    display: none;
-  }
-  .upload-btn {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+  body { margin: 0; padding: 20px; background: #0a0a0f; color: #ccc; font-family: system-ui; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { color: #fff; margin-bottom: 20px; }
+  .app-area { display: flex; gap: 20px; flex-wrap: wrap; }
+  .canvas-wrap { flex: 1; min-width: 300px; }
+  canvas { max-width: 100%; border-radius: 8px; background: #111; }
+  .controls { width: 280px; background: #151518; padding: 20px; border-radius: 8px; }
+  .control-row { margin-bottom: 16px; }
+  .control-row label { display: flex; justify-content: space-between; margin-bottom: 6px; color: #888; font-size: 13px; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { color: #4af; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+  button {
+    background: #2a4a6a;
+    border: none;
     color: #fff;
-    padding: 8px 16px;
+    padding: 10px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-family: inherit;
     font-size: 13px;
   }
-  .upload-btn:hover { background: rgba(255,255,255,0.2); }
+  button:hover { background: #3a5a7a; }
+  button.secondary { background: #3a3a4a; }
+  button.secondary:hover { background: #4a4a5a; }
+  .file-input { display: none; }
+  .presets { margin-top: 16px; padding-top: 16px; border-top: 1px solid #333; }
+  .presets h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .preset-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btns button { padding: 6px 10px; font-size: 11px; }
+  .info { margin-top: 20px; color: #556; font-size: 12px; }
 </style>
 </head>
 <body data-page-type="app">
-  <canvas id="canvas"></canvas>
-  <div class="controls">
-    <label class="upload-btn">
-      Upload Image
-      <input type="file" id="fileInput" accept="image/*">
-    </label>
-    <div class="slider-group">
-      <label>Brightness</label>
-      <input type="range" id="brightness" min="-100" max="100" value="0">
-    </div>
-    <div class="slider-group">
-      <label>Contrast</label>
-      <input type="range" id="contrast" min="-100" max="100" value="0">
-    </div>
-    <div class="slider-group">
-      <label>Saturation</label>
-      <input type="range" id="saturation" min="-100" max="100" value="0">
-    </div>
-    <div class="slider-group">
-      <label>Hue</label>
-      <input type="range" id="hue" min="0" max="360" value="0">
-    </div>
-    <div class="slider-group">
-      <label>Blur</label>
-      <input type="range" id="blur" min="0" max="20" value="0">
+  <div class="container">
+    <h1>Image Filter</h1>
+    <div class="app-area">
+      <div class="canvas-wrap">
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="controls">
+        <div class="control-row">
+          <label>Brightness <span id="brightVal">100%</span></label>
+          <input type="range" id="brightness" min="0" max="200" value="100">
+        </div>
+        <div class="control-row">
+          <label>Contrast <span id="contrastVal">100%</span></label>
+          <input type="range" id="contrast" min="0" max="200" value="100">
+        </div>
+        <div class="control-row">
+          <label>Saturation <span id="satVal">100%</span></label>
+          <input type="range" id="saturation" min="0" max="200" value="100">
+        </div>
+        <div class="control-row">
+          <label>Hue Rotate <span id="hueVal">0°</span></label>
+          <input type="range" id="hue" min="0" max="360" value="0">
+        </div>
+        <div class="control-row">
+          <label>Blur <span id="blurVal">0px</span></label>
+          <input type="range" id="blur" min="0" max="20" value="0">
+        </div>
+        <div class="control-row">
+          <label>Invert <span id="invertVal">0%</span></label>
+          <input type="range" id="invert" min="0" max="100" value="0">
+        </div>
+        <div class="control-row">
+          <label>Sepia <span id="sepiaVal">0%</span></label>
+          <input type="range" id="sepia" min="0" max="100" value="0">
+        </div>
+        <div class="control-row">
+          <label>Grayscale <span id="grayVal">0%</span></label>
+          <input type="range" id="grayscale" min="0" max="100" value="0">
+        </div>
+        
+        <div class="btn-row">
+          <button id="uploadBtn">Upload Image</button>
+          <input type="file" id="fileInput" class="file-input" accept="image/*">
+          <button id="resetBtn" class="secondary">Reset</button>
+          <button id="downloadBtn" class="secondary">Download</button>
+        </div>
+        
+        <div class="presets">
+          <h3>Presets</h3>
+          <div class="preset-btns">
+            <button class="preset">Vintage</button>
+            <button class="preset">Noir</button>
+            <button class="preset">Warm</button>
+            <button class="preset">Cool</button>
+            <button class="preset">Vivid</button>
+            <button class="preset">Fade</button>
+          </div>
+        </div>
+        
+        <div class="info">
+          Drag & drop image or click Upload
+        </div>
+      </div>
     </div>
   </div>
-
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    
     let originalImage = null;
     let img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect fill="%234ecdc4" width="400" height="400"/><text x="200" y="200" fill="white" font-size="40" text-anchor="middle" dy=".3em">Click to upload</text></svg>';
     
-    img.onload = () => {
-      resizeAndDraw();
+    const filters = {
+      brightness: 100,
+      contrast: 100,
+      saturation: 100,
+      hue: 0,
+      blur: 0,
+      invert: 0,
+      sepia: 0,
+      grayscale: 0
     };
     
-    function resizeAndDraw() {
-      const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 150);
-      canvas.width = maxSize;
-      canvas.height = maxSize * (img.height / img.width);
-      if (canvas.height > maxSize) {
-        canvas.height = maxSize;
-        canvas.width = maxSize * (img.width / img.height);
-      }
+    const presets = {
+      'Vintage': { brightness: 110, contrast: 90, saturation: 80, sepia: 30, hue: 15 },
+      'Noir': { brightness: 110, contrast: 130, saturation: 0, grayscale: 100 },
+      'Warm': { brightness: 105, contrast: 110, saturation: 130, hue: -10, sepia: 10 },
+      'Cool': { brightness: 95, contrast: 110, saturation: 90, hue: 20, sepia: 5 },
+      'Vivid': { brightness: 110, contrast: 130, saturation: 150, hue: 0 },
+      'Fade': { brightness: 115, contrast: 75, saturation: 60, grayscale: 10 }
+    };
+    
+    function applyFilters() {
+      if (!originalImage) return;
+      
+      canvas.width = originalImage.width;
+      canvas.height = originalImage.height;
+      
+      ctx.filter = `
+        brightness(${filters.brightness}%)
+        contrast(${filters.contrast}%)
+        saturate(${filters.saturation}%)
+        hue-rotate(${filters.hue}deg)
+        blur(${filters.blur}px)
+        invert(${filters.invert}%)
+        sepia(${filters.sepia}%)
+        grayscale(${filters.grayscale}%)
+      `.replace(/\s+/g, ' ').trim();
+      
+      ctx.drawImage(originalImage, 0, 0);
+    }
+    
+    function updateDisplay() {
+      document.getElementById('brightVal').textContent = filters.brightness + '%';
+      document.getElementById('contrastVal').textContent = filters.contrast + '%';
+      document.getElementById('satVal').textContent = filters.saturation + '%';
+      document.getElementById('hueVal').textContent = filters.hue + '°';
+      document.getElementById('blurVal').textContent = filters.blur + 'px';
+      document.getElementById('invertVal').textContent = filters.invert + '%';
+      document.getElementById('sepiaVal').textContent = filters.sepia + '%';
+      document.getElementById('grayVal').textContent = filters.grayscale + '%';
+    }
+    
+    function setFilter(name, value) {
+      filters[name] = +value;
+      document.getElementById(name).value = value;
+      updateDisplay();
       applyFilters();
     }
     
-    function applyFilters() {
-      const brightness = document.getElementById('brightness').value;
-      const contrast = document.getElementById('contrast').value;
-      const saturation = document.getElementById('saturation').value;
-      const hue = document.getElementById('hue').value;
-      const blur = document.getElementById('blur').value;
-      
-      ctx.filter = `brightness(${100 + parseInt(brightness)}%) contrast(${100 + parseInt(contrast)}%) saturate(${100 + parseInt(saturation)}%) hue-rotate(${hue}deg) blur(${blur}px)`;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }
+    // Event listeners
+    ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'invert', 'sepia', 'grayscale'].forEach(name => {
+      document.getElementById(name).addEventListener('input', e => setFilter(name, e.target.value));
+    });
     
-    document.getElementById('fileInput').addEventListener('change', (e) => {
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+    
+    document.getElementById('fileInput').addEventListener('change', e => {
       const file = e.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = ev => {
           img = new Image();
-          img.onload = resizeAndDraw;
-          img.src = event.target.result;
+          img.onload = () => {
+            originalImage = img;
+            applyFilters();
+          };
+          img.src = ev.target.result;
         };
         reader.readAsDataURL(file);
       }
     });
     
-    ['brightness', 'contrast', 'saturation', 'hue', 'blur'].forEach(id => {
-      document.getElementById(id).addEventListener('input', applyFilters);
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      filters.brightness = 100;
+      filters.contrast = 100;
+      filters.saturation = 100;
+      filters.hue = 0;
+      filters.blur = 0;
+      filters.invert = 0;
+      filters.sepia = 0;
+      filters.grayscale = 0;
+      ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'invert', 'sepia', 'grayscale'].forEach(name => {
+        document.getElementById(name).value = filters[name];
+      });
+      updateDisplay();
+      applyFilters();
     });
     
-    window.addEventListener('resize', () => {
-      if (img.width) resizeAndDraw();
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!originalImage) return;
+      const link = document.createElement('a');
+      link.download = 'filtered-image.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     });
+    
+    document.querySelectorAll('.preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = presets[btn.textContent];
+        if (preset) {
+          Object.keys(preset).forEach(key => setFilter(key, preset[key]));
+        }
+      });
+    });
+    
+    // Drag and drop
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', e => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          img = new Image();
+          img.onload = () => {
+            originalImage = img;
+            applyFilters();
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // Default image
+    img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      originalImage = img;
+      applyFilters();
+    };
+    img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="%23334" width="800" height="600"/><text x="400" y="300" text-anchor="middle" fill="%23666" font-size="48">Upload an image</text></svg>';
+    canvas.width = 800;
+    canvas.height = 600;
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, 800, 600);
+    ctx.fillStyle = '#666';
+    ctx.font = '48px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Upload an image', 400, 300);
   </script>
 </body>
 </html>
