@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cellular Automata — Shadow's Garden</title>
+<meta name="description" content="Interactive cellular automata with multiple rules — Conway's Life, Seeds, Brian's Brain, and more"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  #controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 10, 15, 0.92);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    color: #ccc;
+    font-size: 13px;
+    z-index: 100;
+    min-width: 180px;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .row { margin-bottom: 10px; }
+  .row label { display: block; margin-bottom: 4px; color: #888; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  button:hover { background: #3a5a7a; }
+  button.active { background: #4a7aaa; }
+  .presets { margin-top: 10px; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
+  }
+  #stats {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: #667;
+    font-size: 12px;
+    text-align: right;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="controls">
+    <h3>Cellular Automata</h3>
+    <div class="row">
+      <button id="btn-play">Play</button>
+      <button id="btn-step">Step</button>
+      <button id="btn-clear">Clear</button>
+      <button id="btn-random">Random</button>
+    </div>
+    <div class="row presets">
+      <label>Rules</label>
+      <button class="rule-btn active" data-rule="conway">Life</button>
+      <button class="rule-btn" data-rule="seeds">Seeds</button>
+      <button class="rule-btn" data-rule="brian">Brian</button>
+      <button class="rule-btn" data-rule="daynight">Day/Night</button>
+      <button class="rule-btn" data-rule="highlife">HighLife</button>
+    </div>
+    <div class="row presets">
+      <label>Presets</label>
+      <button id="preset-glider">Glider</button>
+      <button id="preset-pulsar">Pulsar</button>
+      <button id="preset-gosper">Gosper</button>
+      <button id="preset-rpent">R-Pent</button>
+    </div>
+  </div>
+  <div id="stats">
+    <div>Generation: <span id="gen">0</span></div>
+    <div>Population: <span id="pop">0</span></div>
+    <div>FPS: <span id="fps">0</span></div>
+  </div>
+  <div id="info">Click/drag to draw | Space to pause</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height, cols, rows;
+    let cellSize = 6;
+    let grid = [];
+    let nextGrid = [];
+    let running = false;
+    let generation = 0;
+    let currentRule = 'conway';
+    let lastTime = 0;
+    let frameCount = 0;
+    let fps = 0;
+    
+    const rules = {
+      conway: { survive: [2,3], born: [3] },
+      seeds: { survive: [], born: [2] },
+      brian: { survive: [2], born: [2] },
+      daynight: { survive: [3,4,6,7,8], born: [3,6,7,8] },
+      highlife: { survive: [2,3], born: [3,6] }
+    };
+    
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      cols = Math.ceil(width / cellSize);
+      rows = Math.ceil(height / cellSize);
+      initGrid();
+    }
+    
+    function initGrid() {
+      grid = new Array(cols * rows).fill(0);
+      nextGrid = new Array(cols * rows).fill(0);
+      generation = 0;
+    }
+    
+    function randomize() {
+      for (let i = 0; i < grid.length; i++) {
+        grid[i] = Math.random() > 0.85 ? 1 : 0;
+      }
+      generation = 0;
+    }
+    
+    function clearGrid() {
+      grid.fill(0);
+      generation = 0;
+    }
+    
+    function getIdx(x, y) {
+      return ((y + rows) % rows) * cols + ((x + cols) % cols);
+    }
+    
+    function countNeighbors(x, y) {
+      let count = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (grid[getIdx(x + dx, y + dy)] === 1) count++;
+        }
+      }
+      return count;
+    }
+    
+    function step() {
+      const rule = rules[currentRule];
+      let pop = 0;
+      
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const idx = y * cols + x;
+          const alive = grid[idx];
+          const neighbors = countNeighbors(x, y);
+          
+          let nextAlive = 0;
+          if (alive) {
+            nextAlive = rule.survive.includes(neighbors) ? 1 : 0;
+          } else {
+            nextAlive = rule.born.includes(neighbors) ? 1 : 0;
+          }
+          
+          nextGrid[idx] = nextAlive;
+          if (nextAlive) pop++;
+        }
+      }
+      
+      [grid, nextGrid] = [nextGrid, grid];
+      generation++;
+      
+      document.getElementById('gen').textContent = generation;
+      document.getElementById('pop').textContent = pop;
+    }
+    
+    function render() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (grid[y * cols + x]) {
+            ctx.fillStyle = '#4af';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
+          }
+        }
+      }
+    }
+    
+    function loop(timestamp) {
+      frameCount++;
+      if (timestamp - lastTime >= 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastTime = timestamp;
+        document.getElementById('fps').textContent = fps;
+      }
+      
+      if (running) {
+        step();
+        render();
+      }
+      requestAnimationFrame(loop);
+    }
+    
+    // Event listeners
+    document.getElementById('btn-play').addEventListener('click', () => {
+      running = !running;
+      document.getElementById('btn-play').textContent = running ? 'Pause' : 'Play';
+    });
+    document.getElementById('btn-step').addEventListener('click', () => {
+      step();
+      render();
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      clearGrid();
+      render();
+    });
+    document.getElementById('btn-random').addEventListener('click', () => {
+      randomize();
+      render();
+    });
+    
+    document.querySelectorAll('.rule-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.rule-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentRule = btn.dataset.rule;
+      });
+    });
+    
+    // Presets
+    function setPattern(cells) {
+      clearGrid();
+      const cx = Math.floor(cols / 2);
+      const cy = Math.floor(rows / 2);
+      cells.forEach(([dx, dy]) => {
+        const idx = getIdx(cx + dx, cy + dy);
+        grid[idx] = 1;
+      });
+      render();
+    }
+    
+    document.getElementById('preset-glider').addEventListener('click', () => {
+      setPattern([[0,0],[1,0],[2,0],[2,1],[1,2]]);
+    });
+    document.getElementById('preset-pulsar').addEventListener('click', () => {
+      setPattern([
+        [0,0],[0,1],[0,2],[0,6],[0,7],[0,8],
+        [2,0],[2,1],[2,2],[2,6],[2,7],[2,8],
+        [3,0],[3,1],[3,2],[3,6],[3,7],[3,8],
+        [4,0],[4,1],[4,2],[4,6],[4,7],[4,8],
+        [6,0],[6,1],[6,2],[6,6],[6,7],[6,8],
+        [7,0],[7,1],[7,2],[7,6],[7,7],[7,8],
+        [8,0],[8,1],[8,2],[8,6],[8,7],[8,8]
+      ]);
+    });
+    document.getElementById('preset-gosper').addEventListener('click', () => {
+      setPattern([
+        [0,4],[0,5],[1,4],[1,5],[10,4],[10,5],[10,6],[11,3],[11,7],[12,2],[12,8],[13,2],[13,8],[14,5],[15,3],[15,7],[16,4],[16,5],[16,6],[17,5],
+        [20,2],[20,3],[20,4],[21,2],[21,3],[21,4],[22,1],[22,5],[24,0],[24,1],[24,5],[24,6],[25,0],[25,6],[26,3],[27,1],[27,5],[28,2],[28,4],[29,3]
+      ]);
+    });
+    document.getElementById('preset-rpent').addEventListener('click', () => {
+      setPattern([[0,0],[1,0],[0,1],[1,1],[2,1]]);
+    });
+    
+    // Drawing
+    let drawing = false;
+    canvas.addEventListener('mousedown', e => {
+      drawing = true;
+      const x = Math.floor(e.clientX / cellSize);
+      const y = Math.floor(e.clientY / cellSize);
+      grid[getIdx(x, y)] = 1;
+      render();
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!drawing) return;
+      const x = Math.floor(e.clientX / cellSize);
+      const y = Math.floor(e.clientY / cellSize);
+      grid[getIdx(x, y)] = 1;
+      render();
+    });
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseleave', () => drawing = false);
+    
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        running = !running;
+        document.getElementById('btn-play').textContent = running ? 'Pause' : 'Play';
+      }
+    });
+    
+    window.addEventListener('resize', resize);
+    resize();
+    randomize();
+    render();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
