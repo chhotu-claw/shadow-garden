@@ -4,150 +4,141 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voronoi Bloom — Shadow's Garden</title>
-<meta name="description" content="Interactive Voronoi diagram with pulsing jewel-tone regions.">
+<meta name="description" content="Interactive Voronoi diagram with pulsing jewel-tone regions"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body { margin: 0; overflow: hidden; background: #0a0a12; }
   canvas { display: block; }
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 10;
-  }
-  button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }
-  button:hover { background: rgba(255,255,255,0.2); }
-  .info {
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 13px;
-    font-family: monospace;
+    background: rgba(10, 10, 18, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    color: #aaa;
+    font-size: 12px;
+    z-index: 100;
+  }
+  #controls h3 { margin: 0 0 10px 0; color: #fff; font-size: 13px; }
+  button {
+    background: #2a3a4a;
+    border: none;
+    color: #ddd;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+    font-size: 11px;
+  }
+  button:hover { background: #3a4a5a; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
   }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click to add seeds • Space to pause</div>
-  <div class="controls">
-    <button id="add">Add Seeds</button>
+  <div id="controls">
+    <h3>Voronoi Bloom</h3>
+    <button id="add">Add Seed</button>
     <button id="clear">Clear</button>
+    <button id="random">Random</button>
+    <button id="preset-jewels">Jewels</button>
+    <button id="preset-dark">Dark</button>
   </div>
-
+  <div id="info">Click to add seeds | Drag to paint</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
     let seeds = [];
-    let running = true;
-    let frame = 0;
+    let time = 0;
+    let isDragging = false;
+    let colorScheme = 'jewels';
     
-    // Jewel-tone color palettes
-    const palettes = [
-      ['#1a0533', '#4a1942', '#8b2252', '#cd5c5c', '#f08080'],
-      ['#0d1b2a', '#1b263b', '#415a77', '#778da9', '#e0e1dd'],
-      ['#1a1a2e', '#16213e', '#0f3460', '#533483', '#e94560'],
-      ['#10002b', '#240046', '#3c096c', '#5a189a', '#9d4edd'],
-      ['#000814', '#001d3d', '#003566', '#006d77', '#83c5be']
+    const jewelColors = [
+      '#e74c3c', '#9b59b6', '#3498db', '#1abc9c', '#f1c40f', 
+      '#e67e22', '#2ecc71', '#ff69b4', '#00ced1', '#ffd700'
+    ];
+    const darkColors = [
+      '#1a1a2e', '#16213e', '#0f3460', '#533483', '#e94560',
+      '#2d132c', '#801336', '#c72c41', '#ee4540', '#f5b461'
     ];
     
-    let palette = palettes[0];
-    
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
     }
     
-    function addSeeds(count = 30) {
-      for (let i = 0; i < count; i++) {
-        seeds.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          hue: Math.random() * 60 + 250,
-          pulse: Math.random() * Math.PI * 2
-        });
-      }
+    function getDistance(x1, y1, x2, y2) {
+      return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
     }
     
-    function update() {
-      if (!running) return;
-      frame++;
-      
-      seeds.forEach(s => {
-        s.x += s.vx;
-        s.y += s.vy;
-        s.pulse += 0.02;
-        
-        if (s.x < 0 || s.x > width) s.vx *= -1;
-        if (s.y < 0 || s.y > height) s.vy *= -1;
-      });
+    function getColor(index) {
+      const colors = colorScheme === 'jewels' ? jewelColors : darkColors;
+      return colors[index % colors.length];
     }
     
-    function draw() {
-      ctx.fillStyle = '#0a0a12';
-      ctx.fillRect(0, 0, width, height);
-      
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    }
+    
+    function render() {
       const imageData = ctx.createImageData(width, height);
       const data = imageData.data;
+      
       const cellSize = 4;
       
       for (let y = 0; y < height; y += cellSize) {
         for (let x = 0; x < width; x += cellSize) {
-          // Find closest seed
           let minDist = Infinity;
-          let closestIdx = 0;
+          let secondDist = Infinity;
+          let closest = -1;
           
           for (let i = 0; i < seeds.length; i++) {
-            const dx = seeds[i].x - x;
-            const dy = seeds[i].y - y;
-            const dist = dx * dx + dy * dy;
+            const dist = getDistance(x, y, seeds[i].x, seeds[i].y);
             if (dist < minDist) {
+              secondDist = minDist;
               minDist = dist;
-              closestIdx = i;
+              closest = i;
+            } else if (dist < secondDist) {
+              secondDist = dist;
             }
           }
           
-          const seed = seeds[closestIdx];
-          const dist = Math.sqrt(minDist);
-          const maxDist = Math.min(width, height) / 2;
-          const normalized = Math.min(1, dist / maxDist);
-          
-          // Pulsing effect
-          const pulse = Math.sin(seed.pulse) * 0.3 + 0.7;
-          
-          // Color based on distance and seed color
-          const hue = seed.hue + normalized * 30;
-          const sat = 80;
-          const light = 20 + (1 - normalized) * 50 * pulse;
-          
-          const rgb = hslToRgb(hue / 360, sat / 100, light / 100);
-          
-          for (let dy = 0; dy < cellSize; dy++) {
-            for (let dx = 0; dx < cellSize; dx++) {
-              const px = x + dx;
-              const py = y + dy;
-              if (px < width && py < height) {
-                const i = (py * width + px) * 4;
-                data[i] = rgb[0];
-                data[i+1] = rgb[1];
-                data[i+2] = rgb[2];
-                data[i+3] = 255;
+          if (closest >= 0) {
+            const seed = seeds[closest];
+            const pulse = Math.sin(time * 2 + seed.x * 0.01 + seed.y * 0.01) * 0.5 + 0.5;
+            const edgeFactor = Math.min(1, (secondDist - minDist) / 30);
+            const bloom = pulse * 0.4 + 0.6;
+            
+            const baseColor = hexToRgb(getColor(closest));
+            const r = Math.min(255, baseColor.r * bloom * (0.7 + edgeFactor * 0.3));
+            const g = Math.min(255, baseColor.g * bloom * (0.7 + edgeFactor * 0.3));
+            const b = Math.min(255, baseColor.b * bloom * (0.7 + edgeFactor * 0.3));
+            
+            for (let dy = 0; dy < cellSize && y + dy < height; dy++) {
+              for (let dx = 0; dx < cellSize && x + dx < width; dx++) {
+                const idx = ((y + dy) * width + (x + dx)) * 4;
+                data[idx] = r;
+                data[idx + 1] = g;
+                data[idx + 2] = b;
+                data[idx + 3] = 255;
               }
             }
           }
@@ -157,67 +148,72 @@
       ctx.putImageData(imageData, 0, 0);
       
       // Draw seed points
-      seeds.forEach(s => {
-        ctx.fillStyle = `hsla(${s.hue}, 100%, 70%, 0.8)`;
+      for (let seed of seeds) {
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+        ctx.arc(seed.x, seed.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
         ctx.fill();
-      });
-    }
-    
-    function hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
       }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+      
+      time += 0.016;
+      requestAnimationFrame(render);
     }
     
-    function animate() {
-      update();
-      draw();
-      requestAnimationFrame(animate);
+    function addSeed(x, y) {
+      seeds.push({ x, y });
     }
     
-    canvas.addEventListener('click', (e) => {
-      seeds.push({
-        x: e.clientX,
-        y: e.clientY,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
-        hue: Math.random() * 60 + 250,
-        pulse: Math.random() * Math.PI * 2
-      });
+    canvas.addEventListener('click', e => {
+      addSeed(e.clientX, e.clientY);
     });
     
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        running = !running;
-        e.preventDefault();
+    canvas.addEventListener('mousedown', () => isDragging = true);
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mousemove', e => {
+      if (isDragging && Math.random() < 0.1) {
+        addSeed(e.clientX, e.clientY);
       }
     });
     
-    document.getElementById('add').onclick = () => addSeeds(20);
-    document.getElementById('clear').onclick = () => { seeds = []; addSeeds(30); };
+    document.getElementById('add').addEventListener('click', () => {
+      addSeed(Math.random() * width, Math.random() * height);
+    });
+    
+    document.getElementById('clear').addEventListener('click', () => {
+      seeds = [];
+    });
+    
+    document.getElementById('random').addEventListener('click', () => {
+      seeds = [];
+      for (let i = 0; i < 30; i++) {
+        addSeed(Math.random() * width, Math.random() * height);
+      }
+    });
+    
+    document.getElementById('preset-jewels').addEventListener('click', () => {
+      colorScheme = 'jewels';
+      seeds = [];
+      for (let i = 0; i < 15; i++) {
+        addSeed(Math.random() * width, Math.random() * height);
+      }
+    });
+    
+    document.getElementById('preset-dark').addEventListener('click', () => {
+      colorScheme = 'dark';
+      seeds = [];
+      for (let i = 0; i < 20; i++) {
+        addSeed(Math.random() * width, Math.random() * height);
+      }
+    });
     
     window.addEventListener('resize', resize);
     resize();
-    addSeeds(30);
-    animate();
+    render();
+    
+    // Start with some seeds
+    for (let i = 0; i < 12; i++) {
+      addSeed(Math.random() * width, Math.random() * height);
+    }
   </script>
 </body>
 </html>
