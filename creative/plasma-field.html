@@ -4,118 +4,169 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plasma Field — Shadow's Garden</title>
-<meta name="description" content="Interactive plasma field visualizer with perlin noise.">
+<meta name="description" content="Plasma field visualizer — noise-driven color cycling"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  body { margin: 0; overflow: hidden; background: #000; }
   canvas { display: block; }
-  .controls {
+  #controls {
     position: fixed;
-    bottom: 20px;
+    top: 20px;
     left: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 10;
+    background: rgba(10, 10, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    color: #ccc;
+    font-size: 12px;
+    z-index: 100;
   }
+  #controls h3 { margin: 0 0 10px 0; color: #fff; font-size: 13px; }
+  .control-row { margin-bottom: 8px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; font-size: 11px; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; font-size: 11px; }
   button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: #2a4a6a;
+    border: none;
     color: #fff;
-    padding: 8px 16px;
+    padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
+    margin-right: 4px;
+    margin-top: 6px;
+    font-size: 11px;
   }
-  button:hover { background: rgba(255,255,255,0.2); }
+  button:hover { background: #3a5a7a; }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="controls">
-    <button id="p1">Plasma</button>
-    <button id="p2">Nebula</button>
-    <button id="p3">Fire</button>
-    <button id="p4">Ocean</button>
-    <button id="p5">Matrix</button>
+  <div id="controls">
+    <h3>Plasma Field</h3>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">1</span></label>
+      <input type="range" id="speed" min="0" max="5" step="0.1" value="1">
+    </div>
+    <div class="control-row">
+      <label>Scale <span id="scaleVal">3</span></label>
+      <input type="range" id="scale" min="1" max="10" step="0.5" value="3">
+    </div>
+    <div class="control-row">
+      <label>Color Shift <span id="colorVal">0</span></label>
+      <input type="range" id="color" min="0" max="360" value="0">
+    </div>
+    <button id="preset-plasma">Plasma</button>
+    <button id="preset-nebula">Nebula</button>
+    <button id="preset-fire">Fire</button>
+    <button id="preset-ocean">Ocean</button>
+    <button id="preset-matrix">Matrix</button>
   </div>
-
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
     let time = 0;
-    let mode = 'plasma';
-    
-    // Simple noise function
-    function noise(x, y, t) {
-      return Math.sin(x * 0.01 + t) * Math.cos(y * 0.01 + t * 0.5) +
-             Math.sin(x * 0.02 - t * 0.3) * Math.cos(y * 0.015 + t * 0.7) * 0.5 +
-             Math.sin(x * 0.005 + y * 0.005 + t * 0.2);
-    }
+    let speed = 1;
+    let scale = 3;
+    let colorShift = 0;
+    let preset = 'plasma';
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
     }
     
-    function draw() {
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
+    function noise(x, y, t) {
+      return Math.sin(x * 0.01 * scale + t) + 
+             Math.sin(y * 0.01 * scale + t * 1.2) + 
+             Math.sin((x + y) * 0.005 * scale + t * 0.8) +
+             Math.sin(Math.sqrt(x * x + y * y) * 0.01 * scale - t);
+    }
+    
+    function getColor(v, t) {
+      let h = (v * 60 + colorShift + t * 10) % 360;
+      let s = 80, l = 50;
       
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          let r, g, b;
+      if (preset === 'nebula') {
+        h = (v * 120 + 260 + t * 5) % 360;
+        s = 70;
+        l = v * 40 + 20;
+      } else if (preset === 'fire') {
+        h = (1 - v) * 60;
+        s = 100;
+        l = v * 50 + 10;
+      } else if (preset === 'ocean') {
+        h = (v * 60 + 180 + t * 3) % 360;
+        s = 80;
+        l = v * 30 + 20;
+      } else if (preset === 'matrix') {
+        h = 120;
+        s = 100;
+        l = v * 80;
+      }
+      
+      return `hsl(${h}, ${s}%, ${l}%)`;
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(width, height);
+      
+      for (let y = 0; y < height; y += 3) {
+        for (let x = 0; x < width; x += 3) {
+          let n = noise(x, y, time);
+          let n2 = noise(x + 100, y + 100, time * 0.5);
+          let v = (n + n2 + 4) / 8;
           
-          const n = noise(x, y, time);
+          let color = getColor(v, time);
+          let rgb = color.match(/\d+/g).map(Number);
           
-          if (mode === 'plasma') {
-            r = 128 + 127 * Math.sin(n * Math.PI);
-            g = 128 + 127 * Math.sin(n * Math.PI + 2);
-            b = 128 + 127 * Math.sin(n * Math.PI + 4);
-          } else if (mode === 'nebula') {
-            r = 100 + 100 * Math.sin(n * 3);
-            g = 50 + 50 * Math.sin(n * 2 + 1);
-            b = 150 + 100 * Math.sin(n * 4 + 2);
-          } else if (mode === 'fire') {
-            const t = (n + 1) / 2;
-            r = 255 * t;
-            g = 150 * t * t;
-            b = 50 * t * t * t;
-          } else if (mode === 'ocean') {
-            const t = (n + 1) / 2;
-            r = 20 + 30 * t;
-            g = 80 + 80 * t;
-            b = 150 + 100 * t;
-          } else if (mode === 'matrix') {
-            const t = Math.floor((n + 1) * 10) % 26;
-            r = g = b = t * 10;
+          for (let dy = 0; dy < 3 && y + dy < height; dy++) {
+            for (let dx = 0; dx < 3 && x + dx < width; dx++) {
+              let idx = ((y + dy) * width + (x + dx)) * 4;
+              imageData.data[idx] = rgb[0];
+              imageData.data[idx + 1] = rgb[1];
+              imageData.data[idx + 2] = rgb[2];
+              imageData.data[idx + 3] = 255;
+            }
           }
-          
-          const i = (y * width + x) * 4;
-          data[i] = r;
-          data[i+1] = g;
-          data[i+2] = b;
-          data[i+3] = 255;
         }
       }
       
       ctx.putImageData(imageData, 0, 0);
-      time += 0.02;
-      requestAnimationFrame(draw);
+      
+      time += 0.01 * speed;
+      requestAnimationFrame(render);
     }
     
-    document.getElementById('p1').onclick = () => mode = 'plasma';
-    document.getElementById('p2').onclick = () => mode = 'nebula';
-    document.getElementById('p3').onclick = () => mode = 'fire';
-    document.getElementById('p4').onclick = () => mode = 'ocean';
-    document.getElementById('p5').onclick = () => mode = 'matrix';
+    document.getElementById('speed').addEventListener('input', e => {
+      speed = +e.target.value;
+      document.getElementById('speedVal').textContent = speed;
+    });
+    
+    document.getElementById('scale').addEventListener('input', e => {
+      scale = +e.target.value;
+      document.getElementById('scaleVal').textContent = scale;
+    });
+    
+    document.getElementById('color').addEventListener('input', e => {
+      colorShift = +e.target.value;
+      document.getElementById('colorVal').textContent = colorShift;
+    });
+    
+    document.getElementById('preset-plasma').addEventListener('click', () => { preset = 'plasma'; colorShift = 0; document.getElementById('color').value = 0; });
+    document.getElementById('preset-nebula').addEventListener('click', () => { preset = 'nebula'; colorShift = 0; document.getElementById('color').value = 0; });
+    document.getElementById('preset-fire').addEventListener('click', () => { preset = 'fire'; colorShift = 0; document.getElementById('color').value = 0; });
+    document.getElementById('preset-ocean').addEventListener('click', () => { preset = 'ocean'; colorShift = 0; document.getElementById('color').value = 0; });
+    document.getElementById('preset-matrix').addEventListener('click', () => { preset = 'matrix'; colorShift = 0; document.getElementById('color').value = 0; });
     
     window.addEventListener('resize', resize);
     resize();
-    draw();
+    render();
   </script>
 </body>
 </html>
