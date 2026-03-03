@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+title>The Living Word — Shadow's Garden</title>
+<meta name="description" content="An interactive poem that evolves based on your presence"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    min-height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+  #poem {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    text-align: center;
+    color: #e0e0e0;
+    pointer-events: none;
+    max-width: 80vw;
+  }
+  .word {
+    display: inline-block;
+    margin: 8px 12px;
+    font-size: 24px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .word:hover {
+    color: #fff;
+    text-shadow: 0 0 20px currentColor;
+    transform: scale(1.2);
+  }
+  .word.growing { animation: grow 2s ease-out forwards; }
+  .word.fading { animation: fade 1.5s ease-out forwards; }
+  @keyframes grow {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  @keyframes fade {
+    0% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-20px); }
+  }
+  #cursor {
+    position: fixed;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 100;
+    transition: transform 0.1s ease;
+  }
+  #presence {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #445;
+    font-size: 12px;
+    z-index: 10;
+    letter-spacing: 2px;
+  }
+  #hint {
+    position: fixed;
+    top: 30px;
+    right: 30px;
+    color: #334;
+    font-size: 11px;
+    z-index: 10;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div id="poem"></div>
+  <div id="cursor"></div>
+  <div id="presence">THE POEM BREATHES WHEN YOU WATCH</div>
+  <div id="hint">click to add words | hover to disturb</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const poemEl = document.getElementById('poem');
+const cursorEl = document.getElementById('cursor');
+const presenceEl = document.getElementById('presence');
+
+let width, height;
+let particles = [];
+let words = [
+  "silence", "echo", "shadow", "light", "time", "memory",
+  "dream", "wake", "fall", "rise", "bloom", "fade",
+  "whisper", "shout", "soft", "hard", "begin", "end",
+  "cloud", "rain", "star", "moon", "sun", "night",
+  "breath", "heart", "beat", "pulse", "flow", "still",
+  "you", "me", "we", "they", "all", "none",
+  "maybe", "perhaps", "never", "always", "now", "then",
+  "noise", "quiet", "static", "music", "sound", "void"
+];
+
+let wordObjects = [];
+let mouseX = 0, mouseY = 0;
+let lastMove = Date.now();
+let idleTime = 0;
+let breathPhase = 0;
+
+function resize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+}
+resize();
+window.addEventListener('resize', resize);
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  cursorEl.style.left = mouseX - 10 + 'px';
+  cursorEl.style.top = mouseY - 10 + 'px';
+  lastMove = Date.now();
+  idleTime = 0;
+});
+
+class Particle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.size = Math.random() * 2 + 0.5;
+    this.alpha = Math.random() * 0.3 + 0.1;
+    this.hue = Math.random() * 60 + 180;
+  }
+  update(idle) {
+    this.x += this.vx;
+    this.y += this.vy;
+    
+    // Mouse repulsion
+    let dx = this.x - mouseX;
+    let dy = this.y - mouseY;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 150) {
+      let force = (150 - dist) / 150;
+      this.vx += (dx / dist) * force * 0.3;
+      this.vy += (dy / dist) * force * 0.3;
+    }
+    
+    // Slow down when idle
+    if (idle > 3000) {
+      this.vx *= 0.99;
+      this.vy *= 0.99;
+    }
+    
+    if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+      this.reset();
+    }
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue}, 60%, 60%, ${this.alpha})`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 80; i++) {
+  particles.push(new Particle());
+}
+
+function addWord() {
+  const word = words[Math.floor(Math.random() * words.length)];
+  const el = document.createElement('span');
+  el.className = 'word';
+  el.textContent = word;
+  el.style.color = `hsl(${Math.random() * 60 + 180}, 50%, 60%)`;
+  
+  const rect = poemEl.getBoundingClientRect();
+  el.style.left = Math.random() * 60 - 30 + 'px';
+  el.style.top = Math.random() * 60 - 30 + 'px';
+  
+  el.addEventListener('mouseenter', () => {
+    disturbWord(el);
+  });
+  
+  el.addEventListener('click', () => {
+    el.classList.add('fading');
+    setTimeout(() => el.remove(), 1500);
+  });
+  
+  poemEl.appendChild(el);
+  wordObjects.push(el);
+  
+  if (wordObjects.length > 25) {
+    const oldest = wordObjects.shift();
+    oldest.classList.add('fading');
+    setTimeout(() => oldest.remove(), 1500);
+  }
+}
+
+function disturbWord(el) {
+  el.classList.add('growing');
+  setTimeout(() => {
+    el.style.transform = `scale(${1 + Math.random() * 0.5}) rotate(${Math.random() * 20 - 10}deg)`;
+    el.classList.remove('growing');
+  }, 2000);
+}
+
+function animate() {
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.05)';
+  ctx.fillRect(0, 0, width, height);
+  
+  idleTime = Date.now() - lastMove;
+  
+  for (let p of particles) {
+    p.update(idleTime);
+    p.draw();
+  }
+  
+  // Breath effect
+  breathPhase += 0.02;
+  let breathScale = 1 + Math.sin(breathPhase) * 0.02;
+  poemEl.style.transform = `translate(-50%, -50%) scale(${breathScale})`;
+  
+  // Add words based on activity
+  if (idleTime < 1000 && Math.random() < 0.05) {
+    addWord();
+  }
+  
+  // Presence indicator
+  if (idleTime < 2000) {
+    presenceEl.textContent = "THE POEM BREATHES WHEN YOU WATCH";
+    presenceEl.style.color = "#667";
+  } else if (idleTime < 10000) {
+    presenceEl.textContent = "IT DREAMS IN YOUR ABSENCE";
+    presenceEl.style.color = "#445";
+  } else {
+    presenceEl.textContent = "SILENCE GROWS";
+    presenceEl.style.color = "#223";
+  }
+  
+  requestAnimationFrame(animate);
+}
+
+// Start with a few words
+for (let i = 0; i < 8; i++) {
+  setTimeout(() => addWord(), i * 200);
+}
+
+canvas.addEventListener('click', () => {
+  addWord();
+});
+
+animate();
+</script>
+</body>
+</html>
