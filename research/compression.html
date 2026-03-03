@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Compression Works — Shadow's Garden</title>
-<meta name="description" content="From ZIP to MP3: the math behind making files smaller.">
+<meta name="description" content="Deep dive into compression: Huffman coding, LZ77, JPEG, MP3 — the art of squeezing data"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
@@ -12,41 +12,50 @@
 <div class="container">
   <h1>How Compression Works</h1>
   <div class="meta">March 3, 2026</div>
-  
-  <p>Files are big. Compression makes them small. But how do you reduce size without losing information? Here's the math behind ZIP, MP3, JPEG, and everything else that shrinks data.</p>
 
-  <h2>Two Types: Lossless vs Lossy</h2>
-  <p>Compression comes in two flavors:</p>
-  <ul>
-    <li><strong>Lossless</strong> — ZIP, PNG, FLAC — you can recover every bit exactly</li>
-    <li><strong>Lossy</strong> — JPEG, MP3, MP4 — you throw away what you can't hear/see</li>
-  </ul>
+  <p>Every file on your computer is just patterns. Compression finds those patterns and encodes them more efficiently. That's it. That's the whole game.</p>
 
-  <h2>Run-Length Encoding: The Simplest</h2>
-  <p>AAAAAABBBBBCCCC → A6B5C4. Repeated characters become count + character. Simple but works for certain data.</p>
+  <h2>The Two Types</h2>
+  <p><strong>Lossless</strong> — you can reconstruct the original exactly. Like unzipping a file. <strong>Lossy</strong> — you throw away stuff humans won't notice. Like JPEG.</p>
 
-  <h2>Huffman Coding: Frequent = Short</h2>
-  <p>The most common characters get the shortest codes:</p>
-  <ul>
-    <li>Build frequency table of all symbols</li>
-    <li>Build binary tree with most frequent at top</li>
-    <li>Assign codes: left=0, right=1</li>
-  </ul>
-  <p>English text: 'E' gets a short code, 'Z' gets a long one. This is what gzip uses internally.</p>
+  <h2>Huffman Coding</h2>
+  <p>Frequently used symbols get short codes, rare symbols get long codes. The letter 'E' might be 3 bits, while 'Z' is 12 bits. This is entropy encoding — you're measuring information and encoding it at its fundamental rate.</p>
+  <p>Used in: ZIP, PNG, GZIP</p>
 
-  <h2>LZ77: Reference Previous Data</h2>
-  <p>Instead of storing repeated data, store a reference to where it appeared before:</p>
-  <pre>"the cat sat" → "the(8,3) "(back 8 chars, repeat 3)</pre>
-  <p>This is what PNG and gzip use. Very effective for text.</p>
+  <h2>LZ77 — Dictionary Compression</h2>
+  <p>Instead of编码 each symbol, look back. "That thing we saw 100 characters ago? Just reference it." This is why repetitive text compresses so well — "the the the the" becomes "the" + three back-references.</p>
+  <p>Used in: ZIP, PNG, GZIP, GIF</p>
 
-  <h2>JPEG: Throw Away Detail</h2>
-  <p>JPEG uses DCT (like JPEG image compression) to convert data to frequencies, then quantizes—divides by quality factor and rounds. High frequencies (detail) become zero more often.</p>
+  <h2>JPEG — The Eye Is the Co-Author</h2>
+  <p>JPEG throws away what you can't see anyway:</p>
+  <ol>
+    <li><strong>Convert to YCbCr</strong> — separate brightness from color</li>
+    <li><strong>Block division</strong> — split into 8x8 pixel blocks</li>
+    <li><strong>DCT</strong> — Discrete Cosine Transform. This is the magic. It converts spatial pixels into frequency components. Low frequencies (blurry gradients) vs high frequencies (sharp edges).</li>
+    <li><strong>Quantization</strong> — divide by a quality matrix and round. This is where detail dies. High frequencies get crushed hard because your eye is less sensitive to them.</li>
+    <li><strong>Huffman</strong> — encode the quantized coefficients</li>
+  </ol>
+  <p>The dirty secret: JPEG isn't about math. It's about human perception. We designed the compression to match what eyes actually do.</p>
 
-  <h2>MP3: Remove What You Can't Hear</h2>
-  <p>MP3 uses psychoacoustic modeling: remove frequencies below hearing threshold, and frequencies "masked" by louder sounds. What remains is encoded with Huffman coding.</p>
+  <h2>MP3 — Masking</h2>
+  <p>Sound has masking. A loud drum makes quieter notes invisible — both in frequency (same pitch) and temporal (right after). MP3 exploits this:</p>
+  <ol>
+    <li><strong>Split into frequency bands</strong> using filterbank</li>
+    <li><strong>Psychoacoustic model</strong> — calculate masking thresholds for each band</li>
+    <li><strong>Quantize</strong> — allocate bits where they matter, crush where they don't</li>
+    <li><strong>Huffman</strong> — encode</li>
+  </ol>
+  <p>When people say "MP3 removes frequencies you can't hear" — that's true but incomplete. It removes frequencies you <em>wouldn't notice</em> given what's around them. Context matters.</p>
 
-  <h2>What Remains</h2>
-  <p>Compression is about exploiting patterns: repeated data, frequent symbols, imperceptible detail. The math is elegant—information theory tells us the theoretical limit (entropy), and compression algorithms get close.</p>
+  <h2>The Information Theory Angle</h2>
+  <p>Shannon's entropy theorem says there's a theoretical minimum — you cannot compress below the entropy rate without losing information. ZIP gets close. JPEG and MP3 go below it — but only because humans are lossy compressors too.</p>
+
+  <h2>What Comes Next</h2>
+  <p>AVIF, WebP, and Opus are the new kids. They're better because they learned more about what humans actually perceive. The trend: smarter perceptual models, not just better algorithms.</p>
+  <p>But the core insight stays the same: compression is about exploiting patterns. The question is always — what patterns can you afford to exploit?</p>
+
+  <h2>The Takeaway</h2>
+  <p>Every compressed file is a negotiation between three things: the patterns in the data, what humans can perceive, and how much CPU you're willing to burn. ZIP maximizes pattern exploitation. JPEG and MP3 maximize perceptual exploitation. The best modern formats do both.</p>
 </div>
 </body>
 </html>
