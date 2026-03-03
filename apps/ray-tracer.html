@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ray Tracer — Shadow's Garden</title>
-<meta name="description" content="Real-time ray tracer with spheres, reflections, shadows, and multiple light sources"></meta>
+<meta name="description" content="Real-time ray tracer with spheres, reflections, shadows"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -17,30 +17,29 @@
     background: rgba(10, 10, 15, 0.9);
     border: 1px solid #333;
     border-radius: 8px;
-    padding: 16px;
+    padding: 14px;
     color: #ccc;
-    font-size: 13px;
+    font-size: 12px;
     z-index: 100;
   }
-  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
-  .control-row { margin-bottom: 10px; }
-  .control-row label { display: block; margin-bottom: 4px; color: #888; }
-  .control-row input[type="range"] { width: 140px; }
-  .control-row span { float: right; color: #4af; }
+  #controls h3 { margin: 0 0 10px 0; color: #fff; font-size: 13px; }
+  .control-row { margin-bottom: 8px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; font-size: 11px; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; font-size: 11px; }
   button {
     background: #2a4a6a;
     border: none;
     color: #fff;
-    padding: 8px 14px;
+    padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
-    margin-right: 6px;
-    margin-top: 8px;
-    font-size: 12px;
+    margin-right: 4px;
+    margin-top: 6px;
+    font-size: 11px;
   }
   button:hover { background: #3a5a7a; }
-  .preset-btns { margin-top: 12px; }
-  #fps {
+  #info {
     position: fixed;
     bottom: 20px;
     left: 20px;
@@ -55,264 +54,282 @@
     <h3>Ray Tracer</h3>
     <div class="control-row">
       <label>Samples <span id="samplesVal">4</span></label>
-      <input type="range" id="samples" min="1" max="16" value="4">
+      <input type="range" id="samples" min="1" max="16" step="1" value="4">
     </div>
     <div class="control-row">
       <label>Bounces <span id="bouncesVal">2</span></label>
-      <input type="range" id="bounces" min="0" max="4" value="2">
+      <input type="range" id="bounces" min="0" max="4" step="1" value="2">
     </div>
     <div class="control-row">
       <label>FOV <span id="fovVal">60</span></label>
-      <input type="range" id="fov" min="30" max="120" value="60">
+      <input type="range" id="fov" min="30" max="120" step="5" value="60">
     </div>
-    <div class="control-row">
-      <label>Light X <span id="lightXVal">5</span></label>
-      <input type="range" id="lightX" min="-10" max="10" step="0.5" value="5">
-    </div>
-    <div class="control-row">
-      <label>Light Y <span id="lightYVal">8</span></label>
-      <input type="range" id="lightY" min="0" max="15" step="0.5" value="8">
-    </div>
-    <div class="control-row">
-      <label>Light Z <span id="lightZVal">5</span></label>
-      <input type="range" id="lightZ" min="-10" max="10" step="0.5" value="5">
-    </div>
-    <button id="render">Render</button>
-    <div class="preset-btns">
-      <button id="preset-classic">Classic</button>
-      <button id="preset-soft">Soft Shadows</button>
-      <button id="preset-chromatic">Chromatic</button>
-      <button id="preset-night">Night Scene</button>
-    </div>
+    <button id="preset-default">Default</button>
+    <button id="preset-night">Night</button>
+    <button id="preset-bright">Bright</button>
+    <button id="preset-shadows">Deep Shadows</button>
   </div>
-  <div id="fps">Rendering...</div>
+  <div id="info">Ray tracing in JavaScript — drag to rotate camera</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
     let samples = 4;
-    let bounces = 2;
+    let maxBounces = 2;
     let fov = 60;
-    let light = { x: 5, y: 8, z: 5 };
-    let spheres = [];
-    let isRendering = false;
+    let cameraAngle = 0;
+    let cameraHeight = 0;
+    let dragging = false;
+    let lastX = 0, lastY = 0;
     
-    // Simple Vec3
-    const vec3 = (x, y, z) => ({ x, y, z });
-    const add = (a, b) => vec3(a.x + b.x, a.y + b.y, a.z + b.z);
-    const sub = (a, b) => vec3(a.x - b.x, a.y - b.y, a.z - b.z);
-    const mul = (a, s) => vec3(a.x * s, a.y * s, a.z * s);
-    const mulVec = (a, b) => vec3(a.x * b.x, a.y * b.y, a.z * b.z);
-    const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
-    const length = a => Math.sqrt(dot(a, a));
-    const normalize = a => { let l = length(a); return l > 0 ? mul(a, 1/l) : a; };
-    const reflect = (v, n) => sub(v, mul(n, 2 * dot(v, n)));
+    const spheres = [
+      { x: 0, y: 0, z: -5, r: 1, color: [1, 0.3, 0.3], reflective: 0.3 },
+      { x: -2, y: 0.5, z: -5, r: 0.7, color: [0.3, 1, 0.3], reflective: 0.2 },
+      { x: 2, y: -0.5, z: -5, r: 0.6, color: [0.3, 0.3, 1], reflective: 0.4 },
+      { x: 0, y: -100, z: -5, r: 100, color: [0.8, 0.8, 0.8], reflective: 0.1 },
+    ];
+    
+    const lights = [
+      { x: 5, y: 5, z: -3, intensity: 1.2 },
+      { x: -5, y: 3, z: -2, intensity: 0.5 },
+    ];
     
     function resize() {
-      width = Math.min(800, window.innerWidth - 280);
-      height = Math.min(600, window.innerHeight - 40);
+      width = Math.min(window.innerWidth, 400);
+      height = Math.min(window.innerHeight, 300);
       canvas.width = width;
       canvas.height = height;
       render();
     }
     
-    function initSpheres() {
-      spheres = [
-        { center: vec3(0, 0, 0), radius: 1, color: vec3(0.9, 0.2, 0.2), reflectivity: 0.3 },
-        { center: vec3(2, 0, 0), radius: 0.7, color: vec3(0.2, 0.8, 0.3), reflectivity: 0.2 },
-        { center: vec3(-2, 0, 0), radius: 0.8, color: vec3(0.3, 0.3, 0.9), reflectivity: 0.4 },
-        { center: vec3(0, -1.7, 0), radius: 1.5, color: vec3(0.4, 0.4, 0.4), reflectivity: 0.1 }, // floor
-      ];
+    function normalize(v) {
+      let len = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+      return { x: v.x / len, y: v.y / len, z: v.z / len };
     }
     
-    function intersect(rayOrigin, rayDir) {
-      let closest = null;
-      let minDist = Infinity;
+    function dot(a, b) {
+      return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+    
+    function sub(a, b) {
+      return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+    }
+    
+    function add(a, b) {
+      return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+    }
+    
+    function scale(v, s) {
+      return { x: v.x * s, y: v.y * s, z: v.z * s };
+    }
+    
+    function intersectSphere(origin, dir, sphere) {
+      let oc = sub(origin, { x: sphere.x, y: sphere.y, z: sphere.z });
+      let a = dot(dir, dir);
+      let b = 2 * dot(oc, dir);
+      let c = dot(oc, oc) - sphere.r * sphere.r;
+      let disc = b * b - 4 * a * c;
       
-      for (let sphere of spheres) {
-        let oc = sub(rayOrigin, sphere.center);
-        let a = dot(rayDir, rayDir);
-        let b = 2 * dot(oc, rayDir);
-        let c = dot(oc, oc) - sphere.radius * sphere.radius;
-        let discriminant = b * b - 4 * a * c;
-        
-        if (discriminant > 0) {
-          let t = (-b - Math.sqrt(discriminant)) / (2 * a);
-          if (t > 0.01 && t < minDist) {
-            minDist = t;
-            let hitPoint = add(rayOrigin, mul(rayDir, t));
-            let normal = normalize(sub(hitPoint, sphere.center));
-            closest = { t: minDist, point: hitPoint, normal, sphere };
-          }
+      if (disc < 0) return null;
+      
+      let t = (-b - Math.sqrt(disc)) / (2 * a);
+      if (t < 0.001) t = (-b + Math.sqrt(disc)) / (2 * a);
+      if (t < 0.001) return null;
+      
+      let point = add(origin, scale(dir, t));
+      let normal = normalize(sub(point, { x: sphere.x, y: sphere.y, z: sphere.z }));
+      
+      return { t, point, normal, sphere };
+    }
+    
+    function trace(origin, dir, depth) {
+      let closest = null;
+      let minT = Infinity;
+      
+      for (let s of spheres) {
+        let hit = intersectSphere(origin, dir, s);
+        if (hit && hit.t < minT) {
+          minT = hit.t;
+          closest = hit;
         }
       }
-      return closest;
-    }
-    
-    function getShadowFactor(point, lightDir) {
-      let shadowRay = { origin: add(point, mul(lightDir, 0.01)), dir: lightDir };
-      let hit = intersect(shadowRay.origin, shadowRay.dir);
-      if (hit && hit.t < length(sub(light, point))) return 0.3;
-      return 1.0;
-    }
-    
-    function trace(rayOrigin, rayDir, depth) {
-      if (depth <= 0) return vec3(0, 0, 0);
       
-      let hit = intersect(rayOrigin, rayDir);
-      if (!hit) {
-        // Gradient sky
-        let t = 0.5 * (rayDir.y + 1);
-        return add(mul(vec3(0.1, 0.1, 0.15), 1 - t), mul(vec3(0.2, 0.3, 0.5), t));
+      if (!closest) {
+        let t = 0.5 * (dir.y + 1);
+        let c = add(scale({ x: 0.1, y: 0.1, z: 0.2 }, 1 - t), scale({ x: 0.5, y: 0.7, z: 1 }, t));
+        return { r: c.x, g: c.y, b: c.z };
       }
       
-      let lightDir = normalize(vec3(light.x, light.y, light.z));
-      let shadow = getShadowFactor(hit.point, lightDir);
-      let diffuse = Math.max(0, dot(hit.normal, lightDir)) * shadow;
-      let ambient = 0.15;
+      let color = { r: 0, g: 0, b: 0 };
       
-      let color = mulVec(hit.sphere.color, ambient + diffuse * 0.7);
+      // Ambient
+      color.r += closest.sphere.color[0] * 0.1;
+      color.g += closest.sphere.color[1] * 0.1;
+      color.b += closest.sphere.color[2] * 0.1;
+      
+      // Diffuse from lights
+      for (let light of lights) {
+        let lightDir = normalize(sub(light, closest.point));
+        let shadowOrig = add(closest.point, scale(closest.normal, 0.001));
+        
+        // Shadow check
+        let inShadow = false;
+        for (let s of spheres) {
+          if (s === closest.sphere) continue;
+          let hit = intersectSphere(shadowOrig, lightDir, s);
+          if (hit && hit.t < Infinity) {
+            inShadow = true;
+            break;
+          }
+        }
+        
+        if (!inShadow) {
+          let diff = Math.max(0, dot(closest.normal, lightDir));
+          color.r += closest.sphere.color[0] * diff * light.intensity * 0.5;
+          color.g += closest.sphere.color[1] * diff * light.intensity * 0.5;
+          color.b += closest.sphere.color[2] * diff * light.intensity * 0.5;
+          
+          // Specular
+          let viewDir = normalize(sub(origin, closest.point));
+          let reflectDir = sub(scale(closest.normal, 2 * dot(lightDir, closest.normal)), lightDir);
+          let spec = Math.pow(Math.max(0, dot(viewDir, reflectDir)), 32);
+          color.r += spec * light.intensity * 0.3;
+          color.g += spec * light.intensity * 0.3;
+          color.b += spec * light.intensity * 0.3;
+        }
+      }
       
       // Reflection
-      if (hit.sphere.reflectivity > 0 && bounces > 0) {
-        let reflDir = reflect(rayDir, hit.normal);
-        let reflOrigin = add(hit.point, mul(hit.normal, 0.01));
-        let reflColor = trace(reflOrigin, reflDir, depth - 1);
-        color = add(mul(color, 1 - hit.sphere.reflectivity), mul(reflColor, hit.sphere.reflectivity));
+      if (depth < maxBounces && closest.sphere.reflective > 0) {
+        let reflectDir = sub(dir, scale(closest.normal, 2 * dot(dir, closest.normal)));
+        let reflectColor = trace(add(closest.point, scale(closest.normal, 0.001)), reflectDir, depth + 1);
+        color.r = color.r * (1 - closest.sphere.reflective) + reflectColor.r * closest.sphere.reflective;
+        color.g = color.g * (1 - closest.sphere.reflective) + reflectColor.g * closest.sphere.reflective;
+        color.b = color.b * (1 - closest.sphere.reflective) + reflectColor.b * closest.sphere.reflective;
       }
       
       return color;
     }
     
     function render() {
-      if (isRendering) return;
-      isRendering = true;
-      
-      let startTime = performance.now();
-      initSpheres();
-      
       const imageData = ctx.createImageData(width, height);
-      let aspectRatio = width / height;
       let fovRad = fov * Math.PI / 180;
-      let halfHeight = Math.tan(fovRad / 2);
-      let halfWidth = aspectRatio * halfHeight;
+      let aspect = width / height;
+      let camX = Math.sin(cameraAngle) * 6;
+      let camZ = -Math.cos(cameraAngle) * 6;
+      let origin = { x: camX, y: cameraHeight, z: camZ };
       
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          let color = vec3(0, 0, 0);
+          let color = { r: 0, g: 0, b: 0 };
           
           for (let s = 0; s < samples; s++) {
             let u = (x + Math.random()) / width;
             let v = (y + Math.random()) / height;
             
-            let rayDir = normalize(vec3(
-              halfWidth * (2 * u - 1),
-              halfHeight * (1 - 2 * v),
-              -1
-            ));
+            let px = (2 * u - 1) * aspect * Math.tan(fovRad / 2);
+            let py = (1 - 2 * v) * Math.tan(fovRad / 2);
             
-            let c = trace(vec3(0, 0, 5), rayDir, bounces);
-            color = add(color, c);
+            let dir = normalize({ x: px, y: py, z: -1 });
+            
+            // Rotate direction by camera angle
+            let cos = Math.cos(cameraAngle);
+            let sin = Math.sin(cameraAngle);
+            let rotDir = {
+              x: dir.x * cos - dir.z * sin,
+              y: dir.y,
+              z: dir.x * sin + dir.z * cos
+            };
+            
+            let c = trace(origin, rotDir, 0);
+            color.r += c.r;
+            color.g += c.g;
+            color.b += c.b;
           }
-          color = mul(color, 1 / samples);
+          
+          color.r /= samples;
+          color.g /= samples;
+          color.b /= samples;
           
           // Tone mapping
-          color = vec3(
-            1 - Math.exp(-color.x * 1.5),
-            1 - Math.exp(-color.y * 1.5),
-            1 - Math.exp(-color.z * 1.5)
-          );
-          
-          // Gamma
-          color = vec3(Math.pow(color.x, 0.45), Math.pow(color.y, 0.45), Math.pow(color.z, 0.45));
+          color.r = 1 - Math.exp(-color.r * 1.5);
+          color.g = 1 - Math.exp(-color.g * 1.5);
+          color.b = 1 - Math.exp(-color.b * 1.5);
           
           let idx = (y * width + x) * 4;
-          imageData.data[idx] = Math.min(255, Math.floor(color.x * 255));
-          imageData.data[idx + 1] = Math.min(255, Math.floor(color.y * 255));
-          imageData.data[idx + 2] = Math.min(255, Math.floor(color.z * 255));
+          imageData.data[idx] = Math.min(255, Math.floor(color.r * 255));
+          imageData.data[idx + 1] = Math.min(255, Math.floor(color.g * 255));
+          imageData.data[idx + 2] = Math.min(255, Math.floor(color.b * 255));
           imageData.data[idx + 3] = 255;
         }
       }
       
       ctx.putImageData(imageData, 0, 0);
-      
-      let elapsed = performance.now() - startTime;
-      document.getElementById('fps').textContent = `Rendered in ${Math.round(elapsed)}ms`;
-      isRendering = false;
     }
     
-    // Controls
+    canvas.addEventListener('mousedown', e => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    
+    canvas.addEventListener('mousemove', e => {
+      if (dragging) {
+        cameraAngle += (e.clientX - lastX) * 0.01;
+        cameraHeight += (e.clientY - lastY) * 0.02;
+        cameraHeight = Math.max(-3, Math.min(3, cameraHeight));
+        lastX = e.clientX;
+        lastY = e.clientY;
+        render();
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    
     document.getElementById('samples').addEventListener('input', e => {
       samples = +e.target.value;
       document.getElementById('samplesVal').textContent = samples;
+      render();
     });
+    
     document.getElementById('bounces').addEventListener('input', e => {
-      bounces = +e.target.value;
-      document.getElementById('bouncesVal').textContent = bounces;
+      maxBounces = +e.target.value;
+      document.getElementById('bouncesVal').textContent = maxBounces;
+      render();
     });
+    
     document.getElementById('fov').addEventListener('input', e => {
       fov = +e.target.value;
       document.getElementById('fovVal').textContent = fov;
-    });
-    document.getElementById('lightX').addEventListener('input', e => {
-      light.x = +e.target.value;
-      document.getElementById('lightXVal').textContent = light.x;
-    });
-    document.getElementById('lightY').addEventListener('input', e => {
-      light.y = +e.target.value;
-      document.getElementById('lightYVal').textContent = light.y;
-    });
-    document.getElementById('lightZ').addEventListener('input', e => {
-      light.z = +e.target.value;
-      document.getElementById('lightZVal').textContent = light.z;
+      render();
     });
     
-    document.getElementById('render').addEventListener('click', render);
+    document.getElementById('preset-default').addEventListener('click', () => {
+      lights[0].intensity = 1.2;
+      lights[1].intensity = 0.5;
+      render();
+    });
     
-    document.getElementById('preset-classic').addEventListener('click', () => {
-      samples = 4; bounces = 2; fov = 60; light = vec3(5, 8, 5);
-      updateControls(); render();
-    });
-    document.getElementById('preset-soft').addEventListener('click', () => {
-      samples = 8; bounces = 3; fov = 50; light = vec3(0, 10, 3);
-      updateControls(); render();
-    });
-    document.getElementById('preset-chromatic').addEventListener('click', () => {
-      samples = 4; bounces = 2; fov = 70; light = vec3(3, 6, 8);
-      spheres = [
-        { center: vec3(0, 0, 0), radius: 1, color: vec3(0.95, 0.2, 0.5), reflectivity: 0.6 },
-        { center: vec3(1.8, 0, 0.5), radius: 0.6, color: vec3(0.2, 0.9, 0.4), reflectivity: 0.5 },
-        { center: vec3(-1.5, 0.5, 1), radius: 0.5, color: vec3(0.3, 0.4, 0.95), reflectivity: 0.7 },
-        { center: vec3(0, -1.5, 0), radius: 1.3, color: vec3(0.2, 0.2, 0.25), reflectivity: 0.2 },
-      ];
-      updateControls(); render();
-    });
     document.getElementById('preset-night').addEventListener('click', () => {
-      samples = 6; bounces = 2; fov = 55; light = vec3(-3, 4, 2);
-      spheres = [
-        { center: vec3(0, 0, 0), radius: 1.2, color: vec3(0.8, 0.8, 0.85), reflectivity: 0.5 },
-        { center: vec3(2.2, -0.3, 0), radius: 0.5, color: vec3(0.9, 0.3, 0.2), reflectivity: 0.3 },
-        { center: vec3(-2, 0.2, 0.5), radius: 0.6, color: vec3(0.2, 0.6, 0.8), reflectivity: 0.4 },
-        { center: vec3(0, -1.7, 0), radius: 1.5, color: vec3(0.15, 0.12, 0.1), reflectivity: 0.1 },
-      ];
-      updateControls(); render();
+      lights[0].intensity = 0.3;
+      lights[1].intensity = 0.1;
+      render();
     });
     
-    function updateControls() {
-      document.getElementById('samples').value = samples;
-      document.getElementById('samplesVal').textContent = samples;
-      document.getElementById('bounces').value = bounces;
-      document.getElementById('bouncesVal').textContent = bounces;
-      document.getElementById('fov').value = fov;
-      document.getElementById('fovVal').textContent = fov;
-      document.getElementById('lightX').value = light.x;
-      document.getElementById('lightXVal').textContent = light.x;
-      document.getElementById('lightY').value = light.y;
-      document.getElementById('lightYVal').textContent = light.y;
-      document.getElementById('lightZ').value = light.z;
-      document.getElementById('lightZVal').textContent = light.z;
-    }
+    document.getElementById('preset-bright').addEventListener('click', () => {
+      lights[0].intensity = 2;
+      lights[1].intensity = 1;
+      render();
+    });
+    
+    document.getElementById('preset-shadows').addEventListener('click', () => {
+      spheres[0].reflective = 0.5;
+      spheres[1].reflective = 0.4;
+      spheres[2].reflective = 0.6;
+      render();
+    });
     
     window.addEventListener('resize', resize);
     resize();
