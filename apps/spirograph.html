@@ -4,124 +4,290 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spirograph — Shadow's Garden</title>
-<meta name="description" content="Interactive spirograph. Parametric curves that create beautiful geometric patterns.">
+<meta name="description" content="Interactive spirograph — parametric curves that create beautiful geometric patterns"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body { margin: 0; overflow: hidden; background: #0a0a12; }
-  canvas { display: block; }
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    z-index: 10;
-  }
-  button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }
-  button:hover { background: rgba(255,255,255,0.2); }
-  .info {
+  canvas { display: block; cursor: crosshair; }
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
+    background: rgba(10, 10, 18, 0.92);
+    border: 1px solid #2a2a3a;
+    border-radius: 10px;
+    padding: 18px;
+    color: #ccc;
     font-size: 13px;
-    font-family: monospace;
+    z-index: 100;
+    min-width: 200px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
-  .sliders {
+  #controls h3 { margin: 0 0 14px 0; color: #fff; font-size: 15px; letter-spacing: 0.5px; }
+  .control-row { margin-bottom: 12px; }
+  .control-row label { display: block; margin-bottom: 5px; color: #888; font-size: 12px; }
+  .control-row input[type="range"] { 
+    width: 100%; 
+    accent-color: #6af;
+  }
+  .control-row span { float: right; color: #6af; font-family: monospace; }
+  button {
+    background: linear-gradient(135deg, #2a4a6a, #3a5a8a);
+    border: none;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  button:hover { 
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(100, 170, 255, 0.2);
+  }
+  button:active { transform: translateY(0); }
+  .preset-btns { margin-top: 14px; padding-top: 12px; border-top: 1px solid #333; }
+  .preset-btns button { margin-bottom: 5px; }
+  #info {
     position: fixed;
     bottom: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 10;
+    left: 20px;
+    color: #445;
+    font-size: 11px;
+    font-family: monospace;
   }
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(255,255,255,0.5);
+  #color-mode {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #333;
+  }
+  #color-mode label { color: #888; font-size: 12px; }
+  #color-mode select {
+    background: #1a1a2a;
+    border: 1px solid #333;
+    color: #ccc;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-left: 8px;
     font-size: 12px;
   }
-  input[type="range"] { width: 100px; }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Spirograph — click and watch</div>
-  <div class="sliders">
-    <div class="slider-row">Outer R: <input type="range" id="outer" min="50" max="200" value="150"></div>
-    <div class="slider-row">Inner r: <input type="range" id="inner" min="10" max="100" value="52"></div>
-    <div class="slider-row">Offset d: <input type="range" id="offset" min="10" max="150" value="70"></div>
-    <div class="slider-row">Speed: <input type="range" id="speed" min="1" max="20" value="5"></div>
+  <div id="controls">
+    <h3>Spirograph</h3>
+    <div class="control-row">
+      <label>Outer Radius (R) <span id="RVal">150</span></label>
+      <input type="range" id="R" min="20" max="300" value="150">
+    </div>
+    <div class="control-row">
+      <label>Inner Radius (r) <span id="rVal">52</span></label>
+      <input type="range" id="r" min="5" max="200" value="52">
+    </div>
+    <div class="control-row">
+      <label>Offset (d) <span id="dVal">70</span></label>
+      <input type="range" id="d" min="10" max="300" value="70">
+    </div>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">1</span></label>
+      <input type="range" id="speed" min="0" max="5" step="0.1" value="1">
+    </div>
+    <div class="control-row">
+      <label>Line Width <span id="widthVal">1</span></label>
+      <input type="range" id="width" min="0.5" max="5" step="0.5" value="1">
+    </div>
+    <div id="color-mode">
+      <label>Color Mode:
+        <select id="colorMode">
+          <option value="rainbow">Rainbow</option>
+          <option value="ocean">Ocean</option>
+          <option value="fire">Fire</option>
+          <option value="neon">Neon</option>
+          <option value="mono">Monochrome</option>
+        </select>
+      </label>
+    </div>
+    <div class="preset-btns">
+      <button id="clear">Clear</button>
+      <button id="download">Download</button>
+    </div>
+    <div class="preset-btns">
+      <button id="preset1">Classic</button>
+      <button id="preset2">Flower</button>
+      <button id="preset3">Star</button>
+      <button id="preset4">Spiral</button>
+      <button id="preset5">Chaos</button>
+    </div>
   </div>
-  <div class="controls">
-    <button id="clear">Clear</button>
-  </div>
-
+  <div id="info">Click to add point • Scroll to zoom</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let outerR = 150, innerR = 52, offsetD = 70, speed = 5;
+    let R = 150, r = 52, d = 70;
+    let speed = 1;
+    let lineWidth = 1;
+    let colorMode = 'rainbow';
     let t = 0;
     let points = [];
+    let hue = 0;
+    let animationId;
+    let zoom = 1;
+    let panX = 0, panY = 0;
+    let isAnimating = false;
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.fillStyle = '#0a0a12';
+      ctx.fillRect(0, 0, width, height);
     }
     
-    function draw() {
-      ctx.fillStyle = 'rgba(10, 10, 18, 0.03)';
-      ctx.fillRect(0, 0, width, height);
+    function getColor(h, mode) {
+      let s = 0.8, l = 0.6;
+      switch(mode) {
+        case 'ocean': return `hsl(${180 + h * 0.5}, 70%, 50%)`;
+        case 'fire': return `hsl(${Math.random() * 40}, 90%, 55%)`;
+        case 'neon': return `hsl(${h}, 100%, 60%)`;
+        case 'mono': return `hsl(280, 30%, ${50 + Math.sin(h * 0.1) * 20}%)`;
+        default: return `hsl(${h % 360}, 80%, 60%)`;
+      }
+    }
+    
+    function drawSpiro() {
+      if (points.length < 2) return;
       
-      const cx = width / 2;
-      const cy = height / 2;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
       
-      const x = (outerR - innerR) * Math.cos(t) + offsetD * Math.cos((outerR - innerR) / innerR * t);
-      const y = (outerR - innerR) * Math.sin(t) - offsetD * Math.sin((outerR - innerR) / innerR * t);
+      for (let i = 1; i < points.length; i++) {
+        ctx.beginPath();
+        ctx.strokeStyle = getColor(points[i].hue, colorMode);
+        ctx.moveTo(points[i-1].x, points[i-1].y);
+        ctx.lineTo(points[i].x, points[i].y);
+        ctx.stroke();
+      }
+    }
+    
+    function addPoint() {
+      let x = (R - r) * Math.cos(t) + d * Math.cos(((R - r) / r) * t);
+      let y = (R - r) * Math.sin(t) - d * Math.sin(((R - r) / r) * t);
       
-      points.push({ x: cx + x, y: cy + y });
-      if (points.length > 15000) points.shift();
+      x = width / 2 + panX + x * zoom;
+      y = height / 2 + panY + y * zoom;
       
-      if (points.length > 1) {
-        for (let i = 1; i < points.length; i++) {
-          const hue = (i / points.length * 360 + t * 10) % 360;
-          ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(points[i-1].x, points[i-1].y);
-          ctx.lineTo(points[i].x, points[i].y);
-          ctx.stroke();
-        }
+      points.push({ x, y, hue });
+      hue += speed * 0.5;
+    }
+    
+    function animate() {
+      if (!isAnimating) return;
+      
+      for (let i = 0; i < 3; i++) {
+        addPoint();
+        t += 0.05 * speed;
       }
       
-      t += speed * 0.01;
-      requestAnimationFrame(draw);
+      drawSpiro();
+      animationId = requestAnimationFrame(animate);
     }
     
-    document.getElementById('outer').oninput = e => { outerR = +e.target.value; points = []; };
-    document.getElementById('inner').oninput = e => { innerR = +e.target.value; points = []; };
-    document.getElementById('offset').oninput = e => { offsetD = +e.target.value; points = []; };
-    document.getElementById('speed').oninput = e => { speed = +e.target.value; };
-    document.getElementById('clear').onclick = () => { points = []; };
+    function clear() {
+      ctx.fillStyle = '#0a0a12';
+      ctx.fillRect(0, 0, width, height);
+      points = [];
+      t = 0;
+      hue = 0;
+    }
+    
+    // Event listeners
+    document.getElementById('R').addEventListener('input', e => {
+      R = +e.target.value;
+      document.getElementById('RVal').textContent = R;
+      clear();
+    });
+    document.getElementById('r').addEventListener('input', e => {
+      r = +e.target.value;
+      document.getElementById('rVal').textContent = r;
+      clear();
+    });
+    document.getElementById('d').addEventListener('input', e => {
+      d = +e.target.value;
+      document.getElementById('dVal').textContent = d;
+      clear();
+    });
+    document.getElementById('speed').addEventListener('input', e => {
+      speed = +e.target.value;
+      document.getElementById('speedVal').textContent = speed;
+    });
+    document.getElementById('width').addEventListener('input', e => {
+      lineWidth = +e.target.value;
+      document.getElementById('widthVal').textContent = lineWidth;
+    });
+    document.getElementById('colorMode').addEventListener('change', e => {
+      colorMode = e.target.value;
+    });
+    
+    document.getElementById('clear').addEventListener('click', clear);
+    document.getElementById('download').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'spirograph.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+    
+    document.getElementById('preset1').addEventListener('click', () => {
+      R = 150; r = 52; d = 70;
+      updateControls(); clear();
+    });
+    document.getElementById('preset2').addEventListener('click', () => {
+      R = 200; r = 100; d = 80;
+      updateControls(); clear();
+    });
+    document.getElementById('preset3').addEventListener('click', () => {
+      R = 180; r = 60; d = 120;
+      updateControls(); clear();
+    });
+    document.getElementById('preset4').addEventListener('click', () => {
+      R = 100; r = 33; d = 50;
+      updateControls(); clear();
+    });
+    document.getElementById('preset5').addEventListener('click', () => {
+      R = 140; r = 41; d = 95;
+      updateControls(); clear();
+    });
+    
+    function updateControls() {
+      document.getElementById('R').value = R;
+      document.getElementById('RVal').textContent = R;
+      document.getElementById('r').value = r;
+      document.getElementById('rVal').textContent = r;
+      document.getElementById('d').value = d;
+      document.getElementById('dVal').textContent = d;
+    }
+    
+    canvas.addEventListener('click', () => {
+      if (!isAnimating) {
+        isAnimating = true;
+        animate();
+      }
+    });
+    
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      zoom += e.deltaY > 0 ? -0.1 : 0.1;
+      zoom = Math.max(0.2, Math.min(3, zoom));
+    });
     
     window.addEventListener('resize', resize);
     resize();
-    draw();
   </script>
 </body>
 </html>
