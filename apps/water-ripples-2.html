@@ -4,119 +4,233 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Water Ripples — Shadow's Garden</title>
-<meta name="description" content="Interactive water ripple simulation. Click and drag to create ripples.">
+<meta name="description" content="Interactive 2D wave equation simulator — click and drag to create ripples"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body { margin: 0; overflow: hidden; background: #0a0a12; }
-  canvas { display: block; }
-  .info {
+  canvas { display: block; cursor: crosshair; }
+  #controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    color: rgba(255,255,255,0.4);
+    background: rgba(10, 10, 18, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    color: #ccc;
     font-size: 13px;
-    font-family: monospace;
+    z-index: 100;
+  }
+  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
+  .control-row { margin-bottom: 10px; }
+  .control-row label { display: block; margin-bottom: 4px; color: #888; }
+  .control-row input[type="range"] { width: 100%; }
+  .control-row span { float: right; color: #4af; }
+  button {
+    background: #2a4a6a;
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  button:hover { background: #3a5a7a; }
+  #info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: #556;
+    font-size: 11px;
   }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div class="info">Click and drag to create ripples</div>
-
+  <div id="controls">
+    <h3>Water Ripples</h3>
+    <div class="control-row">
+      <label>Damping <span id="dampingVal">0.99</span></label>
+      <input type="range" id="damping" min="0.9" max="0.999" step="0.001" value="0.99">
+    </div>
+    <div class="control-row">
+      <label>Speed <span id="speedVal">0.5</span></label>
+      <input type="range" id="speed" min="0.1" max="1" step="0.05" value="0.5">
+    </div>
+    <div class="control-row">
+      <label>Wave Height <span id="heightVal">50</span></label>
+      <input type="range" id="waveHeight" min="10" max="150" step="5" value="50">
+    </div>
+    <div class="preset-btns">
+      <button id="calm">Calm</button>
+      <button id="storm">Storm</button>
+      <button id="clear">Clear</button>
+    </div>
+  </div>
+  <div id="info">Click or drag to create ripples | Scroll to adjust brush size</div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let current, previous;
+    let current, previous, next;
     let damping = 0.99;
+    let speed = 0.5;
+    let waveHeight = 50;
+    let brushSize = 20;
+    let isDragging = false;
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
       current = new Float32Array(width * height);
       previous = new Float32Array(width * height);
+      next = new Float32Array(width * height);
+      render();
+    }
+    
+    function disturb(x, y, strength) {
+      const radius = brushSize;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const px = Math.floor(x + dx);
+          const py = Math.floor(y + dy);
+          if (px >= 0 && px < width && py >= 0 && py < height) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= radius) {
+              const factor = 1 - dist / radius;
+              current[py * width + px] += strength * factor;
+            }
+          }
+        }
+      }
     }
     
     function update() {
-      for (let i = width; i < width * height - width; i++) {
-        const val = (
-          current[i - 1] +
-          current[i + 1] +
-          current[i - width] +
-          current[i + width]
-        ) / 2 - previous[i];
-        
-        val *= damping;
-        previous[i] = val;
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const idx = y * width + x;
+          const val = (
+            current[idx - 1] +
+            current[idx + 1] +
+            current[idx - width] +
+            current[idx + width]
+          ) / 2 - previous[idx];
+          next[idx] = val * damping;
+        }
       }
       
-      const temp = current;
-      current = previous;
-      previous = temp;
+      const temp = previous;
+      previous = current;
+      current = next;
+      next = temp;
     }
     
-    function draw() {
+    function render() {
       const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
       
-      for (let i = 0; i < width * height; i++) {
-        const val = previous[i];
-        const c = Math.floor(val * 128 + 128);
-        const idx = i * 4;
-        
-        data[idx] = Math.max(0, Math.min(255, c + 20));
-        data[idx + 1] = Math.max(0, Math.min(255, c + 40));
-        data[idx + 2] = Math.max(0, Math.min(255, c + 60));
-        data[idx + 3] = 255;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = y * width + x;
+          const val = current[idx];
+          const pixelIdx = idx * 4;
+          
+          // Base color (deep blue)
+          let r = 10, g = 20, b = 40;
+          
+          // Add wave highlights
+          if (val > 0) {
+            const intensity = Math.min(255, val * 3);
+            r = Math.min(255, r + intensity);
+            g = Math.min(255, g + intensity * 1.2);
+            b = Math.min(255, b + intensity * 1.5);
+          } else if (val < 0) {
+            const intensity = Math.min(255, -val * 3);
+            r = Math.max(0, r - intensity * 0.5);
+            g = Math.max(0, g - intensity * 0.3);
+            b = Math.max(0, b - intensity * 0.2);
+          }
+          
+          imageData.data[pixelIdx] = r;
+          imageData.data[pixelIdx + 1] = g;
+          imageData.data[pixelIdx + 2] = b;
+          imageData.data[pixelIdx + 3] = 255;
+        }
       }
       
       ctx.putImageData(imageData, 0, 0);
     }
     
-    function ripple(x, y) {
-      if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
-        const i = y * width + x;
-        current[i] = 500;
-        current[i - 1] = 500;
-        current[i + 1] = 500;
-        current[i - width] = 500;
-        current[i + width] = 500;
-      }
-    }
-    
-    let dragging = false;
-    let lastX = 0, lastY = 0;
-    
-    canvas.addEventListener('mousedown', (e) => {
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      ripple(Math.floor(e.clientX), Math.floor(e.clientY));
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      if (dragging) {
-        const dx = e.clientX - lastX;
-        const dy = e.clientY - lastY;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 3) {
-          ripple(Math.floor(e.clientX), Math.floor(e.clientY));
-          lastX = e.clientX;
-          lastY = e.clientY;
-        }
-      }
-    });
-    
-    canvas.addEventListener('mouseup', () => dragging = false);
-    canvas.addEventListener('mouseleave', () => dragging = false);
-    
     function animate() {
       update();
-      draw();
+      render();
       requestAnimationFrame(animate);
     }
+    
+    canvas.addEventListener('mousedown', e => {
+      isDragging = true;
+      disturb(e.clientX, e.clientY, waveHeight);
+    });
+    
+    canvas.addEventListener('mousemove', e => {
+      if (isDragging) {
+        disturb(e.clientX, e.clientY, waveHeight);
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+    
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      brushSize += e.deltaY > 0 ? -2 : 2;
+      brushSize = Math.max(5, Math.min(50, brushSize));
+    });
+    
+    document.getElementById('damping').addEventListener('input', e => {
+      damping = +e.target.value;
+      document.getElementById('dampingVal').textContent = damping;
+    });
+    
+    document.getElementById('speed').addEventListener('input', e => {
+      speed = +e.target.value;
+      document.getElementById('speedVal').textContent = speed;
+    });
+    
+    document.getElementById('waveHeight').addEventListener('input', e => {
+      waveHeight = +e.target.value;
+      document.getElementById('heightVal').textContent = waveHeight;
+    });
+    
+    document.getElementById('calm').addEventListener('click', () => {
+      damping = 0.995;
+      waveHeight = 30;
+      document.getElementById('damping').value = damping;
+      document.getElementById('dampingVal').textContent = damping;
+      document.getElementById('waveHeight').value = waveHeight;
+      document.getElementById('heightVal').textContent = waveHeight;
+    });
+    
+    document.getElementById('storm').addEventListener('click', () => {
+      damping = 0.97;
+      waveHeight = 100;
+      document.getElementById('damping').value = damping;
+      document.getElementById('dampingVal').textContent = damping;
+      document.getElementById('waveHeight').value = waveHeight;
+      document.getElementById('heightVal').textContent = waveHeight;
+    });
+    
+    document.getElementById('clear').addEventListener('click', () => {
+      current.fill(0);
+      previous.fill(0);
+      next.fill(0);
+      render();
+    });
     
     window.addEventListener('resize', resize);
     resize();
