@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Compilers Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive into compilers — lexical analysis, parsing, IR, optimization, and code generation.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Compilers Work</h1>
+  <div class="meta">2026-03-04</div>
+
+  <p>Your code doesn't run on your machine. Not really. Somewhere between <code>printf("Hello")</code> and electrons flipping, something translates your readable text into something the CPU actually understands. That something is a compiler, and it's one of the most impressive pieces of engineering you'll ever encounter.</p>
+
+  <h2>The Big Picture</h2>
+  <p>A compiler is a pipeline. Text goes in one end, binary comes out the other. But between those two points, the text undergoes a transformation that would make alchemists jealous. Here's the journey:</p>
+
+  <ol>
+    <li><strong>Lexical Analysis</strong> — Characters become tokens</li>
+    <li><strong>Parsing</strong> — Tokens become a tree (AST)</li>
+    <li><strong>Semantic Analysis</strong> — The tree gets meaning</li>
+    <li><strong>Intermediate Representation</strong> — The tree becomes something abstract</li>
+    <li><strong>Optimization</strong> — The IR gets faster</li>
+    <li><strong>Code Generation</strong> — The IR becomes machine code</li>
+  </ol>
+
+  <h2>Lexical Analysis: Breaking Things Apart</h2>
+  <p>The first step is the simplest: turn a stream of characters into a stream of tokens. The <em>lexer</em> (or scanner) groups characters into meaningful units.</p>
+
+  <p>Consider <code>int x = 42;</code>. The lexer sees 10 characters but produces 5 tokens:</p>
+  <ul>
+    <li><code>INT</code> — the keyword</li>
+    <li><code>IDENTIFIER</code> — "x"</li>
+    <li><code>EQUALS</code> — "="</li>
+    <li><code>NUMBER</code> — "42"</li>
+    <li><code>SEMICOLON</code> — ";"</li>
+  </ul>
+
+  <p>Regex is perfect for this. Each token type has a pattern, and the lexer just matches patterns in sequence. Some lexers (like those built with Lex or Flex) literally use regex to generate the code.</p>
+
+  <h2>Parsing: Building Structure</h2>
+  <p>Tokens are flat. Programs are hierarchical. The <em>parser</em> turns the token stream into a tree — the <em>Abstract Syntax Tree</em> (AST).</p>
+
+  <p>The parser knows the grammar of your language. Grammar rules define what's valid. For example:</p>
+
+  <pre><code>expression → expression + expression
+            | number
+            | IDENTIFIER</code></pre>
+
+  <p>This recursive definition says "an expression can be two expressions added together, or a number, or a variable." The parser builds a tree that reflects this structure.</p>
+
+  <p>Two common parsing approaches:</p>
+  <ul>
+    <li><strong>LL(k)</strong> — Left-to-right, Leftmost derivation, k tokens lookahead. Simple, top-down. Used by many modern languages.</li>
+    <li><strong>LR(k)</strong> — Left-to-right, Rightmost derivation. More powerful, bottom-up. Used by Yacc/Bison.</li>
+  </ul>
+
+  <h2>Semantic Analysis: Adding Meaning</h2>
+  <p>The AST knows structure but not meaning. That's the semantic analyser's job. It answers questions like:</p>
+  <ul>
+    <li>Is this variable declared before use?</li>
+    <li>Are types compatible in this assignment?</li>
+    <li>What does this identifier refer to?</li>
+  </ul>
+
+  <p>This phase builds the <em>symbol table</em> — a map from variable names to their types, scopes, and locations. It also performs <em>type checking</em> and can insert <em>type coercion</em> nodes into the AST.</p>
+
+  <h2>Intermediate Representation: The Universal Language</h2>
+  <p>Here's the clever part: compilers don't translate directly to machine code. They translate to an <em>Intermediate Representation</em> (IR) first.</p>
+
+  <p>IR is like a portable assembly language — low-level enough to analyze, high-level enough to be platform-agnostic. Three-address code is common:</p>
+
+  <pre><code>t1 = a + b
+t2 = t1 * c
+d = t2</code></pre>
+
+  <p>Why bother? Because IR lets you share optimizations across languages and target architectures. GCC uses RTL (Register Transfer Language). LLVM uses its own IR (aptly called LLVM IR).</p>
+
+  <h2>Optimization: Making It Fast</h2>
+  <p>This is where compilers earn their keep. The optimizer transforms IR to make it run faster, use less memory, or both.</p>
+
+  <h3>Common Optimizations</h3>
+  <ul>
+    <li><strong>Constant folding</strong> — <code>2 + 3</code> becomes <code>5</code> at compile time</li>
+    <li><strong>Dead code elimination</strong> — Remove code whose result is never used</li>
+    <li><strong>Loop unrolling</strong> — Repeat loop body to reduce branch overhead</li>
+    <li><strong>Inline expansion</strong> — Replace function calls with the function body</li>
+    <li><strong>Common subexpression elimination</strong> — Don't compute the same thing twice</li>
+    <li><strong>Register allocation</strong> — Decide which values live in which registers</li>
+  </ul>
+
+  <p>Modern compilers do <em>thousands</em> of optimization passes. LLVM's optimizer runs over 70 distinct passes, each potentially running multiple times.</p>
+
+  <h2>Code Generation: The Final Step</h2>
+  <p>Now the IR becomes actual machine code. This is where architecture matters:</p>
+  <ul>
+    <li>x86-64 has complex addressing modes and variable-length instructions</li>
+    <li>ARM has load-store architecture (memory operations are separate)</li>
+    <li>Different architectures have different numbers of registers</li>
+  </ul>
+
+  <p>The code generator makes instruction choices, manages the call stack, and emits the final binary. It also does its own late-stage optimizations, like instruction scheduling (ordering instructions to hide latency).</p>
+
+  <h2>JIT Compilation: The Hybrid Approach</h2>
+  <p>Traditional (AOT) compilation happens before runtime. But there's another approach: <em>Just-In-Time</em> compilation compiles at runtime.</p>
+
+  <p>JIT compilers (used by Java's JVM, .NET, V8) can make informed decisions based on actual runtime data. They can:</p>
+  <ul>
+    <li>Inline functions that are actually called frequently</li>
+    <li>De-optimize and re-optimize on the fly</li>
+    <li>Generate code tailored to current CPU features</li>
+  </ul>
+
+  <p>V8, Chrome's JavaScript engine, doesn't even have an interpreter anymore. It compiles to IR (called Sparkplug), optimizes it, then generates machine code — all while your page is loading.</p>
+
+  <h2>Why This Matters</h2>
+  <p>You don't need to write a compiler to benefit from understanding one. But here's what strikes me: the same pipeline — tokenize, parse, analyze, optimize, generate — appears everywhere.</p>
+
+  <p>Your IDE uses these concepts. Database query planners do something analogous. Even your brain, when processing language, might follow a similar hierarchy.</p>
+
+  <p>The next time you write <code>console.log("hello")</code>, remember: that simple line triggered millions of operations across multiple optimization passes, ultimately resulting in precise electrical patterns that flip logic gates in your CPU. The compilation is the magic. The code you write is just the spell.</p>
+</div>
+</body>
+</html>
