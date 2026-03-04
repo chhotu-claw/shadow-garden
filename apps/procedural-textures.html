@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procedural Textures — Shadow's Garden</title>
+<meta name="description" content="Generate procedural textures — wood, marble, granite, noise — using JavaScript and canvas.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+    color: #fff;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.8rem;
+    margin-bottom: 20px;
+  }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .texture-card {
+    background: #111118;
+    border: 1px solid #222;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .texture-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-color: #444;
+  }
+  .texture-card canvas {
+    width: 100%;
+    height: 200px;
+    display: block;
+  }
+  .texture-info {
+    padding: 15px;
+  }
+  .texture-name {
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #fff;
+  }
+  .texture-desc {
+    font-size: 0.7rem;
+    color: #888;
+    line-height: 1.4;
+  }
+  .controls {
+    background: #111118;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .controls h2 {
+    font-size: 1rem;
+    margin: 0 0 15px 0;
+    color: #fff;
+  }
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+  }
+  .param-row label {
+    min-width: 100px;
+    font-size: 0.75rem;
+    color: #888;
+  }
+  .param-row input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    background: #333;
+    border-radius: 2px;
+    outline: none;
+  }
+  .param-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .param-row span {
+    min-width: 40px;
+    font-size: 0.7rem;
+    color: #666;
+    text-align: right;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  .btn {
+    background: #1a1a24;
+    border: 1px solid #333;
+    color: #aaa;
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn:hover {
+    background: #252530;
+    border-color: #00ff88;
+    color: #fff;
+  }
+  .btn.active {
+    background: #00ff8820;
+    border-color: #00ff88;
+    color: #00ff88;
+  }
+  .full-canvas {
+    background: #111118;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .full-canvas canvas {
+    width: 100%;
+    height: 300px;
+    border-radius: 4px;
+    display: block;
+  }
+  .full-canvas h2 {
+    font-size: 1rem;
+    margin: 0 0 15px 0;
+    color: #fff;
+  }
+  .canvas-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Procedural Textures</h1>
+  <p class="subtitle">Generate textures using noise mathematics — wood grain, marble, granite, and more.</p>
+  
+  <div class="full-canvas">
+    <h2>Generator</h2>
+    <canvas id="mainCanvas"></canvas>
+    <div class="canvas-controls">
+      <button class="btn active" onclick="setTexture('wood')">Wood</button>
+      <button class="btn" onclick="setTexture('marble')">Marble</button>
+      <button class="btn" onclick="setTexture('granite')">Granite</button>
+      <button class="btn" onclick="setTexture('clouds')">Clouds</button>
+      <button class="btn" onclick="setTexture('metal')">Metal</button>
+      <button class="btn" onclick="setTexture('terrain')">Terrain</button>
+      <button class="btn" onclick="generate()">Regenerate</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <h2>Parameters</h2>
+    <div class="param-row">
+      <label>Scale</label>
+      <input type="range" id="scale" min="1" max="20" value="5">
+      <span id="scaleVal">5</span>
+    </div>
+    <div class="param-row">
+      <label>Octaves</label>
+      <input type="range" id="octaves" min="1" max="8" value="4">
+      <span id="octavesVal">4</span>
+    </div>
+    <div class="param-row">
+      <label>Persistence</label>
+      <input type="range" id="persistence" min="1" max="10" value="5">
+      <span id="persistenceVal">0.5</span>
+    </div>
+    <div class="param-row">
+      <label>Detail</label>
+      <input type="range" id="detail" min="1" max="50" value="20">
+      <span id="detailVal">20</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="generate()">Generate</button>
+    </div>
+  </div>
+  
+  <div class="gallery" id="gallery"></div>
+</div>
+
+<script>
+  const canvas = document.getElementById('mainCanvas');
+  const ctx = canvas.getContext('2d');
+  let currentTexture = 'wood';
+  let seed = Math.random() * 10000;
+  
+  function resize() {
+    canvas.width = canvas.offsetWidth * 2;
+    canvas.height = 300 * 2;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  
+  // Simplex noise
+  const F2 = 0.5 * (Math.sqrt(3) - 1);
+  const G2 = (3 - Math.sqrt(3)) / 6;
+  const perm = new Uint8Array(512);
+  const grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+  
+  function initNoise() {
+    for (let i = 0; i < 256; i++) {
+      perm[i] = perm[i + 256] = Math.floor(Math.random() * 256);
+    }
+  }
+  initNoise();
+  
+  function dot2(g, x, y) { return g[0] * x + g[1] * y; }
+  
+  function noise2D(x, y) {
+    let n0, n1, n2;
+    let s = (x + y) * F2;
+    let i = Math.floor(x + s);
+    let j = Math.floor(y + s);
+    let t = (i + j) * G2;
+    let X0 = i - t, Y0 = j - t;
+    let x0 = x - X0, y0 = y - Y0;
+    let i1, j1;
+    if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+    let x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+    let x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+    let ii = i & 255, jj = j & 255;
+    let gi0 = perm[ii + perm[jj]] % 12;
+    let gi1 = perm[ii + i1 + perm[jj + j1]] % 12;
+    let gi2 = perm[ii + 1 + perm[jj + 1]] % 12;
+    let t0 = 0.5 - x0*x0 - y0*y0;
+    n0 = t0 < 0 ? 0 : t0*t0*t0*t0 * dot2(grad3[gi0], x0, y0);
+    let t1 = 0.5 - x1*x1 - y1*y1;
+    n1 = t1 < 0 ? 0 : t1*t1*t1*t1 * dot2(grad3[gi1], x1, y1);
+    let t2 = 0.5 - x2*x2 - y2*y2;
+    n2 = t2 < 0 ? 0 : t2*t2*t2*t2 * dot2(grad3[gi2], x2, y2);
+    return 70 * (n0 + n1 + n2);
+  }
+  
+  function fbm(x, y, octaves, persistence) {
+    let value = 0, amplitude = 1, frequency = 1, maxValue = 0;
+    for (let i = 0; i < octaves; i++) {
+      value += amplitude * noise2D(x * frequency, y * frequency);
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    }
+    return value / maxValue;
+  }
+  
+  function turbulence(x, y, octaves) {
+    let value = 0, amplitude = 1, frequency = 1;
+    for (let i = 0; i < octaves; i++) {
+      value += amplitude * Math.abs(noise2D(x * frequency, y * frequency));
+      amplitude *= 0.5;
+      frequency *= 2;
+    }
+    return value;
+  }
+  
+  function setTexture(type) {
+    currentTexture = type;
+    document.querySelectorAll('.canvas-controls .btn').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.textContent.toLowerCase() === type) btn.classList.add('active');
+    });
+    generate();
+  }
+  
+  function generate() {
+    const scale = document.getElementById('scale').value / 100;
+    const octaves = parseInt(document.getElementById('octaves').value);
+    const persistence = document.getElementById('persistence').value / 10;
+    const detail = document.getElementById('detail').value;
+    
+    const imageData = ctx.createImageData(canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const i = (y * canvas.width + x) * 4;
+        let r, g, b;
+        
+        const nx = x * scale / 100;
+        const ny = y * scale / 100;
+        
+        if (currentTexture === 'wood') {
+          const n = fbm(nx * 2, ny * detail / 10, octaves, persistence);
+          const rings = Math.sin((x * 0.02 + n * 5) * Math.PI) * 0.5 + 0.5;
+          const grain = fbm(x * 0.001, y * 0.02, 2, 0.5) * 0.3;
+          const v = rings * 0.7 + grain + 0.15;
+          r = Math.floor((0.4 + v * 0.6) * 255);
+          g = Math.floor((0.25 + v * 0.5) * 255);
+          b = Math.floor((0.1 + v * 0.3) * 255);
+        } else if (currentTexture === 'marble') {
+          const n = turbulence(nx * detail / 5, ny * detail / 5, octaves);
+          const v = Math.sin((x + y) * 0.02 + n * 8) * 0.5 + 0.5;
+          r = Math.floor(v * 240 + 15);
+          g = Math.floor(v * 235 + 20);
+          b = Math.floor(v * 225 + 30);
+        } else if (currentTexture === 'granite') {
+          const n = fbm(nx * detail / 3, ny * detail / 3, octaves, persistence);
+          const n2 = turbulence(nx * detail / 2, ny * detail / 2, 3);
+          const v = n * 0.6 + n2 * 0.4;
+          r = Math.floor((0.5 + v * 0.5) * 255);
+          g = Math.floor((0.48 + v * 0.48) * 255);
+          b = Math.floor((0.45 + v * 0.5) * 255);
+        } else if (currentTexture === 'clouds') {
+          const n = fbm(nx * detail / 5, ny * detail / 5, octaves, persistence);
+          const v = n * 0.5 + 0.5;
+          r = Math.floor(v * 220 + 20);
+          g = Math.floor(v * 230 + 20);
+          b = Math.floor(v * 255 + 0);
+        } else if (currentTexture === 'metal') {
+          const n = fbm(nx * 3, ny * 3, 4, 0.6);
+          const scratches = turbulence(nx * 20, ny * 20, 2);
+          const v = n * 0.3 + scratches * 0.2 + 0.4;
+          r = Math.floor(v * 200 + 40);
+          g = Math.floor(v * 200 + 45);
+          b = Math.floor(v * 210 + 45);
+        } else if (currentTexture === 'terrain') {
+          const n = fbm(nx * detail / 4, ny * detail / 4, octaves, persistence);
+          const v = n * 0.5 + 0.5;
+          if (v < 0.3) { r = 30; g = 60; b = 120; }
+          else if (v < 0.4) { r = 40; g = 100; b = 50; }
+          else if (v < 0.6) { r = 80; g = 130; b = 60; }
+          else if (v < 0.75) { r = 140; g = 140; b = 130; }
+          else { r = 220; g = 220; b = 220; }
+        }
+        
+        data[i] = Math.min(255, Math.max(0, r));
+        data[i + 1] = Math.min(255, Math.max(0, g));
+        data[i + 2] = Math.min(255, Math.max(0, b));
+        data[i + 3] = 255;
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    initNoise();
+  }
+  
+  // Gallery
+  const gallery = document.getElementById('gallery');
+  const textures = [
+    { name: 'Wood', desc: 'Ring patterns from sine waves + noise' },
+    { name: 'Marble', desc: 'Veined patterns from turbulence + sin' },
+    { name: 'Granite', desc: 'Speckled from layered noise' },
+    { name: 'Clouds', desc: 'Soft cloudy formations' },
+    { name: 'Metal', desc: 'Brushed metallic surface' },
+    { name: 'Terrain', desc: 'Elevation-based coloring' }
+  ];
+  
+  textures.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'texture-card';
+    card.innerHTML = `
+      <canvas id="thumb${i}"></canvas>
+      <div class="texture-info">
+        <div class="texture-name">${t.name}</div>
+        <div class="texture-desc">${t.desc}</div>
+      </div>
+    `;
+    card.onclick = () => setTexture(t.name.toLowerCase());
+    gallery.appendChild(card);
+    
+    const c = card.querySelector('canvas');
+    const cx = c.getContext('2d');
+    c.width = 280 * 2;
+    c.height = 200 * 2;
+    
+    const imageData = cx.createImageData(c.width, c.height);
+    const data = imageData.data;
+    const type = t.name.toLowerCase();
+    
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        const i = (y * c.width + x) * 4;
+        let r, g, b;
+        const nx = x / c.width, ny = y / c.height;
+        
+        if (type === 'wood') {
+          const n = fbm(nx * 2, ny * 2, 4, 0.5);
+          const rings = Math.sin((x * 0.02 + n * 5) * Math.PI) * 0.5 + 0.5;
+          const v = rings * 0.7 + 0.15;
+          r = (0.4 + v * 0.6) * 255; g = (0.25 + v * 0.5) * 255; b = (0.1 + v * 0.3) * 255;
+        } else if (type === 'marble') {
+          const n = turbulence(nx * 4, ny * 4, 4);
+          const v = Math.sin((x + y) * 0.02 + n * 8) * 0.5 + 0.5;
+          r = v * 240 + 15; g = v * 235 + 20; b = v * 225 + 30;
+        } else if (type === 'granite') {
+          const n = fbm(nx * 4, ny * 4, 4, 0.5);
+          const n2 = turbulence(nx * 4, ny * 4, 3);
+          const v = n * 0.6 + n2 * 0.4;
+          r = (0.5 + v * 0.5) * 255; g = (0.48 + v * 0.48) * 255; b = (0.45 + v * 0.5) * 255;
+        } else if (type === 'clouds') {
+          const n = fbm(nx * 4, ny * 4, 4, 0.5);
+          const v = n * 0.5 + 0.5;
+          r = v * 220 + 20; g = v * 230 + 20; b = v * 255;
+        } else if (type === 'metal') {
+          const n = fbm(nx * 3, ny * 3, 4, 0.6);
+          const scratches = turbulence(nx * 20, ny * 20, 2);
+          const v = n * 0.3 + scratches * 0.2 + 0.4;
+          r = v * 200 + 40; g = v * 200 + 45; b = v * 210 + 45;
+        } else if (type === 'terrain') {
+          const n = fbm(nx * 4, ny * 4, 4, 0.5);
+          const v = n * 0.5 + 0.5;
+          if (v < 0.3) { r = 30; g = 60; b = 120; }
+          else if (v < 0.4) { r = 40; g = 100; b = 50; }
+          else if (v < 0.6) { r = 80; g = 130; b = 60; }
+          else if (v < 0.75) { r = 140; g = 140; b = 130; }
+          else { r = 220; g = 220; b = 220; }
+        }
+        
+        data[i] = Math.min(255, Math.max(0, r));
+        data[i + 1] = Math.min(255, Math.max(0, g));
+        data[i + 2] = Math.min(255, Math.max(0, b));
+        data[i + 3] = 255;
+      }
+    }
+    cx.putImageData(imageData, 0, 0);
+  });
+  
+  // Sliders
+  ['scale', 'octaves', 'persistence', 'detail'].forEach(id => {
+    const input = document.getElementById(id);
+    const span = document.getElementById(id + 'Val');
+    input.addEventListener('input', () => {
+      span.textContent = id === 'persistence' ? (input.value / 10) : input.value;
+    });
+    input.addEventListener('change', generate);
+  });
+  
+  generate();
+</script>
+</body>
+</html>
