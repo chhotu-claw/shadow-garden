@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloth Sim — Shadow's Garden</title>
+<meta name="description" content="Interactive cloth simulation — a grid of particles connected by springs. Drag to interact, watch physics emerge.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  .btn {
+    background: rgba(20, 20, 30, 0.85);
+    border: 1px solid rgba(100, 120, 150, 0.4);
+    color: rgba(180, 200, 220, 0.9);
+    padding: 10px 18px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn:hover {
+    background: rgba(40, 50, 70, 0.9);
+    border-color: rgba(120, 160, 200, 0.6);
+    box-shadow: 0 0 15px rgba(100, 150, 200, 0.2);
+  }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(150, 170, 190, 0.5);
+    font-size: 11px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">drag to pull cloth • space to reset</div>
+  <div class="controls">
+    <button class="btn" onclick="resetCloth()">Reset</button>
+    <button class="btn" onclick="togglePins()">Pins</button>
+    <button class="btn" onclick="toggleWind()">Wind</button>
+    <button class="btn" onclick="changeStiffness(-0.1)">Looser</button>
+    <button class="btn" onclick="changeStiffness(0.1)">Tighter</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let particles = [];
+    let constraints = [];
+    let pinned = true;
+    let windEnabled = false;
+    let stiffness = 0.5;
+    let mouseX = 0, mouseY = 0;
+    let mouseDown = false;
+    let draggedParticle = null;
+    
+    const cols = 25;
+    const rows = 18;
+    const spacing = 25;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      initCloth();
+    }
+    
+    window.addEventListener('resize', resize);
+    
+    class Particle {
+      constructor(x, y, pinned = false) {
+        this.x = x;
+        this.y = y;
+        this.oldX = x;
+        this.oldY = y;
+        this.pinned = pinned;
+        this.mass = 1;
+      }
+      
+      update() {
+        if (this.pinned) return;
+        
+        const vx = (this.x - this.oldX) * 0.99;
+        const vy = (this.y - this.oldY) * 0.99;
+        
+        this.oldX = this.x;
+        this.oldY = this.y;
+        
+        this.x += vx;
+        this.y += vy + 0.3; // gravity
+        
+        if (windEnabled) {
+          const windForce = Math.sin(Date.now() * 0.002 + this.y * 0.01) * 0.5;
+          this.x += windForce;
+        }
+        
+        // Floor collision
+        if (this.y > height - 10) {
+          this.y = height - 10;
+          this.oldY = this.y + vy * 0.5;
+        }
+        
+        // Wall collisions
+        if (this.x < 10) this.x = 10;
+        if (this.x > width - 10) this.x = width - 10;
+      }
+    }
+    
+    class Constraint {
+      constructor(p1, p2) {
+        this.p1 = p1;
+        this.p2 = p2;
+        this.length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      }
+      
+      solve() {
+        const dx = this.p2.x - this.p1.x;
+        const dy = this.p2.y - this.p1.y;
+        const dist = Math.hypot(dx, dy);
+        const diff = (this.length - dist) / dist * stiffness;
+        
+        const offsetX = dx * diff * 0.5;
+        const offsetY = dy * diff * 0.5;
+        
+        if (!this.p1.pinned) {
+          this.p1.x -= offsetX;
+          this.p1.y -= offsetY;
+        }
+        if (!this.p2.pinned) {
+          this.p2.x += offsetX;
+          this.p2.y += offsetY;
+        }
+      }
+    }
+    
+    function initCloth() {
+      particles = [];
+      constraints = [];
+      
+      const startX = (width - (cols - 1) * spacing) / 2;
+      const startY = 80;
+      
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const px = startX + x * spacing;
+          const py = startY + y * spacing;
+          const isPinned = pinned && y === 0 && (x === 0 || x === cols - 1 || x === Math.floor(cols / 2));
+          particles.push(new Particle(px, py, isPinned));
+        }
+      }
+      
+      // Create constraints
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          if (x < cols - 1) {
+            constraints.push(new Constraint(particles[i], particles[i + 1]));
+          }
+          if (y < rows - 1) {
+            constraints.push(new Constraint(particles[i], particles[i + cols]));
+          }
+          // Diagonal constraints for stability
+          if (x < cols - 1 && y < rows - 1) {
+            constraints.push(new Constraint(particles[i], particles[i + cols + 1]));
+          }
+          if (x > 0 && y < rows - 1) {
+            constraints.push(new Constraint(particles[i], particles[i + cols - 1]));
+          }
+        }
+      }
+    }
+    
+    function resetCloth() {
+      initCloth();
+    }
+    
+    function togglePins() {
+      pinned = !pinned;
+      particles.forEach((p, i) => {
+        const row = Math.floor(i / cols);
+        const isEdge = row === 0 && (i % cols === 0 || i % cols === cols - 1 || i % cols === Math.floor(cols / 2));
+        p.pinned = pinned && isEdge;
+      });
+    }
+    
+    function toggleWind() {
+      windEnabled = !windEnabled;
+    }
+    
+    function changeStiffness(delta) {
+      stiffness = Math.max(0.1, Math.min(1, stiffness + delta));
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw constraints
+      ctx.strokeStyle = 'rgba(100, 150, 200, 0.3)';
+      ctx.lineWidth = 1;
+      constraints.forEach(c => {
+        ctx.beginPath();
+        ctx.moveTo(c.p1.x, c.p1.y);
+        ctx.lineTo(c.p2.x, c.p2.y);
+        ctx.stroke();
+      });
+      
+      // Draw particles
+      particles.forEach(p => {
+        ctx.fillStyle = p.pinned ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 180, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.pinned ? 4 : 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    function update() {
+      // Multiple constraint iterations for stability
+      for (let i = 0; i < 5; i++) {
+        constraints.forEach(c => c.solve());
+      }
+      particles.forEach(p => p.update());
+    }
+    
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // Mouse interaction
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      
+      // Find nearest particle
+      let minDist = 50;
+      draggedParticle = null;
+      particles.forEach(p => {
+        const dist = Math.hypot(p.x - mouseX, p.y - mouseY);
+        if (dist < minDist) {
+          minDist = dist;
+          draggedParticle = p;
+        }
+      });
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (draggedParticle && !draggedParticle.pinned) {
+        draggedParticle.x = mouseX;
+        draggedParticle.y = mouseY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+      draggedParticle = null;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      mouseDown = false;
+      draggedParticle = null;
+    });
+    
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        resetCloth();
+      }
+    });
+    
+    resize();
+    animate();
+  </script>
+</body>
+</html>
