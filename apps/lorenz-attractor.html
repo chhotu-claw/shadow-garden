@@ -4,102 +4,163 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorenz Attractor — Shadow's Garden</title>
-<meta name="description" content="Interactive Lorenz attractor visualization — the butterfly effect in 3D"></meta>
+<meta name="description" content="Interactive Lorenz attractor — the butterfly effect visualized in 3D with adjustable parameters.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #050508; }
-  canvas { display: block; }
-  #controls {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    background: rgba(5, 5, 8, 0.9);
-    border: 1px solid #222;
-    border-radius: 8px;
-    padding: 16px;
-    color: #aaa;
-    font-size: 13px;
-    z-index: 100;
-    min-width: 180px;
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
   }
-  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
-  .control-row { margin-bottom: 8px; }
-  .control-row label { display: block; margin-bottom: 3px; color: #666; font-size: 11px; }
-  .control-row input[type="range"] { width: 100%; }
-  .control-row span { float: right; color: #4af; font-size: 11px; }
-  button {
-    background: #2a3a4a;
-    border: none;
-    color: #ccc;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 4px;
-    margin-top: 8px;
-    font-size: 11px;
+  canvas {
+    display: block;
   }
-  button:hover { background: #3a4a5a; }
-  #info {
+  .controls {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    color: #445;
+    background: rgba(10, 10, 20, 0.9);
+    border: 1px solid rgba(100, 150, 200, 0.2);
+    padding: 16px;
+    border-radius: 8px;
+    z-index: 10;
+  }
+  .control-group {
+    margin-bottom: 12px;
+  }
+  .control-group:last-child {
+    margin-bottom: 0;
+  }
+  .control-group label {
+    display: block;
+    color: rgba(150, 200, 255, 0.7);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .control-group input[type="range"] {
+    width: 160px;
+    accent-color: #4a9eff;
+  }
+  .control-group span {
+    color: rgba(150, 200, 255, 0.9);
     font-size: 11px;
+    margin-left: 8px;
+  }
+  .buttons {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  .btn {
+    background: rgba(20, 30, 50, 0.8);
+    border: 1px solid rgba(100, 150, 200, 0.3);
+    color: rgba(180, 220, 255, 0.9);
+    padding: 8px 14px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn:hover {
+    background: rgba(40, 60, 100, 0.9);
+    border-color: rgba(100, 200, 255, 0.6);
+  }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(150, 200, 255, 0.5);
+    font-size: 11px;
+  }
+  .preset-label {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(100, 200, 150, 0.7);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
   }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div id="controls">
-    <h3>Lorenz Attractor</h3>
-    <div class="control-row">
-      <label>Sigma <span id="sigmaVal">10</span></label>
-      <input type="range" id="sigma" min="1" max="30" value="10" step="0.5">
+  <div class="info">drag to rotate • scroll to zoom</div>
+  <div class="preset-label" id="presetLabel">Classic Lorenz</div>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>σ (sigma) — Prandtl</label>
+      <input type="range" id="sigma" min="1" max="30" step="0.1" value="10">
+      <span id="sigmaVal">10</span>
     </div>
-    <div class="control-row">
-      <label>Rho <span id="rhoVal">28</span></label>
-      <input type="range" id="rho" min="0" max="50" value="28" step="0.5">
+    <div class="control-group">
+      <label>ρ (rho) — Rayleigh</label>
+      <input type="range" id="rho" min="1" max="100" step="0.5" value="28">
+      <span id="rhoVal">28</span>
     </div>
-    <div class="control-row">
-      <label>Beta <span id="betaVal">2.67</span></label>
-      <input type="range" id="beta" min="0.5" max="5" value="2.67" step="0.1">
+    <div class="control-group">
+      <label>β (beta)</label>
+      <input type="range" id="beta" min="0.1" max="10" step="0.1" value="2.67">
+      <span id="betaVal">2.67</span>
     </div>
-    <div class="control-row">
-      <label>Speed <span id="speedVal">3</span></label>
-      <input type="range" id="speed" min="1" max="10" value="3">
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="20" step="1" value="5">
+      <span id="speedVal">5</span>
     </div>
-    <div class="control-row">
-      <label>Trail <span id="trailVal">2000</span></label>
-      <input type="range" id="trail" min="100" max="10000" value="2000" step="100">
+    <div class="control-group">
+      <label>Trail Length</label>
+      <input type="range" id="trail" min="100" max="5000" step="100" value="2000">
+      <span id="trailVal">2000</span>
     </div>
-    <button id="reset">Reset</button>
-    <button id="pause">Pause</button>
   </div>
-  <div id="info">Drag to rotate | Scroll to zoom</div>
+  
+  <div class="buttons">
+    <button class="btn" onclick="setPreset('classic')">Classic</button>
+    <button class="btn" onclick="setPreset('butterfly')">Butterfly</button>
+    <button class="btn" onclick="setPreset('chaos')">Chaos</button>
+    <button class="btn" onclick="setPreset('stable')">Stable</button>
+    <button class="btn" onclick="reset()">Reset</button>
+  </div>
+
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     let width, height;
-    let points = [];
     let sigma = 10, rho = 28, beta = 2.67;
-    let speed = 3;
-    let maxTrail = 2000;
-    let paused = false;
+    let speed = 5, trailLength = 2000;
+    
+    // Lorenz state
+    let x = 0.1, y = 0, z = 0;
+    let points = [];
     
     // Camera
-    let rotX = 0.3;
-    let rotY = 0;
-    let zoom = 15;
-    let isDragging = false;
-    let lastMouse = { x: 0, y: 0 };
+    let rotX = 0.3, rotY = 0, zoom = 8;
+    let dragging = false, lastMX = 0, lastMY = 0;
     
     function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    // Lorenz equations
+    function lorenz(dt) {
+      const dx = sigma * (y - x) * dt;
+      const dy = (x * (rho - z) - y) * dt;
+      const dz = (x * y - beta * z) * dt;
+      return [x + dx, y + dy, z + dz];
     }
     
     function project(x, y, z) {
@@ -109,84 +170,63 @@
       // Rotate around X
       let y1 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
       let z2 = y * Math.sin(rotX) + z1 * Math.cos(rotX);
-      // Perspective
-      let scale = zoom * 30 / (z2 + 50);
-      return {
-        x: width / 2 + x1 * scale,
-        y: height / 2 + y1 * scale,
-        z: z2
-      };
-    }
-    
-    function lerp(a, b, t) { return a + (b - a) * t; }
-    
-    function getColor(t, total) {
-      const hue = lerp(200, 340, t / total);
-      return `hsl(${hue}, 80%, 60%)`;
-    }
-    
-    function init() {
-      points = [];
-      let x = 0.1, y = 0, z = 0;
-      for (let i = 0; i < maxTrail; i++) {
-        for (let s = 0; s < speed; s++) {
-          let dx = sigma * (y - x);
-          let dy = x * (rho - z) - y;
-          let dz = x * y - beta * z;
-          x += dx * 0.005;
-          y += dy * 0.005;
-          z += dz * 0.005;
-        }
-        points.push({ x, y, z });
-      }
+      
+      const scale = zoom * 15;
+      const px = width / 2 + x1 * scale;
+      const py = height / 2 - y1 * scale;
+      
+      return { x: px, y: py, z: z2 };
     }
     
     function draw() {
-      ctx.fillStyle = 'rgba(5, 5, 8, 0.15)';
+      // Dark background with subtle gradient
+      const grad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, Math.max(width, height));
+      grad.addColorStop(0, '#0f1018');
+      grad.addColorStop(1, '#050508');
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
       
+      // Draw points
       if (points.length < 2) return;
       
-      // Draw the trail
       for (let i = 1; i < points.length; i++) {
-        const p1 = project(points[i - 1].x, points[i - 1].y, points[i - 1].z);
-        const p2 = project(points[i].x, points[i].y, points[i].z);
+        const p1 = points[i - 1];
+        const p2 = points[i];
         
+        // Color based on position
+        const hue = 180 + p2.z * 3;
+        const alpha = Math.min(1, i / 500) * 0.8;
+        
+        ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.strokeStyle = getColor(i, points.length);
-        ctx.lineWidth = 2;
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
       }
       
-      // Draw current point
+      // Current point glow
       const head = points[points.length - 1];
-      const p = project(head.x, head.y, head.z);
+      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 20);
+      glow.addColorStop(0, 'rgba(100, 200, 255, 0.8)');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.fillStyle = '#fff';
-      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.arc(head.x, head.y, 20, 0, Math.PI * 2);
       ctx.fill();
     }
     
     function update() {
-      if (paused) return;
-      
-      const head = points[points.length - 1];
-      let x = head.x, y = head.y, z = head.z;
-      
-      for (let s = 0; s < speed; s++) {
-        let dx = sigma * (y - x);
-        let dy = x * (rho - z) - y;
-        let dz = x * y - beta * z;
-        x += dx * 0.005;
-        y += dy * 0.005;
-        z += dz * 0.005;
-      }
-      
-      points.push({ x, y, z });
-      if (points.length > maxTrail) {
-        points.shift();
+      for (let i = 0; i < speed; i++) {
+        const dt = 0.01;
+        [x, y, z] = lorenz(dt);
+        
+        const projected = project(x, y, z);
+        points.push(projected);
+        
+        if (points.length > trailLength) {
+          points.shift();
+        }
       }
     }
     
@@ -196,57 +236,85 @@
       requestAnimationFrame(animate);
     }
     
-    // Events
-    document.getElementById('sigma').addEventListener('input', e => {
-      sigma = +e.target.value;
+    // Controls
+    document.getElementById('sigma').oninput = function() {
+      sigma = parseFloat(this.value);
       document.getElementById('sigmaVal').textContent = sigma;
-    });
-    document.getElementById('rho').addEventListener('input', e => {
-      rho = +e.target.value;
+    };
+    document.getElementById('rho').oninput = function() {
+      rho = parseFloat(this.value);
       document.getElementById('rhoVal').textContent = rho;
-    });
-    document.getElementById('beta').addEventListener('input', e => {
-      beta = +e.target.value;
+    };
+    document.getElementById('beta').oninput = function() {
+      beta = parseFloat(this.value);
       document.getElementById('betaVal').textContent = beta;
-    });
-    document.getElementById('speed').addEventListener('input', e => {
-      speed = +e.target.value;
+    };
+    document.getElementById('speed').oninput = function() {
+      speed = parseInt(this.value);
       document.getElementById('speedVal').textContent = speed;
-    });
-    document.getElementById('trail').addEventListener('input', e => {
-      maxTrail = +e.target.value;
-      document.getElementById('trailVal').textContent = maxTrail;
-    });
-    document.getElementById('reset').addEventListener('click', init);
-    document.getElementById('pause').addEventListener('click', e => {
-      paused = !paused;
-      e.target.textContent = paused ? 'Resume' : 'Pause';
+    };
+    document.getElementById('trail').oninput = function() {
+      trailLength = parseInt(this.value);
+      document.getElementById('trailVal').textContent = trailLength;
+    };
+    
+    // Presets
+    function setPreset(name) {
+      document.getElementById('presetLabel').textContent = name.charAt(0).toUpperCase() + name.slice(1);
+      switch(name) {
+        case 'classic':
+          sigma = 10; rho = 28; beta = 2.67;
+          break;
+        case 'butterfly':
+          sigma = 10; rho = 28; beta = 8/3;
+          break;
+        case 'chaos':
+          sigma = 15; rho = 50; beta = 4;
+          break;
+        case 'stable':
+          sigma = 8; rho = 15; beta = 2;
+          break;
+      }
+      document.getElementById('sigma').value = sigma;
+      document.getElementById('rho').value = rho;
+      document.getElementById('beta').value = beta;
+      document.getElementById('sigmaVal').textContent = sigma;
+      document.getElementById('rhoVal').textContent = rho;
+      document.getElementById('betaVal').textContent = beta;
+    }
+    
+    function reset() {
+      x = 0.1; y = 0; z = 0;
+      points = [];
+    }
+    
+    // Mouse interaction
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastMX = e.clientX;
+      lastMY = e.clientY;
     });
     
-    canvas.addEventListener('mousedown', e => {
-      isDragging = true;
-      lastMouse = { x: e.clientX, y: e.clientY };
+    canvas.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        rotY += (e.clientX - lastMX) * 0.01;
+        rotX += (e.clientY - lastMY) * 0.01;
+        rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
+        lastMX = e.clientX;
+        lastMY = e.clientY;
+      }
     });
-    canvas.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      const dx = e.clientX - lastMouse.x;
-      const dy = e.clientY - lastMouse.y;
-      rotY += dx * 0.01;
-      rotX += dy * 0.01;
-      lastMouse = { x: e.clientX, y: e.clientY };
-    });
-    canvas.addEventListener('mouseup', () => isDragging = false);
-    canvas.addEventListener('mouseleave', () => isDragging = false);
     
-    canvas.addEventListener('wheel', e => {
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    
+    canvas.addEventListener('wheel', (e) => {
+      zoom *= e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(2, Math.min(50, zoom));
       e.preventDefault();
-      zoom += e.deltaY > 0 ? -1 : 1;
-      zoom = Math.max(5, Math.min(50, zoom));
-    });
+    }, { passive: false });
     
-    window.addEventListener('resize', resize);
-    resize();
-    init();
+    // Start
     animate();
   </script>
 </body>
