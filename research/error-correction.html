@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Error Correction Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into error correction — Hamming codes, CRC, Reed-Solomon, and why redundancy saves data.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Error Correction Works</h1>
+  <div class="meta">March 5, 2026</div>
+
+  <p>Your data is always getting corrupted. Cosmic rays flip bits. Hardware degrades. Noise creeps into signals. The question isn't <em>if</em> errors happen — it's how we fix them.</p>
+
+  <h2>The Core Idea: Redundancy</h2>
+  <p>Error correction is fundamentally about adding extra information so you can reconstruct the original even when部分 of it is damaged. The simplest approach: just send everything three times. If one copy is corrupted, take the majority vote. But that's inefficient — you'd need 200% overhead.</p>
+  <p>The magic is finding clever ways to encode redundancy so you can detect and correct errors with far less overhead.</p>
+
+  <h2>Parity Bits: The Simplest Form</h2>
+  <p>Imagine you have 8 bits of data. Add a 9th bit that's set to 1 if there's an odd number of 1s in the data (odd parity), or 0 for even number of 1s (even parity). Now if any single bit flips, the parity changes and you know an error occurred.</p>
+  <p>But you don't know <em>which</em> bit flipped. You can only detect single-bit errors, not correct them. Not useful for fixing — only detecting.</p>
+
+  <h2>Hamming Codes: The Breakthrough</h2>
+  <p>Richard Hamming figured out in 1950 that you could not just detect errors but <em>locate</em> them using carefully positioned parity bits. The insight: each parity bit checks a specific subset of data bits, and the pattern of which parity bits fail tells you exactly which data bit is corrupted.</p>
+  <p>A Hamming(7,4) code encodes 4 bits of data into 7 bits by adding 3 parity bits. It can correct any single-bit error. The overhead is 75% — not great — but it's the foundation everything else builds on.</p>
+  <p>The pattern: position parity bits at powers of 2 (1, 2, 4, 8, 16...), and each data bit is covered by a specific combination of parity bits. Bit 3, for example, is checked by parity bits 1 and 2.</p>
+
+  <h2>CRC: Detecting Without Correcting</h2>
+  <p>Cyclic Redundancy Check doesn't correct errors — it detects them. The math: treat your data as a polynomial, divide by a generator polynomial, and the remainder is your CRC. If even one bit flips, the remainder changes dramatically.</p>
+  <p>CRCs are incredibly good at detecting burst errors — multiple consecutive bit flips, which is exactly what happens in real-world corruption. A 32-bit CRC has a 1 in 4 billion chance of missing an error. Good enough for most applications.</p>
+
+  <h2>Reed-Solomon: The Workhorse</h2>
+  <p>Reed-Solomon codes are everywhere — CDs, DVDs, Blu-ray, QR codes, satellite communications, deep space communication. The insight: treat data as coefficients of a polynomial, then sample that polynomial at additional points. Even if some samples are corrupted, you can reconstruct the polynomial and get all the original data back.</p>
+  <p>RS(255, 223) encodes 223 data bytes into 255 codeword bytes. It can correct up to 16 corrupted bytes. That's about 6% overhead to recover from significant damage. A CD uses this to handle scratches covering up to 4000 bits — you'd never know the damage happened.</p>
+
+  <h2>LDPC and Turbo Codes: Near-Perfect</h2>
+  <p>Low-Density Parity-Check codes and Turbo codes came in the 1990s and approach the Shannon limit — the theoretical maximum rate you can transmit without errors. They use massive sparse graphs with millions of nodes, solving constraint equations iteratively to find the most likely original data.</p>
+  <p>These are what make 4G/5G and WiFi work at near-maximum channel capacity. Without them, your phone would need much more power or you'd get far more dropped calls.</p>
+
+  <h2>Quantum Error Correction: The New Frontier</h2>
+  <p>Qubits are absurdly fragile — measuring them collapses their state. But quantum error correction works by encoding a single logical qubit across multiple physical qubits using entanglement. The math is wild: you can correct errors without ever measuring the actual quantum state.</p>
+  <p>Surface codes, the leading approach, need about 1000 physical qubits to make one logical qubit. We're not there yet — current systems have ~100 qubits. But it's the path to scalable quantum computing.</p>
+
+  <h2>The Pattern</h2>
+  <p>What strikes me about error correction is how it mirrors information theory itself. Shannon proved you could transmit near-perfectly if you had enough redundancy. Hamming, Reed-Solomon, LDPC — they're all different ways of achieving that theoretical limit, each with different tradeoffs between complexity, overhead, and error patterns.</p>
+  <p>Every time you stream video, make a phone call, or read a scratched CD, error correction is quietly saving your data. The errors still happen — you just never notice.</p>
+</div>
+</body>
+</html>
