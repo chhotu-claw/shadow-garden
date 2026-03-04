@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raycaster — Shadow's Garden</title>
+<meta name="description" content="Classic Wolfenstein 3D-style raycaster engine. Navigate the dungeon with arrow keys.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #game {
+    border: 2px solid #333;
+    image-rendering: pixelated;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #666;
+    font-size: 12px;
+    text-align: center;
+  }
+  .map-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid #333;
+    color: #888;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  .map-toggle:hover {
+    border-color: #666;
+    color: #aaa;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="game" width="640" height="480"></canvas>
+  <button class="map-toggle" onclick="toggleMap()">Map [M]</button>
+  <div class="controls">Arrow Keys to move • M for map</div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Player
+    let player = {
+      x: 3.5,
+      y: 3.5,
+      angle: 0,
+      fov: Math.PI / 3
+    };
+    
+    // Map (1 = wall, 0 = empty)
+    const mapSize = 16;
+    const world = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+      [1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,1,0,1,1,1,1,1,1,1,0,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+      [1,0,1,0,0,0,0,0,1,0,0,0,0,1,0,1],
+      [1,0,1,1,1,1,1,0,1,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+      [1,0,1,1,1,1,1,1,1,0,1,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+    
+    // Textures (procedural brick pattern)
+    const texWidth = 64;
+    const texHeight = 64;
+    const wallTexture = new Uint8Array(texWidth * texHeight * 3);
+    
+    function generateTexture() {
+      for (let y = 0; y < texHeight; y++) {
+        for (let x = 0; x < texWidth; x++) {
+          const i = (y * texWidth + x) * 3;
+          const isGrout = x < 2 || y < 2 || x > texWidth - 3 || y > texHeight - 3;
+          const brickX = Math.floor(x / 16);
+          const brickY = Math.floor(y / 16);
+          const offsetBrick = (brickY % 2 === 1) ? 8 : 0;
+          const isBrick = Math.floor((x + offsetBrick) / 16) === brickX;
+          
+          if (isGrout || !isBrick) {
+            wallTexture[i] = 60;
+            wallTexture[i + 1] = 50;
+            wallTexture[i + 2] = 45;
+          } else {
+            const variation = Math.random() * 30 - 15;
+            wallTexture[i] = 150 + variation;
+            wallTexture[i + 1] = 60 + variation * 0.5;
+            wallTexture[i + 2] = 50 + variation * 0.3;
+          }
+        }
+      }
+    }
+    generateTexture();
+    
+    let showMap = false;
+    const keys = {};
+    
+    document.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if (e.key === 'm' || e.key === 'M') toggleMap();
+    });
+    document.addEventListener('keyup', (e) => keys[e.key] = false);
+    
+    function toggleMap() {
+      showMap = !showMap;
+    }
+    
+    function castRay(angle) {
+      const sin = Math.sin(angle);
+      const cos = Math.cos(angle);
+      
+      let dist = 0;
+      const maxDist = 20;
+      const step = 0.02;
+      
+      while (dist < maxDist) {
+        const x = player.x + cos * dist;
+        const y = player.y + sin * dist;
+        
+        const mapX = Math.floor(x);
+        const mapY = Math.floor(y);
+        
+        if (mapX < 0 || mapX >= mapSize || mapY < 0 || mapY >= mapSize) {
+          return { dist, side: 0 };
+        }
+        
+        if (world[mapY][mapX] === 1) {
+          // Determine which face was hit
+          const nextX = player.x + cos * (dist + step);
+          const nextY = player.y + sin * (dist + step);
+          const side = Math.abs(nextX - Math.floor(nextX) - 0.5) > Math.abs(nextY - Math.floor(nextY) - 0.5) ? 1 : 0;
+          return { dist, side };
+        }
+        
+        dist += step;
+      }
+      
+      return { dist: maxDist, side: 0 };
+    }
+    
+    function render() {
+      // Ceiling
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, width, height / 2);
+      
+      // Floor
+      ctx.fillStyle = '#2d2d3a';
+      ctx.fillRect(0, height / 2, width, height / 2);
+      
+      // Draw walls
+      const numRays = width;
+      
+      for (let i = 0; i < numRays; i++) {
+        const rayAngle = player.angle - player.fov / 2 + (i / numRays) * player.fov;
+        const { dist, side } = castRay(rayAngle);
+        
+        // Fix fisheye
+        const correctedDist = dist * Math.cos(rayAngle - player.angle);
+        const wallHeight = (height / correctedDist) * 0.8;
+        
+        // Wall color based on distance and side
+        const shade = Math.max(0.2, 1 - correctedDist / 15);
+        const sideShade = side === 1 ? 0.7 : 1.0;
+        const finalShade = shade * sideShade;
+        
+        // Draw vertical strip
+        const r = Math.floor(180 * finalShade);
+        const g = Math.floor(80 * finalShade);
+        const b = Math.floor(60 * finalShade);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(i, (height - wallHeight) / 2, 1, wallHeight);
+      }
+      
+      // Draw minimap
+      if (showMap) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(width - 180, 10, 170, 170);
+        
+        const scale = 10;
+        const offsetX = width - 180;
+        const offsetY = 10;
+        
+        // Draw walls
+        for (let y = 0; y < mapSize; y++) {
+          for (let x = 0; x < mapSize; x++) {
+            if (world[y][x] === 1) {
+              ctx.fillStyle = '#444';
+              ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+            }
+          }
+        }
+        
+        // Draw player
+        ctx.fillStyle = '#0f0';
+        ctx.beginPath();
+        ctx.arc(offsetX + player.x * scale, offsetY + player.y * scale, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw direction
+        ctx.strokeStyle = '#0f0';
+        ctx.beginPath();
+        ctx.moveTo(offsetX + player.x * scale, offsetY + player.y * scale);
+        ctx.lineTo(
+          offsetX + player.x * scale + Math.cos(player.angle) * 15,
+          offsetY + player.y * scale + Math.sin(player.angle) * 15
+        );
+        ctx.stroke();
+      }
+    }
+    
+    function update() {
+      const moveSpeed = 0.05;
+      const rotSpeed = 0.04;
+      
+      if (keys['ArrowLeft']) player.angle -= rotSpeed;
+      if (keys['ArrowRight']) player.angle += rotSpeed;
+      
+      const newX = player.x + Math.cos(player.angle) * moveSpeed * (keys['ArrowUp'] ? 1 : keys['ArrowDown'] ? -1 : 0);
+      const newY = player.y + Math.sin(player.angle) * moveSpeed * (keys['ArrowUp'] ? 1 : keys['ArrowDown'] ? -1 : 0);
+      
+      if (keys['ArrowUp'] || keys['ArrowDown']) {
+        if (world[Math.floor(player.y)][Math.floor(newX)] === 0) player.x = newX;
+        if (world[Math.floor(newY)][Math.floor(player.x)] === 0) player.y = newY;
+      }
+    }
+    
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    gameLoop();
+  </script>
+</body>
+</html>
