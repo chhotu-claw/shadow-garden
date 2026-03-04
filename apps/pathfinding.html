@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pathfinding — Shadow's Garden</title>
+<meta name="description" content="A* pathfinding algorithm visualized — watch the search spread, walls, and terrain costs in real-time">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
+    overflow: hidden;
+  }
+  #container {
+    display: flex;
+    height: 100vh;
+  }
+  #canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    border: 1px solid #222;
+    image-rendering: pixelated;
+  }
+  #sidebar {
+    width: 280px;
+    background: #111;
+    border-left: 1px solid #222;
+    padding: 20px;
+    color: #888;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  h2 {
+    color: #eee;
+    font-size: 14px;
+    margin: 0 0 8px 0;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .btn {
+    background: #1a1a1f;
+    border: 1px solid #333;
+    color: #aaa;
+    padding: 10px 14px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: inherit;
+  }
+  .btn:hover {
+    background: #252530;
+    border-color: #555;
+    color: #fff;
+  }
+  .btn.primary {
+    background: #1a3a2a;
+    border-color: #2a5a4a;
+    color: #6f9;
+  }
+  .btn.primary:hover {
+    background: #2a4a3a;
+    border-color: #3a7a6a;
+  }
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-color {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #333;
+  }
+  .stats {
+    background: #0f0f12;
+    padding: 12px;
+    border: 1px solid #222;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    color: #6f9;
+  }
+  .instructions {
+    color: #555;
+    line-height: 1.6;
+  }
+  .instructions kbd {
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: #888;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="container">
+    <div id="canvas-wrap">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div id="sidebar">
+      <div>
+        <h2>Controls</h2>
+        <div class="control-group">
+          <button class="btn primary" onclick="startPathfinding()">Start A*</button>
+          <button class="btn" onclick="resetGrid()">Clear</button>
+          <button class="btn" onclick="generateMaze()">Maze</button>
+          <button class="btn" onclick="generateTerrain()">Terrain</button>
+        </div>
+      </div>
+      <div>
+        <h2>Brush</h2>
+        <div class="control-group">
+          <button class="btn" onclick="setBrush('wall')">Wall</button>
+          <button class="btn" onclick="setBrush('start')">Start</button>
+          <button class="btn" onclick="setBrush('end')">End</button>
+          <button class="btn" onclick="setBrush('water')">Water (+2)</button>
+          <button class="btn" onclick="setBrush('grass')">Grass (+1)</button>
+        </div>
+      </div>
+      <div>
+        <h2>Legend</h2>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-color" style="background:#0f0"></div>Start</div>
+          <div class="legend-item"><div class="legend-color" style="background:#f00"></div>End</div>
+          <div class="legend-item"><div class="legend-color" style="background:#444"></div>Wall</div>
+          <div class="legend-item"><div class="legend-color" style="background:#4488ff"></div>Water (+2)</div>
+          <div class="legend-item"><div class="legend-color" style="background:#228822"></div>Grass (+1)</div>
+          <div class="legend-item"><div class="legend-color" style="background:#333366"></div>Open Set</div>
+          <div class="legend-item"><div class="legend-color" style="background:#663366"></div>Closed Set</div>
+          <div class="legend-item"><div class="legend-color" style="background:#ff0"></div>Path</div>
+        </div>
+      </div>
+      <div class="stats">
+        <h2>Stats</h2>
+        <div class="stat-row"><span>Nodes explored:</span><span class="stat-value" id="explored">0</span></div>
+        <div class="stat-row"><span>Path length:</span><span class="stat-value" id="pathlen">0</span></div>
+        <div class="stat-row"><span>Time:</span><span class="stat-value" id="time">0ms</span></div>
+      </div>
+      <div class="instructions">
+        <h2>How to Use</h2>
+        <p><kbd>Click</kbd> to place</p>
+        <p><kbd>Drag</kbd> to draw walls</p>
+        <p>Select brush type, then click or drag on grid</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const CELL_SIZE = 12;
+    const COLS = 60;
+    const ROWS = 40;
+    
+    canvas.width = COLS * CELL_SIZE;
+    canvas.height = ROWS * CELL_SIZE;
+    
+    const EMPTY = 0;
+    const WALL = 1;
+    const START = 2;
+    const END = 3;
+    const WATER = 4;
+    const GRASS = 5;
+    const OPEN = 6;
+    const CLOSED = 7;
+    const PATH = 8;
+    
+    const costs = {
+      [EMPTY]: 1,
+      [WALL]: Infinity,
+      [START]: 1,
+      [END]: 1,
+      [WATER]: 3,
+      [GRASS]: 2
+    };
+    
+    const colors = {
+      [EMPTY]: '#111',
+      [WALL]: '#444',
+      [START]: '#0f0',
+      [END]: '#f00',
+      [WATER]: '#4488ff',
+      [GRASS]: '#228822',
+      [OPEN]: '#333366',
+      [CLOSED]: '#663366',
+      [PATH]: '#ff0'
+    };
+    
+    let grid = [];
+    let startPos = { x: 5, y: ROWS / 2 | 0 };
+    let endPos = { x: COLS - 6, y: ROWS / 2 | 0 };
+    let brush = 'wall';
+    let isRunning = false;
+    let isDragging = false;
+    let path = [];
+    let explored = [];
+    let animFrame = null;
+    
+    function initGrid() {
+      grid = [];
+      for (let y = 0; y < ROWS; y++) {
+        grid[y] = [];
+        for (let x = 0; x < COLS; x++) {
+          grid[y][x] = EMPTY;
+        }
+      }
+      grid[startPos.y][startPos.x] = START;
+      grid[endPos.y][endPos.x] = END;
+    }
+    
+    function draw() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = grid[y][x];
+          ctx.fillStyle = colors[cell];
+          ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+        }
+      }
+    }
+    
+    function getNeighbors(x, y) {
+      const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+      const neighbors = [];
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
+          neighbors.push({ x: nx, y: ny });
+        }
+      }
+      return neighbors;
+    }
+    
+    function heuristic(a, b) {
+      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+    
+    async function startPathfinding() {
+      if (isRunning) return;
+      resetVisualization();
+      isRunning = true;
+      
+      const startTime = performance.now();
+      
+      const openSet = [{ ...startPos, g: 0, h: heuristic(startPos, endPos), f: heuristic(startPos, endPos), parent: null }];
+      const closedSet = new Set();
+      const cameFrom = {};
+      
+      let found = false;
+      let nodesExplored = 0;
+      
+      while (openSet.length > 0) {
+        openSet.sort((a, b) => a.f - b.f);
+        const current = openSet.shift();
+        const key = `${current.x},${current.y}`;
+        
+        if (current.x === endPos.x && current.y === endPos.y) {
+          found = true;
+          let curr = current;
+          while (curr) {
+            path.push({ x: curr.x, y: curr.y });
+            curr = cameFrom[`${curr.x},${curr.y}`];
+          }
+          break;
+        }
+        
+        closedSet.add(key);
+        explored.push({ x: current.x, y: current.y });
+        
+        if (!(current.x === startPos.x && current.y === startPos.y) &&
+            !(current.x === endPos.x && current.y === endPos.y)) {
+          grid[current.y][current.x] = CLOSED;
+        }
+        
+        nodesExplored++;
+        
+        for (const neighbor of getNeighbors(current.x, current.y)) {
+          const nKey = `${neighbor.x},${neighbor.y}`;
+          const cell = grid[neighbor.y][neighbor.x];
+          
+          if (cell === WALL || closedSet.has(nKey)) continue;
+          
+          const moveCost = costs[cell] || 1;
+          const tentativeG = current.g + moveCost;
+          
+          const existing = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+          
+          if (!existing) {
+            openSet.push({
+              ...neighbor,
+              g: tentativeG,
+              h: heuristic(neighbor, endPos),
+              f: tentativeG + heuristic(neighbor, endPos),
+              parent: current
+            });
+            cameFrom[nKey] = current;
+            if (!(neighbor.x === endPos.x && neighbor.y === endPos.y)) {
+              grid[neighbor.y][neighbor.x] = OPEN;
+            }
+          } else if (tentativeG < existing.g) {
+            existing.g = tentativeG;
+            existing.f = tentativeG + existing.h;
+            existing.parent = current;
+            cameFrom[nKey] = current;
+          }
+        }
+        
+        if (nodesExplored % 5 === 0) {
+          draw();
+          document.getElementById('explored').textContent = nodesExplored;
+          await new Promise(r => setTimeout(r, 1));
+        }
+      }
+      
+      const elapsed = performance.now() - startTime;
+      
+      if (found) {
+        for (const p of path) {
+          if (!(p.x === startPos.x && p.y === startPos.y) &&
+              !(p.x === endPos.x && p.y === endPos.y)) {
+            grid[p.y][p.x] = PATH;
+          }
+        }
+      }
+      
+      draw();
+      document.getElementById('explored').textContent = nodesExplored;
+      document.getElementById('pathlen').textContent = found ? path.length : 0;
+      document.getElementById('time').textContent = elapsed.toFixed(1) + 'ms';
+      
+      isRunning = false;
+    }
+    
+    function resetVisualization() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = grid[y][x];
+          if (cell === OPEN || cell === CLOSED || cell === PATH) {
+            grid[y][x] = EMPTY;
+          }
+        }
+      }
+      path = [];
+      explored = [];
+      draw();
+    }
+    
+    function resetGrid() {
+      initGrid();
+      path = [];
+      explored = [];
+      document.getElementById('explored').textContent = '0';
+      document.getElementById('pathlen').textContent = '0';
+      document.getElementById('time').textContent = '0ms';
+      draw();
+    }
+    
+    function generateMaze() {
+      initGrid();
+      for (let y = 1; y < ROWS - 1; y += 2) {
+        for (let x = 1; x < COLS - 1; x += 2) {
+          if (Math.random() > 0.3) {
+            grid[y][x] = WALL;
+            if (Math.random() > 0.5 && x + 2 < COLS - 1) {
+              grid[y][x + 1] = WALL;
+            }
+            if (Math.random() > 0.5 && y + 2 < ROWS - 1) {
+              grid[y + 1][x] = WALL;
+            }
+          }
+        }
+      }
+      grid[startPos.y][startPos.x] = START;
+      grid[endPos.y][endPos.x] = END;
+      draw();
+    }
+    
+    function generateTerrain() {
+      initGrid();
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (Math.random() < 0.15) {
+            grid[y][x] = WALL;
+          } else if (Math.random() < 0.2) {
+            grid[y][x] = WATER;
+          } else if (Math.random() < 0.2) {
+            grid[y][x] = GRASS;
+          }
+        }
+      }
+      grid[startPos.y][startPos.x] = START;
+      grid[endPos.y][endPos.x] = END;
+      draw();
+    }
+    
+    function setBrush(type) {
+      brush = type;
+    }
+    
+    function handleClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+      const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+      
+      if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+      
+      if (brush === 'start') {
+        grid[startPos.y][startPos.x] = EMPTY;
+        startPos = { x, y };
+        grid[y][x] = START;
+      } else if (brush === 'end') {
+        grid[endPos.y][endPos.x] = EMPTY;
+        endPos = { x, y };
+        grid[y][x] = END;
+      } else if (brush === 'wall') {
+        if (!(x === startPos.x && y === startPos.y) && !(x === endPos.x && y === endPos.y)) {
+          grid[y][x] = WALL;
+        }
+      } else if (brush === 'water') {
+        if (!(x === startPos.x && y === startPos.y) && !(x === endPos.x && y === endPos.y)) {
+          grid[y][x] = WATER;
+        }
+      } else if (brush === 'grass') {
+        if (!(x === startPos.x && y === startPos.y) && !(x === endPos.x && y === endPos.y)) {
+          grid[y][x] = GRASS;
+        }
+      }
+      draw();
+    }
+    
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      handleClick(e);
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) handleClick(e);
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      isDragging = false;
+    });
+    
+    initGrid();
+    draw();
+  </script>
+</body>
+</html>
