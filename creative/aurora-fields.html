@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora Fields — Shadow's Garden</title>
+<meta name="description" content="Interactive aurora borealis — flowing curtains of light driven by Perlin noise. Watch the lights dance.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #030712;
+    cursor: crosshair;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .btn {
+    background: rgba(10, 20, 40, 0.8);
+    border: 1px solid rgba(100, 200, 255, 0.3);
+    color: rgba(180, 220, 255, 0.9);
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn:hover {
+    background: rgba(20, 40, 80, 0.9);
+    border-color: rgba(100, 200, 255, 0.6);
+    box-shadow: 0 0 20px rgba(100, 200, 255, 0.3);
+  }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(150, 200, 255, 0.5);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="info">click to add flare • drag to influence</div>
+  <div class="controls">
+    <button class="btn" onclick="setMode('aurora')">Aurora</button>
+    <button class="btn" onclick="setMode('nebula')">Nebula</button>
+    <button class="btn" onclick="setMode('solar')">Solar Wind</button>
+    <button class="btn" onclick="toggleAudio()">Sound</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let time = 0;
+    let mode = 'aurora';
+    let audioCtx = null;
+    let oscillator = null;
+    let gainNode = null;
+    let audioEnabled = false;
+    let mouseX = 0, mouseY = 0;
+    let mouseDown = false;
+    let flares = [];
+    
+    const colors = {
+      aurora: ['#00ff88', '#00ffcc', '#00aaff', '#8800ff', '#ff00aa'],
+      nebula: ['#ff6b35', '#f7c59f', '#efa00b', '#d62246', '#74112b'],
+      solar: ['#ffcc00', '#ff8800', '#ff4400', '#ff0066', '#aa00ff']
+    };
+    
+    let currentColors = colors.aurora;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    
+    // Simplex noise implementation
+    const F2 = 0.5 * (Math.sqrt(3) - 1);
+    const G2 = (3 - Math.sqrt(3)) / 6;
+    
+    const perm = new Uint8Array(512);
+    const grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+    
+    for (let i = 0; i < 256; i++) {
+      perm[i] = perm[i + 256] = Math.floor(Math.random() * 256);
+    }
+    
+    function dot2(g, x, y) { return g[0] * x + g[1] * y; }
+    
+    function noise2D(xin, yin) {
+      let n0, n1, n2;
+      let s = (xin + yin) * F2;
+      let i = Math.floor(xin + s);
+      let j = Math.floor(yin + s);
+      let t = (i + j) * G2;
+      let X0 = i - t;
+      let Y0 = j - t;
+      let x0 = xin - X0;
+      let y0 = yin - Y0;
+      let i1, j1;
+      if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+      let x1 = x0 - i1 + G2;
+      let y1 = y0 - j1 + G2;
+      let x2 = x0 - 1 + 2 * G2;
+      let y2 = y0 - 1 + 2 * G2;
+      let ii = i & 255;
+      let jj = j & 255;
+      let gi0 = perm[ii + perm[jj]] % 12;
+      let gi1 = perm[ii + i1 + perm[jj + j1]] % 12;
+      let gi2 = perm[ii + 1 + perm[jj + 1]] % 12;
+      let t0 = 0.5 - x0 * x0 - y0 * y0;
+      if (t0 < 0) n0 = 0;
+      else { t0 *= t0; n0 = t0 * t0 * dot2(grad3[gi0], x0, y0); }
+      let t1 = 0.5 - x1 * x1 - y1 * y1;
+      if (t1 < 0) n1 = 0;
+      else { t1 *= t1; n1 = t1 * t1 * dot2(grad3[gi1], x1, y1); }
+      let t2 = 0.5 - x2 * x2 - y2 * y2;
+      if (t2 < 0) n2 = 0;
+      else { t2 *= t2; n2 = t2 * t2 * dot2(grad3[gi2], x2, y2); }
+      return 70 * (n0 + n1 + n2);
+    }
+    
+    function fbm(x, y, octaves) {
+      let value = 0;
+      let amplitude = 0.5;
+      let frequency = 1;
+      for (let i = 0; i < octaves; i++) {
+        value += amplitude * noise2D(x * frequency, y * frequency);
+        amplitude *= 0.5;
+        frequency *= 2;
+      }
+      return value;
+    }
+    
+    function drawAurora() {
+      // Deep space background with stars
+      const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, Math.max(width, height));
+      gradient.addColorStop(0, '#050a15');
+      gradient.addColorStop(0.5, '#030712');
+      gradient.addColorStop(1, '#010508');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Stars
+      for (let i = 0; i < 200; i++) {
+        const x = (Math.sin(i * 123.456) * 0.5 + 0.5) * width;
+        const y = (Math.cos(i * 789.012) * 0.5 + 0.5) * height;
+        const size = Math.random() * 1.5;
+        const alpha = Math.random() * 0.8 + 0.2;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Aurora curtains
+      const numCurtains = 5;
+      for (let c = 0; c < numCurtains; c++) {
+        const colorIndex = c % currentColors.length;
+        const baseHue = getHueFromHex(currentColors[colorIndex]);
+        
+        for (let layer = 0; layer < 3; layer++) {
+          ctx.beginPath();
+          ctx.moveTo(0, height);
+          
+          for (let x = 0; x <= width; x += 4) {
+            const yBase = height * (0.2 + c * 0.12);
+            const noiseVal = fbm(x * 0.003 + time * 0.1, c * 10 + time * 0.05, 4);
+            const wave = Math.sin(x * 0.01 + time * 0.5 + c) * 50;
+            const mouseInfluence = mouseDown ? 
+              Math.max(0, 100 - Math.abs(x - mouseX) * 0.5) * Math.sin(time * 2) : 0;
+            
+            const y = yBase + noiseVal * 150 + wave + mouseInfluence + layer * 30;
+            ctx.lineTo(x, y);
+          }
+          
+          ctx.lineTo(width, height);
+          ctx.lineTo(0, height);
+          ctx.closePath();
+          
+          const alpha = 0.15 - layer * 0.03;
+          const hue = baseHue + noise2D(c, time * 0.1) * 30;
+          ctx.fillStyle = `hsla(${hue}, 80%, 60%, ${alpha})`;
+          ctx.fill();
+        }
+      }
+      
+      // Flares (click interactions)
+      flares.forEach((flare, i) => {
+        const gradient = ctx.createRadialGradient(flare.x, flare.y, 0, flare.x, flare.y, flare.radius);
+        const colorHex = currentColors[flare.colorIndex % currentColors.length];
+        gradient.addColorStop(0, colorHex);
+        gradient.addColorStop(0.5, colorHex + '44');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(flare.x, flare.y, flare.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        flare.radius += 2;
+        flare.alpha -= 0.01;
+        if (flare.alpha <= 0) {
+          flares.splice(i, 1);
+        }
+      });
+    }
+    
+    function getHueFromHex(hex) {
+      const r = parseInt(hex.slice(1, 3), 16) / 255;
+      const g = parseInt(hex.slice(3, 5), 16) / 255;
+      const b = parseInt(hex.slice(5, 7), 16) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h;
+      if (max === min) h = 0;
+      else if (max === r) h = ((g - b) / (max - min)) % 6;
+      else if (max === g) h = (b - r) / (max - min) + 2;
+      else h = (r - g) / (max - min) + 4;
+      return Math.round(h * 60);
+    }
+    
+    function animate() {
+      time += 0.016;
+      drawAurora();
+      
+      if (audioEnabled && oscillator) {
+        const freq = 100 + Math.sin(time * 0.5) * 50 + fbm(time, 0, 2) * 100;
+        oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.05 + Math.sin(time) * 0.02, audioCtx.currentTime);
+      }
+      
+      requestAnimationFrame(animate);
+    }
+    
+    function setMode(newMode) {
+      mode = newMode;
+      currentColors = colors[mode];
+    }
+    
+    function toggleAudio() {
+      if (!audioEnabled) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 150;
+        gainNode.gain.value = 0.05;
+        oscillator.start();
+        audioEnabled = true;
+      } else {
+        oscillator.stop();
+        oscillator = null;
+        audioEnabled = false;
+      }
+    }
+    
+    canvas.addEventListener('click', (e) => {
+      flares.push({
+        x: e.clientX,
+        y: e.clientY,
+        radius: 10,
+        alpha: 1,
+        colorIndex: Math.floor(Math.random() * currentColors.length)
+      });
+    });
+    
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+    });
+    
+    animate();
+  </script>
+</body>
+</html>
