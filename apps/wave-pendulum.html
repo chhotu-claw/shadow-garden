@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Pendulum — Shadow's Garden</title>
+<meta name="description" content="Interactive wave pendulum — multiple pendulums with phase offsets create mesmerizing wave patterns. Click to interact.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .btn {
+    background: rgba(20, 20, 35, 0.9);
+    border: 1px solid rgba(100, 100, 150, 0.4);
+    color: rgba(180, 180, 220, 0.9);
+    padding: 10px 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: inherit;
+  }
+  .btn:hover {
+    background: rgba(40, 40, 70, 0.95);
+    border-color: rgba(150, 150, 200, 0.6);
+    box-shadow: 0 0 25px rgba(100, 100, 255, 0.2);
+  }
+  .info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: rgba(150, 150, 200, 0.5);
+    font-size: 11px;
+    pointer-events: none;
+  }
+  .title {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(150, 150, 200, 0.4);
+    font-size: 14px;
+    font-weight: 300;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="title">WAVE PENDULUM</div>
+  <div class="info">click to disturb • drag to spin</div>
+  <div class="controls">
+    <button class="btn" onclick="setMode('wave')">Wave</button>
+    <button class="btn" onclick="setMode('flower')">Flower</button>
+    <button class="btn" onclick="setMode('spiral')">Spiral</button>
+    <button class="btn" onclick="toggleTrails()">Trails</button>
+    <button class="btn" onclick="reset()">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let mode = 'wave';
+    let trails = true;
+    let dragging = false;
+    let mouseX = 0, mouseY = 0;
+    let time = 0;
+    
+    const numPendulums = 60;
+    const pendulums = [];
+    const trailPoints = [];
+    const maxTrailLength = 200;
+    
+    let centerX, centerY;
+    let stringLength = 150;
+    let phaseOffset = 0;
+    let angularVelocities = [];
+    let angles = [];
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      centerX = width / 2;
+      centerY = height / 2 - 50;
+      stringLength = Math.min(width, height) * 0.25;
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    
+    function initPendulums() {
+      pendulums.length = 0;
+      angularVelocities = [];
+      angles = [];
+      
+      for (let i = 0; i < numPendulums; i++) {
+        const t = i / (numPendulums - 1);
+        pendulums.push({
+          index: i,
+          t: t
+        });
+        angles.push(0);
+        angularVelocities.push(0);
+      }
+      
+      trailPoints.length = 0;
+    }
+    
+    function setMode(newMode) {
+      mode = newMode;
+      initPendulums();
+    }
+    
+    function toggleTrails() {
+      trails = !trails;
+      if (!trails) trailPoints.length = 0;
+    }
+    
+    function reset() {
+      initPendulums();
+    }
+    
+    function updatePhysics() {
+      const gravity = 0.3;
+      const damping = 0.998;
+      
+      for (let i = 0; i < numPendulums; i++) {
+        let freq;
+        
+        if (mode === 'wave') {
+          freq = 1 + pendulums[i].t * 0.5;
+        } else if (mode === 'flower') {
+          freq = 2 + pendulums[i].t * 2;
+        } else if (mode === 'spiral') {
+          freq = 1 + pendulums[i].t * 3;
+        }
+        
+        const accel = -gravity * Math.sin(angles[i]) * freq * 0.01;
+        angularVelocities[i] += accel;
+        angularVelocities[i] *= damping;
+        angles[i] += angularVelocities[i];
+        
+        // Mouse interaction
+        if (dragging) {
+          const px = centerX + Math.sin(angles[i]) * stringLength;
+          const py = centerY + Math.cos(angles[i]) * stringLength;
+          const dist = Math.sqrt((px - mouseX) ** 2 + (py - mouseY) ** 2);
+          if (dist < 100) {
+            const force = (100 - dist) * 0.001;
+            const dir = Math.atan2(px - mouseX, py - mouseY);
+            angularVelocities[i] += Math.sin(dir) * force;
+          }
+        }
+      }
+    }
+    
+    function draw() {
+      if (trails) {
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      } else {
+        ctx.fillStyle = '#0a0a0f';
+      }
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw center point
+      ctx.fillStyle = 'rgba(100, 100, 150, 0.3)';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Calculate positions and collect trail points
+      const positions = [];
+      
+      for (let i = 0; i < numPendulums; i++) {
+        const spread = (i / (numPendulums - 1) - 0.5) * 2;
+        let angle;
+        
+        if (mode === 'wave') {
+          angle = angles[i] + spread * Math.PI * 0.3;
+        } else if (mode === 'flower') {
+          angle = angles[i] + spread * Math.PI * 2;
+        } else if (mode === 'spiral') {
+          angle = angles[i] + spread * Math.PI * 4;
+        }
+        
+        const x = centerX + Math.sin(angle) * stringLength * (0.8 + pendulums[i].t * 0.4);
+        const y = centerY + Math.cos(angle) * stringLength * (0.8 + pendulums[i].t * 0.4);
+        
+        positions.push({ x, y, t: pendulums[i].t });
+        
+        // Draw string
+        ctx.strokeStyle = `rgba(60, 60, 100, ${0.15 + pendulums[i].t * 0.1})`;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        
+        // Draw pendulum bob
+        const hue = 200 + pendulums[i].t * 80;
+        const sat = 60 + pendulums[i].t * 20;
+        const light = 50 + Math.sin(time * 2 + i * 0.2) * 20;
+        
+        ctx.fillStyle = `hsl(${hue}, ${sat}%, ${light}%)`;
+        ctx.beginPath();
+        ctx.arc(x, y, 4 + pendulums[i].t * 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glow
+        ctx.shadowColor = `hsl(${hue}, ${sat}%, ${light}%)`;
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Draw connecting line through all pendulums
+      if (positions.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(positions[0].x, positions[0].y);
+        
+        for (let i = 1; i < positions.length; i++) {
+          ctx.lineTo(positions[i].x, positions[i].y);
+        }
+        
+        const gradient = ctx.createLinearGradient(
+          positions[0].x, positions[0].y,
+          positions[positions.length - 1].x, positions[positions.length - 1].y
+        );
+        gradient.addColorStop(0, 'rgba(100, 150, 255, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(200, 100, 255, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 100, 150, 0.8)');
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Store for trail
+        if (trails && time % 1 < 0.1) {
+          trailPoints.push([...positions]);
+          if (trailPoints.length > maxTrailLength) {
+            trailPoints.shift();
+          }
+        }
+      }
+      
+      // Draw trails
+      if (trails && trailPoints.length > 1) {
+        for (let t = 0; t < trailPoints.length; t++) {
+          const pts = trailPoints[t];
+          const alpha = t / trailPoints.length * 0.3;
+          
+          if (pts.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+              ctx.lineTo(pts[i].x, pts[i].y);
+            }
+            ctx.strokeStyle = `rgba(150, 100, 255, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    
+    function animate() {
+      time += 0.016;
+      updatePhysics();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      dragging = false;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      dragging = false;
+    });
+    
+    initPendulums();
+    animate();
+  </script>
+</body>
+</html>
