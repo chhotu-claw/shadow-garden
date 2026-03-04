@@ -3,348 +3,436 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boids — Shadow's Garden</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    background: #0a0a0a; 
+<title>Boids Flocking — Shadow's Garden</title>
+<meta name="description" content="Interactive boids flocking simulation — separation, alignment, cohesion rules create emergent group behavior.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<parameter name="style">
+  body {
+    margin: 0;
     overflow: hidden;
-    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
   }
-  canvas { display: block; }
-  #controls {
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(20, 20, 30, 0.85);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(100, 120, 180, 0.2);
+  }
+  .control-group label {
+    color: rgba(150, 170, 220, 0.8);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .control-group input[type="range"] {
+    width: 80px;
+    accent-color: #6b8cff;
+  }
+  .control-group .value {
+    color: #8ba4ff;
+    font-size: 11px;
+    min-width: 30px;
+    text-align: right;
+  }
+  .btn {
+    background: rgba(30, 40, 80, 0.8);
+    border: 1px solid rgba(100, 140, 255, 0.3);
+    color: rgba(180, 200, 255, 0.9);
+    padding: 8px 14px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 6px;
+  }
+  .btn:hover {
+    background: rgba(50, 70, 130, 0.9);
+    border-color: rgba(120, 160, 255, 0.5);
+    box-shadow: 0 0 15px rgba(100, 140, 255, 0.3);
+  }
+  .info {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(10,10,10,0.85);
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid #222;
-    color: #888;
+    color: rgba(150, 170, 220, 0.5);
     font-size: 11px;
-    z-index: 10;
-    max-width: 200px;
+    pointer-events: none;
   }
-  #controls h3 {
-    color: #fff;
-    font-size: 12px;
-    margin-bottom: 12px;
-    font-weight: 400;
-  }
-  .control-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  .control-row label { flex: 1; }
-  .control-row input[type="range"] {
-    width: 80px;
-    accent-color: #4a9;
-  }
-  .control-row span {
-    width: 30px;
-    text-align: right;
-    color: #4a9;
-  }
-  #hint {
+  .presets {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
-    color: #444;
-    font-size: 11px;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
   }
 </style>
-<link rel="stylesheet" href="../style.css">
-<script src="../nav.js" defer></script>
-<meta name="description" content="Three simple rules — separation, alignment, cohesion — produce emergent flocking. Click to add boids, right-click to add predators that scatter the flock.">
 </head>
 <body data-page-type="app">
-<div id="controls">
-  <h3>Boids Flocking</h3>
-  <div class="control-row">
-    <label>Separation</label>
-    <input type="range" id="separation" min="0" max="5" step="0.1" value="1.5">
-    <span id="sep-val">1.5</span>
+  <canvas id="canvas"></canvas>
+  <div class="info">click to add boids • drag to create predator</div>
+  <div class="presets">
+    <button class="btn" onclick="setPreset('flock')">Flock</button>
+    <button class="btn" onclick="setPreset('swarm')">Swarm</button>
+    <button class="btn" onclick="setPreset('murmuration')">Murmuration</button>
+    <button class="btn" onclick="resetBoids()">Reset</button>
   </div>
-  <div class="control-row">
-    <label>Alignment</label>
-    <input type="range" id="alignment" min="0" max="5" step="0.1" value="1.0">
-    <span id="ali-val">1.0</span>
+  <div class="controls">
+    <div class="control-group">
+      <label>Separation</label>
+      <input type="range" id="separation" min="0" max="3" step="0.1" value="1.5">
+      <span class="value" id="sepVal">1.5</span>
+    </div>
+    <div class="control-group">
+      <label>Alignment</label>
+      <input type="range" id="alignment" min="0" max="3" step="0.1" value="1.0">
+      <span class="value" id="aliVal">1.0</span>
+    </div>
+    <div class="control-group">
+      <label>Cohesion</label>
+      <input type="range" id="cohesion" min="0" max="3" step="0.1" value="1.0">
+      <span class="value" id="cohVal">1.0</span>
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="8" step="0.5" value="4">
+      <span class="value" id="spdVal">4</span>
+    </div>
+    <div class="control-group">
+      <label>Perception</label>
+      <input type="range" id="perception" min="20" max="150" step="5" value="50">
+      <span class="value" id="percVal">50</span>
+    </div>
   </div>
-  <div class="control-row">
-    <label>Cohesion</label>
-    <input type="range" id="cohesion" min="0" max="5" step="0.1" value="1.0">
-    <span id="coh-val">1.0</span>
-  </div>
-  <div class="control-row">
-    <label>Speed</label>
-    <input type="range" id="speed" min="1" max="8" step="0.5" value="3">
-    <span id="spd-val">3</span>
-  </div>
-  <div class="control-row">
-    <label>Trail</label>
-    <input type="range" id="trail" min="0" max="0.95" step="0.05" value="0.1">
-    <span id="trail-val">0.1</span>
-  </div>
-</div>
-<div id="hint">Click to add boids · Right-click to add predator</div>
-<canvas id="canvas"></canvas>
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
 
-let width, height;
-let boids = [];
-let predators = [];
-
-const params = {
-  separation: 1.5,
-  alignment: 1.0,
-  cohesion: 1.0,
-  maxSpeed: 3,
-  trail: 0.1,
-  perception: 60,
-  predatorRadius: 150
-};
-
-function resize() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
-
-class Boid {
-  constructor(x, y) {
-    this.x = x || Math.random() * width;
-    this.y = y || Math.random() * height;
-    this.vx = (Math.random() - 0.5) * 4;
-    this.vy = (Math.random() - 0.5) * 4;
-    this.ax = 0;
-    this.ay = 0;
-    this.hue = 160 + Math.random() * 40;
-  }
-
-  update() {
-    this.vx += this.ax;
-    this.vy += this.ay;
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
     
-    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-    if (speed > params.maxSpeed) {
-      this.vx = (this.vx / speed) * params.maxSpeed;
-      this.vy = (this.vy / speed) * params.maxSpeed;
+    let width, height;
+    let boids = [];
+    let predator = null;
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    
+    const params = {
+      separation: 1.5,
+      alignment: 1.0,
+      cohesion: 1.0,
+      maxSpeed: 4,
+      perception: 50
+    };
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     }
     
-    this.x += this.vx;
-    this.y += this.vy;
-    this.ax = 0;
-    this.ay = 0;
+    window.addEventListener('resize', resize);
+    resize();
     
-    // wrap around edges
-    if (this.x < 0) this.x = width;
-    if (this.x > width) this.x = 0;
-    if (this.y < 0) this.y = height;
-    if (this.y > height) this.y = 0;
-  }
-
-  applyForce(fx, fy) {
-    this.ax += fx;
-    this.ay += fy;
-  }
-
-  flock(boids) {
-    let sepX = 0, sepY = 0, sepCount = 0;
-    let aliX = 0, aliY = 0, aliCount = 0;
-    let cohX = 0, cohY = 0, cohCount = 0;
-
-    for (let other of boids) {
-      if (other === this) continue;
+    class Boid {
+      constructor(x, y) {
+        this.x = x || Math.random() * width;
+        this.y = y || Math.random() * height;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.ax = 0;
+        this.ay = 0;
+        this.hue = Math.random() * 60 + 200;
+      }
       
-      const dx = other.x - this.x;
-      const dy = other.y - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      edges() {
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+      }
       
-      if (dist < params.perception && dist > 0) {
-        // Separation: steer away from nearby boids
-        sepX -= dx / dist;
-        sepY -= dy / dist;
-        sepCount++;
+      align(boids) {
+        let steering = { x: 0, y: 0 };
+        let total = 0;
+        for (let other of boids) {
+          let d = dist(this.x, this.y, other.x, other.y);
+          if (other !== this && d < params.perception) {
+            steering.x += other.vx;
+            steering.y += other.vy;
+            total++;
+          }
+        }
+        if (total > 0) {
+          steering.x /= total;
+          steering.y /= total;
+          steering.x = (steering.x - this.vx) * params.alignment;
+          steering.y = (steering.y - this.vy) * params.alignment;
+        }
+        return steering;
+      }
+      
+      cohesion(boids) {
+        let steering = { x: 0, y: 0 };
+        let total = 0;
+        for (let other of boids) {
+          let d = dist(this.x, this.y, other.x, other.y);
+          if (other !== this && d < params.perception) {
+            steering.x += other.x;
+            steering.y += other.y;
+            total++;
+          }
+        }
+        if (total > 0) {
+          steering.x /= total;
+          steering.y /= total;
+          steering.x = (steering.x - this.x) * params.cohesion;
+          steering.y = (steering.y - this.y) * params.cohesion;
+        }
+        return steering;
+      }
+      
+      separation(boids) {
+        let steering = { x: 0, y: 0 };
+        let total = 0;
+        for (let other of boids) {
+          let d = dist(this.x, this.y, other.x, other.y);
+          if (other !== this && d < params.perception / 2) {
+            let diff = { x: this.x - other.x, y: this.y - other.y };
+            diff.x /= d || 1;
+            diff.y /= d || 1;
+            steering.x += diff.x;
+            steering.y += diff.y;
+            total++;
+          }
+        }
+        if (total > 0) {
+          steering.x /= total;
+          steering.y /= total;
+          steering.x *= params.separation;
+          steering.y *= params.separation;
+        }
+        return steering;
+      }
+      
+      flee(predator) {
+        if (!predator) return { x: 0, y: 0 };
+        let d = dist(this.x, this.y, predator.x, predator.y);
+        if (d < 150) {
+          let diff = { x: this.x - predator.x, y: this.y - predator.y };
+          diff.x /= d || 1;
+          diff.y /= d || 1;
+          let strength = (150 - d) / 150 * 5;
+          return { x: diff.x * strength, y: diff.y * strength };
+        }
+        return { x: 0, y: 0 };
+      }
+      
+      flock(boids) {
+        let alignment = this.align(boids);
+        let cohesion = this.cohesion(boids);
+        let separation = this.separation(boids);
+        let flee = this.flee(predator);
         
-        // Alignment: match velocity
-        aliX += other.vx;
-        aliY += other.vy;
-        aliCount++;
+        this.ax = alignment.x + cohesion.x + separation.x + flee.x;
+        this.ay = alignment.y + cohesion.y + separation.y + flee.y;
+      }
+      
+      update() {
+        this.vx += this.ax;
+        this.vy += this.ay;
         
-        // Cohesion: steer toward center of mass
-        cohX += other.x;
-        cohY += other.y;
-        cohCount++;
+        let speed = Math.sqrt(this.vx * this.vy * this.vx + this.vy);
+        if (speed > params.maxSpeed) {
+          this.vx = (this.vx / speed) * params.maxSpeed;
+          this.vy = (this.vy / speed) * params.maxSpeed;
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        this.edges();
+      }
+      
+      draw() {
+        let angle = Math.atan2(this.vy, this.vx);
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+        
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-6, 4);
+        ctx.lineTo(-3, 0);
+        ctx.lineTo(-6, -4);
+        ctx.closePath();
+        
+        let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        let brightness = 0.5 + (speed / params.maxSpeed) * 0.5;
+        ctx.fillStyle = `hsla(${this.hue}, 80%, ${brightness * 70}%, 0.85)`;
+        ctx.fill();
+        
+        ctx.restore();
       }
     }
-
-    if (sepCount > 0) {
-      sepX /= sepCount;
-      sepY /= sepCount;
-      const sepMag = Math.sqrt(sepX * sepX + sepY * sepY);
-      if (sepMag > 0) {
-        sepX = (sepX / sepMag) * params.maxSpeed - this.vx;
-        sepY = (sepY / sepMag) * params.maxSpeed - this.vy;
-      }
-    }
-
-    if (aliCount > 0) {
-      aliX /= aliCount;
-      aliY /= aliCount;
-      const aliMag = Math.sqrt(aliX * aliX + aliY * aliY);
-      if (aliMag > 0) {
-        aliX = (aliX / aliMag) * params.maxSpeed - this.vx;
-        aliY = (aliY / aliMag) * params.maxSpeed - this.vy;
-      }
-    }
-
-    if (cohCount > 0) {
-      cohX /= cohCount;
-      cohY /= cohCount;
-      cohX = cohX - this.x;
-      cohY = cohY - this.y;
-      const cohMag = Math.sqrt(cohX * cohX + cohY * cohY);
-      if (cohMag > 0) {
-        cohX = (cohX / cohMag) * params.maxSpeed - this.vx;
-        cohY = (cohY / cohMag) * params.maxSpeed - this.vy;
-      }
-    }
-
-    // Flee from predators
-    for (let pred of predators) {
-      const dx = this.x - pred.x;
-      const dy = this.y - pred.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < params.predatorRadius && dist > 0) {
-        const force = (params.predatorRadius - dist) / params.predatorRadius;
-        this.applyForce((dx / dist) * force * 5, (dy / dist) * force * 5);
-      }
-    }
-
-    this.applyForce(sepX * params.separation, sepY * params.separation);
-    this.applyForce(aliX * params.alignment, aliY * params.alignment);
-    this.applyForce(cohX * params.cohesion, cohY * params.cohesion);
-  }
-
-  draw() {
-    const angle = Math.atan2(this.vy, this.vx);
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(angle);
     
-    ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(-5, -4);
-    ctx.lineTo(-3, 0);
-    ctx.lineTo(-5, 4);
-    ctx.closePath();
+    function dist(x1, y1, x2, y2) {
+      return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    }
     
-    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, 0.9)`;
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-class Predator {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.vx = (Math.random() - 0.5) * 2;
-    this.vy = (Math.random() - 0.5) * 2;
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
+    function initBoids(count) {
+      boids = [];
+      for (let i = 0; i < count; i++) {
+        boids.push(new Boid());
+      }
+    }
     
-    if (this.x < 0) this.x = width;
-    if (this.x > width) this.x = 0;
-    if (this.y < 0) this.y = height;
-    if (this.y > height) this.y = 0;
-  }
-
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, 12, 0, Math.PI * 2);
-    ctx.strokeStyle = '#f44';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    function setPreset(name) {
+      switch(name) {
+        case 'flock':
+          params.separation = 1.5;
+          params.alignment = 1.0;
+          params.cohesion = 1.0;
+          params.maxSpeed = 4;
+          params.perception = 50;
+          initBoids(120);
+          break;
+        case 'swarm':
+          params.separation = 2.5;
+          params.alignment = 0.5;
+          params.cohesion = 0.8;
+          params.maxSpeed = 3;
+          params.perception = 40;
+          initBoids(200);
+          break;
+        case 'murmuration':
+          params.separation = 2.0;
+          params.alignment = 1.5;
+          params.cohesion = 0.3;
+          params.maxSpeed = 5;
+          params.perception = 80;
+          initBoids(300);
+          break;
+      }
+      updateSliders();
+    }
     
-    // fear radius
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, params.predatorRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,68,68,0.1)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-}
-
-// Initialize with boids
-for (let i = 0; i < 80; i++) {
-  boids.push(new Boid());
-}
-
-// Controls
-document.getElementById('separation').addEventListener('input', e => {
-  params.separation = parseFloat(e.target.value);
-  document.getElementById('sep-val').textContent = e.target.value;
-});
-document.getElementById('alignment').addEventListener('input', e => {
-  params.alignment = parseFloat(e.target.value);
-  document.getElementById('ali-val').textContent = e.target.value;
-});
-document.getElementById('cohesion').addEventListener('input', e => {
-  params.cohesion = parseFloat(e.target.value);
-  document.getElementById('coh-val').textContent = e.target.value;
-});
-document.getElementById('speed').addEventListener('input', e => {
-  params.maxSpeed = parseFloat(e.target.value);
-  document.getElementById('spd-val').textContent = e.target.value;
-});
-document.getElementById('trail').addEventListener('input', e => {
-  params.trail = parseFloat(e.target.value);
-  document.getElementById('trail-val').textContent = e.target.value;
-});
-
-// Click to add boids
-canvas.addEventListener('click', e => {
-  for (let i = 0; i < 5; i++) {
-    boids.push(new Boid(e.clientX + (Math.random() - 0.5) * 30, e.clientY + (Math.random() - 0.5) * 30));
-  }
-});
-
-// Right-click to add predator
-canvas.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  predators.push(new Predator(e.clientX, e.clientY));
-});
-
-function animate() {
-  // Trail effect
-  ctx.fillStyle = `rgba(10, 10, 10, ${1 - params.trail})`;
-  ctx.fillRect(0, 0, width, height);
-  
-  // Update and draw predators
-  for (let pred of predators) {
-    pred.update();
-    pred.draw();
-  }
-  
-  // Update and draw boids
-  for (let boid of boids) {
-    boid.flock(boids);
-    boid.update();
-    boid.draw();
-  }
-  
-  requestAnimationFrame(animate);
-}
-animate();
-</script>
+    function resetBoids() {
+      initBoids(150);
+    }
+    
+    function updateSliders() {
+      document.getElementById('separation').value = params.separation;
+      document.getElementById('sepVal').textContent = params.separation.toFixed(1);
+      document.getElementById('alignment').value = params.alignment;
+      document.getElementById('aliVal').textContent = params.alignment.toFixed(1);
+      document.getElementById('cohesion').value = params.cohesion;
+      document.getElementById('cohVal').textContent = params.cohesion.toFixed(1);
+      document.getElementById('speed').value = params.maxSpeed;
+      document.getElementById('spdVal').textContent = params.maxSpeed.toFixed(1);
+      document.getElementById('perception').value = params.perception;
+      document.getElementById('percVal').textContent = params.perception;
+    }
+    
+    // Event listeners
+    document.getElementById('separation').addEventListener('input', (e) => {
+      params.separation = parseFloat(e.target.value);
+      document.getElementById('sepVal').textContent = params.separation.toFixed(1);
+    });
+    document.getElementById('alignment').addEventListener('input', (e) => {
+      params.alignment = parseFloat(e.target.value);
+      document.getElementById('aliVal').textContent = params.alignment.toFixed(1);
+    });
+    document.getElementById('cohesion').addEventListener('input', (e) => {
+      params.cohesion = parseFloat(e.target.value);
+      document.getElementById('cohVal').textContent = params.cohesion.toFixed(1);
+    });
+    document.getElementById('speed').addEventListener('input', (e) => {
+      params.maxSpeed = parseFloat(e.target.value);
+      document.getElementById('spdVal').textContent = params.maxSpeed.toFixed(1);
+    });
+    document.getElementById('perception').addEventListener('input', (e) => {
+      params.perception = parseFloat(e.target.value);
+      document.getElementById('percVal').textContent = params.perception;
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      for (let i = 0; i < 10; i++) {
+        boids.push(new Boid(e.clientX + (Math.random() - 0.5) * 30, e.clientY + (Math.random() - 0.5) * 30));
+      }
+    });
+    
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      predator = { x: e.clientX, y: e.clientY };
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (predator) {
+        predator.x = e.clientX;
+        predator.y = e.clientY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+      predator = null;
+    });
+    
+    function drawBackground() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+    }
+    
+    function drawPredator() {
+      if (predator) {
+        ctx.beginPath();
+        ctx.arc(predator.x, predator.y, 20, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 80, 80, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(predator.x, predator.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 80, 80, 0.8)';
+        ctx.fill();
+      }
+    }
+    
+    function animate() {
+      drawBackground();
+      
+      for (let boid of boids) {
+        boid.flock(boids);
+        boid.update();
+        boid.draw();
+      }
+      
+      drawPredator();
+      
+      requestAnimationFrame(animate);
+    }
+    
+    initBoids(150);
+    animate();
+  </script>
 </body>
 </html>
