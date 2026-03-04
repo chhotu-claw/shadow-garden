@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+title>Maze Generator — Shadow's Garden</title>
+<meta name="description" content="Generate perfect mazes with recursive backtracking, then solve them manually or watch algorithms do it">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
+    overflow: hidden;
+  }
+  #container {
+    display: flex;
+    height: 100vh;
+  }
+  #sidebar {
+    width: 220px;
+    background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%);
+    padding: 20px;
+    border-right: 1px solid #2a2a3a;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  h2 {
+    color: #e0e0ff;
+    font-size: 14px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  label {
+    color: #8888aa;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #6366f1;
+  }
+  select, button {
+    background: #1a1a2e;
+    border: 1px solid #3a3a5a;
+    color: #c0c0e0;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  select:hover, button:hover {
+    border-color: #6366f1;
+    background: #252540;
+  }
+  button.primary {
+    background: #4338ca;
+    border-color: #6366f1;
+    color: #fff;
+  }
+  button.primary:hover {
+    background: #6366f1;
+  }
+  #maze-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  canvas {
+    border: 2px solid #2a2a3a;
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+  }
+  .info {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    color: #6666aa;
+    font-size: 11px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #8888aa;
+  }
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    border: 1px solid #3a3a5a;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="container">
+    <div id="sidebar">
+      <h2>Maze Generator</h2>
+      
+      <div class="control-group">
+        <label>Size: <span id="sizeVal">25</span></label>
+        <input type="range" id="size" min="10" max="50" value="25">
+      </div>
+      
+      <div class="control-group">
+        <label>Algorithm</label>
+        <select id="algorithm">
+          <option value="backtrack">Recursive Backtracking</option>
+          <option value="prim">Prim's Algorithm</option>
+          <option value="kruskal">Kruskal's Algorithm</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <button class="primary" onclick="generateMaze()">Generate</button>
+      </div>
+      
+      <div class="control-group">
+        <label>Solve With</label>
+        <select id="solver">
+          <option value="dfs">DFS</option>
+          <option value="bfs">BFS</option>
+          <option value="astar">A*</option>
+          <option value="manual">Manual</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <button onclick="solveMaze()">Solve</button>
+        <button onclick="resetSolution()">Reset</button>
+      </div>
+      
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background:#1a1a2e"></div>
+          <span>Wall</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#0a0a0f"></div>
+          <span>Path</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#22c55e"></div>
+          <span>Start</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#ef4444"></div>
+          <span>End</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#6366f1"></div>
+          <span>Solution</span>
+        </div>
+      </div>
+    </div>
+    
+    <div id="maze-container">
+      <canvas id="canvas"></canvas>
+      <div class="info">Click to place start/end in manual mode</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let cols, rows, cellSize;
+    let maze = [];
+    let solution = [];
+    let playerPos = null;
+    let solving = false;
+    
+    const sizeInput = document.getElementById('size');
+    const sizeVal = document.getElementById('sizeVal');
+    sizeInput.addEventListener('input', () => {
+      sizeVal.textContent = sizeInput.value;
+    });
+    
+    function resize() {
+      const container = document.getElementById('maze-container');
+      const maxSize = Math.min(container.clientWidth - 40, container.clientHeight - 40);
+      cellSize = Math.floor(maxSize / cols);
+      canvas.width = cols * cellSize;
+      canvas.height = rows * cellSize;
+      draw();
+    }
+    
+    function generateMaze() {
+      const size = parseInt(sizeInput.value);
+      cols = size;
+      rows = size;
+      
+      // Initialize maze with all walls
+      maze = [];
+      for (let y = 0; y < rows; y++) {
+        maze[y] = [];
+        for (let x = 0; x < cols; x++) {
+          maze[y][x] = { visited: false, walls: { top: true, right: true, bottom: true, left: true } };
+        }
+      }
+      
+      const algorithm = document.getElementById('algorithm').value;
+      
+      if (algorithm === 'backtrack') {
+        recursiveBacktrack(0, 0);
+      } else if (algorithm === 'prim') {
+        primsAlgorithm();
+      } else if (algorithm === 'kruskal') {
+        kruskalsAlgorithm();
+      }
+      
+      solution = [];
+      playerPos = null;
+      
+      resize();
+    }
+    
+    function recursiveBacktrack(x, y) {
+      maze[y][x].visited = true;
+      const directions = shuffle([[0, -1], [1, 0], [0, 1], [-1, 0]]);
+      
+      for (const [dx, dy] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !maze[ny][nx].visited) {
+          // Remove walls
+          if (dx === 1) { maze[y][x].walls.right = false; maze[ny][nx].walls.left = false; }
+          if (dx === -1) { maze[y][x].walls.left = false; maze[ny][nx].walls.right = false; }
+          if (dy === 1) { maze[y][x].walls.bottom = false; maze[ny][nx].walls.top = false; }
+          if (dy === -1) { maze[y][x].walls.top = false; maze[ny][nx].walls.bottom = false; }
+          
+          recursiveBacktrack(nx, ny);
+        }
+      }
+    }
+    
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    
+    function primsAlgorithm() {
+      // Reset visited
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          maze[y][x].visited = false;
+        }
+      }
+      
+      const walls = [];
+      const startX = Math.floor(Math.random() * cols);
+      const startY = Math.floor(Math.random() * rows);
+      maze[startY][startX].visited = true;
+      
+      addWalls(startX, startY, walls);
+      
+      while (walls.length > 0) {
+        const wall = walls.splice(Math.floor(Math.random() * walls.length), 1)[0];
+        const { x, y, side } = wall;
+        
+        let nx = x, ny = y;
+        if (side === 'right') nx++;
+        else if (side === 'bottom') ny++;
+        
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !maze[ny][nx].visited) {
+          maze[ny][nx].visited = true;
+          
+          if (side === 'right') { maze[y][x].walls.right = false; maze[ny][nx].walls.left = false; }
+          else if (side === 'bottom') { maze[y][x].walls.bottom = false; maze[ny][nx].walls.top = false; }
+          else if (side === 'left') { maze[y][x].walls.left = false; maze[ny][nx].walls.right = false; }
+          else if (side === 'top') { maze[y][x].walls.top = false; maze[ny][nx].walls.bottom = false; }
+          
+          addWalls(nx, ny, walls);
+        }
+      }
+    }
+    
+    function addWalls(x, y, walls) {
+      if (x > 0 && !maze[y][x-1].visited) walls.push({ x, y, side: 'left' });
+      if (x < cols - 1 && !maze[y][x+1].visited) walls.push({ x, y, side: 'right' });
+      if (y > 0 && !maze[y-1][x].visited) walls.push({ x, y, side: 'top' });
+      if (y < rows - 1 && !maze[y+1][x].visited) walls.push({ x, y, side: 'bottom' });
+    }
+    
+    function kruskalsAlgorithm() {
+      // Reset visited
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          maze[y][x].visited = false;
+          maze[y][x].walls = { top: true, right: true, bottom: true, left: true };
+          maze[y][x].set = y * cols + x;
+        }
+      }
+      
+      const edges = [];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (x < cols - 1) edges.push({ x1: x, y1: y, x2: x + 1, y2: y });
+          if (y < rows - 1) edges.push({ x1: x, y1: y, x2: x, y2: y + 1 });
+        }
+      }
+      
+      shuffle(edges);
+      
+      function find(x) {
+        if (maze[Math.floor(x / cols)][x % cols].set !== x) {
+          maze[Math.floor(x / cols)][x % cols].set = find(maze[Math.floor(x / cols)][x % cols].set);
+        }
+        return maze[Math.floor(x / cols)][x % cols].set;
+      }
+      
+      function union(x, y) {
+        const rootX = find(x);
+        const rootY = find(y);
+        if (rootX !== rootY) {
+          maze[Math.floor(rootY / cols)][rootY % cols].set = rootX;
+          return true;
+        }
+        return false;
+      }
+      
+      for (const edge of edges) {
+        const i1 = edge.y1 * cols + edge.x1;
+        const i2 = edge.y2 * cols + edge.x2;
+        
+        if (union(i1, i2)) {
+          if (edge.x2 > edge.x1) {
+            maze[edge.y1][edge.x1].walls.right = false;
+            maze[edge.y2][edge.x2].walls.left = false;
+          } else {
+            maze[edge.y1][edge.x1].walls.bottom = false;
+            maze[edge.y2][edge.x2].walls.top = false;
+          }
+        }
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw cells
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const cell = maze[y][x];
+          const px = x * cellSize;
+          const py = y * cellSize;
+          
+          ctx.strokeStyle = '#3a3a5a';
+          ctx.lineWidth = 2;
+          
+          if (cell.walls.top) {
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + cellSize, py);
+            ctx.stroke();
+          }
+          if (cell.walls.right) {
+            ctx.beginPath();
+            ctx.moveTo(px + cellSize, py);
+            ctx.lineTo(px + cellSize, py + cellSize);
+            ctx.stroke();
+          }
+          if (cell.walls.bottom) {
+            ctx.beginPath();
+            ctx.moveTo(px, py + cellSize);
+            ctx.lineTo(px + cellSize, py + cellSize);
+            ctx.stroke();
+          }
+          if (cell.walls.left) {
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px, py + cellSize);
+            ctx.stroke();
+          }
+        }
+      }
+      
+      // Draw start and end
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(4, 4, cellSize - 8, cellSize - 8);
+      
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect((cols - 1) * cellSize + 4, (rows - 1) * cellSize + 4, cellSize - 8, cellSize - 8);
+      
+      // Draw solution
+      if (solution.length > 0) {
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = cellSize / 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(solution[0].x * cellSize + cellSize / 2, solution[0].y * cellSize + cellSize / 2);
+        for (let i = 1; i < solution.length; i++) {
+          ctx.lineTo(solution[i].x * cellSize + cellSize / 2, solution[i].y * cellSize + cellSize / 2);
+        }
+        ctx.stroke();
+      }
+    }
+    
+    function solveMaze() {
+      const solver = document.getElementById('solver').value;
+      
+      if (solver === 'manual') {
+        playerPos = { x: 0, y: 0 };
+        draw();
+        canvas.addEventListener('click', manualClick);
+        return;
+      }
+      
+      if (solver === 'dfs') {
+        solution = dfsSolve();
+      } else if (solver === 'bfs') {
+        solution = bfsSolve();
+      } else if (solver === 'astar') {
+        solution = astarSolve();
+      }
+      
+      draw();
+    }
+    
+    function dfsSolve() {
+      const start = { x: 0, y: 0 };
+      const end = { x: cols - 1, y: rows - 1 };
+      const stack = [start];
+      const visited = new Set();
+      const parent = {};
+      visited.add(`0,0`);
+      
+      while (stack.length > 0) {
+        const current = stack.pop();
+        
+        if (current.x === end.x && current.y === end.y) {
+          // Reconstruct path
+          const path = [];
+          let key = `${end.x},${end.y}`;
+          while (key) {
+            const [x, y] = key.split(',').map(Number);
+            path.unshift({ x, y });
+            key = parent[key];
+          }
+          return path;
+        }
+        
+        const neighbors = getNeighbors(current.x, current.y);
+        for (const n of neighbors) {
+          const key = `${n.x},${n.y}`;
+          if (!visited.has(key)) {
+            visited.add(key);
+            parent[key] = `${current.x},${current.y}`;
+            stack.push(n);
+          }
+        }
+      }
+      
+      return [];
+    }
+    
+    function bfsSolve() {
+      const start = { x: 0, y: 0 };
+      const end = { x: cols - 1, y: rows - 1 };
+      const queue = [start];
+      const visited = new Set();
+      const parent = {};
+      visited.add(`0,0`);
+      
+      while (queue.length > 0) {
+        const current = queue.shift();
+        
+        if (current.x === end.x && current.y === end.y) {
+          const path = [];
+          let key = `${end.x},${end.y}`;
+          while (key) {
+            const [x, y] = key.split(',').map(Number);
+            path.unshift({ x, y });
+            key = parent[key];
+          }
+          return path;
+        }
+        
+        const neighbors = getNeighbors(current.x, current.y);
+        for (const n of neighbors) {
+          const key = `${n.x},${n.y}`;
+          if (!visited.has(key)) {
+            visited.add(key);
+            parent[key] = `${current.x},${current.y}`;
+            queue.push(n);
+          }
+        }
+      }
+      
+      return [];
+    }
+    
+    function astarSolve() {
+      const start = { x: 0, y: 0 };
+      const end = { x: cols - 1, y: rows - 1 };
+      const openSet = [start];
+      const closedSet = new Set();
+      const gScore = { '0,0': 0 };
+      const fScore = { '0,0': heuristic(start, end) };
+      const parent = {};
+      
+      while (openSet.length > 0) {
+        // Get node with lowest fScore
+        openSet.sort((a, b) => (fScore[`${a.x},${a.y}`] || Infinity) - (fScore[`${b.x},${b.y}`] || Infinity));
+        const current = openSet.shift();
+        
+        if (current.x === end.x && current.y === end.y) {
+          const path = [];
+          let key = `${end.x},${end.y}`;
+          while (key) {
+            const [x, y] = key.split(',').map(Number);
+            path.unshift({ x, y });
+            key = parent[key];
+          }
+          return path;
+        }
+        
+        closedSet.add(`${current.x},${current.y}`);
+        
+        const neighbors = getNeighbors(current.x, current.y);
+        for (const n of neighbors) {
+          const key = `${n.x},${n.y}`;
+          if (closedSet.has(key)) continue;
+          
+          const tentativeG = (gScore[`${current.x},${current.y}`] || 0) + 1;
+          
+          if (tentativeG < (gScore[key] || Infinity)) {
+            parent[key] = `${current.x},${current.y}`;
+            gScore[key] = tentativeG;
+            fScore[key] = tentativeG + heuristic(n, end);
+            
+            if (!openSet.find(o => o.x === n.x && o.y === n.y)) {
+              openSet.push(n);
+            }
+          }
+        }
+      }
+      
+      return [];
+    }
+    
+    function heuristic(a, b) {
+      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+    
+    function getNeighbors(x, y) {
+      const neighbors = [];
+      const cell = maze[y][x];
+      
+      if (!cell.walls.top && y > 0) neighbors.push({ x, y: y - 1 });
+      if (!cell.walls.right && x < cols - 1) neighbors.push({ x: x + 1, y });
+      if (!cell.walls.bottom && y < rows - 1) neighbors.push({ x, y: y + 1 });
+      if (!cell.walls.left && x > 0) neighbors.push({ x: x - 1, y });
+      
+      return neighbors;
+    }
+    
+    function manualClick(e) {
+      if (!playerPos) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / cellSize);
+      const y = Math.floor((e.clientY - rect.top) / cellSize);
+      
+      if (x >= 0 && x < cols && y >= 0 && y < rows) {
+        // Check if move is valid
+        const neighbors = getNeighbors(playerPos.x, playerPos.y);
+        if (neighbors.find(n => n.x === x && n.y === y)) {
+          playerPos = { x, y };
+          
+          ctx.fillStyle = '#6366f1';
+          ctx.fillRect(x * cellSize + 4, y * cellSize + 4, cellSize - 8, cellSize - 8);
+          
+          if (x === cols - 1 && y === rows - 1) {
+            setTimeout(() => alert('You found the exit!'), 10);
+          }
+        }
+      }
+    }
+    
+    function resetSolution() {
+      solution = [];
+      playerPos = null;
+      canvas.removeEventListener('click', manualClick);
+      draw();
+    }
+    
+    // Initialize
+    generateMaze();
+  </script>
+</body>
+</html>
