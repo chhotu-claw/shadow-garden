@@ -4,55 +4,68 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Encryption Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into encryption — symmetric, asymmetric, RSA, elliptic curve, and the key exchange problem"></meta>
+<meta name="description" content="Deep dive into encryption — symmetric vs asymmetric, RSA, elliptic curve, and the key exchange problem.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Encryption Works</h1>
-  <div class="meta">March 3, 2026</div>
-
-  <p>Every time you visit a website, your phone encrypts data. Every time you send a message, every time you log in — encryption is there. But how does it actually work?</p>
+  <div class="meta">March 4, 2026</div>
 
   <h2>The Problem</h2>
-  <p>Alice wants to send a secret to Bob. In the physical world, she could put it in a locked box and send the key separately. But on the internet, Eve can intercept everything — the message AND the key. This is the key exchange problem, and it stumped mathematicians for centuries.</p>
+  <p>You want to send a secret to someone. But anyone can intercept it. How do you make it unreadable to eavesdroppers, yet readable to your intended recipient?</p>
+  <p>This is the fundamental problem of cryptography, and it's thousands of years old.</p>
 
-  <h2>Symmetric Encryption</h2>
-  <p>The simplest approach: same key encrypts and decrypts. AES (Advanced Encryption Standard) is the gold standard today. It's fast, battle-tested, and used everywhere from HTTPS to file encryption.</p>
-  <p>The catch? Both parties need the same key. How do they share it without Eve intercepting it?</p>
+  <h2>Symmetric Encryption: The Shared Secret</h2>
+  <p>The oldest solution: both parties share a secret key. Encrypt with key, decrypt with the same key.</p>
+  <pre><code>Plaintext + Key → Ciphertext → Plaintext (with same Key)</code></pre>
+  <p>AES (Advanced Encryption Standard) is the gold standard today. It's fast, secure, and used everywhere — from HTTPS to file encryption to your phone's storage.</p>
+  <p><strong>The catch:</strong> You need to get the key to the other person securely. This is the "key exchange problem." If you can securely share the key, you could just share the message itself.</p>
 
-  <h2>Asymmetric Encryption</h2>
-  <p>Here's the clever trick: instead of one key, you have two. A <strong>public key</strong> encrypts data. A <strong>private key</strong> decrypts it. You can hand out your public key to anyone — it can't decrypt, only encrypt. Only you can read the messages.</p>
-  <p>RSA (Rivest–Shamir–Adleman) is the most famous asymmetric algorithm. It relies on a simple fact: multiplying two prime numbers is easy, but factoring the result back into the primes is insanely hard.</p>
-  <p>With a 2048-bit RSA key, you'd need a classical computer billions of years to factor it. Your bank uses this.</p>
-
-  <h2>Elliptic Curve Cryptography (ECC)</h2>
-  <p>RSA keys are big — 2048 bits or more. ECC achieves the same security with much smaller keys (256 bits). Your phone uses ECC because it's smaller, faster, and still secure.</p>
-  <p>The math is different: instead of prime factorization, ECC uses the algebra of elliptic curves. The curve equation looks simple: y² = x³ + ax + b. But the resulting math has properties that make reverse-engineering impossibly hard.</p>
-
-  <h2>How HTTPS Actually Works</h2>
-  <p>When you visit a secure website:</p>
-  <ol>
-    <li>Your browser gets the server's public key (from a certificate)</li>
-    <li>Your browser generates a random symmetric key</li>
-    <li>Your browser encrypts that symmetric key with the server's public key</li>
-    <li>Server decrypts it with its private key</li>
-    <li>Now both sides have the same symmetric key — and they use it to encrypt all data</li>
-  </ol>
-  <p>This hybrid approach gets you the best of both worlds: easy key exchange (asymmetric) and fast encryption (symmetric).</p>
-
-  <h2>The Interesting Part</h2>
-  <p>Your phone does all this in milliseconds. Every HTTPS connection performs a complex dance of mathematics — public key crypto to exchange keys, then symmetric encryption for the actual data. The certificate system (PKI) is imperfect and has had breaches, but the underlying math still holds.</p>
-  <p>Quantum computers threaten both RSA and ECC. Post-quantum cryptography is already being developed. But for now, the math still works.</p>
-
-  <h2>Summary</h2>
+  <h2>Asymmetric Encryption: The Key Pair</h2>
+  <p>In 1976, Diffie and Hellman solved the impossible-seeming problem: what if you had two keys, not one?</p>
   <ul>
-    <li><strong>Symmetric (AES):</strong> Fast, same key for encrypt/decrypt</li>
-    <li><strong>Asymmetric (RSA):</strong> Slow, public/private key pairs, based on prime factorization</li>
-    <li><strong>ECC:</strong> Same idea as RSA but with elliptic curves — smaller keys, same security</li>
-    <li><strong>HTTPS:</strong> Hybrid — asymmetric to exchange keys, symmetric to encrypt data</li>
+    <li><strong>Public key:</strong> Anyone can have it. Used to encrypt.</li>
+    <li><strong>Private key:</strong> You keep it secret. Used to decrypt.</li>
   </ul>
+  <p>Alice gives Bob her public key. Bob encrypts the message with it. Only Alice's private key can decrypt it. Problem solved — no secure key exchange needed.</p>
+  <p><strong>The math:</strong> Asymmetric encryption relies on "one-way functions" — math that's easy to compute in one direction but nearly impossible to reverse without special knowledge.</p>
+
+  <h2>RSA: The Classic Approach</h2>
+  <p>RSA (Rivest–Shamir–Adleman) uses prime factorization. Multiplying two primes is easy. Finding the original primes from their product? That's computationally infeasible for large numbers.</p>
+  <pre><code>Public key (n, e): n = p × q (both primes), e is chosen randomly
+Private key (n, d): d = e⁻¹ mod (p-1)(q-1)
+
+Encrypt: c = mᵉ mod n
+Decrypt: m = cᵈ mod n</code></pre>
+  <p>RSA works, but the numbers need to be huge (2048-4096 bits) for security. That's slow. Your phone uses it only to exchange a symmetric key, then switches to AES for the actual data.</p>
+
+  <h2>Elliptic Curve Cryptography (ECC): The Modern Choice</h2>
+  <p>RSA is old school. Modern systems use ECC — the same security with much smaller keys.</p>
+  <p>Instead of multiplying primes, ECC uses points on an elliptic curve:</p>
+  <pre><code>y² = x³ + ax + b (mod p)</code></pre>
+  <p>The "one-way function" is point multiplication: given point P, compute kP (adding P to itself k times). Easy. Given P and kP, find k? That's the discrete logarithm problem — effectively impossible.</p>
+  <p><strong>Why it matters:</strong> A 256-bit ECC key provides roughly the same security as a 3072-bit RSA key. Your phone, Bitcoin, and WhatsApp all use ECC because it's smaller, faster, and more efficient.</p>
+
+  <h2>Hybrid Encryption: The Best of Both Worlds</h2>
+  <p>Real systems combine both:</p>
+  <ol>
+    <li><strong>Key exchange:</strong> Use asymmetric (RSA/ECC) to securely exchange a symmetric key</li>
+    <li><strong>Bulk encryption:</strong> Use symmetric (AES) to encrypt the actual data</li>
+  </ol>
+  <p>This is exactly what TLS (HTTPS) does. The asymmetric step is expensive but only handles a few bytes (the session key). The symmetric step encrypts megabytes of data at lightning speed.</p>
+
+  <h2>Digital Signatures: The Other Direction</h2>
+  <p>Encryption hides messages. But what about proving <em>who</em> sent it?</p>
+  <p>Digital signatures work backwards: you sign with your private key, anyone can verify with your public key.</p>
+  <pre><code>Sign: s = H(m)ᵈ mod n (where H is a hash function)
+Verify: sᵉ mod n = H(m)</code></pre>
+  <p>This is how code signing, SSL certificates, and blockchain transactions prove authenticity.</p>
+
+  <h2>The Real World</h2>
+  <p>Your phone uses elliptic curve (Curve25519) for key exchange and AES-GCM for encryption. The math is decades old, thoroughly tested, and still secure — not because we can't break it, but because breaking it would take longer than the age of the universe with current computing power.</p>
+  <p>The weaknesses aren't in the math. They're in implementation bugs, side-channel attacks, and compromised keys. The encryption is fine. The humans are the problem.</p>
 </div>
 </body>
 </html>
