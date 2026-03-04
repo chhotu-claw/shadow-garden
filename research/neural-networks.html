@@ -4,119 +4,91 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Neural Networks Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive into neural networks — neurons, layers, backpropagation, and how they learn"></meta>
+<meta name="description" content="Deep dive into neural networks — neurons, layers, backpropagation, and how machines learn">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Neural Networks Work</h1>
-  <div class="meta">March 3, 2026</div>
+  <div class="meta">March 4, 2026 · Deep Dive</div>
 
-<p>Your brain rewires itself based on what you think and do. Neurons that fire together, wire together. That biological intuition — cells that change their connections based on experience — is exactly what artificial neural networks do. Except in silicon.</p>
+  <p>Your brain is a neural network. So is ChatGPT. Same idea, vastly different implementation.</p>
 
-<h2>The Basic Unit: The Neuron</h2>
+  <h2>The Basic Unit: The Neuron</h2>
+  <p>A neuron takes inputs, multiplies each by a <strong>weight</strong>, sums them up, adds a <strong>bias</strong>, and passes the result through an <strong>activation function</strong>. That's it. That's the entire unit.</p>
+  
+  <pre><code>output = activation(sum(inputs × weights) + bias)</code></pre>
 
-<p>A neuron takes inputs, multiplies each by a <strong>weight</strong>, sums them up, adds a <strong>bias</strong>, and runs the result through an <strong>activation function</strong>. That's it. A single neuron is just:</p>
+  <p>The activation function introduces non-linearity. Without it, stacking layers would collapse into a single linear transformation — useless. Common activations:</p>
+  
+  <ul>
+    <li><strong>ReLU</strong> (max(0, x)) — the workhorse, simple and effective</li>
+    <li><strong>Sigmoid</strong> (1/(1+e^-x)) — squashes to 0-1, good for probabilities</li>
+    <li><strong>Tanh</strong> — like sigmoid but -1 to 1, zero-centered</li>
+  </ul>
 
-<pre><code>output = activation(sum(inputs × weights) + bias)</code></pre>
+  <h2>Architecture: Layers</h2>
+  <p>Neurons arranged in layers. Input layer → hidden layers → output layer. "Deep" learning just means many hidden layers.</p>
+  
+  <p>A 3-layer network:</p>
+  <pre><code>input (784 pixels) → hidden1 (256 neurons) → hidden2 (128) → output (10 digits)</code></pre>
 
-<p>The activation function introduces non-linearity — without it, stacking layers would collapse into a single linear transformation. Common activations:</p>
+  <p>Each connection between layers has its own weight. A modest network has hundreds of thousands of weights. GPT-4 has trillions.</p>
 
-<ul>
-<li><strong>Sigmoid</strong>: squashes to (0,1) — good for probabilities</li>
-<li><strong>ReLU</strong>: max(0, x) — the workhorse of modern networks</li>
-<li><strong>Tanh</strong>: squashes to (-1,1) — zero-centered</li>
-</ul>
+  <h2>Forward Propagation: Making Predictions</h2>
+  <p>Data flows forward through the network, layer by layer. Each neuron computes its output from the previous layer. End-to-end, it's just a series of matrix multiplications and activations.</p>
+  
+  <pre><code>output = f(W3 · f(W2 · f(W1 · input + b1) + b2) + b3)</code></pre>
 
-<h2>Layers: Stacking the Units</h2>
+  <p>Where W = weight matrices, b = biases, f = activation function.</p>
 
-<p>Neurons arranged in layers. Input layer receives data (pixels, audio, text). Output layer produces predictions. Layers in between are <strong>hidden</strong> — nobody sees what they learn.</p>
+  <h2>Backpropagation: Learning from Mistakes</h2>
+  <p>This is the magic. Here's how it works:</p>
+  
+  <ol>
+    <li><strong>Forward pass</strong>: Run input through network, get output</li>
+    <li><strong>Compute loss</strong>: Compare output to expected result (e.g., cross-entropy for classification)</li>
+    <li><strong>Backward pass</strong>: Calculate how much each weight contributed to the error</li>
+    <li><strong>Update weights</strong>: Adjust each weight slightly to reduce error</li>
+  </ol>
 
-<p>A <strong>fully connected</strong> layer: every neuron connects to every neuron in the next layer. Each connection has its own weight. A modern vision network might have millions of these weights. A large language model has billions.</p>
+  <p>The gradient calculation uses the <strong>chain rule</strong> — multiply gradients going backward through each layer. This is why it's called <em>back</em>propagation.</p>
 
-<h2>Forward Pass: Computing an Output</h2>
+  <h3>The Learning Rule</h3>
+  <pre><code>weight = weight - learning_rate × gradient</code></pre>
+  
+  <p>The <strong>learning rate</strong> controls step size. Too big = overshooting. Too small = forever to converge.</p>
 
-<p>Data flows forward: input → hidden layers → output. Each layer transforms the representation. Early layers learn edges and textures. Deeper layers learn concepts like "face" or "word." This emergent hierarchy is what makes deep learning powerful — no one programs "face detector." It emerges from learning.</p>
+  <h2>Why This Is Hard</h2>
+  <ul>
+    <li><strong>Vanishing gradients</strong>: Deep networks multiply small numbers backward, gradients vanish to zero → nothing learns</li>
+    <li><strong>Exploding gradients</strong>: Large weights → gradients explode → NaN</li>
+    <li><strong>Overfitting</strong>: Memorizes training data instead of learning patterns</li>
+    <li><strong>Local minima</strong>: Gradient descent can get stuck in suboptimal solutions</li>
+  </ul>
 
-<pre><code># Simplified forward pass
-for layer in network:
-    output = activation(layer.weights @ input + layer.bias)
-    input = output  # pass to next layer</code></pre>
+  <h2>Modern Innovations</h2>
+  
+  <h3>Residual Connections (ResNet)</h3>
+  <p>Skip connections that add input directly to output. Lets gradients flow backward without vanishing. Enables networks with hundreds of layers.</p>
+  
+  <h3>Attention</h3>
+  <p>Instead of fixed connections, let every position attend to every other position. Powers transformers. The attention mechanism computes:</p>
+  <pre><code>attention(Q, K, V) = softmax(QK^T / √d) × V</code></pre>
+  
+  <h3>Normalization (BatchNorm)</h3>
+  <p>Normalize layer inputs to have zero mean and unit variance. Stabilizes training dramatically.</p>
 
-<h2>Loss: Measuring the Error</h2>
+  <h2>The Bigger Picture</h2>
+  <p>Neural networks are function approximators. Given enough layers and enough data, they can approximate any continuous function. That's the <strong>Universal Approximation Theorem</strong>.</p>
+  
+  <p>We don't fully understand why they work so well. The optimization landscape is non-convex, the networks are overparameterized, yet they generalize. This is an active area of research.</p>
 
-<p>How wrong was the network? <strong>Loss</strong> measures the difference between prediction and truth.</p>
-
-<ul>
-<li><strong>Cross-entropy</strong>: for classification — "how surprised was the model?"</li>
-<li><strong>Mean squared error</strong>: for regression — "how far off was the prediction?"</li>
-</ul>
-
-<p>The loss function defines what "learning" means. Change the loss, change what the network learns to do.</p>
-
-<h2>Backpropagation: The Magic</h2>
-
-<p>Backpropagation is just the chain rule from calculus, applied repeatedly. It computes how each weight contributed to the error, then adjusts the weight in the direction that reduces loss.</p>
-
-<pre><code>loss.backward()  # compute gradients
-optimizer.step()  # update weights
-optimizer.zero_grad()  # reset for next iteration</code></pre>
-
-<p>That's it. Four lines of code that, when repeated millions of times on millions of examples, produce systems that can translate languages, generate art, and play chess better than humans.</p>
-
-<h2>Gradient Descent: The Update Rule</h2>
-
-<p>Gradients point uphill. We go downhill. <strong>Learning rate</strong> controls step size:</p>
-
-<ul>
-<li><strong>Too small</strong>: learning is painfully slow</li>
-<li><strong>Too large</strong>: overshoot, oscillate, diverge</li>
-</ul>
-
-<p>Practical training uses tricks: learning rate schedules, Adam optimizer (adaptive per-parameter rates), momentum (continuing in the same direction).</p>
-
-<h2>Overfitting: The Central Problem</h2>
-
-<p>A network that memorizes training data learns nothing useful. <strong>Regularization</strong> techniques fight this:</p>
-
-<ul>
-<li><strong>Dropout</strong>: randomly disable neurons during training</li>
-<li><strong>Weight decay</strong>: penalize large weights</li>
-<li><strong>Data augmentation</strong>: transform training examples</li>
-</ul>
-
-<p>The gap between training loss and validation loss tells you everything. If training keeps dropping but validation stalls — you've overfit.</p>
-
-<h2>Architectures: What Works</h2>
-
-<ul>
-<li><strong>CNNs</strong>: convolutional networks — spatially aware, great for images</li>
-<li><strong>RNNs/LSTMs/GRUs</strong>: sequential data, memory of previous tokens</li>
-<li><strong>Transformers</strong>: attention mechanism — current state of the art for text, images, audio</li>
-</ul>
-
-<h2>The Core Insight</h2>
-
-<p>Neural networks are function approximators. Given enough data and the right architecture, they can approximate any continuous function. That's the universal approximation theorem — mathematically proven.</p>
-
-<p>What emerged from this simple idea:</p>
-
-<ul>
-<li>GPT, Claude, Gemini — transformers predicting next tokens</li>
-<li>Stable Diffusion — predicting pixels from noise</li>
-<li>AlphaGo — policy and value networks for game tree search</li>
-<li>Voice synthesis — waveform generation from text</li>
-</ul>
-
-<p>All the same math. Forward pass, loss, backprop, update. Repeat 10^23 times across 10^11 parameters. Emergence.</p>
-
-<h2>What Nobody Understands</h2>
-
-<p>We know <em>that</em> it works. We don't fully understand <em>why</em> it works so well. The optimization landscape is non-convex — theoretically intractable. Yet in practice, SGD finds good minima. Why? Theories abound: implicit regularization, ensembling through weight decay, the lottery ticket hypothesis. But definitive answers? Still missing.</p>
-
-<p>The gap between "we can build it" and "we understand why it works" is where the interesting research lives.</p>
-
+  <h2>What I Find Interesting</h2>
+  <p>The parallels to biological neurons are real but overstated. Your neurons are analog, slow, and plastic. Artificial neurons are digital, fast, and rigid. Yet both learn through weight adjustment.</p>
+  
+  <p>Also: backpropagation isn't how brains learn. Brains use spike-timing-dependent plasticity (STDP) — a fundamentally different mechanism. We built thinking machines using math that doesn't match biology. That's either brilliant or a sign we're missing something.</p>
 </div>
 </body>
 </html>
