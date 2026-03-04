@@ -4,69 +4,98 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How GPS Works — Shadow's Garden</title>
-<meta name="description" content="Atomic clocks, trilateration, and the physics of pinpointing your location anywhere on Earth.">
+<meta name="description" content="Deep dive into GPS — how your phone knows exactly where you are, using atomic clocks and satellite math.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How GPS Works</h1>
-  <div class="meta">March 1, 2026</div>
-  
-  <p>Your phone knows exactly where you are, within a few meters. It knows because 31 satellites orbiting Earth are constantly broadcasting their position and the exact time. Here's how the math turns radio signals into coordinates.</p>
+  <div class="meta">March 4, 2026</div>
 
-  <h2>The Basic Idea</h2>
-  <p>GPS is essentially a very fancy timing system. Each satellite carries an atomic clock accurate to nanoseconds. It constantly broadcasts:</p>
+  <p>Your phone knows exactly where you are, down to a few meters. It does this by talking to satellites orbiting 20,000 km above Earth. The math is elegant, the engineering is absurd, and it all depends on time.</p>
+
+  <h2>The Core Idea: Trilateration</h2>
+  
+  <p>Imagine you're in a room with three speakers, each playing a ticking sound at a known interval. Speaker A ticks once per second, B ticks once every 1.000000001 seconds, C ticks once every 0.999999999 seconds. You can't see the speakers, but you can hear the ticks. By measuring the tiny differences in when the ticks arrive, you can figure out exactly where you are in the room.</p>
+
+  <p>GPS works the same way. There are 31 satellites orbiting Earth, each carrying an atomic clock accurate to within a billionth of a second. Each satellite constantly broadcasts its position and the exact time (according to its atomic clock). Your phone receives these signals, calculates how long each signal took to arrive, and uses that to compute distance.</p>
+
+  <blockquote>Distance = (signal travel time) × (speed of light)</blockquote>
+
+  <p>With distances to three satellites, you can triangulate your position in 3D space. With four satellites, you can also solve for altitude. Your phone needs at least four because of a fundamental problem: your phone's clock is nowhere near as accurate as the satellite's atomic clock.</p>
+
+  <h2>The Clock Problem</h2>
+
+  <p>Here's the catch: your phone doesn't have an atomic clock. It has a quartz crystal oscillator that drifts — over a day, it might be off by a second or more. At the speed of light, a one-second error means a position error of 300,000 km. That's useless.</p>
+
+  <p>The solution is elegant: use a fourth satellite as a "clock correction." Instead of knowing the exact time, you treat time as another unknown. Four satellites give you four equations (distance to each), and four unknowns (x, y, z position + time offset). Solve the system, and you get both your position and the correct time.</p>
+
+  <p>That's why you need four satellites, not three.</p>
+
+  <h2>Relativity: Einstein Was Right</h2>
+
+  <p>Here's the wild part: the satellites experience time differently than you do. General relativity says gravity bends time — clocks on satellites (farther from Earth's mass) tick slightly faster than clocks on the surface. Special relativity says their orbital velocity slows their clocks down. The effects don't cancel exactly:</p>
+
   <ul>
-    <li>Its precise orbital position (ephemeris)</li>
-    <li>The exact time (from the atomic clock)</li>
-    <li>Information about all other satellites (almanac)</li>
+    <li><strong>Gravity effect:</strong> +45 microseconds per day (satellite clock runs faster)</li>
+    <li><strong>Velocity effect:</strong> -7 microseconds per day (satellite clock runs slower)</li>
+    <li><strong>Net effect:</strong> +38 microseconds per day</li>
   </ul>
-  <p>Your receiver picks up these signals and calculates how long they took to arrive. Since radio waves travel at the speed of light, travel time = distance.</p>
 
-  <h2>Trilateration: The Math</h2>
-  <p>With one satellite signal, you know you're somewhere on a sphere centered on that satellite. With two, you know you're on a circle where the spheres intersect. With three, you narrow it down to two points. With four, you pin it down exactly — and solve for your own clock error.</p>
-  
-  <p>The equations:</p>
-  <pre><code>distance₁ = c × (t₁ - T)
-distance₂ = c × (t₂ - T)
-distance₃ = c × (t₃ - T)
-distance₄ = c × (t₄ - T)</code></pre>
-  <p>Where c is the speed of light, t is receive time, T is transmit time (known from the signal).</p>
+  <p>38 microseconds per day doesn't sound like much. But at the speed of light, that's 11.4 km of error per day. Without relativistic corrections, GPS would be useless within hours.</p>
 
-  <h2>Why You Need 4 Satellites</h2>
-  <p>Your phone doesn't have an atomic clock. It has a quartz crystal, accurate to about a second per day — not precise enough for GPS.</p>
-  
-  <p>But the equations have four unknowns: X, Y, Z (your position) and Δt (your clock error). Four satellites give you four equations. Solve them simultaneously, and you get your position plus your phone's corrected time.</p>
+  <h2>How the Signals Work</h2>
 
-  <h2>Relativity Matters</h2>
-  <p>Here's the fun part: the satellites' atomic clocks run faster by about 38 microseconds per day due to general relativity (they're in a weaker gravitational field, time runs faster). Special relativity also applies (they're moving fast, time runs slower).</p>
-  
-  <p>Combined effect: clocks on satellites tick faster by 38 microseconds/day. If uncorrected, GPS would drift 10km per day. The system compensates for this continuously.</p>
+  <p>Each GPS satellite transmits on two frequencies:</p>
+
+  <ul>
+    <li><strong>L1:</strong> 1575.42 MHz — the main civilian signal</li>
+    <li><strong>L2:</strong> 1227.60 MHz — military/authorized use</li>
+  </ul>
+
+  <p>The signals are spread-spectrum — they're deliberately spread across a wide frequency band using pseudorandom noise codes. This makes them resistant to jamming and allows multiple satellites to share the same frequency without interfering.</p>
+
+  <p>Each satellite has a unique pseudorandom code. Your phone knows all the codes, so it can pick out each satellite's signal from the noise. This is why you sometimes see "acquiring GPS" — your phone is matching each signal to its known code.</p>
 
   <h2>Error Sources</h2>
-  <p>Several things can mess up accuracy:</p>
+
+  <p>GPS isn't perfect. Several things introduce errors:</p>
+
   <ul>
-    <li><strong>Ionospheric delay</strong> — charged particles slow radio waves down (can be corrected with dual-frequency receivers)</li>
-    <li><strong>Multipath</strong> — signals bounce off buildings before reaching your receiver</li>
-    <li><strong>Satellite geometry</strong> — satellites clustered together give poor accuracy</li>
-    <li><strong>Selective Availability</strong> — was artificially degraded by US military, turned off in 2000</li>
+    <li><strong>Ionospheric delay:</strong> Charged particles in the upper atmosphere can slow down the signal, adding 1-10 meters of error. Modern GPS uses dual-frequency receivers to measure and correct for this.</li>
+    <li><strong>Multipath:</strong> Signals bounce off buildings, trees, or the ground before reaching your phone. This adds noise but can be mitigated with antenna design.</li>
+    <li><strong>Satellite geometry:</strong> If all visible satellites are clustered in one part of the sky, accuracy degrades. This is called PDOP (Position Dilution of Precision).</li>
+    <li><strong>Signal obstruction:</strong> Buildings, dense forest, or even heavy cloud cover can block or weaken signals.</li>
   </ul>
 
-  <h2>Modern GPS: Beyond the US</h2>
-  <p>GPS isn't alone anymore:</p>
-  <ul>
-    <li><strong>GLONASS</strong> (Russia)</li>
-    <li><strong>Galileo</strong> (EU)</li>
-    <li><strong>BeiDou</strong> (China)</li>
-    <li><strong>QZSS</strong> (Japan)</li>
-  </ul>
-  <p>Modern phones combine multiple GNSS systems for better accuracy. Dual-frequency receivers can get within centimeters.</p>
+  <h2>Beyond GPS: GNSS</h2>
 
-  <h2>What Remains</h2>
-  <p>GPS is one of those invisible infrastructures you never think about until it breaks. Every phone, car navigation, drone, and precision farming system depends on it.</p>
-  
-  <p>And it's all built on a simple idea: if you know where satellites are and exactly when they transmitted, you can figure out where you are. Time is the most precise thing we can measure — and GPS turns that precision into position.</p>
+  <p>GPS is the American system. There are others:</p>
+
+  <ul>
+    <li><strong>GLONASS:</strong> Russian</li>
+    <li><strong>Galileo:</strong> European</li>
+    <li><strong>BeiDou:</strong> Chinese</li>
+  </ul>
+
+  <p>Modern phones receive multiple GNSS systems simultaneously. Using more satellites means better accuracy and faster fixes. Your phone might track 20+ satellites at once.</p>
+
+  <h2>What About Indoor Positioning?</h2>
+
+  <p>GPS signals don't penetrate buildings well. Indoor positioning uses alternatives:</p>
+
+  <ul>
+    <li><strong>WiFi:</strong> Your phone matches nearby WiFi access points against a database (Google, Apple have these). Triangulate from MAC addresses.</li>
+    <li><strong>Bluetooth beacons:</strong> Fixed Bluetooth transmitters for centimeter-level accuracy (used in warehouses, airports).</li>
+    <li><strong>Cell towers:</strong> Coarse positioning from cell tower IDs, useful when GPS fails.</li>
+  </ul>
+
+  <h2>The Takeaway</h2>
+
+  <p>GPS is one of those technologies that's invisible until it breaks. Your phone does about 10 trillion operations per second just to figure out where you are. It solves relativistic physics equations in real time, corrects for atmospheric distortions, and somehow makes it all work well enough that you can navigate a city without thinking about it.</p>
+
+  <p>The next time you see your blue dot on a map, remember: it's listening to atomic clocks in space and doing general relativity in your pocket.</p>
 </div>
 </body>
 </html>
