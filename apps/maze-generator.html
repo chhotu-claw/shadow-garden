@@ -3,614 +3,570 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-title>Maze Generator — Shadow's Garden</title>
-<meta name="description" content="Generate perfect mazes with recursive backtracking, then solve them manually or watch algorithms do it">
+<title>Maze Generator — Shadow's Garden</title>
+<meta name="description" content="Interactive maze generator with multiple algorithms — recursive backtracking, Prim's, Kruskal's. Watch solvers find the path.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body {
     margin: 0;
     background: #0a0a0f;
+    color: #e0e0e0;
     font-family: 'IBM Plex Mono', monospace;
     overflow: hidden;
   }
-  #container {
+  .container {
     display: flex;
     height: 100vh;
   }
-  #sidebar {
+  .sidebar {
     width: 220px;
     background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%);
-    padding: 20px;
     border-right: 1px solid #2a2a3a;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 15px;
   }
-  h2 {
-    color: #e0e0ff;
+  .sidebar h2 {
     font-size: 14px;
-    margin: 0;
     text-transform: uppercase;
     letter-spacing: 2px;
+    color: #888;
+    margin: 0 0 10px 0;
   }
-  .control-group {
+  .controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   label {
-    color: #8888aa;
     font-size: 11px;
+    color: #666;
     text-transform: uppercase;
     letter-spacing: 1px;
   }
-  input[type="range"] {
-    width: 100%;
-    accent-color: #6366f1;
-  }
   select, button {
-    background: #1a1a2e;
-    border: 1px solid #3a3a5a;
-    color: #c0c0e0;
-    padding: 10px 14px;
-    font-family: inherit;
+    background: #1a1a24;
+    border: 1px solid #3a3a4a;
+    color: #ccc;
+    padding: 10px 12px;
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-family: inherit;
   }
   select:hover, button:hover {
-    border-color: #6366f1;
-    background: #252540;
+    background: #252530;
+    border-color: #5a5a6a;
   }
   button.primary {
-    background: #4338ca;
-    border-color: #6366f1;
-    color: #fff;
+    background: #2a4a6a;
+    border-color: #4a6a8a;
   }
   button.primary:hover {
-    background: #6366f1;
-  }
-  #maze-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  canvas {
-    border: 2px solid #2a2a3a;
-    box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+    background: #3a5a7a;
   }
   .info {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    color: #6666aa;
-    font-size: 11px;
-  }
-  .legend {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 10px;
-    color: #8888aa;
+    color: #555;
+    line-height: 1.6;
   }
-  .legend-color {
-    width: 12px;
-    height: 12px;
-    border: 1px solid #3a3a5a;
+  canvas {
+    flex: 1;
+    display: block;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div id="container">
-    <div id="sidebar">
-      <h2>Maze Generator</h2>
+<div class="container">
+  <div class="sidebar">
+    <h2>Maze Generator</h2>
+    <div class="controls">
+      <label>Algorithm</label>
+      <select id="algorithm">
+        <option value="backtracking">Recursive Backtracking</option>
+        <option value="prims">Prim's Algorithm</option>
+        <option value="kruskals">Kruskal's Algorithm</option>
+      </select>
       
-      <div class="control-group">
-        <label>Size: <span id="sizeVal">25</span></label>
-        <input type="range" id="size" min="10" max="50" value="25">
-      </div>
+      <label>Solver</label>
+      <select id="solver">
+        <option value="none">None</option>
+        <option value="dfs">DFS (Depth-First)</option>
+        <option value="bfs">BFS (Breadth-First)</option>
+        <option value="astar">A* (A-Star)</option>
+      </select>
       
-      <div class="control-group">
-        <label>Algorithm</label>
-        <select id="algorithm">
-          <option value="backtrack">Recursive Backtracking</option>
-          <option value="prim">Prim's Algorithm</option>
-          <option value="kruskal">Kruskal's Algorithm</option>
-        </select>
-      </div>
+      <label>Cell Size</label>
+      <select id="cellSize">
+        <option value="10">10px</option>
+        <option value="15" selected>15px</option>
+        <option value="20">20px</option>
+        <option value="25">25px</option>
+      </select>
       
-      <div class="control-group">
-        <button class="primary" onclick="generateMaze()">Generate</button>
-      </div>
-      
-      <div class="control-group">
-        <label>Solve With</label>
-        <select id="solver">
-          <option value="dfs">DFS</option>
-          <option value="bfs">BFS</option>
-          <option value="astar">A*</option>
-          <option value="manual">Manual</option>
-        </select>
-      </div>
-      
-      <div class="control-group">
-        <button onclick="solveMaze()">Solve</button>
-        <button onclick="resetSolution()">Reset</button>
-      </div>
-      
-      <div class="legend">
-        <div class="legend-item">
-          <div class="legend-color" style="background:#1a1a2e"></div>
-          <span>Wall</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color" style="background:#0a0a0f"></div>
-          <span>Path</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color" style="background:#22c55e"></div>
-          <span>Start</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color" style="background:#ef4444"></div>
-          <span>End</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color" style="background:#6366f1"></div>
-          <span>Solution</span>
-        </div>
-      </div>
+      <button class="primary" onclick="generateMaze()">Generate Maze</button>
+      <button onclick="solveMaze()">Run Solver</button>
+      <button onclick="clearSolution()">Clear Solution</button>
     </div>
     
-    <div id="maze-container">
-      <canvas id="canvas"></canvas>
-      <div class="info">Click to place start/end in manual mode</div>
+    <div class="info">
+      <p><strong>Algorithms:</strong><br>
+      Backtracking — long winding paths<br>
+      Prim's — branching, natural<br>
+      Kruskal's — uniform randomness</p>
+      
+      <p><strong>Solvers:</strong><br>
+      DFS — explores deep, random path<br>
+      BFS — finds shortest path<br>
+      A* — guided shortest path</p>
     </div>
   </div>
+  <canvas id="canvas"></canvas>
+</div>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    let cols, rows, cellSize;
-    let maze = [];
-    let solution = [];
-    let playerPos = null;
-    let solving = false;
-    
-    const sizeInput = document.getElementById('size');
-    const sizeVal = document.getElementById('sizeVal');
-    sizeInput.addEventListener('input', () => {
-      sizeVal.textContent = sizeInput.value;
-    });
-    
-    function resize() {
-      const container = document.getElementById('maze-container');
-      const maxSize = Math.min(container.clientWidth - 40, container.clientHeight - 40);
-      cellSize = Math.floor(maxSize / cols);
-      canvas.width = cols * cellSize;
-      canvas.height = rows * cellSize;
-      draw();
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  let cellSize = 15;
+  let cols, rows;
+  let maze = [];
+  let solution = [];
+  let solving = false;
+  let solveQueue = [];
+  let currentSolveStep = 0;
+  
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    cols = Math.floor(canvas.width / cellSize);
+    rows = Math.floor(canvas.height / cellSize);
+  }
+  
+  window.addEventListener('resize', () => {
+    resize();
+    if (maze.length > 0) drawMaze();
+  });
+  
+  resize();
+  
+  class Cell {
+    constructor(col, row) {
+      this.col = col;
+      this.row = row;
+      this.walls = { top: true, right: true, bottom: true, left: true };
+      this.visited = false;
     }
+  }
+  
+  function index(c, r) {
+    if (c < 0 || r < 0 || c >= cols || r >= rows) return -1;
+    return c + r * cols;
+  }
+  
+  function generateMaze() {
+    maze = [];
+    solution = [];
+    solving = false;
     
-    function generateMaze() {
-      const size = parseInt(sizeInput.value);
-      cols = size;
-      rows = size;
-      
-      // Initialize maze with all walls
-      maze = [];
-      for (let y = 0; y < rows; y++) {
-        maze[y] = [];
-        for (let x = 0; x < cols; x++) {
-          maze[y][x] = { visited: false, walls: { top: true, right: true, bottom: true, left: true } };
-        }
-      }
-      
-      const algorithm = document.getElementById('algorithm').value;
-      
-      if (algorithm === 'backtrack') {
-        recursiveBacktrack(0, 0);
-      } else if (algorithm === 'prim') {
-        primsAlgorithm();
-      } else if (algorithm === 'kruskal') {
-        kruskalsAlgorithm();
-      }
-      
-      solution = [];
-      playerPos = null;
-      
-      resize();
-    }
-    
-    function recursiveBacktrack(x, y) {
-      maze[y][x].visited = true;
-      const directions = shuffle([[0, -1], [1, 0], [0, 1], [-1, 0]]);
-      
-      for (const [dx, dy] of directions) {
-        const nx = x + dx;
-        const ny = y + dy;
-        
-        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !maze[ny][nx].visited) {
-          // Remove walls
-          if (dx === 1) { maze[y][x].walls.right = false; maze[ny][nx].walls.left = false; }
-          if (dx === -1) { maze[y][x].walls.left = false; maze[ny][nx].walls.right = false; }
-          if (dy === 1) { maze[y][x].walls.bottom = false; maze[ny][nx].walls.top = false; }
-          if (dy === -1) { maze[y][x].walls.top = false; maze[ny][nx].walls.bottom = false; }
-          
-          recursiveBacktrack(nx, ny);
-        }
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        maze.push(new Cell(c, r));
       }
     }
     
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
+    const algorithm = document.getElementById('algorithm').value;
+    
+    if (algorithm === 'backtracking') {
+      backtracking();
+    } else if (algorithm === 'prims') {
+      prims();
+    } else if (algorithm === 'kruskals') {
+      kruskals();
     }
     
-    function primsAlgorithm() {
-      // Reset visited
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          maze[y][x].visited = false;
-        }
-      }
-      
-      const walls = [];
-      const startX = Math.floor(Math.random() * cols);
-      const startY = Math.floor(Math.random() * rows);
-      maze[startY][startX].visited = true;
-      
-      addWalls(startX, startY, walls);
-      
-      while (walls.length > 0) {
-        const wall = walls.splice(Math.floor(Math.random() * walls.length), 1)[0];
-        const { x, y, side } = wall;
-        
-        let nx = x, ny = y;
-        if (side === 'right') nx++;
-        else if (side === 'bottom') ny++;
-        
-        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !maze[ny][nx].visited) {
-          maze[ny][nx].visited = true;
-          
-          if (side === 'right') { maze[y][x].walls.right = false; maze[ny][nx].walls.left = false; }
-          else if (side === 'bottom') { maze[y][x].walls.bottom = false; maze[ny][nx].walls.top = false; }
-          else if (side === 'left') { maze[y][x].walls.left = false; maze[ny][nx].walls.right = false; }
-          else if (side === 'top') { maze[y][x].walls.top = false; maze[ny][nx].walls.bottom = false; }
-          
-          addWalls(nx, ny, walls);
-        }
+    drawMaze();
+  }
+  
+  function backtracking() {
+    let current = maze[0];
+    current.visited = true;
+    let stack = [current];
+    
+    while (stack.length > 0) {
+      let next = getUnvisitedNeighbors(current);
+      if (next) {
+        next.visited = true;
+        stack.push(current);
+        removeWalls(current, next);
+        current = next;
+      } else {
+        current = stack.pop();
       }
     }
+  }
+  
+  function prims() {
+    let visited = new Set();
+    let edges = [];
     
-    function addWalls(x, y, walls) {
-      if (x > 0 && !maze[y][x-1].visited) walls.push({ x, y, side: 'left' });
-      if (x < cols - 1 && !maze[y][x+1].visited) walls.push({ x, y, side: 'right' });
-      if (y > 0 && !maze[y-1][x].visited) walls.push({ x, y, side: 'top' });
-      if (y < rows - 1 && !maze[y+1][x].visited) walls.push({ x, y, side: 'bottom' });
+    let start = maze[0];
+    visited.add(index(start.col, start.row));
+    addEdgeNeighbors(start, edges);
+    
+    while (edges.length > 0) {
+      let randIdx = Math.floor(Math.random() * edges.length);
+      let { from, to } = edges.splice(randIdx, 1)[0];
+      
+      if (visited.has(index(to.col, to.row))) continue;
+      
+      visited.add(index(to.col, to.row));
+      removeWalls(from, to);
+      addEdgeNeighbors(to, edges);
+    }
+  }
+  
+  function kruskals() {
+    let edges = [];
+    let sets = [];
+    
+    for (let i = 0; i < maze.length; i++) {
+      sets.push(i);
     }
     
-    function kruskalsAlgorithm() {
-      // Reset visited
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          maze[y][x].visited = false;
-          maze[y][x].walls = { top: true, right: true, bottom: true, left: true };
-          maze[y][x].set = y * cols + x;
-        }
+    for (let cell of maze) {
+      if (cell.col < cols - 1) {
+        edges.push({ a: index(cell.col, cell.row), b: index(cell.col + 1, cell.row), from: cell, to: maze[index(cell.col + 1, cell.row)] });
       }
-      
-      const edges = [];
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          if (x < cols - 1) edges.push({ x1: x, y1: y, x2: x + 1, y2: y });
-          if (y < rows - 1) edges.push({ x1: x, y1: y, x2: x, y2: y + 1 });
-        }
-      }
-      
-      shuffle(edges);
-      
-      function find(x) {
-        if (maze[Math.floor(x / cols)][x % cols].set !== x) {
-          maze[Math.floor(x / cols)][x % cols].set = find(maze[Math.floor(x / cols)][x % cols].set);
-        }
-        return maze[Math.floor(x / cols)][x % cols].set;
-      }
-      
-      function union(x, y) {
-        const rootX = find(x);
-        const rootY = find(y);
-        if (rootX !== rootY) {
-          maze[Math.floor(rootY / cols)][rootY % cols].set = rootX;
-          return true;
-        }
-        return false;
-      }
-      
-      for (const edge of edges) {
-        const i1 = edge.y1 * cols + edge.x1;
-        const i2 = edge.y2 * cols + edge.x2;
-        
-        if (union(i1, i2)) {
-          if (edge.x2 > edge.x1) {
-            maze[edge.y1][edge.x1].walls.right = false;
-            maze[edge.y2][edge.x2].walls.left = false;
-          } else {
-            maze[edge.y1][edge.x1].walls.bottom = false;
-            maze[edge.y2][edge.x2].walls.top = false;
-          }
-        }
+      if (cell.row < rows - 1) {
+        edges.push({ a: index(cell.col, cell.row), b: index(cell.col, cell.row + 1), from: cell, to: maze[index(cell.col, cell.row + 1)] });
       }
     }
     
-    function draw() {
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    edges.sort(() => Math.random() - 0.5);
+    
+    function findSet(x) {
+      if (sets[x] !== x) sets[x] = findSet(sets[x]);
+      return sets[x];
+    }
+    
+    for (let edge of edges) {
+      let setA = findSet(edge.a);
+      let setB = findSet(edge.b);
       
-      // Draw cells
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const cell = maze[y][x];
-          const px = x * cellSize;
-          const py = y * cellSize;
-          
-          ctx.strokeStyle = '#3a3a5a';
-          ctx.lineWidth = 2;
-          
-          if (cell.walls.top) {
-            ctx.beginPath();
-            ctx.moveTo(px, py);
-            ctx.lineTo(px + cellSize, py);
-            ctx.stroke();
-          }
-          if (cell.walls.right) {
-            ctx.beginPath();
-            ctx.moveTo(px + cellSize, py);
-            ctx.lineTo(px + cellSize, py + cellSize);
-            ctx.stroke();
-          }
-          if (cell.walls.bottom) {
-            ctx.beginPath();
-            ctx.moveTo(px, py + cellSize);
-            ctx.lineTo(px + cellSize, py + cellSize);
-            ctx.stroke();
-          }
-          if (cell.walls.left) {
-            ctx.beginPath();
-            ctx.moveTo(px, py);
-            ctx.lineTo(px, py + cellSize);
-            ctx.stroke();
-          }
-        }
+      if (setA !== setB) {
+        sets[setA] = setB;
+        removeWalls(edge.from, edge.to);
       }
+    }
+  }
+  
+  function addEdgeNeighbors(cell, edges) {
+    let neighbors = getAllNeighbors(cell);
+    for (let n of neighbors) {
+      edges.push({ from: cell, to: n });
+    }
+  }
+  
+  function getUnvisitedNeighbors(cell) {
+    let neighbors = [];
+    let top = maze[index(cell.col, cell.row - 1)];
+    let right = maze[index(cell.col + 1, cell.row)];
+    let bottom = maze[index(cell.col, cell.row + 1)];
+    let left = maze[index(cell.col - 1, cell.row)];
+    
+    if (top && !top.visited) neighbors.push(top);
+    if (right && !right.visited) neighbors.push(right);
+    if (bottom && !bottom.visited) neighbors.push(bottom);
+    if (left && !left.visited) neighbors.push(left);
+    
+    if (neighbors.length > 0) {
+      return neighbors[Math.floor(Math.random() * neighbors.length)];
+    }
+    return undefined;
+  }
+  
+  function getAllNeighbors(cell) {
+    let neighbors = [];
+    let top = maze[index(cell.col, cell.row - 1)];
+    let right = maze[index(cell.col + 1, cell.row)];
+    let bottom = maze[index(cell.col, cell.row + 1)];
+    let left = maze[index(cell.col - 1, cell.row)];
+    
+    if (top) neighbors.push(top);
+    if (right) neighbors.push(right);
+    if (bottom) neighbors.push(bottom);
+    if (left) neighbors.push(left);
+    
+    return neighbors;
+  }
+  
+  function removeWalls(a, b) {
+    let dx = a.col - b.col;
+    let dy = a.row - b.row;
+    
+    if (dx === 1) { a.walls.left = false; b.walls.right = false; }
+    else if (dx === -1) { a.walls.right = false; b.walls.left = false; }
+    else if (dy === 1) { a.walls.top = false; b.walls.bottom = false; }
+    else if (dy === -1) { a.walls.bottom = false; b.walls.top = false; }
+  }
+  
+  function drawMaze() {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    for (let cell of maze) {
+      let x = cell.col * cellSize;
+      let y = cell.row * cellSize;
       
-      // Draw start and end
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(4, 4, cellSize - 8, cellSize - 8);
+      ctx.strokeStyle = '#3a3a4a';
+      ctx.lineWidth = 1;
       
-      ctx.fillStyle = '#ef4444';
-      ctx.fillRect((cols - 1) * cellSize + 4, (rows - 1) * cellSize + 4, cellSize - 8, cellSize - 8);
-      
-      // Draw solution
-      if (solution.length > 0) {
-        ctx.strokeStyle = '#6366f1';
-        ctx.lineWidth = cellSize / 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+      if (cell.walls.top) {
         ctx.beginPath();
-        ctx.moveTo(solution[0].x * cellSize + cellSize / 2, solution[0].y * cellSize + cellSize / 2);
-        for (let i = 1; i < solution.length; i++) {
-          ctx.lineTo(solution[i].x * cellSize + cellSize / 2, solution[i].y * cellSize + cellSize / 2);
-        }
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + cellSize, y);
+        ctx.stroke();
+      }
+      if (cell.walls.right) {
+        ctx.beginPath();
+        ctx.moveTo(x + cellSize, y);
+        ctx.lineTo(x + cellSize, y + cellSize);
+        ctx.stroke();
+      }
+      if (cell.walls.bottom) {
+        ctx.beginPath();
+        ctx.moveTo(x, y + cellSize);
+        ctx.lineTo(x + cellSize, y + cellSize);
+        ctx.stroke();
+      }
+      if (cell.walls.left) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + cellSize);
         ctx.stroke();
       }
     }
     
-    function solveMaze() {
-      const solver = document.getElementById('solver').value;
+    // Draw solution
+    if (solution.length > 0) {
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(solution[0].col * cellSize + cellSize/2, solution[0].row * cellSize + cellSize/2);
+      for (let i = 1; i < solution.length; i++) {
+        ctx.lineTo(solution[i].col * cellSize + cellSize/2, solution[i].row * cellSize + cellSize/2);
+      }
+      ctx.stroke();
+    }
+    
+    // Draw current solving position
+    if (solving && solveQueue.length > 0) {
+      let pos = solveQueue[currentSolveStep];
+      if (pos) {
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillRect(pos.col * cellSize + 2, pos.row * cellSize + 2, cellSize - 4, cellSize - 4);
+      }
+    }
+    
+    // Start and end
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(2, 2, cellSize - 4, cellSize - 4);
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect((cols - 1) * cellSize + 2, (rows - 1) * cellSize + 2, cellSize - 4, cellSize - 4);
+  }
+  
+  function solveMaze() {
+    if (maze.length === 0) return;
+    
+    const solver = document.getElementById('solver').value;
+    if (solver === 'none') return;
+    
+    solution = [];
+    solveQueue = [];
+    currentSolveStep = 0;
+    solving = true;
+    
+    if (solver === 'dfs') solveDFS();
+    else if (solver === 'bfs') solveBFS();
+    else if (solver === 'astar') solveAStar();
+    
+    animateSolution();
+  }
+  
+  function solveDFS() {
+    let start = maze[0];
+    let end = maze[maze.length - 1];
+    let visited = new Set();
+    let path = [];
+    
+    function dfs(cell) {
+      if (cell === end) {
+        path.push(cell);
+        return true;
+      }
       
-      if (solver === 'manual') {
-        playerPos = { x: 0, y: 0 };
-        draw();
-        canvas.addEventListener('click', manualClick);
+      visited.add(index(cell.col, cell.row));
+      path.push(cell);
+      
+      let neighbors = getPassableNeighbors(cell);
+      for (let n of neighbors) {
+        if (!visited.has(index(n.col, n.row))) {
+          if (dfs(n)) return true;
+        }
+      }
+      
+      path.pop();
+      return false;
+    }
+    
+    dfs(start);
+    solveQueue = path;
+  }
+  
+  function solveBFS() {
+    let start = maze[0];
+    let end = maze[maze.length - 1];
+    let queue = [start];
+    let visited = new Set();
+    let parent = {};
+    visited.add(index(start.col, start.row));
+    
+    while (queue.length > 0) {
+      let current = queue.shift();
+      
+      if (current === end) {
+        // Reconstruct path
+        let path = [];
+        let node = end;
+        while (node) {
+          path.unshift(node);
+          node = parent[index(node.col, node.row)];
+        }
+        solveQueue = path;
         return;
       }
       
-      if (solver === 'dfs') {
-        solution = dfsSolve();
-      } else if (solver === 'bfs') {
-        solution = bfsSolve();
-      } else if (solver === 'astar') {
-        solution = astarSolve();
-      }
-      
-      draw();
-    }
-    
-    function dfsSolve() {
-      const start = { x: 0, y: 0 };
-      const end = { x: cols - 1, y: rows - 1 };
-      const stack = [start];
-      const visited = new Set();
-      const parent = {};
-      visited.add(`0,0`);
-      
-      while (stack.length > 0) {
-        const current = stack.pop();
-        
-        if (current.x === end.x && current.y === end.y) {
-          // Reconstruct path
-          const path = [];
-          let key = `${end.x},${end.y}`;
-          while (key) {
-            const [x, y] = key.split(',').map(Number);
-            path.unshift({ x, y });
-            key = parent[key];
-          }
-          return path;
-        }
-        
-        const neighbors = getNeighbors(current.x, current.y);
-        for (const n of neighbors) {
-          const key = `${n.x},${n.y}`;
-          if (!visited.has(key)) {
-            visited.add(key);
-            parent[key] = `${current.x},${current.y}`;
-            stack.push(n);
-          }
+      let neighbors = getPassableNeighbors(current);
+      for (let n of neighbors) {
+        let key = index(n.col, n.row);
+        if (!visited.has(key)) {
+          visited.add(key);
+          parent[key] = current;
+          queue.push(n);
         }
       }
-      
-      return [];
+    }
+  }
+  
+  function solveAStar() {
+    let start = maze[0];
+    let end = maze[maze.length - 1];
+    let openSet = [start];
+    let closedSet = new Set();
+    let cameFrom = {};
+    let gScore = {};
+    let fScore = {};
+    
+    for (let cell of maze) {
+      gScore[index(cell.col, cell.row)] = Infinity;
+      fScore[index(cell.col, cell.row)] = Infinity;
     }
     
-    function bfsSolve() {
-      const start = { x: 0, y: 0 };
-      const end = { x: cols - 1, y: rows - 1 };
-      const queue = [start];
-      const visited = new Set();
-      const parent = {};
-      visited.add(`0,0`);
+    gScore[0] = 0;
+    fScore[0] = heuristic(start, end);
+    
+    while (openSet.length > 0) {
+      openSet.sort((a, b) => fScore[index(a.col, a.row)] - fScore[index(b.col, b.row)]);
+      let current = openSet.shift();
       
-      while (queue.length > 0) {
-        const current = queue.shift();
-        
-        if (current.x === end.x && current.y === end.y) {
-          const path = [];
-          let key = `${end.x},${end.y}`;
-          while (key) {
-            const [x, y] = key.split(',').map(Number);
-            path.unshift({ x, y });
-            key = parent[key];
-          }
-          return path;
+      if (current === end) {
+        let path = [];
+        let node = current;
+        while (node) {
+          path.unshift(node);
+          node = cameFrom[index(node.col, node.row)];
         }
-        
-        const neighbors = getNeighbors(current.x, current.y);
-        for (const n of neighbors) {
-          const key = `${n.x},${n.y}`;
-          if (!visited.has(key)) {
-            visited.add(key);
-            parent[key] = `${current.x},${current.y}`;
-            queue.push(n);
-          }
-        }
+        solveQueue = path;
+        return;
       }
       
-      return [];
-    }
-    
-    function astarSolve() {
-      const start = { x: 0, y: 0 };
-      const end = { x: cols - 1, y: rows - 1 };
-      const openSet = [start];
-      const closedSet = new Set();
-      const gScore = { '0,0': 0 };
-      const fScore = { '0,0': heuristic(start, end) };
-      const parent = {};
+      closedSet.add(index(current.col, current.row));
       
-      while (openSet.length > 0) {
-        // Get node with lowest fScore
-        openSet.sort((a, b) => (fScore[`${a.x},${a.y}`] || Infinity) - (fScore[`${b.x},${b.y}`] || Infinity));
-        const current = openSet.shift();
+      let neighbors = getPassableNeighbors(current);
+      for (let n of neighbors) {
+        let key = index(n.col, n.row);
+        if (closedSet.has(key)) continue;
         
-        if (current.x === end.x && current.y === end.y) {
-          const path = [];
-          let key = `${end.x},${end.y}`;
-          while (key) {
-            const [x, y] = key.split(',').map(Number);
-            path.unshift({ x, y });
-            key = parent[key];
-          }
-          return path;
-        }
+        let tentativeG = gScore[index(current.col, current.row)] + 1;
         
-        closedSet.add(`${current.x},${current.y}`);
-        
-        const neighbors = getNeighbors(current.x, current.y);
-        for (const n of neighbors) {
-          const key = `${n.x},${n.y}`;
-          if (closedSet.has(key)) continue;
+        if (tentativeG < gScore[key]) {
+          cameFrom[key] = current;
+          gScore[key] = tentativeG;
+          fScore[key] = tentativeG + heuristic(n, end);
           
-          const tentativeG = (gScore[`${current.x},${current.y}`] || 0) + 1;
-          
-          if (tentativeG < (gScore[key] || Infinity)) {
-            parent[key] = `${current.x},${current.y}`;
-            gScore[key] = tentativeG;
-            fScore[key] = tentativeG + heuristic(n, end);
-            
-            if (!openSet.find(o => o.x === n.x && o.y === n.y)) {
-              openSet.push(n);
-            }
-          }
-        }
-      }
-      
-      return [];
-    }
-    
-    function heuristic(a, b) {
-      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-    }
-    
-    function getNeighbors(x, y) {
-      const neighbors = [];
-      const cell = maze[y][x];
-      
-      if (!cell.walls.top && y > 0) neighbors.push({ x, y: y - 1 });
-      if (!cell.walls.right && x < cols - 1) neighbors.push({ x: x + 1, y });
-      if (!cell.walls.bottom && y < rows - 1) neighbors.push({ x, y: y + 1 });
-      if (!cell.walls.left && x > 0) neighbors.push({ x: x - 1, y });
-      
-      return neighbors;
-    }
-    
-    function manualClick(e) {
-      if (!playerPos) return;
-      
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) / cellSize);
-      const y = Math.floor((e.clientY - rect.top) / cellSize);
-      
-      if (x >= 0 && x < cols && y >= 0 && y < rows) {
-        // Check if move is valid
-        const neighbors = getNeighbors(playerPos.x, playerPos.y);
-        if (neighbors.find(n => n.x === x && n.y === y)) {
-          playerPos = { x, y };
-          
-          ctx.fillStyle = '#6366f1';
-          ctx.fillRect(x * cellSize + 4, y * cellSize + 4, cellSize - 8, cellSize - 8);
-          
-          if (x === cols - 1 && y === rows - 1) {
-            setTimeout(() => alert('You found the exit!'), 10);
+          if (!openSet.includes(n)) {
+            openSet.push(n);
           }
         }
       }
     }
+  }
+  
+  function heuristic(a, b) {
+    return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+  }
+  
+  function getPassableNeighbors(cell) {
+    let neighbors = [];
+    let top = maze[index(cell.col, cell.row - 1)];
+    let right = maze[index(cell.col + 1, cell.row)];
+    let bottom = maze[index(cell.col, cell.row + 1)];
+    let left = maze[index(cell.col - 1, cell.row)];
     
-    function resetSolution() {
-      solution = [];
-      playerPos = null;
-      canvas.removeEventListener('click', manualClick);
-      draw();
+    if (top && !cell.walls.top) neighbors.push(top);
+    if (right && !cell.walls.right) neighbors.push(right);
+    if (bottom && !cell.walls.bottom) neighbors.push(bottom);
+    if (left && !cell.walls.left) neighbors.push(left);
+    
+    return neighbors;
+  }
+  
+  function animateSolution() {
+    if (solution.length > 0) {
+      drawMaze();
+      return;
     }
     
-    // Initialize
-    generateMaze();
-  </script>
+    if (currentSolveStep < solveQueue.length) {
+      currentSolveStep++;
+      drawMaze();
+      setTimeout(animateSolution, 10);
+    } else {
+      solving = false;
+      solution = [...solveQueue];
+      drawMaze();
+    }
+  }
+  
+  function clearSolution() {
+    solution = [];
+    solving = false;
+    solveQueue = [];
+    drawMaze();
+  }
+  
+  document.getElementById('cellSize').addEventListener('change', (e) => {
+    cellSize = parseInt(e.target.value);
+    resize();
+    if (maze.length > 0) generateMaze();
+  });
+  
+  // Generate initial maze
+  generateMaze();
+</script>
 </body>
 </html>
