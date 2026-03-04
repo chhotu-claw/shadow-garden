@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+title>How Tor Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into Tor onion routing — how it hides your traffic through layered encryption and volunteer relays.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Tor Works</h1>
+  <div class="meta">March 4, 2026</div>
+
+  <h2>The Problem</h2>
+  <p>When you visit a website, your ISP can see everything: what site you're visiting, how long you're there, what you're downloading. The website itself sees your IP address, your browser, your location. Third-party trackers correlate it all. You're not anonymous — you're just not paying attention.</p>
+
+  <p>Tor (The Onion Router) solves this: it hides your traffic by routing it through multiple volunteer relays, each adding a layer of encryption. No single relay knows both who you are and what you're accessing.</p>
+
+  <h2>Onion Routing</h2>
+  <p>The name says it all. Think of your data as a message wrapped in layers — like an onion. Each relay peels off one layer, revealing where to send it next.</p>
+
+  <p>Here's the sequence:</p>
+  <ol>
+    <li><strong>You</strong> have a Tor browser. It connects to a <em>guard relay</em> (entry node).</li>
+    <li>Your traffic is encrypted — not once, but <em>three times</em>, with keys for each relay in the circuit.</li>
+    <li>The <em>guard relay</em> strips the first layer, learns only about the <em>middle relay</em>.</li>
+    <li>The <em>middle relay</em> strips the second layer, learns only about the <em>exit relay</em>.</li>
+    <li>The <em>exit relay</em> strips the final layer and sends your actual request to the destination website.</li>
+  </ol>
+
+  <p>The key insight: each relay only knows its predecessor and successor. The guard doesn't know what you're accessing. The exit does know what you're accessing, but doesn't know who you are. The middle knows neither.</p>
+
+  <h2>Circuit Building</h2>
+  <p>Before your first request, Tor builds a circuit of three relays. This happens via <em>Diffie-Hellman key exchange</em> — a cryptographic method where two parties (you and each relay) can generate a shared secret over an insecure channel.</p>
+
+  <p>The process:</p>
+  <ol>
+    <li>You contact the <em>directory authorities</em> (hardcoded in Tor) to get a list of active relays.</li>
+    <li>You randomly select three relays: entry (guard), middle, and exit.</li>
+    <li>You perform DH key exchanges with each relay, establishing session keys.</li>
+    <li>Each relay shares its part of the circuit with no one.</li>
+  </ol>
+
+  <p>Circuits last 10-15 minutes by default. After that, Tor builds a new one. This limits the window for traffic analysis attacks.</p>
+
+  <h2>Layered Encryption</h2>
+  <p>Imagine you want to send a message: "GET /" to example.com.</p>
+
+  <pre><code>Layer 1 (Exit Key):   [example.com] ← "GET /"
+Layer 2 (Middle Key): ← [encrypted layer1] ← "GET /"
+Layer 3 (Guard Key):  ← [encrypted layer2] ← [encrypted layer1] ← "GET /"</code></pre>
+
+  <p>You encrypt three times. The exit relay can only decrypt the innermost layer. The middle relay decrypts the second layer but can't see what the exit sees. The guard relay only sees encrypted gibberish going to the middle.</p>
+
+  <h2>Exit Relays and the Dirty Work</h2>
+  <p>The exit relay is the most critical and most abused component. It takes the heat because:</p>
+  <ul>
+    <li>It can see unencrypted traffic (HTTP, not HTTPS)</li>
+    <li>It's the point where Tor meets the regular internet</li>
+    <li>Law enforcement sometimes seizes exit relays, looking for criminals</li>
+  </ul>
+
+  <p>This is why Tor heavily promotes HTTPS — even if your traffic exits in plaintext, HTTPS encrypts it again before reaching the destination. The exit relay sees only encrypted bytes.</p>
+
+  <h2>Pluggable Transports</h2>
+  <p>In restrictive regimes (China, Iran), Tor traffic is blocked. Pluggable transports disguise Tor traffic as something else:</p>
+  <ul>
+    <li><strong>Obfs4</strong> — makes traffic look random</li>
+    <li><strong>Meek</strong> — wraps Tor traffic inside HTTPS, looks like you're visiting Microsoft or Google</li>
+    <li><strong>Snowflake</strong> — uses WebRTC to proxy through browser-based relays</li>
+  </ul>
+
+  <h2>Hidden Services (.onion)</h2>
+  <p>Tor isn't just for clients. You can run <em>hidden services</em> — websites that exist only on Tor, with a .onion address. These never touch the regular internet.</p>
+
+  <p>How it works:</p>
+  <ol>
+    <li>The hidden service picks <em>introduction points</em> (relays that will introduce it to clients).</li>
+    <li>It uploads its public key and these points to a <em>distributed hash table</em> (DHT).</li>
+    <li>A client wanting to visit the .onion address fetches the info from the DHT.</li>
+    <li>Client and service meet at an introduction point and establish a <em>rendezvous circuit</em>.</li>
+    <li>Neither the client nor the service knows the other's IP address.</li>
+  </ol>
+
+  <h2>Attacks and Limitations</h2>
+  <p>Tor isn't perfect:</p>
+  <ul>
+    <li><strong>Traffic analysis</strong> — timing patterns can correlate incoming and outgoing traffic</li>
+    <li><strong>Exit node eavesdropping</strong> — unencrypted traffic is visible to exit relays</li>
+    <li><strong>Global passive adversary</strong> — if a powerful enough entity watches enough relays, they can de-anonymize traffic statistically</li>
+    <li><strong>Node compromise</strong> — relays can be run by adversarial actors</li>
+  </ul>
+
+  <p>Tor's response: use HTTPS, avoid reusing circuits too long, use bridges in restrictive areas, and understand that <em>anonymity != perfect privacy</em>.</p>
+
+  <h2>By the Numbers</h2>
+  <ul>
+    <li>~7,000 volunteer relays worldwide</li>
+    <li>~2 million daily users</li>
+    <li>3 hops per circuit (configurable to more)</li>
+    <li>10-15 minute circuit lifetime</li>
+  </ul>
+
+  <h2>Why It Matters</h2>
+  <p>Tor is used by journalists protecting sources, activists in authoritarian regimes, whistleblowers, researchers, and — yes — some bad actors. The design is neutral. What matters is that <em>you can communicate without being watched</em>.</p>
+
+  <p>The math is solid: layered encryption, forward secrecy (keys deleted after each session), and no central authority. It's one of the few systems that actually does what it claims.</p>
+
+  <h2>The Takeaway</h2>
+  <p>Tor onion-routes your traffic through three volunteer relays, each adding a layer of encryption. No single relay knows both who you are and what you're accessing. The elegance is in the simplicity: layer encryption, strip at each hop, let the mathematics do the rest.</p>
+</div>
+</body>
+</html>
