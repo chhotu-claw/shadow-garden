@@ -4,104 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pressure Simulator — Shadow's Garden</title>
-<meta name="description" content="Particle-based pressure and temperature simulator — drag walls, watch pressure build"></meta>
+<meta name="description" content="Particle-based pressure and temperature simulator — watch gas laws emerge from collisions.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a0f; }
-  canvas { display: block; }
-  #controls {
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(10, 10, 15, 0.9);
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 16px;
-    color: #ccc;
-    font-size: 13px;
-    z-index: 100;
-    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
   }
-  #controls h3 { margin: 0 0 12px 0; color: #fff; font-size: 14px; }
-  .control-row { margin-bottom: 10px; }
-  .control-row label { display: block; margin-bottom: 4px; color: #888; }
-  .control-row input[type="range"] { width: 100%; }
-  .control-row span { float: right; color: #4af; }
-  button {
-    background: #2a4a6a;
-    border: none;
-    color: #fff;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 6px;
-    margin-top: 8px;
-    font-size: 12px;
-  }
-  button:hover { background: #3a5a7a; }
-  .preset-btns button { margin-bottom: 4px; }
-  #info {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    color: #556;
+  .btn {
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid rgba(100, 150, 255, 0.3);
+    color: rgba(180, 200, 255, 0.9);
+    padding: 10px 16px;
     font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: inherit;
   }
-  #stats {
+  .btn:hover {
+    background: rgba(40, 40, 60, 0.9);
+    border-color: rgba(100, 150, 255, 0.6);
+  }
+  .stats {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: rgba(10, 10, 15, 0.9);
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    color: #ccc;
+    color: rgba(150, 180, 255, 0.7);
     font-size: 12px;
+    text-align: right;
+    z-index: 10;
   }
-  #stats div { margin-bottom: 4px; }
-  #stats span { color: #4af; }
+  .stat-value {
+    color: rgba(100, 200, 255, 1);
+    font-size: 18px;
+  }
+  .instructions {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: rgba(150, 180, 255, 0.5);
+    font-size: 11px;
+    z-index: 10;
+  }
 </style>
 </head>
 <body data-page-type="app">
   <canvas id="canvas"></canvas>
-  <div id="controls">
-    <h3>Pressure Simulator</h3>
-    <div class="control-row">
-      <label>Particles <span id="particlesVal">800</span></label>
-      <input type="range" id="particles" min="100" max="2000" value="800">
-    </div>
-    <div class="control-row">
-      <label>Temperature <span id="tempVal">1.0</span></label>
-      <input type="range" id="temp" min="0.1" max="3.0" step="0.1" value="1.0">
-    </div>
-    <div class="control-row">
-      <label>Particle Size <span id="sizeVal">3</span></label>
-      <input type="range" id="size" min="1" max="8" value="3">
-    </div>
-    <div class="control-row">
-      <label>Gravity <span id="gravityVal">0</span></label>
-      <input type="range" id="gravity" min="0" max="1" step="0.05" value="0">
-    </div>
-    <div class="preset-btns">
-      <button id="reset">Reset</button>
-      <button id="addWall">Add Wall</button>
-      <button id="clearWalls">Clear Walls</button>
-    </div>
-    <div class="preset-btns">
-      <button id="preset-box">Box Container</button>
-      <button id="preset-chamber">Gas Chamber</button>
-      <button id="preset-piston">Piston</button>
-      <button id="preset-vase">Vase</button>
-      <button id="preset-hourglass">Hourglass</button>
-    </div>
+  <div class="controls">
+    <button class="btn" onclick="setPreset('default')">Default</button>
+    <button class="btn" onclick="setPreset('hot')">Hot</button>
+    <button class="btn" onclick="setPreset('cold')">Cold</button>
+    <button class="btn" onclick="setPreset('compressed')">Compressed</button>
+    <button class="btn" onclick="setPreset('expanded')">Expanded</button>
+    <button class="btn" onclick="toggleWallDrag()">Move Wall</button>
   </div>
-  <div id="stats">
-    <div>Pressure: <span id="pressureVal">0</span></div>
-    <div>Temperature: <span id="statTemp">0</span></div>
-    <div>Collisions: <span id="collisions">0</span></div>
+  <div class="stats">
+    <div>Particles: <span class="stat-value" id="particleCount">0</span></div>
+    <div>Temperature: <span class="stat-value" id="temperature">0</span> K</div>
+    <div>Pressure: <span class="stat-value" id="pressure">0</span> Pa</div>
+    <div>Volume: <span class="stat-value" id="volume">0</span> px²</div>
   </div>
-  <div id="info">Drag blue walls | Click to add particles</div>
+  <div class="instructions">
+    Click to add particles • Drag orange wall to compress
+  </div>
+
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -109,297 +92,282 @@
     let width, height;
     let particles = [];
     let walls = [];
-    let particleCount = 800;
-    let temperature = 1.0;
-    let particleSize = 3;
-    let gravity = 0;
-    let collisionCount = 0;
     let draggingWall = null;
+    let draggingCorner = null;
     let mouseX = 0, mouseY = 0;
+    let mouseDown = false;
+    
+    const PARTICLE_RADIUS = 4;
+    const BOLTZMANN = 0.01;
+    let baseTemperature = 300;
     
     function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
       initWalls();
     }
     
+    window.addEventListener('resize', resize);
+    
     function initWalls() {
       walls = [
-        { x1: 100, y1: 100, x2: width - 100, y2: 100, dragging: false },
-        { x1: width - 100, y1: 100, x2: width - 100, y2: height - 100, dragging: false },
-        { x1: width - 100, y1: height - 100, x2: 100, y2: height - 100, dragging: false },
-        { x1: 100, y1: height - 100, x2: 100, y2: 100, dragging: false }
+        { x1: 50, y1: 50, x2: 50, y2: height - 50, type: 'fixed' },
+        { x1: width - 50, y1: 50, x2: width - 50, y2: height - 50, type: 'fixed' },
+        { x1: 50, y1: 50, x2: width - 50, y2: 50, type: 'fixed' },
+        { x1: 50, y1: height - 50, x2: width - 50, y2: height - 50, type: 'movable', color: '#ff6b35' },
+        { x1: 50, y1: height - 50, x2: width - 50, y2: height - 50, cornerX: (width - 50) / 2 + 50, cornerY: height - 50 }
       ];
     }
     
-    function initParticles() {
+    function setPreset(name) {
       particles = [];
-      for (let i = 0; i < particleCount; i++) {
-        let x = 150 + Math.random() * (width - 300);
-        let y = 150 + Math.random() * (height - 300);
-        let angle = Math.random() * Math.PI * 2;
-        let speed = (0.5 + Math.random() * 1.5) * temperature;
-        particles.push({
-          x, y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed
+      const numParticles = 150;
+      
+      switch(name) {
+        case 'default':
+          baseTemperature = 300;
+          for (let i = 0; i < numParticles; i++) {
+            addParticle(width/4 + Math.random() * width/2, height/4 + Math.random() * height/2);
+          }
+          walls[3].y1 = height - 50;
+          walls[3].y2 = height - 50;
+          break;
+        case 'hot':
+          baseTemperature = 800;
+          for (let i = 0; i < numParticles; i++) {
+            addParticle(width/4 + Math.random() * width/2, height/4 + Math.random() * height/2);
+          }
+          break;
+        case 'cold':
+          baseTemperature = 100;
+          for (let i = 0; i < numParticles; i++) {
+            addParticle(width/4 + Math.random() * width/2, height/4 + Math.random() * height/2);
+          }
+          break;
+        case 'compressed':
+          baseTemperature = 300;
+          for (let i = 0; i < numParticles; i++) {
+            addParticle(width/4 + Math.random() * width/2, height/4 + Math.random() * height/4);
+          }
+          walls[3].y1 = height * 0.7;
+          walls[3].y2 = height * 0.7;
+          break;
+        case 'expanded':
+          baseTemperature = 300;
+          for (let i = 0; i < numParticles; i++) {
+            addParticle(100 + Math.random() * (width - 200), 100 + Math.random() * (height - 300));
+          }
+          walls[3].y1 = height - 150;
+          walls[3].y2 = height - 150;
+          break;
+      }
+    }
+    
+    function addParticle(x, y) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.sqrt(baseTemperature * BOLTZMANN * 2) * (0.5 + Math.random());
+      particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: getParticleColor(baseTemperature)
+      });
+    }
+    
+    function getParticleColor(temp) {
+      if (temp < 200) return '#4fc3f7';
+      if (temp < 400) return '#81c784';
+      if (temp < 600) return '#fff176';
+      if (temp < 800) return '#ffb74d';
+      return '#e57373';
+    }
+    
+    function updateParticles() {
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wall collisions
+        walls.forEach(wall => {
+          if (wall.type === 'fixed') {
+            if (wall.x1 === wall.x2) { // Vertical wall
+              if (p.x - PARTICLE_RADIUS < wall.x1 && p.y >= Math.min(wall.y1, wall.y2) && p.y <= Math.max(wall.y1, wall.y2)) {
+                p.x = wall.x1 + PARTICLE_RADIUS;
+                p.vx *= -0.9;
+              }
+              if (p.x + PARTICLE_RADIUS > wall.x1 && p.y >= Math.min(wall.y1, wall.y2) && p.y <= Math.max(wall.y1, wall.y2)) {
+                p.x = wall.x1 - PARTICLE_RADIUS;
+                p.vx *= -0.9;
+              }
+            } else { // Horizontal wall
+              if (p.y - PARTICLE_RADIUS < wall.y1 && p.x >= Math.min(wall.x1, wall.x2) && p.x <= Math.max(wall.x1, wall.x2)) {
+                p.y = wall.y1 + PARTICLE_RADIUS;
+                p.vy *= -0.9;
+              }
+              if (p.y + PARTICLE_RADIUS > wall.y1 && p.x >= Math.min(wall.x1, wall.x2) && p.x <= Math.max(wall.x1, wall.x2)) {
+                p.y = wall.y1 - PARTICLE_RADIUS;
+                p.vy *= -0.9;
+              }
+            }
+          }
         });
-      }
-      collisionCount = 0;
-    }
-    
-    function lineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
-      const denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4);
-      if (Math.abs(denom) < 0.0001) return null;
-      const t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom;
-      const u = -((x1-x2)*(y1-y3) - (y1-y2)*(x1-x3)) / denom;
-      if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-        return { x: x1 + t*(x2-x1), y: y1 + t*(y2-y1), t, u };
-      }
-      return null;
-    }
-    
-    function pointToLineDistance(px, py, x1, y1, x2, y2) {
-      const A = px - x1;
-      const B = py - y1;
-      const C = x2 - x1;
-      const D = y2 - y1;
-      const dot = A * C + B * D;
-      const lenSq = C * C + D * D;
-      let param = -1;
-      if (lenSq !== 0) param = dot / lenSq;
-      let xx, yy;
-      if (param < 0) { xx = x1; yy = y1; }
-      else if (param > 1) { xx = x2; yy = y2; }
-      else { xx = x1 + param * C; yy = y1 + param * D; }
-      const dx = px - xx;
-      const dy = py - yy;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-    
-    function update() {
-      const speedMult = temperature;
-      
-      for (let p of particles) {
-        p.vy += gravity * 0.1;
-        p.vx *= 0.999;
-        p.vy *= 0.999;
         
-        let nextX = p.x + p.vx * speedMult;
-        let nextY = p.y + p.vy * speedMult;
-        
-        for (let wall of walls) {
-          let dist = pointToLineDistance(nextX, nextY, wall.x1, wall.y1, wall.x2, wall.y2);
-          if (dist < particleSize + 2) {
-            let dx = wall.x2 - wall.x1;
-            let dy = wall.y2 - wall.y1;
-            let len = Math.sqrt(dx * dx + dy * dy);
-            let nx = -dy / len;
-            let ny = dx / len;
+        // Particle-particle collisions
+        particles.forEach(p2 => {
+          if (p === p2) return;
+          const dx = p2.x - p.x;
+          const dy = p2.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < PARTICLE_RADIUS * 2 && dist > 0) {
+            const nx = dx / dist;
+            const ny = dy / dist;
             
-            let dot = p.vx * nx + p.vy * ny;
-            if (dot < 0) {
-              p.vx -= 2 * dot * nx;
-              p.vy -= 2 * dot * ny;
-              p.vx *= 0.9;
-              p.vy *= 0.9;
-              collisionCount++;
-            }
+            const dvx = p.vx - p2.vx;
+            const dvy = p.vy - p2.vy;
+            const dvn = dvx * nx + dvy * ny;
             
-            let closest = lineIntersection(wall.x1, wall.y1, wall.x2, wall.y2, p.x - nx * 10, p.y - ny * 10, p.x + nx * 10, p.y + ny * 10);
-            if (closest) {
-              nextX = closest.x + nx * (particleSize + 3);
-              nextY = closest.y + ny * (particleSize + 3);
+            if (dvn > 0) {
+              p.vx -= dvn * nx;
+              p.vy -= dvn * ny;
+              p2.vx += dvn * nx;
+              p2.vy += dvn * ny;
+              
+              const overlap = PARTICLE_RADIUS * 2 - dist;
+              p.x -= overlap * nx * 0.5;
+              p.y -= overlap * ny * 0.5;
+              p2.x += overlap * nx * 0.5;
+              p2.y += overlap * ny * 0.5;
             }
           }
-        }
+        });
         
-        p.x = nextX;
-        p.y = nextY;
-      }
-      
-      // Particle-particle collisions
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          let dx = particles[j].x - particles[i].x;
-          let dy = particles[j].y - particles[i].y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < particleSize * 2 && dist > 0) {
-            let nx = dx / dist;
-            let ny = dy / dist;
-            let overlap = particleSize * 2 - dist;
-            particles[i].x -= nx * overlap / 2;
-            particles[i].y -= ny * overlap / 2;
-            particles[j].x += nx * overlap / 2;
-            particles[j].y += ny * overlap / 2;
-            
-            let dvx = particles[j].vx - particles[i].vx;
-            let dvy = particles[j].vy - particles[i].vy;
-            let dvDotN = dvx * nx + dvy * ny;
-            if (dvDotN < 0) {
-              particles[i].vx += dvDotN * nx;
-              particles[i].vy += dvDotN * ny;
-              particles[j].vx -= dvDotN * nx;
-              particles[j].vy -= dvDotN * ny;
-              collisionCount++;
-            }
-          }
-        }
-      }
+        // Calculate current speed and update color
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        const temp = (speed * speed) / (2 * BOLTZMANN);
+        p.color = getParticleColor(temp);
+      });
     }
     
-    function render() {
+    function calculateStats() {
+      // Calculate volume (bounding box of container)
+      const minX = Math.min(...walls.filter(w => w.x1 === w.x2).map(w => w.x1));
+      const maxX = Math.max(...walls.filter(w => w.x1 === w.x2).map(w => w.x1));
+      const minY = Math.min(...walls.filter(w => w.y1 !== w.y2).map(w => w.y1));
+      const maxY = Math.max(...walls.filter(w => w.y1 !== w.y2).map(w => w.y1));
+      const volume = (maxX - minX - 100) * (maxY - minY - 100);
+      
+      // Calculate temperature (average kinetic energy)
+      let totalKE = 0;
+      particles.forEach(p => {
+        totalKE += 0.5 * (p.vx * p.vx + p.vy * p.vy);
+      });
+      const temperature = particles.length > 0 ? totalKE / (particles.length * BOLTZMANN) : 0;
+      
+      // Calculate pressure (impulse against walls per unit area)
+      let totalImpulse = 0;
+      particles.forEach(p => {
+        walls.forEach(wall => {
+          if (wall.x1 === wall.x2) { // Vertical
+            if (Math.abs(p.x - wall.x1) < PARTICLE_RADIUS + 5) {
+              totalImpulse += Math.abs(p.vx);
+            }
+          } else { // Horizontal
+            if (Math.abs(p.y - wall.y1) < PARTICLE_RADIUS + 5) {
+              totalImpulse += Math.abs(p.vy);
+            }
+          }
+        });
+      });
+      
+      const wallArea = (maxX - minX - 100) * 2 + (maxY - minY - 100) * 2;
+      const pressure = wallArea > 0 ? (totalImpulse * 2) / wallArea : 0;
+      
+      document.getElementById('particleCount').textContent = particles.length;
+      document.getElementById('temperature').textContent = Math.round(temperature);
+      document.getElementById('pressure').textContent = Math.round(pressure * 100);
+      document.getElementById('volume').textContent = Math.max(0, Math.round(volume));
+    }
+    
+    function draw() {
+      // Background
       ctx.fillStyle = '#0a0a0f';
       ctx.fillRect(0, 0, width, height);
       
       // Draw walls
-      ctx.strokeStyle = '#4af';
-      ctx.lineWidth = 3;
-      for (let wall of walls) {
+      walls.forEach((wall, i) => {
         ctx.beginPath();
         ctx.moveTo(wall.x1, wall.y1);
         ctx.lineTo(wall.x2, wall.y2);
+        ctx.strokeStyle = wall.type === 'movable' ? '#ff6b35' : 'rgba(100, 150, 255, 0.5)';
+        ctx.lineWidth = wall.type === 'movable' ? 4 : 2;
         ctx.stroke();
-      }
+        
+        if (wall.type === 'movable') {
+          ctx.beginPath();
+          ctx.arc((wall.x1 + wall.x2) / 2, wall.y1, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff6b35';
+          ctx.fill();
+        }
+      });
       
       // Draw particles
-      for (let p of particles) {
-        let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        let hue = 180 + speed * 20;
-        ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+      particles.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, particleSize, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, PARTICLE_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
         ctx.fill();
-      }
-      
-      // Calculate pressure
-      let pressure = (collisionCount / particles.length).toFixed(2);
-      document.getElementById('pressureVal').textContent = pressure;
-      document.getElementById('statTemp').textContent = temperature.toFixed(1);
-      document.getElementById('collisions').textContent = collisionCount;
-      
-      requestAnimationFrame(render);
+      });
     }
     
-    function gameLoop() {
-      update();
+    function animate() {
+      updateParticles();
+      calculateStats();
+      draw();
+      requestAnimationFrame(animate);
     }
     
-    // Event listeners
-    document.getElementById('particles').addEventListener('input', e => {
-      particleCount = +e.target.value;
-      document.getElementById('particlesVal').textContent = particleCount;
-      initParticles();
-    });
-    document.getElementById('temp').addEventListener('input', e => {
-      temperature = +e.target.value;
-      document.getElementById('tempVal').textContent = temperature.toFixed(1);
-    });
-    document.getElementById('size').addEventListener('input', e => {
-      particleSize = +e.target.value;
-      document.getElementById('sizeVal').textContent = particleSize;
-    });
-    document.getElementById('gravity').addEventListener('input', e => {
-      gravity = +e.target.value;
-      document.getElementById('gravityVal').textContent = gravity.toFixed(2);
-    });
-    document.getElementById('reset').addEventListener('click', initParticles);
-    document.getElementById('clearWalls').addEventListener('click', () => { walls = []; });
-    document.getElementById('addWall').addEventListener('click', () => {
-      walls.push({ x1: width/2 - 100, y1: height/2, x2: width/2 + 100, y2: height/2, dragging: false });
-    });
+    function toggleWallDrag() {
+      // Already implemented via mousedown
+    }
     
-    document.getElementById('preset-box').addEventListener('click', () => {
-      walls = [
-        { x1: 100, y1: 100, x2: width - 100, y2: 100, dragging: false },
-        { x1: width - 100, y1: 100, x2: width - 100, y2: height - 100, dragging: false },
-        { x1: width - 100, y1: height - 100, x2: 100, y2: height - 100, dragging: false },
-        { x1: 100, y1: height - 100, x2: 100, y2: 100, dragging: false }
-      ];
-    });
-    document.getElementById('preset-chamber').addEventListener('click', () => {
-      walls = [
-        { x1: 200, y1: 200, x2: width - 200, y2: 200, dragging: false },
-        { x1: width - 200, y1: 200, x2: width - 200, y2: height - 200, dragging: false },
-        { x1: width - 200, y1: height - 200, x2: 200, y2: height - 200, dragging: false },
-        { x1: 200, y1: height - 200, x2: 200, y2: 200, dragging: false },
-        { x1: width/2 - 50, y1: 200, x2: width/2 + 50, y2: height - 200, dragging: false }
-      ];
-    });
-    document.getElementById('preset-piston').addEventListener('click', () => {
-      walls = [
-        { x1: 200, y1: 150, x2: width - 200, y2: 150, dragging: false },
-        { x1: width - 200, y1: 150, x2: width - 200, y2: height - 100, dragging: false },
-        { x1: width - 200, y1: height - 100, x2: 200, y2: height - 100, dragging: false },
-        { x1: 200, y1: height - 100, x2: 200, y2: 150, dragging: false },
-        { x1: 200, y1: height/2, x2: width - 200, y2: height/2, dragging: false }
-      ];
-    });
-    document.getElementById('preset-vase').addEventListener('click', () => {
-      walls = [
-        { x1: width/2 - 80, y1: 150, x2: width/2 - 40, y2: height - 150, dragging: false },
-        { x1: width/2 - 40, y1: height - 150, x2: width/2 + 40, y2: height - 150, dragging: false },
-        { x1: width/2 + 40, y1: height - 150, x2: width/2 + 80, y2: 150, dragging: false }
-      ];
-    });
-    document.getElementById('preset-hourglass').addEventListener('click', () => {
-      walls = [
-        { x1: 200, y1: 150, x2: width - 200, y2: 150, dragging: false },
-        { x1: width - 200, y1: 150, x2: width - 200, y2: height - 150, dragging: false },
-        { x1: width - 200, y1: height - 150, x2: 200, y2: height - 150, dragging: false },
-        { x1: 200, y1: height - 150, x2: 200, y2: 150, dragging: false },
-        { x1: width/2 - 60, y1: 150, x2: width/2 - 20, y2: height/2, dragging: false },
-        { x1: width/2 + 60, y1: 150, x2: width/2 + 20, y2: height/2, dragging: false },
-        { x1: width/2 - 20, y1: height/2, x2: width/2 - 60, y2: height - 150, dragging: false },
-        { x1: width/2 + 20, y1: height/2, x2: width/2 + 60, y2: height - 150, dragging: false }
-      ];
-    });
-    
-    canvas.addEventListener('mousedown', e => {
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
       mouseX = e.clientX;
       mouseY = e.clientY;
-      for (let wall of walls) {
-        let d1 = Math.hypot(mouseX - wall.x1, mouseY - wall.y1);
-        let d2 = Math.hypot(mouseX - wall.x2, mouseY - wall.y2);
-        if (d1 < 20 || d2 < 20) {
-          draggingWall = wall;
-          return;
-        }
-      }
-      // Add particle at click
-      if (particles.length < 3000) {
-        let angle = Math.random() * Math.PI * 2;
-        let speed = (0.5 + Math.random()) * temperature;
-        particles.push({
-          x: mouseX, y: mouseY,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed
-        });
+      
+      // Check if clicking on movable wall
+      const wall = walls[3];
+      const wallMidX = (wall.x1 + wall.x2) / 2;
+      if (Math.abs(e.clientY - wall.y1) < 20 && e.clientX > wall.x1 && e.clientX < wall.x2) {
+        draggingWall = wall;
       }
     });
     
-    canvas.addEventListener('mousemove', e => {
-      if (draggingWall) {
-        let dx = e.clientX - mouseX;
-        let dy = e.clientY - mouseY;
-        draggingWall.x1 += dx;
-        draggingWall.y1 += dy;
-        draggingWall.x2 += dx;
-        draggingWall.y2 += dy;
-        mouseX = e.clientX;
-        mouseY = e.clientY;
+    canvas.addEventListener('mousemove', (e) => {
+      if (mouseDown && draggingWall) {
+        draggingWall.y1 = Math.max(100, Math.min(height - 50, e.clientY));
+        draggingWall.y2 = Math.max(100, Math.min(height - 50, e.clientY));
+      }
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      mouseDown = false;
+      draggingWall = null;
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      if (!draggingWall) {
+        addParticle(e.clientX, e.clientY);
       }
     });
     
-    canvas.addEventListener('mouseup', () => { draggingWall = null; });
-    
-    window.addEventListener('resize', resize);
     resize();
-    initParticles();
-    setInterval(gameLoop, 16);
-    render();
+    setPreset('default');
+    animate();
   </script>
 </body>
 </html>
