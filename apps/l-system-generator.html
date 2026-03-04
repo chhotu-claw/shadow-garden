@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L-System Generator — Shadow's Garden</title>
+<meta name="description" content="Procedural plant generator using Lindenmayer systems — trees, ferns, fractals grown from simple rules.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    background: #0a0f14;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+  }
+  .btn {
+    background: rgba(20, 35, 25, 0.85);
+    border: 1px solid rgba(100, 180, 120, 0.4);
+    color: rgba(160, 220, 180, 0.9);
+    padding: 10px 18px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn:hover {
+    background: rgba(30, 60, 40, 0.95);
+    border-color: rgba(100, 180, 120, 0.7);
+    box-shadow: 0 0 15px rgba(100, 180, 120, 0.3);
+  }
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(160, 220, 180, 0.7);
+    font-size: 10px;
+  }
+  input[type="range"] {
+    width: 80px;
+    accent-color: #64b478;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="controls">
+    <button class="btn" onclick="setPreset('tree')">Binary Tree</button>
+    <button class="btn" onclick="setPreset('fern')">Fern</button>
+    <button class="btn" onclick="setPreset('weed')">Weed</button>
+    <button class="btn" onclick="setPreset('dragon')">Dragon</button>
+    <button class="btn" onclick="setPreset('sierpinski')">Sierpinski</button>
+    <div class="slider-group">
+      <span>Angle</span>
+      <input type="range" id="angle" min="10" max="90" value="25" oninput="regenerate()">
+    </div>
+    <div class="slider-group">
+      <span>Iterations</span>
+      <input type="range" id="iterations" min="3" max="7" value="5" oninput="regenerate()">
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let currentAxiom = 'F';
+    let currentRules = { 'F': 'FF' };
+    let currentAngle = 25;
+    let currentIterations = 5;
+    
+    const presets = {
+      tree: { axiom: 'F', rules: { 'F': 'F[+F]F[-F]F' }, angle: 25, iterations: 5 },
+      fern: { axiom: 'X', rules: { 'X': 'F+[[X]-X]-F[-FX]+X', 'F': 'FF' }, angle: 25, iterations: 6 },
+      weed: { axiom: 'F', rules: { 'F': 'F[+F]F[-F][F]' }, angle: 22, iterations: 5 },
+      dragon: { axiom: 'FX', rules: { 'X': 'X+YF+', 'Y': '-FX-Y' }, angle: 90, iterations: 10 },
+      sierpinski: { axiom: 'F-G-G', rules: { 'F': 'F-G+F+G-F', 'G': 'GG' }, angle: 120, iterations: 6 }
+    };
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    
+    function generate(axiom, rules, iterations) {
+      let result = axiom;
+      for (let i = 0; i < iterations; i++) {
+        let next = '';
+        for (let char of result) {
+          next += rules[char] || char;
+        }
+        result = next;
+      }
+      return result;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0a0f14';
+      ctx.fillRect(0, 0, width, height);
+      
+      const sentence = generate(currentAxiom, currentRules, currentIterations);
+      
+      ctx.strokeStyle = '#64b478';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      
+      const len = Math.min(width, height) / (Math.pow(2, currentIterations) * 3);
+      
+      ctx.save();
+      ctx.translate(width / 2, height - 50);
+      ctx.scale(1, -1);
+      
+      let stack = [];
+      
+      for (let char of sentence) {
+        if (char === 'F' || char === 'G') {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, len);
+          ctx.stroke();
+          ctx.translate(0, len);
+        } else if (char === '+') {
+          ctx.rotate(currentAngle * Math.PI / 180);
+        } else if (char === '-') {
+          ctx.rotate(-currentAngle * Math.PI / 180);
+        } else if (char === '[') {
+          stack.push({ transform: ctx.getTransform(), len });
+        } else if (char === ']') {
+          if (stack.length > 0) {
+            const state = stack.pop();
+            ctx.setTransform(state.transform);
+          }
+        }
+      }
+      
+      ctx.restore();
+    }
+    
+    function setPreset(name) {
+      const preset = presets[name];
+      currentAxiom = preset.axiom;
+      currentRules = preset.rules;
+      currentAngle = preset.angle;
+      currentIterations = preset.iterations;
+      
+      document.getElementById('angle').value = preset.angle;
+      document.getElementById('iterations').value = preset.iterations;
+      
+      draw();
+    }
+    
+    function regenerate() {
+      currentAngle = parseInt(document.getElementById('angle').value);
+      currentIterations = parseInt(document.getElementById('iterations').value);
+      draw();
+    }
+    
+    setPreset('tree');
+  </script>
+</body>
+</html>
