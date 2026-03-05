@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JS Array Methods Benchmark — Shadow's Garden</title>
+<meta name="description" content="Benchmark of JavaScript array methods — forEach, map, filter, reduce performance</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    font-family: 'Courier New', monospace;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+    background: #0a0a0f;
+    color: #f0e6d3;
+  }
+  h1 { color: #ff6b35; }
+  .benchmark {
+    margin: 20px 0;
+    padding: 15px;
+    background: #151520;
+    border: 1px solid #333;
+  }
+  .result {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #222;
+  }
+  .method { color: #4a9eff; }
+  .time { color: #e8c170; }
+  .winner { color: #4ade80; font-weight: bold; }
+  canvas {
+    background: #151520;
+    border: 1px solid #333;
+    margin: 20px 0;
+  }
+  button {
+    padding: 10px 20px;
+    background: #252535;
+    color: #f0e6d3;
+    border: 1px solid #444;
+    cursor: pointer;
+    font-family: inherit;
+    margin: 5px;
+  }
+  button:hover { background: #353545; }
+  .code {
+    background: #151520;
+    padding: 10px;
+    border: 1px solid #333;
+    font-size: 12px;
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>JS Array Methods Benchmark</h1>
+  <p>Benchmarking forEach, map, filter, reduce, and plain for loops.</p>
+  
+  <div>
+    <button id="runBtn">Run Benchmark</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+  
+  <div id="results"></div>
+  <canvas id="chart" width="800" height="300"></canvas>
+  
+  <div class="code">
+    <pre>const arr = Array.from({length: 100000}, (_, i) => i);
+
+// for loop
+let sum = 0;
+for (let i = 0; i < arr.length; i++) sum += arr[i];
+
+// forEach
+arr.forEach(x => sum += x);
+
+// map
+arr.map(x => x * 2);
+
+// filter
+arr.filter(x => x % 2 === 0);
+
+// reduce
+arr.reduce((a, b) => a + b, 0);</pre>
+  </div>
+  
+  <script>
+    const sizes = [10000, 50000, 100000, 500000, 1000000];
+    let results = [];
+    
+    function benchmark(fn, iterations = 5) {
+      const times = [];
+      for (let i = 0; i < iterations; i++) {
+        const start = performance.now();
+        fn();
+        const end = performance.now();
+        times.push(end - start);
+      }
+      return times.reduce((a, b) => a + b, 0) / times.length;
+    }
+    
+    function runBenchmarks() {
+      results = [];
+      
+      for (const size of sizes) {
+        const arr = Array.from({length: size}, (_, i) => i);
+        const arr2 = arr.map(x => x);
+        
+        const methods = [
+          {
+            name: 'for loop',
+            fn: () => { let s = 0; for (let i = 0; i < arr.length; i++) s += arr[i]; return s; }
+          },
+          {
+            name: 'for...of',
+            fn: () => { let s = 0; for (const x of arr) s += x; return s; }
+          },
+          {
+            name: 'forEach',
+            fn: () => { let s = 0; arr.forEach(x => s += x); return s; }
+          },
+          {
+            name: 'reduce',
+            fn: () => arr.reduce((a, b) => a + b, 0)
+          },
+          {
+            name: 'map (creates new)',
+            fn: () => arr.map(x => x * 2)
+          },
+          {
+            name: 'filter',
+            fn: () => arr.filter(x => x % 2 === 0)
+          },
+          {
+            name: 'find',
+            fn: () => arr.find(x => x === 50000)
+          },
+          {
+            name: 'includes',
+            fn: () => arr.includes(50000)
+          }
+        ];
+        
+        const sizeResults = { size };
+        for (const m of methods) {
+          sizeResults[m.name] = benchmark(m.fn);
+        }
+        results.push(sizeResults);
+      }
+      
+      renderResults();
+      renderChart();
+    }
+    
+    function renderResults() {
+      const container = document.getElementById('results');
+      let html = '<div class="benchmark">';
+      
+      // Header
+      html += '<div class="result"><span class="method">Method</span>';
+      for (const size of sizes) {
+        html += `<span class="time">${size.toLocaleString()}</span>`;
+      }
+      html += '</div>';
+      
+      // Rows
+      const methods = results[0] ? Object.keys(results[0]).filter(k => k !== 'size') : [];
+      for (const method of methods) {
+        html += `<div class="result"><span class="method">${method}</span>`;
+        for (const r of results) {
+          const time = r[method].toFixed(2);
+          html += `<span class="time">${time}ms</span>`;
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      container.innerHTML = html;
+    }
+    
+    function renderChart() {
+      const canvas = document.getElementById('chart');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+      const pad = 40;
+      
+      ctx.fillStyle = '#151520';
+      ctx.fillRect(0, 0, W, H);
+      
+      const methods = results[0] ? Object.keys(results[0]).filter(k => k !== 'size') : [];
+      const colors = {
+        'for loop': '#4ade80',
+        'for...of': '#22c55e',
+        'forEach': '#fb923c',
+        'reduce': '#f472b6',
+        'map (creates new)': '#60a5fa',
+        'filter': '#a78bfa',
+        'find': '#fbbf24',
+        'includes': '#f87171'
+      };
+      
+      // Find max
+      let maxTime = 0;
+      for (const r of results) {
+        for (const m of methods) {
+          if (r[m] > maxTime) maxTime = r[m];
+        }
+      }
+      
+      // Draw axes
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, pad);
+      ctx.lineTo(pad, H - pad);
+      ctx.lineTo(W - pad, H - pad);
+      ctx.stroke();
+      
+      // Draw lines
+      for (const method of methods) {
+        ctx.strokeStyle = colors[method] || '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < results.length; i++) {
+          const x = pad + (i / (results.length - 1)) * (W - 2 * pad);
+          const y = H - pad - (results[i][method] / maxTime) * (H - 2 * pad);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      
+      // Labels
+      ctx.fillStyle = '#888';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < results.length; i++) {
+        const x = pad + (i / (results.length - 1)) * (W - 2 * pad);
+        ctx.fillText(sizes[i].toLocaleString(), x, H - 15);
+      }
+      
+      // Legend
+      ctx.textAlign = 'left';
+      let legendY = 20;
+      for (const method of methods) {
+        ctx.fillStyle = colors[method] || '#fff';
+        ctx.fillText(method, W - 150, legendY);
+        legendY += 16;
+      }
+    }
+    
+    document.getElementById('runBtn').addEventListener('click', runBenchmarks);
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      results = [];
+      document.getElementById('results').innerHTML = '';
+      const canvas = document.getElementById('chart');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#151520';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    });
+  </script>
+</body>
+</html>
