@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procedural Tree — Shadow's Garden</title>
+<meta name="description" content="Generate procedural trees with recursive branching — adjust parameters and watch trees grow">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #f0e6d3;
+    margin-bottom: 5px;
+  }
+  .controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  label {
+    color: #888;
+    font-size: 13px;
+  }
+  input[type="range"] {
+    width: 100px;
+  }
+  span.value {
+    color: #f0e6d3;
+    font-size: 13px;
+    min-width: 30px;
+  }
+  button {
+    padding: 8px 16px;
+    background: #1a1a24;
+    border: 2px solid #333;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  button:hover {
+    background: #252535;
+  }
+  canvas {
+    border: 2px solid #333;
+    background: #0d0d12;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Procedural Tree</h1>
+  <div class="controls">
+    <div class="control-group">
+      <label>Depth:</label>
+      <input type="range" id="depth" min="4" max="12" value="9">
+      <span class="value" id="depthVal">9</span>
+    </div>
+    <div class="control-group">
+      <label>Angle:</label>
+      <input type="range" id="angle" min="10" max="45" value="25">
+      <span class="value" id="angleVal">25°</span>
+    </div>
+    <div class="control-group">
+      <label>Branch Ratio:</label>
+      <input type="range" id="ratio" min="50" max="80" value="67">
+      <span class="value" id="ratioVal">0.67</span>
+    </div>
+    <div class="control-group">
+      <label>Randomness:</label>
+      <input type="range" id="random" min="0" max="50" value="20">
+      <span class="value" id="randomVal">20%</span>
+    </div>
+    <button id="regen">Regenerate</button>
+  </div>
+  <canvas id="canvas" width="600" height="500"></canvas>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    
+    const depthInput = document.getElementById('depth');
+    const angleInput = document.getElementById('angle');
+    const ratioInput = document.getElementById('ratio');
+    const randomInput = document.getElementById('random');
+    
+    const depthVal = document.getElementById('depthVal');
+    const angleVal = document.getElementById('angleVal');
+    const ratioVal = document.getElementById('ratioVal');
+    const randomVal = document.getElementById('randomVal');
+    
+    function updateLabels() {
+      depthVal.textContent = depthInput.value;
+      angleVal.textContent = angleInput.value + '°';
+      ratioVal.textContent = (ratioInput.value / 100).toFixed(2);
+      randomVal.textContent = randomInput.value + '%';
+    }
+    
+    [depthInput, angleInput, ratioInput, randomInput].forEach(input => {
+      input.addEventListener('input', () => {
+        updateLabels();
+        draw();
+      });
+    });
+    
+    document.getElementById('regen').addEventListener('click', draw);
+    
+    function draw() {
+      ctx.fillStyle = '#0d0d12';
+      ctx.fillRect(0, 0, W, H);
+      
+      const depth = parseInt(depthInput.value);
+      const angle = parseInt(angleInput.value) * Math.PI / 180;
+      const ratio = parseInt(ratioInput.value) / 100;
+      const randomness = parseInt(randomInput.value) / 100;
+      
+      const trunkLen = 80;
+      
+      ctx.save();
+      ctx.translate(W / 2, H - 20);
+      ctx.strokeStyle = '#8b7355';
+      ctx.lineCap = 'round';
+      
+      branch(depth, trunkLen, angle, ratio, randomness);
+      
+      ctx.restore();
+    }
+    
+    function branch(depth, len, angle, ratio, randomness) {
+      if (depth === 0) return;
+      
+      // Color gradient from trunk to tips
+      const t = 1 - depth / 12;
+      const r = Math.floor(139 + (200 - 139) * t);
+      const g = Math.floor(115 + (255 - 115) * t);
+      const b = Math.floor(85 + (200 - 85) * t);
+      ctx.strokeStyle = `rgb(${r},${g},${b})`;
+      ctx.lineWidth = depth * 0.8;
+      
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -len);
+      ctx.stroke();
+      
+      ctx.translate(0, -len);
+      
+      // Random variation
+      const randL = 1 + (Math.random() - 0.5) * randomness;
+      const randR = 1 + (Math.random() - 0.5) * randomness;
+      const randAngle = 1 + (Math.random() - 0.5) * randomness * 0.5;
+      
+      // Left branch
+      ctx.save();
+      ctx.rotate(-angle * randAngle * randL);
+      branch(depth - 1, len * ratio, angle, ratio, randomness);
+      ctx.restore();
+      
+      // Right branch
+      ctx.save();
+      ctx.rotate(angle * randAngle * randR);
+      branch(depth - 1, len * ratio, angle, ratio, randomness);
+      ctx.restore();
+    }
+    
+    // Initial draw
+    draw();
+  </script>
+</body>
+</html>
