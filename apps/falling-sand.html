@@ -3,131 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Falling Sand — Shadow's Garden</title>
-<meta name="description" content="Cellular automata with sand, water, fire, oil, and acid. Click to draw.">
+title>Falling Sand — Shadow's Garden</title>
+<meta name="description" content="Interactive falling sand particle simulation — draw elements and watch them interact">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a0f; }
-  canvas { display: block; }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+  }
+  h1 {
+    color: #f0e6d3;
+    margin-bottom: 10px;
+  }
   .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
     display: flex;
     gap: 10px;
+    margin-bottom: 15px;
     flex-wrap: wrap;
-    z-index: 10;
+    justify-content: center;
   }
-  button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
+  .element-btn {
     padding: 8px 16px;
-    border-radius: 4px;
+    border: 2px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
     cursor: pointer;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
+    transition: all 0.2s;
   }
-  button:hover { background: rgba(255,255,255,0.2); }
-  button.active { background: rgba(255,255,255,0.3); border-color: #fff; }
+  .element-btn:hover {
+    background: #252535;
+  }
+  .element-btn.active {
+    border-color: #ff6b35;
+    background: #2a1a14;
+  }
+  canvas {
+    border: 2px solid #333;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
   .info {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(255,255,255,0.5);
-    font-size: 13px;
-    font-family: monospace;
-  }
-  .brush {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    color: rgba(255,255,255,0.5);
-    font-size: 13px;
-    font-family: monospace;
+    color: #666;
+    font-size: 12px;
+    margin-top: 10px;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <canvas id="canvas"></canvas>
-  <div class="info">Click + drag to draw • Scroll to change brush size</div>
-  <div class="brush" id="brushInfo">Brush: 5</div>
+  <h1>Falling Sand</h1>
   <div class="controls">
-    <button id="sand" class="active">Sand</button>
-    <button id="water">Water</button>
-    <button id="fire">Fire</button>
-    <button id="oil">Oil</button>
-    <button id="acid">Acid</button>
-    <button id="wall">Wall</button>
-    <button id="eraser">Eraser</button>
-    <button id="clear">Clear</button>
+    <button class="element-btn active" data-elem="sand">Sand</button>
+    <button class="element-btn" data-elem="water">Water</button>
+    <button class="element-btn" data-elem="stone">Stone</button>
+    <button class="element-btn" data-elem="fire">Fire</button>
+    <button class="element-btn" data-elem="smoke">Smoke</button>
+    <button class="element-btn" data-elem="eraser">Eraser</button>
+    <button class="element-btn" id="clearBtn">Clear</button>
   </div>
-
+  <canvas id="canvas" width="400" height="300"></canvas>
+  <div class="info">Click and drag to draw • Elements interact with physics</div>
+  
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const SCALE = 4;
+    const COLS = Math.floor(W / SCALE);
+    const ROWS = Math.floor(H / SCALE);
     
-    let width, height;
-    let grid = [];
-    let particleSize = 4;
-    let brushSize = 5;
-    let currentType = 'sand';
-    let mouseDown = false;
-    
-    const EMPTY = 0;
-    const SAND = 1;
-    const WATER = 2;
-    const FIRE = 3;
-    const OIL = 4;
-    const ACID = 5;
-    const WALL = 6;
-    
-    const colors = {
-      [EMPTY]: '#0a0a0f',
-      [SAND]: '#e6c229',
-      [WATER]: '#4fa4f4',
-      [FIRE]: '#ff6b35',
-      [OIL]: '#2d2d2d',
-      [ACID]: '#7fff00',
-      [WALL]: '#888888'
+    // Particle grid: 0 = empty, 1 = sand, 2 = water, 3 = stone, 4 = fire, 5 = smoke
+    let grid = new Uint8Array(COLS * ROWS);
+    let colors = {
+      1: '#e8c170',
+      2: '#4a9eff',
+      3: '#666677',
+      4: '#ff4422',
+      5: '#888899'
     };
     
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      initGrid();
-    }
+    let currentElement = 1;
+    let isDrawing = false;
+    let brushSize = 2;
     
-    function initGrid() {
-      grid = [];
-      const cols = Math.ceil(width / particleSize);
-      const rows = Math.ceil(height / particleSize);
-      for (let y = 0; y < rows; y++) {
-        grid[y] = [];
-        for (let x = 0; x < cols; x++) {
-          grid[y][x] = EMPTY;
+    // Element buttons
+    document.querySelectorAll('.element-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.id === 'clearBtn') {
+          grid.fill(0);
+          return;
         }
-      }
-    }
+        document.querySelectorAll('.element-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const elem = btn.dataset.elem;
+        const map = { sand: 1, water: 2, stone: 3, fire: 4, smoke: 5, eraser: 0 };
+        currentElement = map[elem] || 1;
+      });
+    });
     
-    function draw(x, y, type) {
-      const cols = Math.ceil(width / particleSize);
-      const rows = Math.ceil(height / particleSize);
+    // Drawing
+    canvas.addEventListener('mousedown', e => { isDrawing = true; draw(e); });
+    canvas.addEventListener('mousemove', e => { if (isDrawing) draw(e); });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+    
+    function draw(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / SCALE);
+      const y = Math.floor((e.clientY - rect.top) / SCALE);
       
       for (let dy = -brushSize; dy <= brushSize; dy++) {
         for (let dx = -brushSize; dx <= brushSize; dx++) {
           if (dx*dx + dy*dy <= brushSize*brushSize) {
-            const gx = Math.floor(x / particleSize) + dx;
-            const gy = Math.floor(y / particleSize) + dy;
-            if (gx >= 0 && gx < cols && gy >= 0 && gy < rows) {
-              if (type === 'eraser') {
-                grid[gy][gx] = EMPTY;
-              } else if (type === 'wall') {
-                grid[gy][gx] = WALL;
-              } else {
-                const types = { sand: SAND, water: WATER, fire: FIRE, oil: OIL, acid: ACID };
-                grid[gy][gx] = types[type] || EMPTY;
+            const px = x + dx;
+            const py = y + dy;
+            if (px >= 0 && px < COLS && py >= 0 && py < ROWS) {
+              if (currentElement === 0) {
+                grid[py * COLS + px] = 0;
+              } else if (grid[py * COLS + px] === 0) {
+                grid[py * COLS + px] = currentElement;
               }
             }
           }
@@ -136,111 +136,102 @@
     }
     
     function update() {
-      const cols = Math.ceil(width / particleSize);
-      const rows = Math.ceil(height / particleSize);
+      const newGrid = new Uint8Array(grid);
       
-      // Process bottom to top for falling particles
-      for (let y = rows - 2; y >= 0; y--) {
-        for (let x = 0; x < cols; x++) {
-          const cell = grid[y][x];
+      for (let y = ROWS - 1; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+          const i = y * COLS + x;
+          const cell = grid[i];
           
-          if (cell === EMPTY || cell === WALL) continue;
+          if (cell === 0 || cell === 3) continue; // Empty or stone
           
-          // Random horizontal direction
-          const dir = Math.random() < 0.5 ? 1 : -1;
-          
-          if (cell === SAND) {
-            if (y + 1 < rows && grid[y+1][x] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x] = SAND;
-            } else if (y + 1 < rows && x + dir >= 0 && x + dir < cols && grid[y+1][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x+dir] = SAND;
-            } else if (y + 1 < rows && x - dir >= 0 && x - dir < cols && grid[y+1][x-dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x-dir] = SAND;
-            }
-          }
-          
-          else if (cell === WATER) {
-            if (y + 1 < rows && grid[y+1][x] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x] = WATER;
-            } else if (y + 1 < rows && x + dir >= 0 && x + dir < cols && grid[y+1][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x+dir] = WATER;
-            } else if (x + dir >= 0 && x + dir < cols && grid[y][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y][x+dir] = WATER;
-            } else if (x - dir >= 0 && x - dir < cols && grid[y][x-dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y][x-dir] = WATER;
-            }
-          }
-          
-          else if (cell === FIRE) {
-            // Fire rises and flickers
+          // Fire rises and disappears
+          if (cell === 4) {
             if (Math.random() < 0.3) {
-              grid[y][x] = EMPTY;
+              const nx = x + Math.floor(Math.random() * 3) - 1;
+              const ny = y - 1;
+              if (nx >= 0 && nx < COLS && ny >= 0 && newGrid[ny * COLS + nx] === 0) {
+                newGrid[ny * COLS + nx] = 4;
+                newGrid[i] = 0;
+              } else if (Math.random() < 0.5) {
+                newGrid[i] = 0;
+              }
             }
-            if (y - 1 >= 0 && grid[y-1][x] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y-1][x] = FIRE;
-            } else if (y - 1 >= 0 && x + dir >= 0 && x + dir < cols && grid[y-1][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y-1][x+dir] = FIRE;
+            continue;
+          }
+          
+          // Smoke rises
+          if (cell === 5) {
+            const nx = x + Math.floor(Math.random() * 3) - 1;
+            const ny = y - 1;
+            if (nx >= 0 && nx < COLS && ny >= 0 && newGrid[ny * COLS + nx] === 0) {
+              newGrid[ny * COLS + nx] = 5;
+              newGrid[i] = 0;
+            } else if (Math.random() < 0.02) {
+              newGrid[i] = 0;
+            }
+            continue;
+          }
+          
+          // Sand and water fall
+          const below = y < ROWS - 1 ? grid[(y + 1) * COLS + x] : 0;
+          const belowL = y < ROWS - 1 && x > 0 ? grid[(y + 1) * COLS + (x - 1)] : 0;
+          const belowR = y < ROWS - 1 && x < COLS - 1 ? grid[(y + 1) * COLS + (x + 1)] : 0;
+          
+          // Sand falls down, then diagonally
+          if (cell === 1) {
+            if (below === 0 || below === 2) { // Empty or water
+              newGrid[(y + 1) * COLS + x] = 1;
+              newGrid[i] = below === 2 ? 2 : 0;
+            } else if (belowL === 0 || belowL === 2) {
+              newGrid[(y + 1) * COLS + (x - 1)] = 1;
+              newGrid[i] = belowL === 2 ? 2 : 0;
+            } else if (belowR === 0 || belowR === 2) {
+              newGrid[(y + 1) * COLS + (x + 1)] = 1;
+              newGrid[i] = belowR === 2 ? 2 : 0;
             }
           }
           
-          else if (cell === OIL) {
-            if (y + 1 < rows && grid[y+1][x] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x] = OIL;
-            } else if (y + 1 < rows && x + dir >= 0 && x + dir < cols && grid[y+1][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y+1][x+dir] = OIL;
-            } else if (x + dir >= 0 && x + dir < cols && grid[y][x+dir] === EMPTY) {
-              grid[y][x] = EMPTY;
-              grid[y][x+dir] = OIL;
-            }
-          }
-          
-          else if (cell === ACID) {
-            // Acid dissolves everything
-            if (y + 1 < rows && grid[y+1][x] !== EMPTY && grid[y+1][x] !== ACID && grid[y+1][x] !== WALL) {
-              grid[y+1][x] = EMPTY;
-              if (Math.random() < 0.1) grid[y][x] = EMPTY;
-            }
-          }
-        }
-      }
-      
-      // Fire spreads to oil
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          if (grid[y][x] === FIRE) {
-            const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
-            for (const [dx, dy] of dirs) {
-              const nx = x + dx, ny = y + dy;
-              if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && grid[ny][nx] === OIL) {
-                if (Math.random() < 0.05) grid[ny][nx] = FIRE;
+          // Water falls and spreads
+          if (cell === 2) {
+            if (below === 0) {
+              newGrid[(y + 1) * COLS + x] = 2;
+              newGrid[i] = 0;
+            } else if (belowL === 0) {
+              newGrid[(y + 1) * COLS + (x - 1)] = 2;
+              newGrid[i] = 0;
+            } else if (belowR === 0) {
+              newGrid[(y + 1) * COLS + (x + 1)] = 2;
+              newGrid[i] = 0;
+            } else {
+              // Spread horizontally
+              const left = x > 0 ? grid[y * COLS + (x - 1)] : 1;
+              const right = x < COLS - 1 ? grid[y * COLS + (x + 1)] : 1;
+              if (left === 0 && Math.random() < 0.5) {
+                newGrid[y * COLS + (x - 1)] = 2;
+                newGrid[i] = 0;
+              } else if (right === 0 && Math.random() < 0.5) {
+                newGrid[y * COLS + (x + 1)] = 2;
+                newGrid[i] = 0;
               }
             }
           }
         }
       }
+      
+      grid = newGrid;
     }
     
     function render() {
-      const cols = Math.ceil(width / particleSize);
-      const rows = Math.ceil(height / particleSize);
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
       
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const cell = grid[y][x];
-          if (cell !== EMPTY) {
-            ctx.fillStyle = colors[cell];
-            ctx.fillRect(x * particleSize, y * particleSize, particleSize, particleSize);
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = grid[y * COLS + x];
+          if (cell > 0) {
+            ctx.fillStyle = colors[cell] || '#fff';
+            ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
           }
         }
       }
@@ -252,39 +243,6 @@
       requestAnimationFrame(loop);
     }
     
-    canvas.addEventListener('mousedown', (e) => {
-      mouseDown = true;
-      draw(e.clientX, e.clientY, currentType);
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      if (mouseDown) {
-        draw(e.clientX, e.clientY, currentType);
-      }
-    });
-    
-    canvas.addEventListener('mouseup', () => mouseDown = false);
-    canvas.addEventListener('mouseleave', () => mouseDown = false);
-    
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      brushSize = Math.max(1, Math.min(20, brushSize + (e.deltaY > 0 ? -1 : 1)));
-      document.getElementById('brushInfo').innerText = 'Brush: ' + brushSize;
-    });
-    
-    const types = ['sand', 'water', 'fire', 'oil', 'acid', 'wall', 'eraser'];
-    types.forEach(t => {
-      document.getElementById(t).onclick = (e) => {
-        types.forEach(type => document.getElementById(type).classList.remove('active'));
-        e.target.classList.add('active');
-        currentType = t;
-      };
-    });
-    
-    document.getElementById('clear').onclick = initGrid;
-    
-    window.addEventListener('resize', resize);
-    resize();
     loop();
   </script>
 </body>
