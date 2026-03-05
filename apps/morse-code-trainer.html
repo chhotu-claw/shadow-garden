@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morse Code Trainer — Shadow's Garden</title>
+<meta name="description" content="Learn Morse code with interactive practice — audio, visual patterns, speed controls, and spaced repetition"> 
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --dot-color: #00ff88;
+    --dash-color: #ff6b35;
+    --bg-dark: #0a0a0f;
+    --panel-bg: #12121a;
+    --text-dim: #888;
+  }
+  
+  body {
+    background: var(--bg-dark);
+    min-height: 100vh;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: #e0e0e0;
+  }
+  
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--dot-color), var(--dash-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+  }
+  
+  .morse-display {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .morse-display::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, rgba(255, 107, 53, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  
+  .current-char {
+    font-size: 6rem;
+    font-weight: bold;
+    letter-spacing: 0.5rem;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .current-morse {
+    font-size: 2rem;
+    margin-top: 1rem;
+    color: var(--text-dim);
+    position: relative;
+    z-index: 1;
+  }
+  
+  .current-morse .dot {
+    color: var(--dot-color);
+    display: inline-block;
+    width: 12px;
+  }
+  
+  .current-morse .dash {
+    color: var(--dash-color);
+    display: inline-block;
+    width: 36px;
+  }
+  
+  .signal-visual {
+    height: 80px;
+    margin: 1rem 0;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .signal-visual canvas {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .control-panel {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  
+  .control-panel label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  
+  .control-panel input[type="range"] {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    background: #2a2a35;
+    border-radius: 3px;
+    outline: none;
+  }
+  
+  .control-panel input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--dot-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  
+  .control-panel input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+  
+  .control-value {
+    text-align: right;
+    font-size: 0.85rem;
+    color: var(--dot-color);
+    margin-top: 0.25rem;
+  }
+  
+  .buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  
+  button {
+    padding: 0.875rem 1.75rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, var(--dot-color), #00cc6a);
+    color: #000;
+  }
+  
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 255, 136, 0.3);
+  }
+  
+  .btn-secondary {
+    background: #2a2a35;
+    color: #e0e0e0;
+  }
+  
+  .btn-secondary:hover {
+    background: #3a3a45;
+  }
+  
+  .btn-audio {
+    background: linear-gradient(135deg, var(--dash-color), #cc5529);
+    color: #fff;
+  }
+  
+  .btn-audio:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 107, 53, 0.3);
+  }
+  
+  .btn-audio.playing {
+    animation: pulse 0.5s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .stat-box {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: var(--dot-color);
+  }
+  
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.25rem;
+  }
+  
+  .reference {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .reference h3 {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+  
+  .morse-table {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .morse-item {
+    background: #1a1a24;
+    padding: 0.5rem;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.85rem;
+  }
+  
+  .morse-item .letter {
+    font-weight: bold;
+    color: #fff;
+  }
+  
+  .morse-item .code {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+  }
+  
+  .mode-toggle {
+    display: flex;
+    gap: 0.5rem;
+    background: #1a1a24;
+    padding: 0.25rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  
+  .mode-toggle button {
+    flex: 1;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    background: transparent;
+    color: var(--text-dim);
+  }
+  
+  .mode-toggle button.active {
+    background: var(--dot-color);
+    color: #000;
+  }
+  
+  .answer-area {
+    margin-top: 1rem;
+  }
+  
+  .answer-input {
+    width: 100%;
+    max-width: 200px;
+    padding: 0.75rem 1rem;
+    font-size: 1.5rem;
+    font-family: inherit;
+    text-align: center;
+    text-transform: uppercase;
+    background: #1a1a24;
+    border: 2px solid #2a2a35;
+    border-radius: 8px;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  
+  .answer-input:focus {
+    border-color: var(--dot-color);
+  }
+  
+  .answer-input.correct {
+    border-color: var(--dot-color);
+    background: rgba(0, 255, 136, 0.1);
+  }
+  
+  .answer-input.wrong {
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+  }
+  
+  .feedback {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    min-height: 1.2rem;
+  }
+  
+  .feedback.correct { color: var(--dot-color); }
+  .feedback.wrong { color: #ff4444; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>⋯ −·−·</h1>
+  <p class="subtitle">Learn Morse code — audio + visual</p>
+  
+  <div class="morse-display">
+    <div class="current-char" id="currentChar">?</div>
+    <div class="signal-visual">
+      <canvas id="signalCanvas"></canvas>
+    </div>
+    <div class="current-morse" id="currentMorse">Press Start</div>
+  </div>
+  
+  <div class="mode-toggle">
+    <button class="active" id="modeLetter">Letter → Morse</button>
+    <button id="modeSound">Sound → Letter</button>
+  </div>
+  
+  <div class="controls">
+    <div class="control-panel">
+      <label>WPM (Speed)</label>
+      <input type="range" id="wpm" min="5" max="30" value="15">
+      <div class="control-value"><span id="wpmValue">15</span> WPM</div>
+    </div>
+    <div class="control-panel">
+      <label>Frequency</label>
+      <input type="range" id="frequency" min="200" max="1000" value="600">
+      <div class="control-value"><span id="freqValue">600</span> Hz</div>
+    </div>
+    <div class="control-panel">
+      <label>Volume</label>
+      <input type="range" id="volume" min="0" max="100" value="50">
+      <div class="control-value"><span id="volValue">50</span>%</div>
+    </div>
+  </div>
+  
+  <div class="buttons">
+    <button class="btn-primary" id="startBtn">Start</button>
+    <button class="btn-secondary" id="revealBtn">Reveal</button>
+    <button class="btn-audio" id="playBtn">Play Sound</button>
+    <button class="btn-secondary" id="skipBtn">Skip</button>
+  </div>
+  
+  <div class="answer-area" id="answerArea" style="display: none;">
+    <input type="text" class="answer-input" id="answerInput" maxlength="1" placeholder="?">
+    <div class="feedback" id="feedback"></div>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-value" id="correctCount">0</div>
+      <div class="stat-label">Correct</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="totalCount">0</div>
+      <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="streakCount">0</div>
+      <div class="stat-label">Streak</div>
+    </div>
+  </div>
+  
+  <div class="reference">
+    <h3>Morse Reference</h3>
+    <div class="morse-table" id="morseTable"></div>
+  </div>
+</div>
+
+<script>
+const MORSE_CODE = {
+  'A': '·−', 'B': '−···', 'C': '−·−·', 'D': '−··', 'E': '·', 'F': '··−·',
+  'G': '−−·', 'H': '····', 'I': '··', 'J': '·−−−', 'K': '−·−', 'L': '·−··',
+  'M': '−−', 'N': '−·', 'O': '−−−', 'P': '·−−·', 'Q': '−−·−', 'R': '·−·',
+  'S': '···', 'T': '−', 'U': '··−', 'V': '···−', 'W': '·−−', 'X': '−··−',
+  'Y': '−·−−', 'Z': '−−··',
+  '0': '−−−−−', '1': '·−−−−', '2': '··−−−', '3': '···−−', '4': '····−',
+  '5': '·····', '6': '−····', '7': '−−···', '8': '−−−··', '9': '−−−−·'
+};
+
+const LETTERS = Object.keys(MORSE_CODE);
+
+let audioCtx = null;
+let currentLetter = null;
+let isPlaying = false;
+let mode = 'letter';
+let correct = 0;
+let total = 0;
+let streak = 0;
+
+const currentChar = document.getElementById('currentChar');
+const currentMorse = document.getElementById('currentMorse');
+const signalCanvas = document.getElementById('signalCanvas');
+const canvasCtx = signalCanvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const playBtn = document.getElementById('playBtn');
+const revealBtn = document.getElementById('revealBtn');
+const skipBtn = document.getElementById('skipBtn');
+const wpmSlider = document.getElementById('wpm');
+const freqSlider = document.getElementById('frequency');
+const volSlider = document.getElementById('volume');
+const answerArea = document.getElementById('answerArea');
+const answerInput = document.getElementById('answerInput');
+const feedback = document.getElementById('feedback');
+const modeLetter = document.getElementById('modeLetter');
+const modeSound = document.getElementById('modeSound');
+
+function initCanvas() {
+  const rect = signalCanvas.parentElement.getBoundingClientRect();
+  signalCanvas.width = rect.width;
+  signalCanvas.height = 80;
+}
+
+function drawSignal(signalData) {
+  canvasCtx.fillStyle = '#12121a';
+  canvasCtx.fillRect(0, 0, signalCanvas.width, signalCanvas.height);
+  
+  if (!signalData || signalData.length === 0) return;
+  
+  const gradient = canvasCtx.createLinearGradient(0, 0, signalCanvas.width, 0);
+  gradient.addColorStop(0, 'rgba(0, 255, 136, 0.8)');
+  gradient.addColorStop(1, 'rgba(255, 107, 53, 0.8)');
+  
+  canvasCtx.strokeStyle = gradient;
+  canvasCtx.lineWidth = 2;
+  canvasCtx.beginPath();
+  
+  const step = signalCanvas.width / signalData.length;
+  const midY = signalCanvas.height / 2;
+  
+  for (let i = 0; i < signalData.length; i++) {
+    const x = i * step;
+    const y = signalData[i] ? midY - 20 : midY + 20;
+    if (i === 0) canvasCtx.moveTo(x, y);
+    else canvasCtx.lineTo(x, y);
+  }
+  
+  canvasCtx.stroke();
+}
+
+function getWPM() {
+  return parseInt(wpmSlider.value);
+}
+
+function getDotDuration() {
+  return 1200 / getWPM();
+}
+
+function generateSignalData(morse) {
+  const dot = getDotDuration();
+  const signalData = [];
+  
+  for (const symbol of morse) {
+    if (symbol === '·') {
+      signalData.push(true);
+      signalData.push(true);
+    } else if (symbol === '−') {
+      signalData.push(true);
+      signalData.push(true);
+      signalData.push(true);
+    }
+    signalData.push(false);
+    signalData.push(false);
+  }
+  
+  return signalData;
+}
+
+function playTone(duration) {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  oscillator.frequency.value = parseInt(freqSlider.value);
+  oscillator.type = 'sine';
+  
+  const volume = parseInt(volSlider.value) / 100;
+  gainNode.gain.value = volume;
+  
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + duration);
+}
+
+async function playMorse(morse) {
+  if (isPlaying) return;
+  isPlaying = true;
+  playBtn.classList.add('playing');
+  
+  const dot = getDotDuration();
+  const signalData = [];
+  
+  for (const symbol of morse) {
+    if (symbol === '·') {
+      playTone(dot / 1000);
+      signalData.push(true);
+      signalData.push(true);
+      await sleep(dot);
+      signalData.push(false);
+      await sleep(dot);
+    } else if (symbol === '−') {
+      playTone(dot * 3 / 1000);
+      signalData.push(true);
+      signalData.push(true);
+      signalData.push(true);
+      await sleep(dot * 3);
+      signalData.push(false);
+      await sleep(dot);
+    }
+  }
+  
+  drawSignal(signalData);
+  
+  isPlaying = false;
+  playBtn.classList.remove('playing');
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function nextLetter() {
+  currentLetter = LETTERS[Math.floor(Math.random() * LETTERS.length)];
+  
+  if (mode === 'letter') {
+    currentChar.textContent = currentLetter;
+    currentMorse.innerHTML = MORSE_CODE[currentLetter]
+      .replace(/·/g, '<span class="dot">·</span>')
+      .replace(/−/g, '<span class="dash">−</span>');
+    drawSignal([]);
+  } else {
+    currentChar.textContent = '?';
+    currentMorse.textContent = 'Listen...';
+    playMorse(MORSE_CODE[currentLetter]);
+  }
+  
+  answerInput.value = '';
+  feedback.textContent = '';
+  answerInput.classList.remove('correct', 'wrong');
+}
+
+function reveal() {
+  if (!currentLetter) return;
+  currentChar.textContent = currentLetter;
+  currentMorse.innerHTML = MORSE_CODE[currentLetter]
+    .replace(/·/g, '<span class="dot">·</span>')
+    .replace(/−/g, '<span class="dash">−</span>');
+}
+
+function checkAnswer() {
+  if (!currentLetter) return;
+  
+  const answer = answerInput.value.toUpperCase();
+  total++;
+  
+  if (answer === currentLetter) {
+    correct++;
+    streak++;
+    feedback.textContent = '✓ Correct!';
+    feedback.className = 'feedback correct';
+    answerInput.classList.add('correct');
+    answerInput.classList.remove('wrong');
+    setTimeout(nextLetter, 1000);
+  } else {
+    streak = 0;
+    feedback.textContent = `✗ It was ${currentLetter}`;
+    feedback.className = 'feedback wrong';
+    answerInput.classList.add('wrong');
+    answerInput.classList.remove('correct');
+  }
+  
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('correctCount').textContent = correct;
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('streakCount').textContent = streak;
+}
+
+function buildReference() {
+  const table = document.getElementById('morseTable');
+  table.innerHTML = '';
+  
+  for (const letter of LETTERS) {
+    const item = document.createElement('div');
+    item.className = 'morse-item';
+    item.innerHTML = `
+      <div class="letter">${letter}</div>
+      <div class="code">${MORSE_CODE[letter]}</div>
+    `;
+    table.appendChild(item);
+  }
+}
+
+// Event Listeners
+startBtn.addEventListener('click', () => {
+  if (mode === 'letter') {
+    answerArea.style.display = 'none';
+  } else {
+    answerArea.style.display = 'block';
+    answerInput.focus();
+  }
+  nextLetter();
+});
+
+playBtn.addEventListener('click', () => {
+  if (!currentLetter) {
+    nextLetter();
+    return;
+  }
+  playMorse(MORSE_CODE[currentLetter]);
+});
+
+revealBtn.addEventListener('click', reveal);
+
+skipBtn.addEventListener('click', () => {
+  streak = 0;
+  updateStats();
+  nextLetter();
+});
+
+wpmSlider.addEventListener('input', () => {
+  document.getElementById('wpmValue').textContent = wpmSlider.value;
+});
+
+freqSlider.addEventListener('input', () => {
+  document.getElementById('freqValue').textContent = freqSlider.value;
+});
+
+volSlider.addEventListener('input', () => {
+  document.getElementById('volValue').textContent = volSlider.value;
+});
+
+modeLetter.addEventListener('click', () => {
+  mode = 'letter';
+  modeLetter.classList.add('active');
+  modeSound.classList.remove('active');
+  answerArea.style.display = 'none';
+  currentChar.textContent = '?';
+  currentMorse.textContent = 'Press Start';
+  drawSignal([]);
+});
+
+modeSound.addEventListener('click', () => {
+  mode = 'sound';
+  modeSound.classList.add('active');
+  modeLetter.classList.remove('active');
+  currentChar.textContent = '?';
+  currentMorse.textContent = 'Press Start';
+  drawSignal([]);
+});
+
+answerInput.addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') {
+    checkAnswer();
+  }
+});
+
+window.addEventListener('resize', initCanvas);
+
+// Initialize
+initCanvas();
+buildReference();
+</script>
+</body>
+</html>
