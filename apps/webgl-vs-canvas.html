@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGL vs Canvas 2D — Shadow's Garden</title>
+<meta name="description" content="Benchmarking WebGL against Canvas 2D for particle rendering — how do they compare?</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+  }
+  h1 { color: #f0e6d3; margin-bottom: 10px; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  button {
+    padding: 10px 20px;
+    border: 2px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  button:hover { background: #252535; }
+  button.active { border-color: #ff6b35; }
+  canvas {
+    border: 2px solid #333;
+    margin: 10px;
+  }
+  #results {
+    color: #888;
+    font-family: monospace;
+    margin-top: 20px;
+    text-align: left;
+    min-width: 400px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #222;
+  }
+  .fps { color: #4a9eff; }
+  .winner { color: #4ade80; font-weight: bold; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>WebGL vs Canvas 2D</h1>
+  <div class="controls">
+    <button id="runBtn">Run Benchmark</button>
+    <button id="stopBtn">Stop</button>
+  </div>
+  <canvas id="canvas2d" width="400" height="300"></canvas>
+  <div id="results"></div>
+  
+  <script>
+    const PARTICLES = 10000;
+    let running = false;
+    let mode = '2d';
+    
+    // Canvas 2D setup
+    const canvas2d = document.getElementById('canvas2d');
+    const ctx = canvas2d.getContext('2d');
+    let particles2d = [];
+    
+    // WebGL setup
+    let gl, program, posBuffer;
+    let particlesWebGL = [];
+    
+    function initWebGL() {
+      gl = canvas2d.getContext('webgl');
+      if (!gl) return;
+      
+      const vs = `
+        attribute vec2 pos;
+        void main() {
+          gl_Position = vec4(pos * 2.0 - 1.0, 0.0, 1.0);
+          gl_PointSize = 2.0;
+        }
+      `;
+      const fs = `
+        precision mediump float;
+        void main() {
+          gl_FragColor = vec4(0.9, 0.8, 0.5, 1.0);
+        }
+      `;
+      
+      const vsComp = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vsComp, vs);
+      gl.compileShader(vsComp);
+      
+      const fsComp = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fsComp, fs);
+      gl.compileShader(fsComp);
+      
+      program = gl.createProgram();
+      gl.attachShader(program, vsComp);
+      gl.attachShader(program, fsComp);
+      gl.linkProgram(program);
+      gl.useProgram(program);
+      
+      posBuffer = gl.createBuffer();
+    }
+    
+    function initParticles() {
+      particles2d = [];
+      particlesWebGL = [];
+      for (let i = 0; i < PARTICLES; i++) {
+        const p = {
+          x: Math.random() * 400,
+          y: Math.random() * 300,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2
+        };
+        particles2d.push(p);
+        particlesWebGL.push(p);
+      }
+    }
+    
+    function update2D() {
+      for (let p of particles2d) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > 400) p.vx *= -1;
+        if (p.y < 0 || p.y > 300) p.vy *= -1;
+      }
+    }
+    
+    function render2D() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, 400, 300);
+      ctx.fillStyle = '#e8c170';
+      for (let p of particles2d) {
+        ctx.fillRect(p.x, p.y, 2, 2);
+      }
+    }
+    
+    function updateWebGL() {
+      for (let p of particlesWebGL) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > 400) p.vx *= -1;
+        if (p.y < 0 || p.y > 300) p.vy *= -1;
+      }
+    }
+    
+    function renderWebGL() {
+      gl.viewport(0, 0, 400, 300);
+      gl.clearColor(0.04, 0.04, 0.06, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      
+      const positions = new Float32Array(PARTICLES * 2);
+      for (let i = 0; i < PARTICLES; i++) {
+        positions[i * 2] = particlesWebGL[i].x / 400;
+        positions[i * 2 + 1] = particlesWebGL[i].y / 300;
+      }
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+      
+      const posLoc = gl.getAttribLocation(program, 'pos');
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      gl.drawArrays(gl.POINTS, 0, PARTICLES);
+    }
+    
+    let lastTime = 0;
+    let frameCount = 0;
+    let fps = 0;
+    let results = { webgl: [], '2d': [] };
+    
+    function benchmark(mode) {
+      if (!running) return;
+      
+      const now = performance.now();
+      frameCount++;
+      
+      if (now - lastTime >= 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastTime = now;
+        results[mode].push(fps);
+        updateResults();
+      }
+      
+      if (mode === '2d') {
+        update2D();
+        render2D();
+      } else {
+        updateWebGL();
+        renderWebGL();
+      }
+      
+      requestAnimationFrame(() => benchmark(mode));
+    }
+    
+    function updateResults() {
+      const avg2d = results['2d'].length ? Math.round(results['2d'].reduce((a,b)=>a+b)/results['2d'].length) : '-';
+      const avgWebGL = results.webgl.length ? Math.round(results.webgl.reduce((a,b)=>a+b)/results.webgl.length) : '-';
+      
+      document.getElementById('results').innerHTML = `
+        <div class="row"><span>Canvas 2D</span><span class="fps">${avg2d} fps</span></div>
+        <div class="row"><span>WebGL</span><span class="fps">${avgWebGL} fps</span> ${avgWebGL > avg2d ? '<span class="winner">WINNER</span>' : ''}</div>
+        <div class="row"><span>Speedup</span><span>${avg2d !== '-' && avgWebGL !== '-' ? (avgWebGL/avg2d).toFixed(1) + 'x' : '-'}</span></div>
+      `;
+    }
+    
+    document.getElementById('runBtn').addEventListener('click', () => {
+      if (running) return;
+      running = true;
+      results = { webgl: [], '2d': [] };
+      initParticles();
+      initWebGL();
+      lastTime = performance.now();
+      
+      // Run 2D first
+      mode = '2d';
+      let phase = '2d';
+      let phaseFrames = 0;
+      
+      function runPhase() {
+        if (!running) return;
+        
+        const now = performance.now();
+        frameCount++;
+        
+        if (now - lastTime >= 1000) {
+          fps = frameCount;
+          results[phase].push(fps);
+          frameCount = 0;
+          lastTime = now;
+          updateResults();
+          
+          if (phase === '2d' && results['2d'].length >= 3) {
+            // Switch to WebGL
+            phase = 'webgl';
+          } else if (phase === 'webgl' && results.webgl.length >= 3) {
+            running = false;
+            return;
+          }
+        }
+        
+        if (phase === '2d') {
+          update2D();
+          render2D();
+        } else {
+          updateWebGL();
+          renderWebGL();
+        }
+        
+        requestAnimationFrame(runPhase);
+      }
+      
+      runPhase();
+    });
+    
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      running = false;
+    });
+  </script>
+</body>
+</html>
