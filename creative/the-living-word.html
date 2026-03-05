@@ -4,219 +4,187 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Living Word — Shadow's Garden</title>
-<meta name="description" content="An interactive poem that breathes when you watch and dreams when you leave.">
+<meta name="description" content="An interactive poem that breathes when you watch and dreams when you leave">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body {
-    margin: 0;
-    min-height: 100vh;
-    background: #0a0a0f;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    background: #0a0a0f;
     overflow: hidden;
   }
   .poem-container {
     position: relative;
-    width: 90%;
+    width: 100%;
     max-width: 800px;
-    height: 60vh;
+    padding: 40px;
+    text-align: center;
   }
   .word {
-    position: absolute;
-    font-family: 'Crimson Text', Georgia, serif;
-    font-size: 1.2rem;
-    color: rgba(200, 180, 160, 0.8);
+    display: inline-block;
+    font-size: 28px;
+    color: #f0e6d3;
+    margin: 8px;
+    transition: all 0.4s ease;
     cursor: default;
-    transition: transform 0.3s, color 0.3s, opacity 0.5s;
-    user-select: none;
-    text-shadow: 0 0 10px rgba(200, 180, 160, 0.3);
+    font-family: 'Cormorant Garamond', Georgia, serif;
   }
   .word:hover {
-    color: rgba(255, 220, 180, 1);
-    text-shadow: 0 0 20px rgba(255, 200, 150, 0.5);
-    z-index: 10;
+    transform: scale(1.2);
+    color: #ff6b35;
+  }
+  .word.asleep {
+    opacity: 0.3;
+    transform: scale(0.9);
   }
   .word.dreaming {
-    opacity: 0.3;
-    animation: dream 4s ease-in-out infinite;
+    animation: dream 2s ease-in-out infinite;
+    color: #9b59b6;
   }
   @keyframes dream {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.5; }
+    50% { transform: translateY(-10px) scale(1.1); opacity: 0.8; }
   }
-  .add-word {
+  .word.awake {
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+  }
+  #status {
     position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 25, 20, 0.8);
-    border: 1px solid rgba(200, 180, 160, 0.3);
-    color: rgba(200, 180, 160, 0.8);
-    padding: 12px 24px;
-    font-family: 'Crimson Text', Georgia, serif;
+    bottom: 20px;
+    color: #666;
     font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
   }
-  .add-word:hover {
-    background: rgba(50, 40, 30, 0.9);
-    border-color: rgba(200, 180, 160, 0.6);
-  }
-  .hint {
+  .breath-indicator {
     position: fixed;
     top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(150, 130, 110, 0.5);
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    color: #666;
+  }
+  .breath-indicator.breathing {
+    animation: breathe 4s ease-in-out infinite;
+    border-color: #ff6b35;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="hint">watch to wake them • leave to let them dream</div>
+  <div class="breath-indicator" id="breathIndicator">waiting</div>
   <div class="poem-container" id="poem"></div>
-  <button class="add-word" onclick="addWord()">+ add word</button>
+  <div id="status">The poem waits for your gaze...</div>
 
   <script>
-    const poem = document.getElementById('poem');
     const words = [
-      'breath', 'shadow', 'drift', 'echo', 'fade',
-      'remember', 'whisper', 'lost', 'found', 'silence',
-      'wake', 'sleep', 'flow', 'stay', 'go',
-      'light', 'dark', 'near', 'far', 'here',
-      'now', 'then', 'always', 'never', 'maybe',
-      'touch', 'feel', 'see', 'hear', 'be',
-      'become', 'begin', 'break', 'build', 'burn',
-      'come', 'dream', 'exist', 'fall', 'fight',
-      'grow', 'hold', 'jump', 'know', 'learn',
-      'love', 'make', 'need', 'open', 'play',
-      'quest', 'rise', 'seek', 'turn', 'understand',
-      'voice', 'walk', 'want', 'yield', 'zero'
-    ];
-    const placedWords = [];
-    let isWatching = false;
-    let watchTimeout;
-    
-    const poemLines = [
-      'the words remember',
-      'what you forget',
-      'breathing in silence',
-      'dreaming of light',
-      'echoes of presence',
-      'shadows that stay',
-      'whispers that fade',
-      'always beginning',
-      'never quite ending'
+      "I", "am", "the", "space", "between",
+      "letters", "that", "become", "meaning",
+      "You", "read", "me", "into",
+      "existence", "with", "every",
+      "glance", "But", "when", "you",
+      "look", "away", "I", "drift",
+      "into", "the", "margins", "of",
+      "dreaming", "I", "am", "not",
+      "alive", "I", "am", "not",
+      "dead", "I", "am", "the",
+      "breath", "between", "what", "you",
+      "see", "and", "what", "you",
+      "imagine"
     ];
     
-    function initPoem() {
-      poemLines.forEach((line, lineIndex) => {
-        const lineWords = line.split(' ');
-        lineWords.forEach((word, wordIndex) => {
-          const el = document.createElement('span');
-          el.className = 'word';
-          el.textContent = word;
-          el.dataset.baseX = (wordIndex * 80 + 50) + Math.random() * 20;
-          el.dataset.baseY = (lineIndex * 50 + 80) + Math.random() * 20;
-          el.dataset.vx = 0;
-          el.dataset.vy = 0;
-          el.dataset.targetX = parseFloat(el.dataset.baseX);
-          el.dataset.targetY = parseFloat(el.dataset.baseY);
-          poem.appendChild(el);
-          placedWords.push(el);
-        });
-      });
-    }
+    const poem = document.getElementById('poem');
+    const status = document.getElementById('status');
+    const breathIndicator = document.getElementById('breathIndicator');
     
-    function addWord() {
-      const word = words[Math.floor(Math.random() * words.length)];
-      const el = document.createElement('span');
-      el.className = 'word';
-      el.textContent = word;
-      el.dataset.baseX = Math.random() * (poem.offsetWidth - 100) + 50;
-      el.dataset.baseY = Math.random() * (poem.offsetHeight - 50) + 50;
-      el.dataset.vx = 0;
-      el.dataset.vy = 0;
-      el.dataset.targetX = parseFloat(el.dataset.baseX);
-      el.dataset.targetY = parseFloat(el.dataset.baseY);
-      poem.appendChild(el);
-      placedWords.push(el);
-    }
-    
-    document.addEventListener('mousemove', (e) => {
-      const rect = poem.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      
-      placedWords.forEach(word => {
-        const x = parseFloat(word.dataset.targetX);
-        const y = parseFloat(word.dataset.targetY);
-        const dist = Math.sqrt((mx - x) ** 2 + (my - y) ** 2);
-        
-        if (dist < 150) {
-          const force = (150 - dist) / 150;
-          const angle = Math.atan2(y - my, x - mx);
-          word.dataset.vx = parseFloat(word.dataset.vx) + Math.cos(angle) * force * 2;
-          word.dataset.vy = parseFloat(word.dataset.vy) + Math.sin(angle) * force * 2;
-        }
-      });
-      
-      isWatching = true;
-      clearTimeout(watchTimeout);
-      watchTimeout = setTimeout(() => {
-        isWatching = false;
-      }, 1000);
+    // Create word elements
+    const wordElements = words.map((word, i) => {
+      const span = document.createElement('span');
+      span.className = 'word asleep';
+      span.textContent = word;
+      span.style.transitionDelay = `${i * 0.02}s`;
+      return span;
     });
     
-    function animate() {
-      placedWords.forEach(word => {
-        let x = parseFloat(word.dataset.targetX);
-        let y = parseFloat(word.dataset.targetY);
-        let vx = parseFloat(word.dataset.vx);
-        let vy = parseFloat(word.dataset.vy);
-        
-        // Return to base
-        const baseX = parseFloat(word.dataset.baseX);
-        const baseY = parseFloat(word.dataset.baseY);
-        vx += (baseX - x) * 0.02;
-        vy += (baseY - y) * 0.02;
-        
-        // Damping
-        vx *= 0.92;
-        vy *= 0.92;
-        
-        // Update position
-        x += vx;
-        y += vy;
-        
-        // Keep in bounds
-        x = Math.max(20, Math.min(poem.offsetWidth - 100, x));
-        y = Math.max(20, Math.min(poem.offsetHeight - 30, y));
-        
-        word.dataset.targetX = x;
-        word.dataset.targetY = y;
-        word.dataset.vx = vx;
-        word.dataset.vy = vy;
-        
-        word.style.left = x + 'px';
-        word.style.top = y + 'px';
-        
-        // Dreaming state
-        if (!isWatching) {
-          word.classList.add('dreaming');
-        } else {
-          word.classList.remove('dreaming');
-        }
-      });
+    poem.append(...wordElements);
+    
+    let isWatching = false;
+    let watchTimer = null;
+    let dreamTimer = null;
+    let breathPhase = 0;
+    
+    function wakeUp() {
+      if (isWatching) return;
+      isWatching = true;
       
-      requestAnimationFrame(animate);
+      clearTimeout(dreamTimer);
+      breathIndicator.classList.add('breathing');
+      breathIndicator.textContent = 'breathing';
+      status.textContent = 'The poem breathes with you...';
+      
+      wordElements.forEach((word, i) => {
+        setTimeout(() => {
+          word.className = 'word awake';
+        }, i * 50);
+      });
     }
     
-    initPoem();
-    animate();
+    function fallAsleep() {
+      if (!isWatching) return;
+      isWatching = false;
+      
+      breathIndicator.classList.remove('breathing');
+      breathIndicator.textContent = 'dreaming';
+      status.textContent = 'The poem dreams without you...';
+      
+      // Reverse wake up - words drift off
+      [...wordElements].reverse().forEach((word, i) => {
+        setTimeout(() => {
+          word.className = 'word dreaming';
+        }, i * 30);
+      });
+    }
+    
+    // Watch detection
+    document.addEventListener('mousemove', () => {
+      wakeUp();
+      clearTimeout(watchTimer);
+      watchTimer = setTimeout(fallAsleep, 3000);
+    });
+    
+    document.addEventListener('click', () => {
+      wakeUp();
+      clearTimeout(watchTimer);
+      watchTimer = setTimeout(fallAsleep, 5000);
+    });
+    
+    // Start dreaming after a delay
+    dreamTimer = setTimeout(fallAsleep, 2000);
+    
+    // Subtle breathing animation on the poem itself
+    setInterval(() => {
+      if (isWatching) {
+        breathPhase = (breathPhase + 0.02) % (Math.PI * 2);
+        const scale = 1 + Math.sin(breathPhase) * 0.02;
+        poem.style.transform = `scale(${scale})`;
+      }
+    }, 50);
   </script>
 </body>
 </html>
