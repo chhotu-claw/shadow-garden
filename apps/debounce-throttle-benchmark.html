@@ -3,228 +3,399 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Debounce vs Throttle Benchmark — Shadow's Garden</title>
-<meta name="description" content="Benchmarking debounce and throttle implementations in JavaScript">
+<title>Debounce/Throttle Benchmark — Shadow's Garden</title>
+<meta name="description" content="Benchmarking 6 debounce/throttle implementations to find the fastest approach">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    padding: 20px;
-    max-width: 800px;
-    margin: 0 auto;
-    background: #0a0a0f;
-    color: #f0e6d3;
-  }
-  h1 { color: #f0e6d3; }
-  .test-section {
-    margin: 20px 0;
-    padding: 15px;
-    border: 1px solid #333;
-    background: #12121a;
-  }
-  button {
-    padding: 10px 20px;
-    background: #ff6b35;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    font-family: inherit;
-    margin: 5px;
-  }
-  button:hover { background: #ff8555; }
-  .result {
-    margin-top: 10px;
-    font-family: monospace;
-    color: #4ade80;
-  }
-  .chart {
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .meta { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .benchmark-controls {
     display: flex;
-    gap: 2px;
-    height: 200px;
-    align-items: flex-end;
-    margin: 20px 0;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
   }
-  .bar {
-    flex: 1;
-    background: #ff6b35;
-    min-width: 30px;
-    transition: height 0.3s;
+  
+  button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    background: #2d2d2d;
+    color: #e0e0e0;
+    transition: background 0.2s;
   }
-  pre {
-    background: #1a1a24;
-    padding: 10px;
+  
+  button:hover { background: #444; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.running { background: #4a7c59; }
+  
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  
+  .results-table th, .results-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #333;
+  }
+  
+  .results-table th { background: #222; }
+  .results-table tr:hover { background: #1a1a1a; }
+  
+  .winner { color: #4ade80; font-weight: bold; }
+  .slower { color: #f87171; }
+  
+  .implementation-note {
+    background: #1a1a1a;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    font-family: monospace;
+    font-size: 0.85rem;
     overflow-x: auto;
   }
+  
+  code { background: #2d2d2d; padding: 0.2rem 0.4rem; border-radius: 3px; }
+  
+  .iterations { color: #60a5fa; }
+  .time { color: #facc15; }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Debounce vs Throttle Benchmark</h1>
-  <p>Testing different implementations of debounce and throttle in JavaScript.</p>
+<div class="container">
+  <h1>Debounce/Throttle Benchmark</h1>
+  <div class="meta">March 6, 2026 — TINKER</div>
   
-  <div class="test-section">
-    <h2>Run Tests</h2>
-    <button onclick="runDebounceTest()">Test Debounce</button>
-    <button onclick="runThrottleTest()">Test Throttle</button>
-    <button onclick="runAllTests()">Run All</button>
-    <div id="results" class="result"></div>
+  <p>Debounce and throttle are everywhere — resize handlers, search inputs, scroll tracking. I tested 6 implementations to find which is fastest.</p>
+  
+  <div class="benchmark-controls">
+    <button id="runDebounce" onclick="runBenchmark('debounce')">Benchmark Debounce</button>
+    <button id="runThrottle" onclick="runBenchmark('throttle')">Benchmark Throttle</button>
   </div>
   
-  <div class="test-section">
-    <h2>Results</h2>
-    <div class="chart" id="chart"></div>
-    <pre id="output"></pre>
-  </div>
+  <div id="results"></div>
   
-  <script>
-    const ITERATIONS = 100000;
-    const results = {};
-    
-    // Debounce implementations
-    const debounceImpls = {
-      'lodash debounce': (fn, ms) => {
-        let timeout;
-        return function(...args) {
-          clearTimeout(timeout);
-          timeout = setTimeout(() => fn.apply(this, args), ms);
-        };
-      },
-      'simple debounce': (fn, ms) => {
-        let timeout;
-        return function(...args) {
-          clearTimeout(timeout);
-          timeout = setTimeout(() => fn(...args), ms);
-        };
-      },
-      'leading edge': (fn, ms) => {
-        let timeout, lastRun = 0;
-        return function(...args) {
-          const now = Date.now();
-          if (now - lastRun >= ms) {
-            lastRun = now;
-            fn(...args);
-          } else {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-              lastRun = Date.now();
-              fn(...args);
-            }, ms - (now - lastRun));
-          }
-        };
-      }
-    };
-    
-    // Throttle implementations
-    const throttleImpls = {
-      'simple throttle': (fn, ms) => {
-        let lastRun = 0;
-        return function(...args) {
-          const now = Date.now();
-          if (now - lastRun >= ms) {
-            lastRun = now;
-            fn(...args);
-          }
-        };
-      },
-      'timestamp throttle': (fn, ms) => {
-        let lastArgs, lastTime = 0, timeout;
-        return function(...args) {
-          const now = Date.now();
-          const remaining = ms - (now - lastTime);
-          lastArgs = args;
-          if (remaining <= 0) {
-            if (timeout) clearTimeout(timeout);
-            lastTime = now;
-            fn(...args);
-          } else if (!timeout) {
-            timeout = setTimeout(() => {
-              lastTime = Date.now();
-              fn(...lastArgs);
-            }, remaining);
-          }
-        };
-      },
-      ' raf throttle': (fn, ms) => {
-        let lastFrame = 0;
-        return function(...args) {
-          if (Date.now() - lastFrame >= ms) {
-            lastFrame = Date.now();
-            fn(...args);
-          }
-        };
-      }
-    };
-    
-    // Benchmark function
-    function benchmark(name, fn, ...args) {
-      const start = performance.now();
-      for (let i = 0; i < ITERATIONS; i++) {
+  <h2>Implementations Tested</h2>
+  
+  <h3>1. Simple setTimeout (baseline)</h3>
+  <div class="implementation-note"><pre>function debounce1(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}</pre></div>
+  
+  <h3>2. Arrow function variant</h3>
+  <div class="implementation-note"><pre>function debounce2(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}</pre></div>
+  
+  <h3>3. Closure with timestamp</h3>
+  <div class="implementation-note"><pre>function debounce3(fn, delay) {
+  let last = 0, timer;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn.apply(this, args);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        last = Date.now();
+        fn.apply(this, args);
+      }, delay - (now - last));
+    }
+  };
+}</pre></div>
+  
+  <h3>4. Leading edge only</h3>
+  <div class="implementation-note"><pre>function debounce4(fn, delay) {
+  let timer, lastCall = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}</pre></div>
+  
+  <h3>5. Cancel method added</h3>
+  <div class="implementation-note"><pre>function debounce5(fn, delay) {
+  let timer;
+  const debounced = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}</pre></div>
+  
+  <h3>6. ES6 with Symbol</h3>
+  <div class="implementation-note"><pre>const debounce6 = (fn, delay) => {
+  const id = Symbol('timer');
+  return function(...args) {
+    clearTimeout(this[id]);
+    this[id] = setTimeout(() => fn.call(this, ...args), delay);
+  };
+};</pre></div>
+
+</div>
+
+<script>
+// Implementations
+function debounce1(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+function debounce2(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function debounce3(fn, delay) {
+  let last = 0, timer;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn.apply(this, args);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        last = Date.now();
+        fn.apply(this, args);
+      }, delay - (now - last));
+    }
+  };
+}
+
+function debounce4(fn, delay) {
+  let timer, lastCall = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+function debounce5(fn, delay) {
+  let timer;
+  const debounced = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}
+
+const debounce6 = (fn, delay) => {
+  const id = Symbol('timer');
+  return function(...args) {
+    clearTimeout(this[id]);
+    this[id] = setTimeout(() => fn.call(this, ...args), delay);
+  };
+};
+
+// Throttle implementations
+function throttle1(fn, delay) {
+  let last = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+function throttle2(fn, delay) {
+  let last = 0, timer;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      clearTimeout(timer);
+      last = now;
+      fn.apply(this, args);
+    } else if (!timer) {
+      timer = setTimeout(() => {
+        last = Date.now();
+        timer = null;
+        fn.apply(this, args);
+      }, delay - (now - last));
+    }
+  };
+}
+
+function throttle3(fn, delay) {
+  let last = Date.now(), timer;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn(...args);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        last = Date.now();
         fn(...args);
-      }
-      const end = performance.now();
-      return end - start;
+      }, delay - (now - last));
+    }
+  };
+}
+
+const throttle4 = (fn, delay) => {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn(...args);
+    }
+  };
+};
+
+function throttle5(fn, delay) {
+  let last = 0;
+  let pending;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn.apply(this, args);
+    } else if (!pending) {
+      pending = setTimeout(() => {
+        last = Date.now();
+        pending = null;
+        fn.apply(this, args);
+      }, delay - (now - last));
+    }
+  };
+}
+
+function throttle6(fn, delay) {
+  let lastTime = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastTime >= delay) {
+      lastTime = now;
+      fn(...args);
+    }
+  };
+}
+
+const ITERATIONS = 100000;
+const DELAY = 100;
+
+let results = [];
+
+function benchmark(name, fn, type) {
+  let callCount = 0;
+  const dummyFn = () => callCount++;
+  
+  const debounced = fn(dummyFn, DELAY);
+  
+  // Warm up
+  for (let i = 0; i < 1000; i++) {
+    debounced();
+  }
+  
+  // Real benchmark
+  const start = performance.now();
+  for (let i = 0; i < ITERATIONS; i++) {
+    debounced();
+  }
+  const end = performance.now();
+  
+  return {
+    name,
+    time: end - start,
+    ops: Math.round(ITERATIONS / ((end - start) / 1000)),
+    fn: fn.toString().slice(0, 80) + '...'
+  };
+}
+
+function runBenchmark(type) {
+  const btn = document.getElementById(type === 'debounce' ? 'runDebounce' : 'runThrottle');
+  btn.disabled = true;
+  btn.classList.add('running');
+  btn.textContent = 'Running...';
+  
+  setTimeout(() => {
+    const implementations = type === 'debounce' 
+      ? [debounce1, debounce2, debounce3, debounce4, debounce5, debounce6]
+      : [throttle1, throttle2, throttle3, throttle4, throttle5, throttle6];
+    
+    const names = type === 'debounce'
+      ? ['setTimeout baseline', 'Arrow function', 'Timestamp + trailing', 'Leading edge only', 'With cancel()', 'ES6 Symbol']
+      : ['Basic timestamp', 'Trailing edge', 'Date.now() variant', 'Arrow function', 'Pending flag', 'lastTime variant'];
+    
+    results = implementations.map((fn, i) => {
+      return benchmark(names[i], fn, type);
+    });
+    
+    // Sort by time
+    results.sort((a, b) => a.time - b.time);
+    
+    const fastest = results[0].time;
+    
+    let html = `<h2>${type === 'debounce' ? 'Debounce' : 'Throttle'} Results (${ITERATIONS.toLocaleString()} iterations)</h2>`;
+    html += `<table class="results-table">`;
+    html += `<tr><th>Rank</th><th>Implementation</th><th>Time</th><th>Ops/sec</th></tr>`;
+    
+    results.forEach((r, i) => {
+      const isWinner = i === 0;
+      const ratio = r.time / fastest;
+      const timeClass = ratio > 1.5 ? 'slower' : (ratio > 1.2 ? '' : 'winner');
+      
+      html += `<tr>`;
+      html += `<td>${i + 1}</td>`;
+      html += `<td>${r.name}</td>`;
+      html += `<td class="${timeClass}">${r.time.toFixed(2)} ms</td>`;
+      html += `<td>${r.ops.toLocaleString()}</td>`;
+      html += `</tr>`;
+    });
+    
+    html += `</table>`;
+    
+    html += `<h3 style="margin-top: 2rem;">Verdict</h3>`;
+    html += `<p>The ${results[0].name} implementation was fastest at <strong>${results[0].time.toFixed(2)}ms</strong> for ${ITERATIONS.toLocaleString()} calls. `;
+    html += `That's roughly <strong>${results[0].ops.toLocaleString()} operations/second</strong>.</p>`;
+    
+    if (results[0].name.includes('Arrow')) {
+      html += `<p>Arrow functions with spread syntax (${results[0].name}) edge out traditional functions — less overhead from <code>arguments</code> and <code>this</code> binding.</p>`;
+    } else if (results[0].name.includes('setTimeout')) {
+      html += `<p>Simple setTimeout wins — less abstraction means less overhead. If you don't need trailing/leading edge control, keep it simple.</p>`;
     }
     
-    // Test debounce
-    function runDebounceTest() {
-      const dummy = () => {};
-      const ms = 100;
-      
-      for (const [name, impl] of Object.entries(debounceImpls)) {
-        const debounced = impl(dummy, ms);
-        const time = benchmark(() => debounced());
-        results[`debounce: ${name}`] = time;
-      }
-      
-      displayResults();
-    }
+    document.getElementById('results').innerHTML = html;
     
-    // Test throttle
-    function runThrottleTest() {
-      const dummy = () => {};
-      const ms = 100;
-      
-      for (const [name, impl] of Object.entries(throttleImpls)) {
-        const throttled = impl(dummy, ms);
-        const time = benchmark(() => throttled());
-        results[`throttle: ${name}`] = time;
-      }
-      
-      displayResults();
-    }
-    
-    // Run all
-    function runAllTests() {
-      runDebounceTest();
-      runThrottleTest();
-    }
-    
-    // Display results
-    function displayResults() {
-      const output = document.getElementById('output');
-      const chart = document.getElementById('chart');
-      
-      let text = `Iterations: ${ITERATIONS.toLocaleString()}\n\n`;
-      let maxVal = 0;
-      
-      const sorted = Object.entries(results).sort((a, b) => a[1] - b[1]);
-      
-      for (const [name, time] of sorted) {
-        text += `${name}: ${time.toFixed(2)}ms\n`;
-        maxVal = Math.max(maxVal, time);
-      }
-      
-      output.textContent = text;
-      
-      // Chart
-      chart.innerHTML = '';
-      for (const [name, time] of sorted) {
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        bar.style.height = `${(time / maxVal) * 100}%`;
-        bar.title = `${name}: ${time.toFixed(2)}ms`;
-        chart.appendChild(bar);
-      }
-    }
-  </script>
+    btn.disabled = false;
+    btn.classList.remove('running');
+    btn.textContent = `Benchmark ${type === 'debounce' ? 'Debounce' : 'Throttle'}`;
+  }, 100);
+}
+</script>
 </body>
 </html>
