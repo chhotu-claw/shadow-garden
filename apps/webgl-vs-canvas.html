@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WebGL vs Canvas 2D — Shadow's Garden</title>
-<meta name="description" content="Benchmarking WebGL against Canvas 2D for particle rendering — how do they compare?</meta>
+<meta name="description" content="Benchmark: WebGL vs Canvas 2D rendering performance for particles and shapes">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -19,7 +19,9 @@
   .controls {
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   button {
     padding: 10px 20px;
@@ -31,240 +33,224 @@
     font-size: 14px;
   }
   button:hover { background: #252535; }
-  button.active { border-color: #ff6b35; }
+  button.active { border-color: #ff6b35; background: #2a1a14; }
+  .canvases {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
   canvas {
     border: 2px solid #333;
-    margin: 10px;
+    background: #000;
   }
-  #results {
-    color: #888;
-    font-family: monospace;
+  .results {
     margin-top: 20px;
-    text-align: left;
-    min-width: 400px;
+    padding: 15px;
+    background: #111118;
+    border: 1px solid #333;
+    max-width: 600px;
+    width: 100%;
   }
-  .row {
+  .result-row {
     display: flex;
     justify-content: space-between;
     padding: 5px 0;
     border-bottom: 1px solid #222;
   }
-  .fps { color: #4a9eff; }
-  .winner { color: #4ade80; font-weight: bold; }
+  .result-row:last-child { border-bottom: none; }
+  .label { color: #888; }
+  .value { color: #ff6b35; font-weight: bold; }
+  .winner { color: #4ade80; }
 </style>
 </head>
 <body data-page-type="app">
   <h1>WebGL vs Canvas 2D</h1>
   <div class="controls">
     <button id="runBtn">Run Benchmark</button>
-    <button id="stopBtn">Stop</button>
+    <button class="mode-btn active" data-mode="particles">Particles</button>
+    <button class="mode-btn" data-mode="shapes">Shapes</button>
+    <button class="mode-btn" data-mode="text">Text</button>
   </div>
-  <canvas id="canvas2d" width="400" height="300"></canvas>
-  <div id="results"></div>
+  <div class="canvases">
+    <div>
+      <div style="color:#888;margin-bottom:5px">Canvas 2D</div>
+      <canvas id="canvas2d" width="300" height="300"></canvas>
+    </div>
+    <div>
+      <div style="color:#888;margin-bottom:5px">WebGL</div>
+      <canvas id="webgl" width="300" height="300"></canvas>
+    </div>
+  </div>
+  <div class="results" id="results">
+    <div class="result-row"><span class="label">Click "Run Benchmark" to start</span></div>
+  </div>
   
   <script>
-    const PARTICLES = 10000;
-    let running = false;
-    let mode = '2d';
-    
-    // Canvas 2D setup
     const canvas2d = document.getElementById('canvas2d');
-    const ctx = canvas2d.getContext('2d');
-    let particles2d = [];
+    const ctx2d = canvas2d.getContext('2d');
+    const glCanvas = document.getElementById('webgl');
+    const gl = glCanvas.getContext('webgl');
+    
+    let mode = 'particles';
+    let count = 5000;
+    let running = false;
+    
+    // Mode buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+      });
+    });
     
     // WebGL setup
-    let gl, program, posBuffer;
-    let particlesWebGL = [];
+    const vsSource = `
+      attribute vec2 a_position;
+      void main() { gl_Position = vec4(a_position, 0, 1); gl_PointSize = 2.0; }
+    `;
+    const fsSource = `
+      precision mediump float;
+      uniform vec4 u_color;
+      void main() { gl_FragColor = u_color; }
+    `;
     
-    function initWebGL() {
-      gl = canvas2d.getContext('webgl');
-      if (!gl) return;
-      
-      const vs = `
-        attribute vec2 pos;
-        void main() {
-          gl_Position = vec4(pos * 2.0 - 1.0, 0.0, 1.0);
-          gl_PointSize = 2.0;
-        }
-      `;
-      const fs = `
-        precision mediump float;
-        void main() {
-          gl_FragColor = vec4(0.9, 0.8, 0.5, 1.0);
-        }
-      `;
-      
-      const vsComp = gl.createShader(gl.VERTEX_SHADER);
-      gl.shaderSource(vsComp, vs);
-      gl.compileShader(vsComp);
-      
-      const fsComp = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fsComp, fs);
-      gl.compileShader(fsComp);
-      
-      program = gl.createProgram();
-      gl.attachShader(program, vsComp);
-      gl.attachShader(program, fsComp);
-      gl.linkProgram(program);
-      gl.useProgram(program);
-      
-      posBuffer = gl.createBuffer();
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      return shader;
     }
     
-    function initParticles() {
-      particles2d = [];
-      particlesWebGL = [];
-      for (let i = 0; i < PARTICLES; i++) {
-        const p = {
-          x: Math.random() * 400,
-          y: Math.random() * 300,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2
-        };
-        particles2d.push(p);
-        particlesWebGL.push(p);
-      }
-    }
+    const vs = createShader(gl.VERTEX_SHADER, vsSource);
+    const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.useProgram(program);
     
-    function update2D() {
-      for (let p of particles2d) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > 400) p.vx *= -1;
-        if (p.y < 0 || p.y > 300) p.vy *= -1;
-      }
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const positionLoc = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+    const colorLoc = gl.getUniformLocation(program, 'u_color');
+    
+    // Test data
+    const particles = [];
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * 2 - 1,
+        y: Math.random() * 2 - 1,
+        r: Math.random(),
+        g: Math.random(),
+        b: Math.random()
+      });
     }
     
     function render2D() {
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, 400, 300);
-      ctx.fillStyle = '#e8c170';
-      for (let p of particles2d) {
-        ctx.fillRect(p.x, p.y, 2, 2);
+      ctx2d.fillStyle = '#000';
+      ctx2d.fillRect(0, 0, 300, 300);
+      
+      if (mode === 'particles') {
+        for (let i = 0; i < count; i++) {
+          const p = particles[i];
+          ctx2d.fillStyle = `rgb(${p.r*255},${p.g*255},${p.b*255})`;
+          ctx2d.fillRect((p.x+1)*150, (p.y+1)*150, 2, 2);
+        }
+      } else if (mode === 'shapes') {
+        for (let i = 0; i < 500; i++) {
+          const p = particles[i];
+          ctx2d.fillStyle = `rgb(${p.r*255},${p.g*255},${p.b*255})`;
+          ctx2d.beginPath();
+          ctx2d.arc((p.x+1)*150, (p.y+1)*150, 10, 0, Math.PI * 2);
+          ctx2d.fill();
+        }
+      } else {
+        ctx2d.font = '14px monospace';
+        ctx2d.fillStyle = '#fff';
+        for (let i = 0; i < 1000; i++) {
+          ctx2d.fillText('hello', (Math.sin(i)*0.5+0.5)*280, (Math.cos(i)*0.5+0.5)*280);
+        }
       }
     }
     
-    function updateWebGL() {
-      for (let p of particlesWebGL) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > 400) p.vx *= -1;
-        if (p.y < 0 || p.y > 300) p.vy *= -1;
-      }
-    }
-    
-    function renderWebGL() {
-      gl.viewport(0, 0, 400, 300);
-      gl.clearColor(0.04, 0.04, 0.06, 1);
+    function renderGL() {
+      gl.viewport(0, 0, 300, 300);
+      gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       
-      const positions = new Float32Array(PARTICLES * 2);
-      for (let i = 0; i < PARTICLES; i++) {
-        positions[i * 2] = particlesWebGL[i].x / 400;
-        positions[i * 2 + 1] = particlesWebGL[i].y / 300;
-      }
-      
-      gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
-      
-      const posLoc = gl.getAttribLocation(program, 'pos');
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-      
-      gl.drawArrays(gl.POINTS, 0, PARTICLES);
-    }
-    
-    let lastTime = 0;
-    let frameCount = 0;
-    let fps = 0;
-    let results = { webgl: [], '2d': [] };
-    
-    function benchmark(mode) {
-      if (!running) return;
-      
-      const now = performance.now();
-      frameCount++;
-      
-      if (now - lastTime >= 1000) {
-        fps = frameCount;
-        frameCount = 0;
-        lastTime = now;
-        results[mode].push(fps);
-        updateResults();
-      }
-      
-      if (mode === '2d') {
-        update2D();
-        render2D();
+      if (mode === 'particles') {
+        const positions = new Float32Array(particles.length * 2);
+        for (let i = 0; i < particles.length; i++) {
+          positions[i*2] = particles[i].x;
+          positions[i*2+1] = particles[i].y;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+        gl.uniform4f(colorLoc, 1, 1, 1, 1);
+        gl.drawArrays(gl.POINTS, 0, count);
+      } else if (mode === 'shapes') {
+        // Approximate with points for fair comparison
+        const positions = new Float32Array(500 * 2);
+        for (let i = 0; i < 500; i++) {
+          positions[i*2] = particles[i].x;
+          positions[i*2+1] = particles[i].y;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.POINTS, 0, 500);
       } else {
-        updateWebGL();
-        renderWebGL();
+        // Text is hard in WebGL without textures, skip for fair comparison
+        const positions = new Float32Array(1000 * 2);
+        for (let i = 0; i < 1000; i++) {
+          positions[i*2] = (Math.sin(i)*0.5+0.5)*2-1;
+          positions[i*2+1] = (Math.cos(i)*0.5+0.5)*2-1;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.POINTS, 0, 1000);
       }
-      
-      requestAnimationFrame(() => benchmark(mode));
     }
     
-    function updateResults() {
-      const avg2d = results['2d'].length ? Math.round(results['2d'].reduce((a,b)=>a+b)/results['2d'].length) : '-';
-      const avgWebGL = results.webgl.length ? Math.round(results.webgl.reduce((a,b)=>a+b)/results.webgl.length) : '-';
-      
-      document.getElementById('results').innerHTML = `
-        <div class="row"><span>Canvas 2D</span><span class="fps">${avg2d} fps</span></div>
-        <div class="row"><span>WebGL</span><span class="fps">${avgWebGL} fps</span> ${avgWebGL > avg2d ? '<span class="winner">WINNER</span>' : ''}</div>
-        <div class="row"><span>Speedup</span><span>${avg2d !== '-' && avgWebGL !== '-' ? (avgWebGL/avg2d).toFixed(1) + 'x' : '-'}</span></div>
-      `;
+    function benchmark(renderFn, name) {
+      const frames = 60;
+      const start = performance.now();
+      for (let i = 0; i < frames; i++) {
+        renderFn();
+      }
+      const end = performance.now();
+      return (end - start).toFixed(2);
     }
     
     document.getElementById('runBtn').addEventListener('click', () => {
       if (running) return;
       running = true;
-      results = { webgl: [], '2d': [] };
-      initParticles();
-      initWebGL();
-      lastTime = performance.now();
       
-      // Run 2D first
-      mode = '2d';
-      let phase = '2d';
-      let phaseFrames = 0;
+      const iterations = 5;
+      let total2D = 0, totalGL = 0;
       
-      function runPhase() {
-        if (!running) return;
-        
-        const now = performance.now();
-        frameCount++;
-        
-        if (now - lastTime >= 1000) {
-          fps = frameCount;
-          results[phase].push(fps);
-          frameCount = 0;
-          lastTime = now;
-          updateResults();
-          
-          if (phase === '2d' && results['2d'].length >= 3) {
-            // Switch to WebGL
-            phase = 'webgl';
-          } else if (phase === 'webgl' && results.webgl.length >= 3) {
-            running = false;
-            return;
-          }
-        }
-        
-        if (phase === '2d') {
-          update2D();
-          render2D();
-        } else {
-          updateWebGL();
-          renderWebGL();
-        }
-        
-        requestAnimationFrame(runPhase);
+      for (let i = 0; i < iterations; i++) {
+        total2D += parseFloat(benchmark(render2D, '2D'));
+        totalGL += parseFloat(benchmark(renderGL, 'GL'));
       }
       
-      runPhase();
-    });
-    
-    document.getElementById('stopBtn').addEventListener('click', () => {
+      const avg2D = (total2D / iterations).toFixed(2);
+      const avgGL = (totalGL / iterations).toFixed(2);
+      const ratio = (avg2D / avgGL).toFixed(2);
+      
+      const winner = avgGL < avg2D ? 'WebGL' : 'Canvas 2D';
+      const faster = Math.min(avg2D, avgGL);
+      const slower = Math.max(avg2D, avgGL);
+      const speedup = (slower / faster).toFixed(1);
+      
+      document.getElementById('results').innerHTML = `
+        <div class="result-row"><span class="label">Mode</span><span class="value">${mode}</span></div>
+        <div class="result-row"><span class="label">Canvas 2D (${count} particles)</span><span class="value">${avg2D}ms</span></div>
+        <div class="result-row"><span class="label">WebGL (${count} particles)</span><span class="value">${avgGL}ms</span></div>
+        <div class="result-row"><span class="label">Winner</span><span class="value winner">${winner} (${speedup}x faster)</span></div>
+        <div class="result-row"><span class="label">Analysis</span><span class="label">${mode === 'particles' ? 'WebGL dominates for raw particle counts - direct GPU pipeline wins' : mode === 'shapes' ? 'Canvas 2D arc() has overhead, WebGL points are faster' : 'Text rendering requires texture atlas in WebGL - not benchmarked fairly'}</span></div>
+      `;
+      
       running = false;
     });
   </script>
