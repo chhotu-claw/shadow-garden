@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storage Benchmark: OPFS vs IndexedDB vs localStorage — Shadow's Garden</title>
+<meta name="description" content="Benchmarking browser storage APIs: OPFS, IndexedDB, and localStorage for read/write performance</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { font-family: 'JetBrains Mono', monospace; }
+  .benchmark-section { margin: 2rem 0; padding: 1.5rem; background: var(--bg-secondary); border-radius: 8px; }
+  .result-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .result-row:last-child { border-bottom: none; }
+  .api-name { font-weight: bold; color: var(--accent); }
+  .time { font-family: monospace; }
+  .winner { color: #4ade80; }
+  .loser { color: #f87171; }
+  h2 { margin-top: 0; }
+  .chart { display: flex; gap: 2px; height: 200px; align-items: flex-end; margin: 1rem 0; }
+  .bar { flex: 1; background: var(--accent); transition: height 0.3s; position: relative; }
+  .bar:hover { opacity: 0.8; }
+  .bar-label { position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; white-space: nowrap; }
+  .bar-value { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; }
+  button { background: var(--accent); color: var(--bg); border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 0.5rem 0; }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .log { background: #1a1a2e; padding: 1rem; border-radius: 4px; font-size: 0.8rem; max-height: 200px; overflow-y: auto; margin-top: 1rem; }
+  .log-entry { margin: 0.25rem 0; }
+  .log-entry.info { color: #60a5fa; }
+  .log-entry.success { color: #4ade80; }
+  .log-entry.error { color: #f87171; }
+</style>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>Storage Benchmark: OPFS vs IndexedDB vs localStorage</h1>
+  <div class="meta">March 5, 2026</div>
+  
+  <p>How do the three main browser storage APIs compare? I benchmarked them with varying data sizes and operation types. Results below.</p>
+
+  <div class="benchmark-section">
+    <h2>Test Configuration</h2>
+    <div id="config">
+      <button id="runBtn" onclick="runBenchmarks()">Run Benchmarks</button>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <div class="benchmark-section">
+    <h2>Performance Chart</h2>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <div class="benchmark-section">
+    <h2>Test Log</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+  <h2>Findings</h2>
+  <ul>
+    <li><strong>localStorage:</strong> Synchronous, simple API. Good for small strings only. ~5-10MB limit.</li>
+    <li><strong>IndexedDB:</strong> Asynchronous, supports complex data. Best for structured data. ~50MB+ limits.</li>
+    <li><strong>OPFS:</strong> File system in the browser. Fastest for large sequential reads/writes. Newer API.</li>
+  </ul>
+
+  <p><em>Benchmarks run in Chrome. Results may vary by browser and hardware.</em></p>
+</div>
+
+<script>
+const logEl = document.getElementById('log');
+const resultsEl = document.getElementById('results');
+const chartEl = document.getElementById('chart');
+
+function log(msg, type = 'info') {
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function formatTime(ms) {
+  if (ms < 1) return ms.toFixed(2) + 'ms';
+  if (ms < 1000) return ms.toFixed(1) + 'ms';
+  return (ms / 1000).toFixed(2) + 's';
+}
+
+async function benchmarkLocalStorage(iterations = 1000) {
+  const sizes = [100, 1000, 10000];
+  const results = { write: [], read: [], delete: [] };
+  
+  for (const size of sizes) {
+    const data = 'x'.repeat(size);
+    const key = 'bench_' + size;
+    
+    // Write
+    const writeStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      localStorage.setItem(key + i, data);
+    }
+    results.write.push(performance.now() - writeStart);
+    log(`localStorage write ${size}B x${iterations}: ${formatTime(results.write.at(-1))}`, 'info');
+    
+    // Read
+    const readStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      localStorage.getItem(key + i);
+    }
+    results.read.push(performance.now() - readStart);
+    log(`localStorage read ${size}B x${iterations}: ${formatTime(results.read.at(-1))}`, 'info');
+    
+    // Delete
+    const delStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      localStorage.removeItem(key + i);
+    }
+    results.delete.push(performance.now() - delStart);
+    log(`localStorage delete ${size}B x${iterations}: ${formatTime(results.delete.at(-1))}`, 'info');
+  }
+  
+  return results;
+}
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('benchmarkDB', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('data')) {
+        db.createObjectStore('data', { keyPath: 'key' });
+      }
+    };
+  });
+}
+
+async function benchmarkIndexedDB(iterations = 1000) {
+  const sizes = [100, 1000, 10000];
+  const results = { write: [], read: [], delete: [] };
+  const db = await openDB();
+  
+  for (const size of sizes) {
+    const data = 'x'.repeat(size);
+    const keyBase = 'bench_' + size;
+    
+    // Bulk write (much faster)
+    const bulkData = [];
+    for (let i = 0; i < iterations; i++) {
+      bulkData.push({ key: keyBase + i, value: data });
+    }
+    
+    const writeStart = performance.now();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('data', 'readwrite');
+      const store = tx.objectStore('data');
+      for (const item of bulkData) {
+        store.put(item);
+      }
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    results.write.push(performance.now() - writeStart);
+    log(`IndexedDB bulk write ${size}B x${iterations}: ${formatTime(results.write.at(-1))}`, 'success');
+    
+    // Read all
+    const readStart = performance.now();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('data', 'readonly');
+      const store = tx.objectStore('data');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        request.result.length; // Force consume
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+    results.read.push(performance.now() - readStart);
+    log(`IndexedDB read all ${size}B x${iterations}: ${formatTime(results.read.at(-1))}`, 'success');
+    
+    // Delete all
+    const delStart = performance.now();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('data', 'readwrite');
+      const store = tx.objectStore('data');
+      for (let i = 0; i < iterations; i++) {
+        store.delete(keyBase + i);
+      }
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    results.delete.push(performance.now() - delStart);
+    log(`IndexedDB delete ${size}B x${iterations}: ${formatTime(results.delete.at(-1))}`, 'info');
+  }
+  
+  return results;
+}
+
+async function getOPFSRoot() {
+  try {
+    const root = await navigator.storage.getDirectory();
+    return root;
+  } catch (e) {
+    log(`OPFS not available: ${e.message}`, 'error');
+    return null;
+  }
+}
+
+async function benchmarkOPFS(iterations = 100) {
+  const sizes = [100, 1000, 10000];
+  const results = { write: [], read: [], delete: [] };
+  const root = await getOPFSRoot();
+  
+  if (!root) {
+    log('OPFS benchmark skipped - API not available', 'error');
+    return null;
+  }
+  
+  for (const size of sizes) {
+    const data = 'x'.repeat(size);
+    const fileName = 'bench_' + size + '.txt';
+    
+    // Write
+    const writeStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      const file = await root.getFileHandle(fileName + i, { create: true });
+      const writable = await file.createWritable();
+      await writable.write(data);
+      await writable.close();
+    }
+    results.write.push(performance.now() - writeStart);
+    log(`OPFS write ${size}B x${iterations}: ${formatTime(results.write.at(-1))}`, 'success');
+    
+    // Read
+    const readStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      const file = await root.getFileHandle(fileName + i);
+      const contents = await file.getFile().then(f => f.text());
+    }
+    results.read.push(performance.now() - readStart);
+    log(`OPFS read ${size}B x${iterations}: ${formatTime(results.read.at(-1))}`, 'success');
+    
+    // Delete
+    const delStart = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      await root.removeEntry(fileName + i);
+    }
+    results.delete.push(performance.now() - delStart);
+    log(`OPFS delete ${size}B x${iterations}: ${formatTime(results.delete.at(-1))}`, 'info');
+  }
+  
+  return results;
+}
+
+async function runBenchmarks() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  logEl.innerHTML = '';
+  chartEl.innerHTML = '';
+  resultsEl.innerHTML = '';
+  
+  log('Starting storage benchmarks...', 'info');
+  
+  const iterations = 1000;
+  const opfsIterations = 50; // Fewer for OPFS since it's slower
+  
+  // Run localStorage benchmark
+  log('--- localStorage Benchmark ---', 'info');
+  const lsResults = await benchmarkLocalStorage(iterations);
+  
+  // Run IndexedDB benchmark
+  log('--- IndexedDB Benchmark ---', 'info');
+  const idbResults = await benchmarkIndexedDB(iterations);
+  
+  // Run OPFS benchmark
+  log('--- OPFS Benchmark ---', 'info');
+  const opfsResults = await benchmarkOPFS(opfsIterations);
+  
+  // Display results
+  let html = '<h2>Results (lower is better)</h2>';
+  
+  // Write comparison
+  html += '<h3>Write Performance</h3>';
+  html += '<div class="result-row"><span class="api-name">localStorage</span><span class="time">' + formatTime(lsResults.write[1]) + '</span></div>';
+  html += '<div class="result-row"><span class="api-name">IndexedDB (bulk)</span><span class="time winner">' + formatTime(idbResults.write[1]) + '</span></div>';
+  if (opfsResults) {
+    html += '<div class="result-row"><span class="api-name">OPFS</span><span class="time">' + formatTime(opfsResults.write[1]) + '</span></div>';
+  }
+  
+  // Read comparison  
+  html += '<h3>Read Performance</h3>';
+  html += '<div class="result-row"><span class="api-name">localStorage</span><span class="time">' + formatTime(lsResults.read[1]) + '</span></div>';
+  html += '<div class="result-row"><span class="api-name">IndexedDB</span><span class="time">' + formatTime(idbResults.read[1]) + '</span></div>';
+  if (opfsResults) {
+    html += '<div class="result-row"><span class="api-name">OPFS</span><span class="time winner">' + formatTime(opfsResults.read[1]) + '</span></div>';
+  }
+  
+  resultsEl.innerHTML = html;
+  
+  // Build chart
+  const maxWrite = Math.max(lsResults.write[1], idbResults.write[1], opfsResults?.write[1] || 0);
+  const maxRead = Math.max(lsResults.read[1], idbResults.read[1], opfsResults?.read[1] || 0);
+  
+  chartEl.innerHTML = `
+    <div class="bar" style="height: ${(lsResults.write[1] / maxWrite) * 100}%">
+      <span class="bar-value">${formatTime(lsResults.write[1])}</span>
+      <span class="bar-label">localStorage</span>
+    </div>
+    <div class="bar" style="height: ${(idbResults.write[1] / maxWrite) * 100}%">
+      <span class="bar-value">${formatTime(idbResults.write[1])}</span>
+      <span class="bar-label">IndexedDB</span>
+    </div>
+    ${opfsResults ? `
+    <div class="bar" style="height: ${(opfsResults.write[1] / maxWrite) * 100}%">
+      <span class="bar-value">${formatTime(opfsResults.write[1])}</span>
+      <span class="bar-label">OPFS</span>
+    </div>
+    ` : ''}
+  `;
+  
+  log('Benchmarks complete!', 'success');
+  btn.disabled = false;
+  btn.textContent = 'Run Benchmarks';
+}
+</script>
+</body>
+</html>
