@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Network Visualizer — Shadow's Garden</title>
+<meta name="description" content="Watch a neural network learn in real-time — nodes light up as it trains on XOR problem">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #f0e6d3;
+    margin-bottom: 5px;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  canvas {
+    border: 2px solid #222;
+    background: #0d0d12;
+    border-radius: 8px;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 10px 20px;
+    border: 1px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252535;
+    border-color: #444;
+  }
+  button.active {
+    background: #2a2a3a;
+    border-color: #ff6b35;
+  }
+  .stats {
+    display: flex;
+    gap: 30px;
+    margin-top: 15px;
+    color: #888;
+    font-size: 13px;
+  }
+  .stat span {
+    color: #f0e6d3;
+    font-weight: bold;
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #555;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Neural Network</h1>
+  <div class="subtitle">Watch it learn XOR in real-time</div>
+  <canvas id="canvas" width="700" height="450"></canvas>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#ff6b35"></div>Input</div>
+    <div class="legend-item"><div class="dot" style="background:#4a9eff"></div>Hidden</div>
+    <div class="legend-item"><div class="dot" style="background:#44ff88"></div>Output</div>
+  </div>
+  <div class="controls">
+    <button id="trainBtn">Train</button>
+    <button id="resetBtn">Reset</button>
+    <button id="slowBtn">Slow</button>
+  </div>
+  <div class="stats">
+    <div class="stat">Epoch: <span id="epoch">0</span></div>
+    <div class="stat">Error: <span id="error">0</span></div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    
+    // Network architecture: 2 input, 4 hidden, 1 output
+    const inputSize = 2;
+    const hiddenSize = 4;
+    const outputSize = 1;
+    
+    // Weights and biases
+    let W1 = [], b1 = [], W2 = [], b2 = [];
+    let activationsH = [], activationsO = [];
+    let outputs = [];
+    
+    // Training data for XOR
+    const trainingData = [
+      { input: [0, 0], target: [0] },
+      { input: [0, 1], target: [1] },
+      { input: [1, 0], target: [1] },
+      { input: [1, 1], target: [0] }
+    ];
+    
+    // Node positions for visualization
+    let inputPos = [], hiddenPos = [], outputPos = [];
+    
+    let epoch = 0;
+    let isTraining = false;
+    let slowMode = false;
+    let currentDataIndex = 0;
+    let learningRate = 0.5;
+    
+    function init() {
+      // Initialize weights randomly
+      W1 = [];
+      for (let i = 0; i < inputSize; i++) {
+        W1[i] = [];
+        for (let j = 0; j < hiddenSize; j++) {
+          W1[i][j] = (Math.random() - 0.5) * 2;
+        }
+      }
+      b1 = [];
+      for (let j = 0; j < hiddenSize; j++) {
+        b1[j] = (Math.random() - 0.5) * 2;
+      }
+      
+      W2 = [];
+      for (let i = 0; i < hiddenSize; i++) {
+        W2[i] = [];
+        for (let j = 0; j < outputSize; j++) {
+          W2[i][j] = (Math.random() - 0.5) * 2;
+        }
+      }
+      b2 = [];
+      for (let j = 0; j < outputSize; j++) {
+        b2[j] = (Math.random() - 0.5) * 2;
+      }
+      
+      // Calculate positions
+      const inputX = 100, hiddenX = 350, outputX = 600;
+      const inputY = H * 0.5;
+      const hiddenYStart = 80;
+      const hiddenYGap = (H - 160) / (hiddenSize - 1);
+      const outputY = H * 0.5;
+      
+      inputPos = [];
+      for (let i = 0; i < inputSize; i++) {
+        inputPos.push({ x: inputX, y: inputY + (i - (inputSize - 1) / 2) * 50 });
+      }
+      
+      hiddenPos = [];
+      for (let i = 0; i < hiddenSize; i++) {
+        hiddenPos.push({ x: hiddenX, y: hiddenYStart + i * hiddenYGap });
+      }
+      
+      outputPos = [];
+      for (let i = 0; i < outputSize; i++) {
+        outputPos.push({ x: outputX, y: outputY });
+      }
+      
+      activationsH = new Array(hiddenSize).fill(0);
+      activationsO = new Array(outputSize).fill(0);
+      outputs = new Array(outputSize).fill(0);
+    }
+    
+    function sigmoid(x) {
+      return 1 / (1 + Math.exp(-x));
+    }
+    
+    function sigmoidDeriv(y) {
+      return y * (1 - y);
+    }
+    
+    function forward(input) {
+      // Input to hidden
+      for (let j = 0; j < hiddenSize; j++) {
+        let sum = b1[j];
+        for (let i = 0; i < inputSize; i++) {
+          sum += input[i] * W1[i][j];
+        }
+        activationsH[j] = sigmoid(sum);
+      }
+      
+      // Hidden to output
+      for (let j = 0; j < outputSize; j++) {
+        let sum = b2[j];
+        for (let i = 0; i < hiddenSize; i++) {
+          sum += activationsH[i] * W2[i][j];
+        }
+        activationsO[j] = sigmoid(sum);
+        outputs[j] = activationsO[j];
+      }
+      
+      return outputs;
+    }
+    
+    function backward(input, target) {
+      const outputErrors = [];
+      const hiddenErrors = [];
+      
+      // Output errors
+      for (let j = 0; j < outputSize; j++) {
+        outputErrors[j] = target[j] - outputs[j];
+      }
+      
+      // Hidden errors
+      for (let i = 0; i < hiddenSize; i++) {
+        let sum = 0;
+        for (let j = 0; j < outputSize; j++) {
+          sum += outputErrors[j] * W2[i][j];
+        }
+        hiddenErrors[i] = sum;
+      }
+      
+      // Update output weights
+      for (let i = 0; i < hiddenSize; i++) {
+        for (let j = 0; j < outputSize; j++) {
+          const delta = learningRate * outputErrors[j] * sigmoidDeriv(outputs[j]) * activationsH[i];
+          W2[i][j] += delta;
+        }
+      }
+      
+      // Update output biases
+      for (let j = 0; j < outputSize; j++) {
+        b2[j] += learningRate * outputErrors[j] * sigmoidDeriv(outputs[j]);
+      }
+      
+      // Update hidden weights
+      for (let i = 0; i < inputSize; i++) {
+        for (let j = 0; j < hiddenSize; j++) {
+          const delta = learningRate * hiddenErrors[j] * sigmoidDeriv(activationsH[j]) * input[i];
+          W1[i][j] += delta;
+        }
+      }
+      
+      // Update hidden biases
+      for (let j = 0; j < hiddenSize; j++) {
+        b1[j] += learningRate * hiddenErrors[j] * sigmoidDeriv(activationsH[j]);
+      }
+      
+      // Return error
+      let totalError = 0;
+      for (let j = 0; j < outputSize; j++) {
+        totalError += Math.abs(outputErrors[j]);
+      }
+      return totalError;
+    }
+    
+    function trainStep() {
+      const data = trainingData[currentDataIndex];
+      forward(data.input);
+      const error = backward(data.input, data.target);
+      currentDataIndex = (currentDataIndex + 1) % trainingData.length;
+      epoch++;
+      return error;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#0d0d12';
+      ctx.fillRect(0, 0, W, H);
+      
+      // Draw connections
+      ctx.lineWidth = 1;
+      
+      // Input to hidden
+      for (let i = 0; i < inputSize; i++) {
+        for (let j = 0; j < hiddenSize; j++) {
+          const weight = W1[i][j];
+          const intensity = Math.min(Math.abs(weight), 1);
+          ctx.strokeStyle = weight > 0 
+            ? `rgba(255, 107, 53, ${intensity * 0.5})`
+            : `rgba(74, 158, 255, ${intensity * 0.5})`;
+          ctx.beginPath();
+          ctx.moveTo(inputPos[i].x, inputPos[i].y);
+          ctx.lineTo(hiddenPos[j].x, hiddenPos[j].y);
+          ctx.stroke();
+        }
+      }
+      
+      // Hidden to output
+      for (let i = 0; i < hiddenSize; i++) {
+        for (let j = 0; j < outputSize; j++) {
+          const weight = W2[i][j];
+          const intensity = Math.min(Math.abs(weight), 1);
+          ctx.strokeStyle = weight > 0 
+            ? `rgba(74, 158, 255, ${intensity * 0.5})`
+            : `rgba(255, 68, 136, ${intensity * 0.5})`;
+          ctx.beginPath();
+          ctx.moveTo(hiddenPos[i].x, hiddenPos[i].y);
+          ctx.lineTo(outputPos[j].x, outputPos[j].y);
+          ctx.stroke();
+        }
+      }
+      
+      // Draw nodes
+      // Input nodes
+      for (let i = 0; i < inputSize; i++) {
+        const x = inputPos[i].x;
+        const y = inputPos[i].y;
+        const brightness = activationsH.reduce((a, _, j) => a + Math.abs(W1[i][j] * activationsH[j]), 0);
+        const size = 12 + Math.min(brightness, 10);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff6b35';
+        ctx.fill();
+        ctx.strokeStyle = '#ffaa80';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(['0', '1'][i], x, y + 4);
+      }
+      
+      // Hidden nodes
+      for (let i = 0; i < hiddenSize; i++) {
+        const x = hiddenPos[i].x;
+        const y = hiddenPos[i].y;
+        const activation = activationsH[i];
+        const size = 15 + activation * 8;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        const r = Math.floor(74 + activation * 100);
+        const g = Math.floor(158 + activation * 50);
+        const b = Math.floor(255 - activation * 150);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fill();
+        ctx.strokeStyle = '#8ac';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.fillText(activation.toFixed(2), x, y + 4);
+      }
+      
+      // Output nodes
+      for (let i = 0; i < outputSize; i++) {
+        const x = outputPos[i].x;
+        const y = outputPos[i].y;
+        const activation = outputs[i];
+        const size = 15 + activation * 10;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        const g = Math.floor(255 * activation);
+        ctx.fillStyle = `rgb(${g}, 255, ${Math.floor(136 * (1 - activation))})`;
+        ctx.fill();
+        ctx.strokeStyle = '#8f8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.fillText(activation.toFixed(2), x, y + 4);
+      }
+      
+      // Labels
+      ctx.fillStyle = '#666';
+      ctx.font = '14px monospace';
+      ctx.fillText('Input', inputX, 30);
+      ctx.fillText('Hidden', hiddenX, 30);
+      ctx.fillText('Output', outputX, 30);
+    }
+    
+    const inputX = 100, hiddenX = 350, outputX = 600;
+    
+    let lastError = 0;
+    
+    function loop() {
+      if (isTraining) {
+        const stepsPerFrame = slowMode ? 1 : 50;
+        for (let i = 0; i < stepsPerFrame; i++) {
+          lastError = trainStep();
+        }
+        
+        document.getElementById('epoch').textContent = epoch;
+        document.getElementById('error').textContent = lastError.toFixed(4);
+        
+        // Check if converged
+        if (epoch > 100 && lastError < 0.01) {
+          isTraining = false;
+          document.getElementById('trainBtn').textContent = 'Trained!';
+        }
+      }
+      
+      draw();
+      requestAnimationFrame(loop);
+    }
+    
+    document.getElementById('trainBtn').addEventListener('click', () => {
+      if (epoch > 100 && lastError < 0.01) return;
+      isTraining = !isTraining;
+      document.getElementById('trainBtn').textContent = isTraining ? 'Pause' : 'Train';
+    });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      isTraining = false;
+      epoch = 0;
+      currentDataIndex = 0;
+      init();
+      document.getElementById('epoch').textContent = '0';
+      document.getElement').textContent = '0';
+      document.getElementByById('errorId('trainBtn').textContent = 'Train';
+    });
+    
+    document.getElementById('slowBtn').addEventListener('click', () => {
+      slowMode = !slowMode;
+      document.getElementById('slowBtn').classList.toggle('active', slowMode);
+    });
+    
+    init();
+    loop();
+  </script>
+</body>
+</html>
