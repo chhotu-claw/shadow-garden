@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IndexedDB Benchmark — Shadow's Garden</title>
+<meta name="description" content="Benchmarking IndexedDB read/write performance with varying data sizes">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    color: #f0e6d3;
+  }
+  h1 { margin-bottom: 5px; }
+  .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+  .results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    width: 100%;
+    max-width: 800px;
+  }
+  .result-card {
+    background: #1a1a24;
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  .result-card h3 { margin: 0 0 10px 0; color: #ff6b35; }
+  .metric { display: flex; justify-content: space-between; margin: 5px 0; }
+  .metric-label { color: #888; }
+  .metric-value { color: #4a9eff; font-family: monospace; }
+  button {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: #ff6b35;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 6px;
+  }
+  button:hover { background: #ff8555; }
+  button:disabled { background: #444; cursor: not-allowed; }
+  .log {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #111;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #888;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>IndexedDB Benchmark</h1>
+  <div class="subtitle">Testing read/write performance with varying data sizes</div>
+  <button id="runBtn">Run Benchmark</button>
+  <div class="results" id="results"></div>
+  <div class="log" id="log"></div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const resultsEl = document.getElementById('results');
+    const runBtn = document.getElementById('runBtn');
+    
+    function log(msg) {
+      logEl.innerHTML += `<div>${msg}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    
+    const sizes = [100, 1000, 5000, 10000];
+    const results = {};
+    
+    async function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.deleteDatabase('benchmarkDB');
+        req.onsuccess = () => {
+          const openReq = indexedDB.open('benchmarkDB', 1);
+          openReq.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('data')) {
+              db.createObjectStore('data', { keyPath: 'id' });
+            }
+          };
+          openReq.onsuccess = e => resolve(e.target.result);
+          openReq.onerror = e => reject(e);
+        };
+      });
+    }
+    
+    async function benchmarkWrite(size) {
+      const db = await openDB();
+      const store = db.transaction('data', 'readwrite').objectStore('data');
+      const data = [];
+      
+      for (let i = 0; i < size; i++) {
+        data.push({
+          id: i,
+          value: 'x'.repeat(100),
+          timestamp: Date.now(),
+          array: [1,2,3,4,5]
+        });
+      }
+      
+      const start = performance.now();
+      for (const item of data) {
+        await new Promise((resolve, reject) => {
+          const req = store.put(item);
+          req.onsuccess = () => resolve();
+          req.onerror = e => reject(e);
+        });
+      }
+      const time = performance.now() - start;
+      db.close();
+      return time;
+    }
+    
+    async function benchmarkWriteBulk(size) {
+      const db = await openDB();
+      const tx = db.transaction('data', 'readwrite');
+      const store = tx.objectStore('data');
+      const data = [];
+      
+      for (let i = 0; i < size; i++) {
+        data.push({
+          id: i,
+          value: 'x'.repeat(100),
+          timestamp: Date.now(),
+          array: [1,2,3,4,5]
+        });
+      }
+      
+      const start = performance.now();
+      for (const item of data) {
+        store.put(item);
+      }
+      await new Promise(resolve => tx.oncomplete = resolve);
+      const time = performance.now() - start;
+      db.close();
+      return time;
+    }
+    
+    async function benchmarkRead(size) {
+      const db = await openDB();
+      const tx = db.transaction('data', 'readonly');
+      const store = tx.objectStore('data');
+      
+      // First write data
+      for (let i = 0; i < size; i++) {
+        store.put({
+          id: i,
+          value: 'x'.repeat(100),
+          timestamp: Date.now(),
+          array: [1,2,3,4,5]
+        });
+      }
+      await new Promise(resolve => tx.oncomplete = resolve);
+      
+      // Now read
+      const readTx = db.transaction('data', 'readonly');
+      const readStore = readTx.objectStore('data');
+      
+      const start = performance.now();
+      for (let i = 0; i < size; i++) {
+        await new Promise(resolve => {
+          const req = readStore.get(i);
+          req.onsuccess = () => resolve();
+        });
+      }
+      const time = performance.now() - start;
+      db.close();
+      return time;
+    }
+    
+    async function benchmarkReadAll(size) {
+      const db = await openDB();
+      const tx = db.transaction('data', 'readwrite');
+      const store = tx.objectStore('data');
+      
+      // Write data
+      for (let i = 0; i < size; i++) {
+        store.put({
+          id: i,
+          value: 'x'.repeat(100),
+          timestamp: Date.now(),
+          array: [1,2,3,4,5]
+        });
+      }
+      await new Promise(resolve => tx.oncomplete = resolve);
+      
+      // Read all
+      const readTx = db.transaction('data', 'readonly');
+      const readStore = readTx.objectStore('data');
+      
+      const start = performance.now();
+      await new Promise(resolve => {
+        const req = readStore.getAll();
+        req.onsuccess = () => resolve();
+      });
+      const time = performance.now() - start;
+      db.close();
+      return time;
+    }
+    
+    async function runBenchmarks() {
+      runBtn.disabled = true;
+      logEl.innerHTML = '';
+      resultsEl.innerHTML = '';
+      results['Write (1by1)'] = {};
+      results['Write (bulk)'] = {};
+      results['Read (1by1)'] = {};
+      results['Read (all)'] = {};
+      
+      for (const size of sizes) {
+        log(`Testing size: ${size}`);
+        
+        // Write 1-by-1
+        const writeTime = await benchmarkWrite(size);
+        results['Write (1by1)'][size] = writeTime;
+        log(`  Write 1-by-1: ${writeTime.toFixed(2)}ms`);
+        
+        // Write bulk
+        const writeBulkTime = await benchmarkWriteBulk(size);
+        results['Write (bulk)'][size] = writeBulkTime;
+        log(`  Write bulk: ${writeBulkTime.toFixed(2)}ms`);
+        
+        // Read 1-by-1
+        const readTime = await benchmarkRead(size);
+        results['Read (1by1)'][size] = readTime;
+        log(`  Read 1-by-1: ${readTime.toFixed(2)}ms`);
+        
+        // Read all
+        const readAllTime = await benchmarkReadAll(size);
+        results['Read (all)'][size] = readAllTime;
+        log(`  Read all: ${readAllTime.toFixed(2)}ms`);
+      }
+      
+      displayResults();
+      runBtn.disabled = false;
+    }
+    
+    function displayResults() {
+      let html = '';
+      for (const [op, data] of Object.entries(results)) {
+        html += `<div class="result-card"><h3>${op}</h3>`;
+        for (const [size, time] of Object.entries(data)) {
+          const opsPerSec = (1000 / time * size).toFixed(0);
+          html += `<div class="metric">
+            <span class="metric-label">${size} items</span>
+            <span class="metric-value">${time.toFixed(2)}ms (${opsPerSec} ops/s)</span>
+          </div>`;
+        }
+        html += '</div>';
+      }
+      resultsEl.innerHTML = html;
+    }
+    
+    runBtn.addEventListener('click', runBenchmarks);
+  </script>
+</body>
+</html>
