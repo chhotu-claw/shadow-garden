@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sound Scape — Shadow's Garden</title>
+<meta name="description" content="Generative soundscape that evolves from noise into structure">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0a0a0f;
+    overflow: hidden;
+  }
+  h1 {
+    color: #f0e6d3;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    text-transform: uppercase;
+  }
+  canvas {
+    border: none;
+  }
+  .controls {
+    position: fixed;
+    bottom: 30px;
+    display: flex;
+    gap: 15px;
+  }
+  button {
+    padding: 10px 20px;
+    border: 1px solid #333;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    transition: all 0.3s;
+  }
+  button:hover {
+    color: #f0e6d3;
+    border-color: #f0e6d3;
+  }
+  .hint {
+    position: fixed;
+    top: 30px;
+    color: #444;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="hint">move mouse to shape the sound</div>
+  <h1>Sound Scape</h1>
+  <canvas id="canvas"></canvas>
+  <div class="controls">
+    <button id="startBtn">START</button>
+    <button id="stopBtn">STOP</button>
+    <button id="resetBtn">RESET</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let W, H;
+    let isRunning = false;
+    let audioCtx = null;
+    let oscillators = [];
+    let gains = [];
+    let masterGain = null;
+    let mouseX = 0.5, mouseY = 0.5;
+    let time = 0;
+    
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX / W;
+      mouseY = e.clientY / H;
+    });
+    
+    document.getElementById('startBtn').addEventListener('click', start);
+    document.getElementById('stopBtn').addEventListener('click', stop);
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.15;
+      masterGain.connect(audioCtx.destination);
+      
+      // Create 16 oscillators in a grid
+      const baseFreq = 55; // A1
+      for (let i = 0; i < 16; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        // Harmonic series with some variation
+        const harmonic = i + 1;
+        const freq = baseFreq * harmonic * (1 + Math.random() * 0.02);
+        
+        osc.type = i % 4 === 0 ? 'sine' : i % 4 === 1 ? 'triangle' : i % 4 === 2 ? 'sawtooth' : 'square';
+        osc.frequency.value = freq;
+        
+        gain.gain.value = 0;
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start();
+        
+        oscillators.push(osc);
+        gains.push(gain);
+      }
+    }
+    
+    function start() {
+      if (isRunning) return;
+      isRunning = true;
+      
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      
+      loop();
+    }
+    
+    function stop() {
+      isRunning = false;
+      if (gains) gains.forEach(g => g.gain.value = 0);
+    }
+    
+    function reset() {
+      stop();
+      time = 0;
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+    }
+    
+    function loop() {
+      if (!isRunning) return;
+      
+      time += 0.016;
+      
+      // Draw
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+      
+      const centerX = W * 0.3 + mouseX * W * 0.4;
+      const centerY = H * 0.3 + mouseY * H * 0.4;
+      
+      for (let i = 0; i < oscillators.length; i++) {
+        const angle = (i / oscillators.length) * Math.PI * 2 + time * 0.3;
+        const radius = 80 + Math.sin(time * 0.5 + i * 0.5) * 40 + mouseY * 100;
+        
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius * 0.6;
+        
+        // Calculate intensity based on position and time
+        const dist = Math.sqrt((x - W/2)**2 + (y - H/2)**2);
+        const intensity = Math.max(0, 1 - dist / (W * 0.4));
+        
+        // Pulse each oscillator
+        const pulse = Math.sin(time * (1 + i * 0.1) + i) * 0.5 + 0.5;
+        const targetGain = intensity * pulse * 0.5;
+        
+        // Smooth gain transition
+        gains[i].gain.value += (targetGain - gains[i].gain.value) * 0.1;
+        
+        // Draw visual
+        const size = 2 + gains[i].gain.value * 8;
+        const hue = (i * 20 + time * 10) % 360;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, 60%, ${40 + intensity * 30}%, ${gains[i].gain.value * 2})`;
+        ctx.fill();
+        
+        // Connect lines
+        for (let j = i + 1; j < oscillators.length; j++) {
+          const jAngle = (j / oscillators.length) * Math.PI * 2 + time * 0.3;
+          const jRadius = 80 + Math.sin(time * 0.5 + j * 0.5) * 40 + mouseY * 100;
+          const jx = centerX + Math.cos(jAngle) * jRadius;
+          const jy = centerY + Math.sin(jAngle) * jRadius * 0.6;
+          
+          const dist = Math.sqrt((x - jx)**2 + (y - jy)**2);
+          if (dist < 150) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(jx, jy);
+            ctx.strokeStyle = `rgba(240, 230, 211, ${(1 - dist/150) * 0.1})`;
+            ctx.stroke();
+          }
+        }
+        
+        // Modulate frequency slightly
+        const freqMod = Math.sin(time * 0.2 + mouseX * Math.PI * 2) * 10;
+        oscillators[i].frequency.value = oscillators[i].frequency.value + (freqMod - (oscillators[i].frequency.value - 55 * (i+1))) * 0.01;
+      }
+      
+      requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
