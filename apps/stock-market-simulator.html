@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Market Simulator — Shadow's Garden</title>
+<meta name="description" content="A stock market simulation game — trade virtual stocks, watch prices move, grow your portfolio"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --accent-green: #3fb950;
+    --accent-red: #f85149;
+    --accent-blue: #58a6ff;
+    --border: #30363d;
+  }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .portfolio-summary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 280px;
+  }
+
+  .portfolio-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  .portfolio-value.positive { color: var(--accent-green); }
+  .portfolio-value.negative { color: var(--accent-red); }
+
+  .portfolio-change {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .cash-balance {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .cash-amount {
+    color: var(--accent-blue);
+    font-weight: bold;
+  }
+
+  .stocks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+  }
+
+  .stock-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .stock-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .stock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  .stock-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+
+  .stock-symbol {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .stock-price {
+    text-align: right;
+  }
+
+  .price-current {
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+
+  .price-change {
+    font-size: 0.85rem;
+  }
+
+  .price-change.positive { color: var(--accent-green); }
+  .price-change.negative { color: var(--accent-red); }
+
+  .chart-container {
+    height: 80px;
+    margin: 16px 0;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .stock-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-buy {
+    background: var(--accent-green);
+    color: #000;
+  }
+
+  .btn-sell {
+    background: var(--accent-red);
+    color: #fff;
+  }
+
+  .trade-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 20px;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .trade-panel.open {
+    transform: translateY(0);
+  }
+
+  .trade-form {
+    max-width: 500px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .trade-form label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .trade-form input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+
+  .trade-form input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+  }
+
+  .trade-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
+  .trade-buttons .btn {
+    flex: 1;
+  }
+
+  .btn-close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .trade-summary {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+
+  .holdings-list {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+  }
+
+  .holdings-title {
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+  }
+
+  .holding-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .holding-item:last-child {
+    border-bottom: none;
+  }
+
+  .holding-symbol {
+    font-weight: bold;
+  }
+
+  .holding-shares {
+    color: var(--text-secondary);
+  }
+
+  .holding-value {
+    text-align: right;
+  }
+
+  .empty-holdings {
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .live-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+  }
+
+  h1 { margin: 0; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>📈 Stock Market Simulator</h1>
+        <div style="color: var(--text-secondary); margin-top: 8px;">
+          <span class="live-indicator"></span>
+          Live trading — prices update every second
+        </div>
+      </div>
+      <div class="portfolio-summary">
+        <div class="portfolio-value positive" id="portfolioValue">$10,000</div>
+        <div class="portfolio-change" id="portfolioChange">+$0 (0%) today</div>
+        <div class="cash-balance">
+          Cash: <span class="cash-amount" id="cashBalance">$10,000</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="holdings-list" id="holdingsList">
+      <div class="holdings-title">Your Holdings</div>
+      <div id="holdingsContent">
+        <div class="empty-holdings">No stocks owned yet. Start trading!</div>
+      </div>
+    </div>
+
+    <div class="stocks-grid" id="stocksGrid"></div>
+  </div>
+
+  <div class="trade-panel" id="tradePanel">
+    <button class="btn-close" onclick="closeTrade()">×</button>
+    <div class="trade-form">
+      <h3 id="tradeTitle">Buy Stock</h3>
+      <label>Shares to trade</label>
+      <input type="number" id="tradeShares" min="1" value="10">
+      <div class="trade-summary" id="tradeSummary">Total: $0</div>
+      <div class="trade-buttons">
+        <button class="btn btn-buy" id="confirmTradeBtn" onclick="confirmTrade()">Confirm</button>
+        <button class="btn btn-sell" onclick="closeTrade()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const INITIAL_CASH = 10000;
+    let cash = INITIAL_CASH;
+    let holdings = {};
+    let stocks = [
+      { symbol: 'TECH', name: 'TechCorp', price: 150, volatility: 0.03, trend: 0.001 },
+      { symbol: 'ENER', name: 'EnergyPlus', price: 75, volatility: 0.025, trend: 0.0005 },
+      { symbol: 'HLTH', name: 'HealthFirst', price: 200, volatility: 0.02, trend: 0.0008 },
+      { symbol: 'BANK', name: 'GlobalBank', price: 50, volatility: 0.015, trend: 0.0003 },
+      { symbol: 'RETL', name: 'RetailMax', price: 120, volatility: 0.028, trend: -0.0002 },
+      { symbol: 'CHIP', name: 'ChipMaker', price: 95, volatility: 0.04, trend: 0.0015 }
+    ];
+    
+    const priceHistory = {};
+    const historyLength = 60;
+    
+    stocks.forEach(s => {
+      priceHistory[s.symbol] = Array(historyLength).fill(s.price);
+    });
+
+    let currentTrade = null;
+
+    function init() {
+      renderStocks();
+      updatePortfolio();
+      setInterval(updatePrices, 1000);
+    }
+
+    function updatePrices() {
+      stocks.forEach(stock => {
+        const change = (Math.random() - 0.5) * 2 * stock.volatility + stock.trend;
+        stock.price = Math.max(1, stock.price * (1 + change));
+        
+        priceHistory[stock.symbol].shift();
+        priceHistory[stock.symbol].push(stock.price);
+      });
+      renderStocks();
+      updatePortfolio();
+    }
+
+    function renderStocks() {
+      const grid = document.getElementById('stocksGrid');
+      grid.innerHTML = stocks.map(stock => {
+        const history = priceHistory[stock.symbol];
+        const firstPrice = history[0];
+        const lastPrice = history[history.length - 1];
+        const change = lastPrice - firstPrice;
+        const changePercent = (change / firstPrice) * 100;
+        const changeClass = change >= 0 ? 'positive' : 'negative';
+        const changeSign = change >= 0 ? '+' : '';
+        
+        const owned = holdings[stock.symbol] || 0;
+        
+        return `
+          <div class="stock-card">
+            <div class="stock-header">
+              <div>
+                <div class="stock-name">${stock.name}</div>
+                <div class="stock-symbol">${stock.symbol}${owned > 0 ? ` • ${owned} shares` : ''}</div>
+              </div>
+              <div class="stock-price">
+                <div class="price-current">$${stock.price.toFixed(2)}</div>
+                <div class="price-change ${changeClass}">${changeSign}${change.toFixed(2)} (${changeSign}${changePercent.toFixed(1)}%)</div>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas class="chart-canvas" id="chart-${stock.symbol}"></canvas>
+            </div>
+            <div class="stock-actions">
+              <button class="btn btn-buy" onclick="openTrade('${stock.symbol}', 'buy')">Buy</button>
+              <button class="btn btn-sell" onclick="openTrade('${stock.symbol}', 'sell')" ${owned <= 0 ? 'disabled style="opacity:0.4"' : ''}>Sell</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      stocks.forEach(stock => drawChart(stock));
+    }
+
+    function drawChart(stock) {
+      const canvas = document.getElementById(`chart-${stock.symbol}`);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+      
+      const history = priceHistory[stock.symbol];
+      const min = Math.min(...history);
+      const max = Math.max(...history);
+      const range = max - min || 1;
+      
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.beginPath();
+      ctx.strokeStyle = history[history.length-1] >= history[0] ? '#3fb950' : '#f85149';
+      ctx.lineWidth = 2;
+      
+      history.forEach((price, i) => {
+        const x = (i / (history.length - 1)) * rect.width;
+        const y = rect.height - ((price - min) / range) * rect.height;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      
+      ctx.stroke();
+    }
+
+    function updatePortfolio() {
+      let stockValue = 0;
+      stocks.forEach(stock => {
+        const shares = holdings[stock.symbol] || 0;
+        stockValue += shares * stock.price;
+      });
+      
+      const totalValue = cash + stockValue;
+      const change = totalValue - INITIAL_CASH;
+      const changePercent = (change / INITIAL_CASH) * 100;
+      
+      const valueEl = document.getElementById('portfolioValue');
+      const changeEl = document.getElementById('portfolioChange');
+      const cashEl = document.getElementById('cashBalance');
+      
+      valueEl.textContent = `$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      valueEl.className = `portfolio-value ${change >= 0 ? 'positive' : 'negative'}`;
+      
+      const sign = change >= 0 ? '+' : '';
+      changeEl.textContent = `${sign}$${change.toFixed(2)} (${sign}${changePercent.toFixed(1)}%) today`;
+      
+      cashEl.textContent = `$${cash.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      
+      renderHoldings();
+    }
+
+    function renderHoldings() {
+      const content = document.getElementById('holdingsContent');
+      const owned = Object.entries(holdings).filter(([_, shares]) => shares > 0);
+      
+      if (owned.length === 0) {
+        content.innerHTML = '<div class="empty-holdings">No stocks owned yet. Start trading!</div>';
+        return;
+      }
+      
+      content.innerHTML = owned.map(([symbol, shares]) => {
+        const stock = stocks.find(s => s.symbol === symbol);
+        const value = shares * stock.price;
+        return `
+          <div class="holding-item">
+            <div>
+              <span class="holding-symbol">${symbol}</span>
+              <span class="holding-shares"> — ${shares} shares @ $${stock.price.toFixed(2)}</span>
+            </div>
+            <div class="holding-value">$${value.toFixed(2)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openTrade(symbol, type) {
+      currentTrade = { symbol, type };
+      const stock = stocks.find(s => s.symbol === symbol);
+      
+      document.getElementById('tradeTitle').textContent = `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol}`;
+      document.getElementById('tradePanel').classList.add('open');
+      document.getElementById('confirmTradeBtn').className = `btn ${type === 'buy' ? 'btn-buy' : 'btn-sell'}`;
+      
+      updateTradeSummary();
+    }
+
+    function closeTrade() {
+      document.getElementById('tradePanel').classList.remove('open');
+      currentTrade = null;
+    }
+
+    document.getElementById('tradeShares').addEventListener('input', updateTradeSummary);
+
+    function updateTradeSummary() {
+      if (!currentTrade) return;
+      
+      const shares = parseInt(document.getElementById('tradeShares').value) || 0;
+      const stock = stocks.find(s => s.symbol === currentTrade.symbol);
+      const total = shares * stock.price;
+      
+      document.getElementById('tradeSummary').textContent = 
+        `Total: $${total.toFixed(2)} | Available: $${cash.toFixed(2)}`;
+    }
+
+    function confirmTrade() {
+      if (!currentTrade) return;
+      
+      const shares = parseInt(document.getElementById('tradeShares').value) || 0;
+      if (shares <= 0) return;
+      
+      const stock = stocks.find(s => s.symbol === currentTrade.symbol);
+      const total = shares * stock.price;
+      
+      if (currentTrade.type === 'buy') {
+        if (total > cash) {
+          alert('Not enough cash!');
+          return;
+        }
+        cash -= total;
+        holdings[currentTrade.symbol] = (holdings[currentTrade.symbol] || 0) + shares;
+      } else {
+        const owned = holdings[currentTrade.symbol] || 0;
+        if (shares > owned) {
+          alert('Not enough shares!');
+          return;
+        }
+        cash += total;
+        holdings[currentTrade.symbol] = owned - shares;
+        if (holdings[currentTrade.symbol] <= 0) delete holdings[currentTrade.symbol];
+      }
+      
+      closeTrade();
+      renderStocks();
+      updatePortfolio();
+    }
+
+    init();
+  </script>
+</body>
+</html>
