@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synth Explorer — Shadow's Garden</title>
+<meta name="description" content="Interactive audio synthesizer — explore waveforms, filters, and sound synthesis in your browser">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #f0e6d3;
+    margin-bottom: 10px;
+  }
+  .synth {
+    background: #151520;
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 600px;
+  }
+  .section {
+    margin-bottom: 20px;
+  }
+  .section-label {
+    color: #888;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .keys {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .key {
+    width: 40px;
+    height: 100px;
+    background: #f0e6d3;
+    border: none;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    font-size: 10px;
+    color: #333;
+    transition: all 0.1s;
+  }
+  .key:active, .key.playing {
+    background: #ff6b35;
+    transform: translateY(4px);
+  }
+  .key.black {
+    width: 28px;
+    height: 60px;
+    background: #222;
+    color: #fff;
+    margin: 0 -14px;
+    z-index: 1;
+  }
+  .key.black:active, .key.black.playing {
+    background: #ff4422;
+  }
+  .controls-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .control label {
+    color: #666;
+    font-size: 11px;
+  }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #ff6b35;
+  }
+  select {
+    background: #222;
+    color: #f0e6d3;
+    border: 1px solid #444;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .waveform-display {
+    width: 100%;
+    height: 80px;
+    background: #0a0a0f;
+    border: 1px solid #333;
+    border-radius: 6px;
+  }
+  .visualizer {
+    width: 100%;
+    height: 120px;
+    background: #0a0a0f;
+    border: 1px solid #333;
+    border-radius: 6px;
+  }
+  .info {
+    color: #555;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 10px;
+  }
+  .on-off {
+    background: #333;
+    color: #888;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .on-off.active {
+    background: #ff6b35;
+    color: #fff;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Synth Explorer</h1>
+  
+  <div class="synth">
+    <div class="section">
+      <div class="section-label">Master</div>
+      <button class="on-off" id="powerBtn">Click to Start Audio</button>
+    </div>
+    
+    <div class="section">
+      <div class="section-label">Waveform</div>
+      <canvas class="waveform-display" id="waveCanvas"></canvas>
+      <div class="controls-row" style="margin-top: 10px;">
+        <div class="control">
+          <label>Type</label>
+          <select id="waveType">
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth" selected>Sawtooth</option>
+            <option value="triangle">Triangle</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>Detune</label>
+          <input type="range" id="detune" min="-100" max="100" value="0">
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <div class="section-label">Filter</div>
+      <div class="controls-row">
+        <div class="control">
+          <label>Cutoff</label>
+          <input type="range" id="cutoff" min="20" max="20000" value="2000">
+        </div>
+        <div class="control">
+          <label>Resonance</label>
+          <input type="range" id="resonance" min="0" max="20" value="1">
+        </div>
+        <div class="control">
+          <label>Filter Type</label>
+          <select id="filterType">
+            <option value="lowpass">Lowpass</option>
+            <option value="highpass">Highpass</option>
+            <option value="bandpass">Bandpass</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <div class="section-label">Envelope</div>
+      <div class="controls-row">
+        <div class="control">
+          <label>Attack</label>
+          <input type="range" id="attack" min="0" max="2000" value="10">
+        </div>
+        <div class="control">
+          <label>Decay</label>
+          <input type="range" id="decay" min="0" max="2000" value="100">
+        </div>
+        <div class="control">
+          <label>Sustain</label>
+          <input type="range" id="sustain" min="0" max="100" value="70">
+        </div>
+        <div class="control">
+          <label>Release</label>
+          <input type="range" id="release" min="0" max="3000" value="500">
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <div class="section-label">Keyboard</div>
+      <div class="keys" id="keyboard"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-label">Spectrum</div>
+      <canvas class="visualizer" id="vizCanvas"></canvas>
+    </div>
+    
+    <div class="info">Click keys or use your keyboard (A-L for white keys, W-P for black keys)</div>
+  </div>
+
+  <script>
+    const keyboard = document.getElementById('keyboard');
+    const waveCanvas = document.getElementById('waveCanvas');
+    const waveCtx = waveCanvas.getContext('2d');
+    const vizCanvas = document.getElementById('vizCanvas');
+    const vizCtx = vizCanvas.getContext('2d');
+    const powerBtn = document.getElementById('powerBtn');
+    
+    // Set canvas sizes
+    waveCanvas.width = waveCanvas.offsetWidth * 2;
+    waveCanvas.height = waveCanvas.offsetHeight * 2;
+    vizCanvas.width = vizCanvas.offsetWidth * 2;
+    vizCanvas.height = vizCanvas.offsetHeight * 2;
+    
+    let audioCtx = null;
+    let analyser = null;
+    let isOn = false;
+    let activeOscillators = {};
+    let activeGains = {};
+    
+    // Notes: C3 to C5
+    const notes = [
+      { note: 'C', freq: 130.81, black: false },
+      { note: 'C#', freq: 138.59, black: true },
+      { note: 'D', freq: 146.83, black: false },
+      { note: 'D#', freq: 155.56, black: true },
+      { note: 'E', freq: 164.81, black: false },
+      { note: 'F', freq: 174.61, black: false },
+      { note: 'F#', freq: 185.00, black: true },
+      { note: 'G', freq: 196.00, black: false },
+      { note: 'G#', freq: 207.65, black: true },
+      { note: 'A', freq: 220.00, black: false },
+      { note: 'A#', freq: 233.08, black: true },
+      { note: 'B', freq: 246.94, black: false },
+      { note: 'C', freq: 261.63, black: false },
+      { note: 'C#', freq: 277.18, black: true },
+      { note: 'D', freq: 293.66, black: false },
+      { note: 'D#', freq: 311.13, black: true },
+      { note: 'E', freq: 329.63, black: false },
+      { note: 'F', freq: 349.23, black: false },
+      { note: 'F#', freq: 369.99, black: true },
+      { note: 'G', freq: 392.00, black: false },
+      { note: 'G#', freq: 415.30, black: true },
+      { note: 'A', freq: 440.00, black: false },
+      { note: 'A#', freq: 466.16, black: true },
+      { note: 'C', freq: 523.25, black: false }
+    ];
+    
+    // Build keyboard
+    notes.forEach((n, i) => {
+      const key = document.createElement('button');
+      key.className = 'key' + (n.black ? ' black' : '');
+      key.dataset.index = i;
+      key.textContent = n.note;
+      keyboard.appendChild(key);
+    });
+    
+    // Keyboard mapping
+    const keyMap = {
+      'a': 0, 'w': 1, 's': 2, 'e': 3, 'd': 4, 'f': 5, 't': 6,
+      'g': 7, 'y': 8, 'h': 9, 'u': 10, 'j': 11, 'k': 12, 'o': 13,
+      'l': 14, 'p': 15, ';': 16
+    };
+    
+    const keyMapReverse = {};
+    Object.entries(keyMap).forEach(([k, v]) => keyMapReverse[v] = k);
+    
+    // Controls
+    const waveType = document.getElementById('waveType');
+    const detune = document.getElementById('detune');
+    const cutoff = document.getElementById('cutoff');
+    const resonance = document.getElementById('resonance');
+    const filterType = document.getElementById('filterType');
+    const attack = document.getElementById('attack');
+    const decay = document.getElementById('decay');
+    const sustain = document.getElementById('sustain');
+    const release = document.getElementById('release');
+    
+    let filter = null;
+    let masterGain = null;
+    
+    powerBtn.addEventListener('click', () => {
+      if (!isOn) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        
+        filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 2000;
+        filter.Q.value = 1;
+        
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.3;
+        
+        filter.connect(masterGain);
+        masterGain.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        
+        isOn = true;
+        powerBtn.textContent = 'Audio On';
+        powerBtn.classList.add('active');
+      }
+    });
+    
+    function getParams() {
+      return {
+        type: waveType.value,
+        detune: parseInt(detune.value),
+        cutoff: parseInt(cutoff.value),
+        resonance: parseFloat(resonance.value),
+        filterType: filterType.value,
+        attack: parseInt(attack.value) / 1000,
+        decay: parseInt(decay.value) / 1000,
+        sustain: parseInt(sustain.value) / 100,
+        release: parseInt(release.value) / 1000
+      };
+    }
+    
+    function noteOn(index) {
+      if (!isOn || activeOscillators[index]) return;
+      
+      const params = getParams();
+      const freq = notes[index].freq;
+      
+      const osc = audioCtx.createOscillator();
+      osc.type = params.type;
+      osc.frequency.value = freq;
+      osc.detune.value = params.detune;
+      
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + params.attack);
+      gain.gain.linearRampToValueAtTime(params.sustain, audioCtx.currentTime + params.attack + params.decay);
+      
+      filter.type = params.filterType;
+      filter.frequency.setValueAtTime(params.cutoff, audioCtx.currentTime);
+      filter.Q.setValueAtTime(params.resonance, audioCtx.currentTime);
+      
+      osc.connect(gain);
+      gain.connect(filter);
+      
+      osc.start();
+      
+      activeOscillators[index] = osc;
+      activeGains[index] = gain;
+      
+      // Visual feedback
+      const key = keyboard.children[index];
+      if (key) key.classList.add('playing');
+    }
+    
+    function noteOff(index) {
+      if (!activeOscillators[index]) return;
+      
+      const params = getParams();
+      const gain = activeGains[index];
+      const osc = activeOscillators[index];
+      
+      gain.gain.cancelScheduledValues(audioCtx.currentTime);
+      gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + params.release);
+      
+      osc.stop(audioCtx.currentTime + params.release + 0.1);
+      
+      delete activeOscillators[index];
+      delete activeGains[index];
+      
+      const key = keyboard.children[index];
+      if (key) key.classList.remove('playing');
+    }
+    
+    // Mouse events
+    keyboard.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('key')) {
+        const index = parseInt(e.target.dataset.index);
+        noteOn(index);
+      }
+    });
+    
+    keyboard.addEventListener('mouseup', e => {
+      if (e.target.classList.contains('key')) {
+        const index = parseInt(e.target.dataset.index);
+        noteOff(index);
+      }
+    });
+    
+    keyboard.addEventListener('mouseleave', e => {
+      if (e.target.classList.contains('key')) {
+        const index = parseInt(e.target.dataset.index);
+        noteOff(index);
+      }
+    });
+    
+    // Keyboard events
+    document.addEventListener('keydown', e => {
+      if (e.repeat) return;
+      const key = e.key.toLowerCase();
+      if (keyMap[key] !== undefined) {
+        noteOn(keyMap[key]);
+      }
+    });
+    
+    document.addEventListener('keyup', e => {
+      const key = e.key.toLowerCase();
+      if (keyMap[key] !== undefined) {
+        noteOff(keyMap[key]);
+      }
+    });
+    
+    // Update filter in real-time
+    cutoff.addEventListener('input', () => {
+      if (filter) filter.frequency.value = parseInt(cutoff.value);
+    });
+    resonance.addEventListener('input', () => {
+      if (filter) filter.Q.value = parseFloat(resonance.value);
+    });
+    filterType.addEventListener('change', () => {
+      if (filter) filter.type = filterType.value;
+    });
+    
+    // Draw waveform preview
+    function drawWaveform() {
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      waveCtx.fillStyle = '#0a0a0f';
+      waveCtx.fillRect(0, 0, w, h);
+      
+      const type = waveType.value;
+      waveCtx.strokeStyle = '#ff6b35';
+      waveCtx.lineWidth = 3;
+      waveCtx.beginPath();
+      
+      for (let x = 0; x < w; x++) {
+        const t = (x / w) * Math.PI * 4;
+        let y = 0;
+        
+        switch (type) {
+          case 'sine':
+            y = Math.sin(t);
+            break;
+          case 'square':
+            y = Math.sin(t) > 0 ? 1 : -1;
+            break;
+          case 'sawtooth':
+            y = 2 * (t / (Math.PI * 2) % 1) - 1;
+            break;
+          case 'triangle':
+            y = Math.abs(2 * (t / (Math.PI * 2) % 1) - 1) * 2 - 1;
+            break;
+        }
+        
+        const yPos = h/2 - y * (h/3);
+        if (x === 0) waveCtx.moveTo(x, yPos);
+        else waveCtx.lineTo(x, yPos);
+      }
+      
+      waveCtx.stroke();
+      requestAnimationFrame(drawWaveform);
+    }
+    drawWaveform();
+    
+    // Visualizer
+    function drawVisualizer() {
+      const w = vizCanvas.width;
+      const h = vizCanvas.height;
+      vizCtx.fillStyle = '#0a0a0f';
+      vizCtx.fillRect(0, 0, w, h);
+      
+      if (analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+        
+        const barWidth = (w / bufferLength) * 2.5;
+        let x = 0;
+        
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * h;
+          
+          const hue = (i / bufferLength) * 60 + 15;
+          vizCtx.fillStyle = `hsl(${hue}, 80%, 55%)`;
+          vizCtx.fillRect(x, h - barHeight, barWidth, barHeight);
+          
+          x += barWidth + 1;
+        }
+      }
+      
+      requestAnimationFrame(drawVisualizer);
+    }
+    drawVisualizer();
+  </script>
+</body>
+</html>
