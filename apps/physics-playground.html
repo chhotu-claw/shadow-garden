@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Physics Playground — Shadow's Garden</title>
+<meta name="description" content="Interactive physics sandbox with gravity, collisions, and constraints">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+  }
+  h1 { color: #f0e6d3; margin-bottom: 10px; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    padding: 8px 16px;
+    border: 2px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: #252535; }
+  .btn.active { border-color: #ff6b35; background: #2a1a14; }
+  canvas { border: 2px solid #333; cursor: crosshair; }
+  .info { color: #666; font-size: 12px; margin-top: 10px; }
+  .stats { color: #444; font-size: 11px; margin-top: 5px; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Physics Playground</h1>
+  <div class="controls">
+    <button class="btn active" data-tool="circle">Circle</button>
+    <button class="btn" data-tool="box">Box</button>
+    <button class="btn" data-tool="spring">Spring</button>
+    <button class="btn" data-tool="gravity">Gravity</button>
+    <button class="btn" id="clearBtn">Clear</button>
+  </div>
+  <canvas id="canvas" width="800" height="500"></canvas>
+  <div class="info">Click to spawn • Drag to create connected bodies • Right-click to delete</div>
+  <div class="stats" id="stats">Bodies: 0 | FPS: 60</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    let bodies = [];
+    let springs = [];
+    let currentTool = 'circle';
+    let isDragging = false;
+    let dragStart = null;
+    let mousePos = { x: 0, y: 0 };
+    let gravity = { x: 0, y: 0.5 };
+    let lastTime = performance.now();
+    let fps = 60;
+
+    // Tool selection
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.id === 'clearBtn') {
+          bodies = [];
+          springs = [];
+          return;
+        }
+        document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTool = btn.dataset.tool;
+      });
+    });
+
+    // Mouse events
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (e.button === 2) {
+        // Delete nearby body
+        for (let i = bodies.length - 1; i >= 0; i--) {
+          const b = bodies[i];
+          const dx = b.x - x;
+          const dy = b.y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < b.radius + 10) {
+            springs = springs.filter(s => s.a !== b && s.b !== b);
+            bodies.splice(i, 1);
+            return;
+          }
+        }
+      }
+
+      if (currentTool === 'spring') {
+        isDragging = true;
+        dragStart = { x, y };
+      } else {
+        spawnBody(x, y);
+      }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mouseup', e => {
+      if (isDragging && dragStart) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const b1 = spawnBody(dragStart.x, dragStart.y);
+        const b2 = spawnBody(x, y);
+        springs.push({ a: b1, b: b2, length: Math.hypot(x - dragStart.x, y - dragStart.y), stiffness: 0.05 });
+      }
+      isDragging = false;
+      dragStart = null;
+    });
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    function spawnBody(x, y) {
+      const radius = 15 + Math.random() * 10;
+      bodies.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        radius,
+        mass: radius * radius * 0.01,
+        color: currentTool === 'box' ? '#7a5' : `hsl(${Math.random() * 60 + 200}, 70%, 60%)`
+      });
+      return bodies[bodies.length - 1];
+    }
+
+    function update() {
+      // Apply gravity
+      if (currentTool === 'gravity') {
+        gravity.y = 0.5;
+      } else {
+        gravity.y = 0;
+      }
+
+      // Update bodies
+      for (const b of bodies) {
+        b.vx += gravity.x;
+        b.vy += gravity.y;
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // Damping
+        b.vx *= 0.99;
+        b.vy *= 0.99;
+
+        // Wall collisions
+        if (b.x - b.radius < 0) { b.x = b.radius; b.vx *= -0.7; }
+        if (b.x + b.radius > W) { b.x = W - b.radius; b.vx *= -0.7; }
+        if (b.y - b.radius < 0) { b.y = b.radius; b.vy *= -0.7; }
+        if (b.y + b.radius > H) { b.y = H - b.radius; b.vy *= -0.7; }
+      }
+
+      // Body collisions
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const a = bodies[i];
+          const b = bodies[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = a.radius + b.radius;
+
+          if (dist < minDist && dist > 0) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = minDist - dist;
+
+            // Separate
+            const totalMass = a.mass + b.mass;
+            a.x -= nx * overlap * (b.mass / totalMass);
+            a.y -= ny * overlap * (b.mass / totalMass);
+            b.x += nx * overlap * (a.mass / totalMass);
+            b.y += ny * overlap * (a.mass / totalMass);
+
+            // Bounce
+            const dvx = b.vx - a.vx;
+            const dvy = b.vy - a.vy;
+            const dvn = dvx * nx + dvy * ny;
+
+            if (dvn < 0) {
+              const restitution = 0.8;
+              const impulse = -(1 + restitution) * dvn / totalMass;
+              a.vx -= impulse * b.mass * nx;
+              a.vy -= impulse * b.mass * ny;
+              b.vx += impulse * a.mass * nx;
+              b.vy += impulse * a.mass * ny;
+            }
+          }
+        }
+      }
+
+      // Springs
+      for (const s of springs) {
+        const dx = s.b.x - s.a.x;
+        const dy = s.b.y - s.a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const force = (dist - s.length) * s.stiffness;
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        s.a.vx += nx * force / s.a.mass;
+        s.a.vy += ny * force / s.a.mass;
+        s.b.vx -= nx * force / s.b.mass;
+        s.b.vy -= ny * force / s.b.mass;
+      }
+
+      // FPS
+      const now = performance.now();
+      fps = 1000 / (now - lastTime);
+      lastTime = now;
+    }
+
+    function render() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw springs
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      for (const s of springs) {
+        ctx.beginPath();
+        ctx.moveTo(s.a.x, s.a.y);
+        ctx.lineTo(s.b.x, s.b.y);
+        ctx.stroke();
+      }
+
+      // Draw bodies
+      for (const b of bodies) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = b.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff3';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Drag preview
+      if (isDragging && dragStart) {
+        ctx.beginPath();
+        ctx.moveTo(dragStart.x, dragStart.y);
+        ctx.lineTo(mousePos.x, mousePos.y);
+        ctx.strokeStyle = '#ff6b35';
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Update stats
+      document.getElementById('stats').textContent = `Bodies: ${bodies.length} | FPS: ${Math.round(fps)}`;
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
