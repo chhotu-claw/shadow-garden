@@ -4,291 +4,221 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Particle Life — Shadow's Garden</title>
-<meta name="description" content="Particle simulation where emergent behavior arises from simple attraction/repulsion rules.">
+<meta name="description" content="Particles with virtual DNA interact via attraction and repulsion, forming emergent structures">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   body {
     margin: 0;
-    overflow: hidden;
     background: #0a0a0f;
-    font-family: 'IBM Plex Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    color: #f0e6d3;
+    font-family: inherit;
+  }
+  h1 {
+    margin: 20px 0 10px;
+    font-weight: 300;
+    letter-spacing: 2px;
   }
   canvas {
-    display: block;
+    border: 1px solid #222;
+    cursor: none;
   }
   .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
-    gap: 10px;
-    z-index: 10;
+    gap: 15px;
+    margin: 15px 0;
     flex-wrap: wrap;
     justify-content: center;
   }
-  .btn {
-    background: rgba(20, 20, 30, 0.85);
-    border: 1px solid rgba(100, 120, 150, 0.4);
-    color: rgba(180, 200, 220, 0.9);
-    padding: 8px 14px;
-    font-size: 11px;
+  button {
+    padding: 8px 20px;
+    background: #1a1a24;
+    border: 1px solid #333;
+    color: #f0e6d3;
     cursor: pointer;
-    transition: all 0.3s;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.2s;
   }
-  .btn:hover {
-    background: rgba(40, 40, 60, 0.9);
-    border-color: rgba(100, 120, 150, 0.7);
-    box-shadow: 0 0 15px rgba(100, 120, 150, 0.3);
+  button:hover {
+    background: #252535;
+    border-color: #555;
   }
   .info {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(150, 170, 200, 0.5);
-    font-size: 11px;
-    pointer-events: none;
-  }
-  .legend {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    font-size: 10px;
-    color: rgba(150, 170, 200, 0.6);
-    text-align: right;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 20px;
   }
 </style>
 </head>
 <body data-page-type="app">
+  <h1>Particle Life</h1>
   <canvas id="canvas"></canvas>
-  <div class="info">click to add particles • drag to create cluster</div>
-  <div class="legend" id="legend"></div>
   <div class="controls">
-    <button class="btn" onclick="reset()">Reset</button>
-    <button class="btn" onclick="setPreset('cells')">Cells</button>
-    <button class="btn" onclick="setPreset('predator')">Predator</button>
-    <button class="btn" onclick="setPreset('molecules')">Molecules</button>
-    <button class="btn" onclick="setPreset('solar')">Solar</button>
-    <button class="btn" onclick="togglePause()">Pause</button>
+    <button id="randomize">Randomize DNA</button>
+    <button id="reset">Reset Particles</button>
   </div>
+  <div class="info">Move mouse to attract • Particles form structures based on their DNA</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
-    let width, height;
+    let W, H;
+    const NUM_PARTICLES = 1200;
+    const NUM_TYPES = 6;
+    const INTERACTION_RADIUS = 60;
+    
     let particles = [];
-    let paused = false;
-    const numSpecies = 5;
-    const particlesPerSpecies = 80;
-    const friction = 0.95;
-    
-    // DNA matrix: how each species attracts/repels each other
-    // Positive = attract, negative = repel
-    const presets = {
-      cells: [
-        [-1, -0.8, -0.9, -0.6, -0.7],
-        [-0.8, -1, -0.5, -0.8, -0.3],
-        [-0.9, -0.5, -1, -0.4, -0.7],
-        [-0.6, -0.8, -0.4, -1, -0.5],
-        [-0.7, -0.3, -0.7, -0.5, -1]
-      ],
-      predator: [
-        [-0.5, 0.8, -0.6, -0.6, -0.6],
-        [-0.6, -0.3, 0.9, -0.5, -0.5],
-        [-0.5, -0.5, -0.4, 0.8, -0.4],
-        [-0.6, -0.5, -0.5, -0.3, 0.7],
-        [-0.5, -0.5, -0.6, -0.5, -0.3]
-      ],
-      molecules: [
-        [0.8, -0.5, -0.3, -0.3, -0.3],
-        [-0.5, 0.8, -0.3, -0.3, -0.3],
-        [-0.3, -0.3, 0.8, -0.5, -0.3],
-        [-0.3, -0.3, -0.5, 0.8, -0.3],
-        [-0.3, -0.3, -0.3, -0.3, 0.8]
-      ],
-      solar: [
-        [-0.2, -0.1, -0.3, -0.1, -0.2],
-        [-0.1, 0.3, -0.2, 0.2, -0.1],
-        [-0.3, -0.2, -0.1, -0.2, 0.3],
-        [-0.1, 0.2, -0.2, 0.1, -0.1],
-        [-0.2, -0.1, 0.3, -0.1, 0.2]
-      ]
-    };
-    
-    let dna = presets.cells;
-    
-    const colors = [
-      '#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181',
-      '#aa96da', '#fcbad3', '#a8d8ea', '#ffd3b6', '#c9e4de'
-    ];
+    let dna = [];
+    let mouse = { x: 0, y: 0, active: false };
     
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      W = canvas.width = Math.min(800, window.innerWidth - 40);
+      H = canvas.height = Math.min(500, window.innerHeight - 200);
     }
-    
-    window.addEventListener('resize', resize);
     resize();
+    window.addEventListener('resize', resize);
     
-    class Particle {
-      constructor(x, y, species) {
-        this.x = x || Math.random() * width;
-        this.y = y || Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 4;
-        this.vy = (Math.random() - 0.5) * 4;
-        this.species = species;
-        this.color = colors[species % colors.length];
-      }
-      
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        
-        // Wrap around edges
-        if (this.x < 0) this.x = width;
-        if (this.x > width) this.x = 0;
-        if (this.y < 0) this.y = height;
-        if (this.y > height) this.y = 0;
-        
-        // Apply friction
-        this.vx *= friction;
-        this.vy *= friction;
-      }
-      
-      draw() {
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.active = true;
+    });
+    canvas.addEventListener('mouseleave', () => mouse.active = false);
     
-    function initParticles() {
-      particles = [];
-      for (let s = 0; s < numSpecies; s++) {
-        for (let i = 0; i < particlesPerSpecies; i++) {
-          particles.push(new Particle(
-            Math.random() * width,
-            Math.random() * height,
-            s
-          ));
+    // Initialize DNA (interaction matrix)
+    function initDNA() {
+      dna = [];
+      for (let i = 0; i < NUM_TYPES; i++) {
+        dna[i] = [];
+        for (let j = 0; j < NUM_TYPES; j++) {
+          dna[i][j] = (Math.random() - 0.5) * 2;
         }
       }
-      updateLegend();
     }
     
-    function updateLegend() {
-      const legend = document.getElementById('legend');
-      legend.innerHTML = '';
-      for (let s = 0; s < numSpecies; s++) {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<span>Species ${s + 1}</span><div class="dot" style="background:${colors[s]}"></div>`;
-        legend.appendChild(item);
+    // Initialize particles
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < NUM_PARTICLES; i++) {
+        particles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          type: Math.floor(Math.random() * NUM_TYPES)
+        });
       }
     }
     
-    function computeForces() {
-      const perception = 60;
-      const forceMult = 0.5;
+    const typeColors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181', '#aa96da'];
+    
+    function update() {
+      const gridSize = INTERACTION_RADIUS;
+      const gridCols = Math.ceil(W / gridSize);
+      const gridRows = Math.ceil(H / gridSize);
+      const grid = new Array(gridCols * gridRows).fill(null).map(() => []);
       
-      for (let i = 0; i < particles.length; i++) {
-        const p1 = particles[i];
+      particles.forEach((p, i) => {
+        const gx = Math.floor(p.x / gridSize);
+        const gy = Math.floor(p.y / gridSize);
+        if (gx >= 0 && gx < gridCols && gy >= 0 && gy < gridRows) {
+          grid[gy * gridCols + gx].push(i);
+        }
+      });
+      
+      particles.forEach((p, i) => {
         let fx = 0, fy = 0;
         
-        for (let j = 0; j < particles.length; j++) {
-          if (i === j) continue;
-          
-          const p2 = particles[j];
-          const dx = p2.x - p1.x;
-          const dy = p2.y - p1.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist < perception && dist > 0) {
-            const force = dna[p1.species][p2.species] * (1 - dist / perception);
-            fx += (dx / dist) * force;
-            fy += (dy / dist) * force;
+        const gx = Math.floor(p.x / gridSize);
+        const gy = Math.floor(p.y / gridSize);
+        
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = gx + dx;
+            const ny = gy + dy;
+            if (nx < 0 || nx >= gridCols || ny < 0 || ny >= gridRows) continue;
+            
+            const cell = grid[ny * gridCols + nx];
+            for (const j of cell) {
+              if (i === j) continue;
+              const other = particles[j];
+              const dx = other.x - p.x;
+              const dy = other.y - p.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              
+              if (dist > 0 && dist < INTERACTION_RADIUS) {
+                const force = dna[p.type][other.type] * (1 - dist / INTERACTION_RADIUS) * 0.5;
+                fx += (dx / dist) * force;
+                fy += (dy / dist) * force;
+              }
+            }
           }
         }
         
-        p1.vx += fx * forceMult;
-        p1.vy += fy * forceMult;
-      }
+        if (mouse.active) {
+          const mdx = mouse.x - p.x;
+          const mdy = mouse.y - p.y;
+          const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+          if (mdist > 0 && mdist < 200) {
+            fx += (mdx / mdist) * 0.3;
+            fy += (mdy / mdist) * 0.3;
+          }
+        }
+        
+        fx *= 0.95;
+        fy *= 0.95;
+        
+        p.vx += fx;
+        p.vy += fy;
+        
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > 4) {
+          p.vx = (p.vx / speed) * 4;
+          p.vy = (p.vy / speed) * 4;
+        }
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        if (p.x < 0) { p.x = 0; p.vx *= -0.8; }
+        if (p.x > W) { p.x = W; p.vx *= -0.8; }
+        if (p.y < 0) { p.y = 0; p.vy *= -0.8; }
+        if (p.y > H) { p.y = H; p.vy *= -0.8; }
+      });
     }
     
-    function animate() {
-      if (!paused) {
-        // Fade effect
-        ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
-        ctx.fillRect(0, 0, width, height);
-        
-        computeForces();
-        
-        for (const p of particles) {
-          p.update();
-          p.draw();
-        }
-      }
+    function render() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.3)';
+      ctx.fillRect(0, 0, W, H);
       
-      requestAnimationFrame(animate);
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = typeColors[p.type];
+        ctx.fill();
+      });
     }
     
-    function reset() {
-      initParticles();
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, width, height);
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
     }
     
-    function setPreset(name) {
-      dna = presets[name];
-      reset();
-    }
-    
-    function togglePause() {
-      paused = !paused;
-    }
-    
-    // Mouse interaction
-    canvas.addEventListener('click', (e) => {
-      for (let s = 0; s < numSpecies; s++) {
-        for (let i = 0; i < 10; i++) {
-          particles.push(new Particle(
-            e.clientX + (Math.random() - 0.5) * 30,
-            e.clientY + (Math.random() - 0.5) * 30,
-            s
-          ));
-        }
-      }
-    });
-    
-    let isDragging = false;
-    canvas.addEventListener('mousedown', () => isDragging = true);
-    canvas.addEventListener('mouseup', () => isDragging = false);
-    canvas.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        particles.push(new Particle(e.clientX, e.clientY, Math.floor(Math.random() * numSpecies)));
-      }
-    });
-    
-    // Start
+    initDNA();
     initParticles();
-    animate();
+    
+    document.getElementById('randomize').addEventListener('click', initDNA);
+    document.getElementById('reset').addEventListener('click', initParticles);
+    
+    loop();
   </script>
 </body>
 </html>
