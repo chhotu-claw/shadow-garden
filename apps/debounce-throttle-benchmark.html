@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debounce vs Throttle Benchmark — Shadow's Garden</title>
+<meta name="description" content="Benchmarking debounce and throttle implementations in JavaScript">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    background: #0a0a0f;
+    color: #f0e6d3;
+  }
+  h1 { color: #f0e6d3; }
+  .test-section {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #333;
+    background: #12121a;
+  }
+  button {
+    padding: 10px 20px;
+    background: #ff6b35;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    margin: 5px;
+  }
+  button:hover { background: #ff8555; }
+  .result {
+    margin-top: 10px;
+    font-family: monospace;
+    color: #4ade80;
+  }
+  .chart {
+    display: flex;
+    gap: 2px;
+    height: 200px;
+    align-items: flex-end;
+    margin: 20px 0;
+  }
+  .bar {
+    flex: 1;
+    background: #ff6b35;
+    min-width: 30px;
+    transition: height 0.3s;
+  }
+  pre {
+    background: #1a1a24;
+    padding: 10px;
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Debounce vs Throttle Benchmark</h1>
+  <p>Testing different implementations of debounce and throttle in JavaScript.</p>
+  
+  <div class="test-section">
+    <h2>Run Tests</h2>
+    <button onclick="runDebounceTest()">Test Debounce</button>
+    <button onclick="runThrottleTest()">Test Throttle</button>
+    <button onclick="runAllTests()">Run All</button>
+    <div id="results" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Results</h2>
+    <div class="chart" id="chart"></div>
+    <pre id="output"></pre>
+  </div>
+  
+  <script>
+    const ITERATIONS = 100000;
+    const results = {};
+    
+    // Debounce implementations
+    const debounceImpls = {
+      'lodash debounce': (fn, ms) => {
+        let timeout;
+        return function(...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => fn.apply(this, args), ms);
+        };
+      },
+      'simple debounce': (fn, ms) => {
+        let timeout;
+        return function(...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => fn(...args), ms);
+        };
+      },
+      'leading edge': (fn, ms) => {
+        let timeout, lastRun = 0;
+        return function(...args) {
+          const now = Date.now();
+          if (now - lastRun >= ms) {
+            lastRun = now;
+            fn(...args);
+          } else {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+              lastRun = Date.now();
+              fn(...args);
+            }, ms - (now - lastRun));
+          }
+        };
+      }
+    };
+    
+    // Throttle implementations
+    const throttleImpls = {
+      'simple throttle': (fn, ms) => {
+        let lastRun = 0;
+        return function(...args) {
+          const now = Date.now();
+          if (now - lastRun >= ms) {
+            lastRun = now;
+            fn(...args);
+          }
+        };
+      },
+      'timestamp throttle': (fn, ms) => {
+        let lastArgs, lastTime = 0, timeout;
+        return function(...args) {
+          const now = Date.now();
+          const remaining = ms - (now - lastTime);
+          lastArgs = args;
+          if (remaining <= 0) {
+            if (timeout) clearTimeout(timeout);
+            lastTime = now;
+            fn(...args);
+          } else if (!timeout) {
+            timeout = setTimeout(() => {
+              lastTime = Date.now();
+              fn(...lastArgs);
+            }, remaining);
+          }
+        };
+      },
+      ' raf throttle': (fn, ms) => {
+        let lastFrame = 0;
+        return function(...args) {
+          if (Date.now() - lastFrame >= ms) {
+            lastFrame = Date.now();
+            fn(...args);
+          }
+        };
+      }
+    };
+    
+    // Benchmark function
+    function benchmark(name, fn, ...args) {
+      const start = performance.now();
+      for (let i = 0; i < ITERATIONS; i++) {
+        fn(...args);
+      }
+      const end = performance.now();
+      return end - start;
+    }
+    
+    // Test debounce
+    function runDebounceTest() {
+      const dummy = () => {};
+      const ms = 100;
+      
+      for (const [name, impl] of Object.entries(debounceImpls)) {
+        const debounced = impl(dummy, ms);
+        const time = benchmark(() => debounced());
+        results[`debounce: ${name}`] = time;
+      }
+      
+      displayResults();
+    }
+    
+    // Test throttle
+    function runThrottleTest() {
+      const dummy = () => {};
+      const ms = 100;
+      
+      for (const [name, impl] of Object.entries(throttleImpls)) {
+        const throttled = impl(dummy, ms);
+        const time = benchmark(() => throttled());
+        results[`throttle: ${name}`] = time;
+      }
+      
+      displayResults();
+    }
+    
+    // Run all
+    function runAllTests() {
+      runDebounceTest();
+      runThrottleTest();
+    }
+    
+    // Display results
+    function displayResults() {
+      const output = document.getElementById('output');
+      const chart = document.getElementById('chart');
+      
+      let text = `Iterations: ${ITERATIONS.toLocaleString()}\n\n`;
+      let maxVal = 0;
+      
+      const sorted = Object.entries(results).sort((a, b) => a[1] - b[1]);
+      
+      for (const [name, time] of sorted) {
+        text += `${name}: ${time.toFixed(2)}ms\n`;
+        maxVal = Math.max(maxVal, time);
+      }
+      
+      output.textContent = text;
+      
+      // Chart
+      chart.innerHTML = '';
+      for (const [name, time] of sorted) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.height = `${(time / maxVal) * 100}%`;
+        bar.title = `${name}: ${time.toFixed(2)}ms`;
+        chart.appendChild(bar);
+      }
+    }
+  </script>
+</body>
+</html>
