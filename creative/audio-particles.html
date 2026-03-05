@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Reactive Particles — Shadow's Garden</title>
+<meta name="description" content="Particles that dance to your microphone — audio visualizer meets particle system">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #050508;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .overlay {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+  }
+  .start-btn {
+    padding: 15px 40px;
+    font-size: 18px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid #0f3460;
+    color: #e94560;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+  .start-btn:hover {
+    background: linear-gradient(135deg, #1f1f3a, #1a2744);
+    border-color: #e94560;
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+  }
+  .hidden { display: none; }
+  .instructions {
+    color: #555;
+    font-size: 12px;
+    margin-top: 15px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="overlay">
+    <button class="start-btn" id="startBtn">🎤 Enable Microphone</button>
+    <p class="instructions hidden" id="instructions">Make noise to see particles react</p>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+    const instructions = document.getElementById('instructions');
+    
+    let W, H;
+    let audioCtx, analyser, microphone, dataArray;
+    let particles = [];
+    let isRunning = false;
+    
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      
+      reset() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.vx = 0;
+        this.vy = 0;
+        this.size = Math.random() * 3 + 1;
+        this.baseHue = Math.random() * 60 + 320; // pinks and reds
+        this.hue = this.baseHue;
+        this.life = 1;
+        this.decay = Math.random() * 0.01 + 0.005;
+      }
+      
+      update(audioLevel) {
+        // Audio pushes particles
+        const force = audioLevel * 2;
+        const angle = Math.random() * Math.PI * 2;
+        this.vx += Math.cos(angle) * force;
+        this.vy += Math.sin(angle) * force - audioLevel * 3;
+        
+        // Damping
+        this.vx *= 0.96;
+        this.vy *= 0.96;
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Wrap around
+        if (this.x < 0) this.x = W;
+        if (this.x > W) this.x = 0;
+        if (this.y < 0) this.y = H;
+        if (this.y > H) this.y = 0;
+        
+        // Color reacts to audio
+        this.hue = this.baseHue + audioLevel * 100;
+        this.life -= this.decay;
+        
+        if (this.life <= 0) this.reset();
+      }
+      
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, ${this.life})`;
+        ctx.fill();
+      }
+    }
+    
+    // Initialize particles
+    for (let i = 0; i < 300; i++) {
+      particles.push(new Particle());
+    }
+    
+    async function startAudio() {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        microphone = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        microphone.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        
+        isRunning = true;
+        startBtn.classList.add('hidden');
+        instructions.classList.remove('hidden');
+        loop();
+      } catch (e) {
+        startBtn.textContent = '❌ Microphone denied';
+      }
+    }
+    
+    startBtn.addEventListener('click', startAudio);
+    
+    function getAudioLevel() {
+      if (!analyser) return 0;
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      return (sum / dataArray.length) / 255;
+    }
+    
+    function loop() {
+      if (!isRunning) return;
+      
+      const audioLevel = getAudioLevel();
+      
+      // Trail effect
+      ctx.fillStyle = `rgba(5, 5, 8, ${0.1 + audioLevel * 0.1})`;
+      ctx.fillRect(0, 0, W, H);
+      
+      particles.forEach(p => {
+        p.update(audioLevel);
+        p.draw();
+      });
+      
+      requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
