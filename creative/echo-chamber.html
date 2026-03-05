@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Chamber — Shadow's Garden</title>
+<meta name="description" content="A meditation on memory and echo — words you type linger and repeat, evolving into something unexpected">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0a0a0f;
+    color: #f0e6d3;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  #chamber {
+    width: 90vw;
+    max-width: 800px;
+    height: 60vh;
+    border: 1px solid #222;
+    padding: 30px;
+    overflow-y: auto;
+    font-size: 18px;
+    line-height: 1.8;
+    background: linear-gradient(180deg, #0a0a0f 0%, #0f0a15 100%);
+  }
+  .echo {
+    margin: 8px 0;
+    opacity: 0;
+    animation: fadeIn 0.5s forwards;
+    transition: color 2s;
+  }
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  .echo.original {
+    color: #f0e6d3;
+  }
+  .echo.faded {
+    color: #665566;
+  }
+  .echo.mutated {
+    color: #aa6688;
+    font-style: italic;
+  }
+  #input-area {
+    margin-top: 30px;
+    display: flex;
+    gap: 10px;
+    width: 90vw;
+    max-width: 800px;
+  }
+  #word-input {
+    flex: 1;
+    padding: 15px 20px;
+    font-size: 16px;
+    background: #151520;
+    border: 1px solid #333;
+    color: #f0e6d3;
+    font-family: inherit;
+    outline: none;
+  }
+  #word-input:focus {
+    border-color: #664455;
+  }
+  #speak-btn {
+    padding: 15px 30px;
+    font-size: 16px;
+    background: #1a1520;
+    border: 1px solid #333;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+  #speak-btn:hover {
+    background: #252030;
+    border-color: #664455;
+  }
+  .hint {
+    margin-top: 20px;
+    color: #444;
+    font-size: 12px;
+  }
+  #clear-btn {
+    margin-top: 15px;
+    padding: 8px 20px;
+    background: transparent;
+    border: 1px solid #333;
+    color: #555;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #clear-btn:hover {
+    color: #887;
+    border-color: #554;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="chamber"></div>
+  <div id="input-area">
+    <input type="text" id="word-input" placeholder="type a word..." autocomplete="off">
+    <button id="speak-btn">Speak</button>
+  </div>
+  <button id="clear-btn">clear</button>
+  <p class="hint">Your words echo, mutate, and return. Watch what they become.</p>
+
+  <script>
+    const chamber = document.getElementById('chamber');
+    const input = document.getElementById('word-input');
+    const speakBtn = document.getElementById('speak-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    
+    let echoes = [];
+    const MUTATION_CHANCE = 0.3;
+    
+    const mutations = [
+      s => s.split('').reverse().join(''),
+      s => s.replace(/[aeiou]/g, c => 'aeiou'['aeiou'.indexOf(c) + 1] || c),
+      s => s + s[0],
+      s => s.slice(1) + s[0],
+      s => s.replace(/./g, (c, i) => i % 2 === 0 ? c.toUpperCase() : c.toLowerCase()),
+      s => s.replace(/l/g, 'll').replace(/r/g, 'rr'),
+      s => s.replace(/s/g, 'ss'),
+      s => s.slice(0, -1),
+      s => s + '...',
+      s => s.split('').map(c => String.fromCharCode(c.charCodeAt(0) + 1)).join(''),
+    ];
+    
+    function mutate(word) {
+      if (Math.random() > MUTATION_CHANCE || word.length < 2) return null;
+      const fn = mutations[Math.floor(Math.random() * mutations.length)];
+      try {
+        const result = fn(word);
+        return result !== word ? result : null;
+      } catch {
+        return null;
+      }
+    }
+    
+    function speak(word) {
+      if (!word.trim()) return;
+      word = word.toLowerCase().trim();
+      
+      // Add original
+      const original = document.createElement('div');
+      original.className = 'echo original';
+      original.textContent = word;
+      chamber.insertBefore(original, chamber.firstChild);
+      echoes.unshift({ word, element: original });
+      
+      // Create mutations
+      let current = word;
+      for (let i = 0; i < 4; i++) {
+        const mutated = mutate(current);
+        if (mutated) {
+          const el = document.createElement('div');
+          el.className = 'echo mutated';
+          el.textContent = mutated;
+          el.style.animationDelay = (i + 1) * 0.3 + 's';
+          chamber.insertBefore(el, chamber.children[1]);
+          current = mutated;
+        }
+      }
+      
+      // Fade old echoes
+      echoes.forEach((e, i) => {
+        if (i > 10) {
+          e.element.classList.add('faded');
+        }
+      });
+      
+      // Keep chamber clean
+      while (chamber.children.length > 50) {
+        chamber.removeChild(chamber.lastChild);
+      }
+    }
+    
+    speakBtn.addEventListener('click', () => speak(input.value));
+    input.addEventListener('keypress', e => {
+      if (e.key === 'Enter') speak(input.value);
+    });
+    clearBtn.addEventListener('click', () => {
+      chamber.innerHTML = '';
+      echoes = [];
+    });
+    
+    // Auto-focus
+    input.focus();
+  </script>
+</body>
+</html>
