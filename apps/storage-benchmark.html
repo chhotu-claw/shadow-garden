@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>localStorage vs IndexedDB vs Cache API — Shadow's Garden</title>
+<meta name="description" content="Benchmark comparing localStorage, IndexedDB, and Cache API for read/write performance">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    background: #0a0a0f;
+    color: #f0e6d3;
+  }
+  h1 { color: #ff6b35; margin-bottom: 10px; }
+  .subtitle { color: #666; margin-bottom: 30px; }
+  .test-section {
+    background: #14141c;
+    border: 1px solid #333;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .test-title { color: #ff6b35; margin-bottom: 10px; }
+  button {
+    background: #ff6b35;
+    color: #0a0a0f;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  button:hover { background: #ff8c5a; }
+  button:disabled { background: #444; cursor: not-allowed; }
+  .results { margin-top: 15px; }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #222;
+  }
+  .result-label { color: #888; }
+  .result-value { color: #4a9eff; font-weight: bold; }
+  .error { color: #ff4444; margin-top: 10px; }
+  .summary {
+    background: #1a1a24;
+    border: 2px solid #ff6b35;
+    padding: 20px;
+    margin-top: 30px;
+  }
+  .winner { color: #4a9eff; font-weight: bold; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Storage Benchmark</h1>
+  <div class="subtitle">localStorage vs IndexedDB vs Cache API — Read/Write Performance</div>
+  
+  <div class="test-section">
+    <div class="test-title">Test Configuration</div>
+    <div class="result-row">
+      <span class="result-label">Records per test:</span>
+      <span class="result-value" id="recordCount">1,000</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Data size per record:</span>
+      <span class="result-value">~500 bytes</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Runs per test:</span>
+      <span class="result-value">5</span>
+    </div>
+    <br>
+    <button id="runAll" onclick="runAllTests()">Run All Tests</button>
+  </div>
+  
+  <div class="test-section">
+    <div class="test-title">localStorage</div>
+    <div id="lsResults" class="results">Click "Run All Tests" to begin</div>
+  </div>
+  
+  <div class="test-section">
+    <div class="test-title">IndexedDB</div>
+    <div id="idbResults" class="results">Click "Run All Tests" to begin</div>
+  </div>
+  
+  <div class="test-section">
+    <div class="test-title">Cache API</div>
+    <div id="cacheResults" class="results">Click "Run All Tests" to begin</div>
+  </div>
+  
+  <div class="summary" id="summary" style="display:none">
+    <div class="test-title">Summary</div>
+    <div id="summaryText"></div>
+  </div>
+
+  <script>
+    const RECORD_COUNT = 1000;
+    const RUNS = 5;
+    
+    function generateData(count) {
+      const data = [];
+      for (let i = 0; i < count; i++) {
+        data.push({
+          id: i,
+          name: `item_${i}`,
+          value: Math.random().toString(36).repeat(20),
+          timestamp: Date.now(),
+          tags: ['a', 'b', 'c', 'd', 'e']
+        });
+      }
+      return data;
+    }
+    
+    function formatTime(ms) {
+      if (ms < 1) return ms.toFixed(2) + ' ms';
+      if (ms < 1000) return ms.toFixed(0) + ' ms';
+      return (ms / 1000).toFixed(2) + ' s';
+    }
+    
+    // localStorage tests
+    async function testLocalStorage() {
+      const results = { write: [], read: [], delete: [] };
+      const key = 'benchmark_ls';
+      
+      for (let run = 0; run < RUNS; run++) {
+        // Write
+        const data = generateData(RECORD_COUNT);
+        let start = performance.now();
+        localStorage.setItem(key, JSON.stringify(data));
+        results.write.push(performance.now() - start);
+        
+        // Read
+        start = performance.now();
+        JSON.parse(localStorage.getItem(key) || '[]');
+        results.read.push(performance.now() - start);
+        
+        // Delete
+        start = performance.now();
+        localStorage.removeItem(key);
+        results.delete.push(performance.now() - start);
+      }
+      
+      return {
+        write: results.write.reduce((a, b) => a + b, 0) / RUNS,
+        read: results.read.reduce((a, b) => a + b, 0) / RUNS,
+        delete: results.delete.reduce((a, b) => a + b, 0) / RUNS
+      };
+    }
+    
+    // IndexedDB tests
+    async function testIndexedDB() {
+      const results = { write: [], read: [], delete: [] };
+      const dbName = 'benchmark_db';
+      const storeName = 'items';
+      
+      for (let run = 0; run < RUNS; run++) {
+        // Open DB
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(dbName);
+          request.onsuccess = () => {
+            const req = indexedDB.open(dbName, 1);
+            req.onupgradeneeded = e => {
+              e.target.result.createObjectStore(storeName, { keyPath: 'id' });
+            };
+            req.onsuccess = () => resolve(e.target.result);
+            req.onerror = () => reject(e.target.error);
+          };
+        });
+        
+        // Write (bulk)
+        const data = generateData(RECORD_COUNT);
+        let start = performance.now();
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        for (const item of data) {
+          store.add(item);
+        }
+        await new Promise(r => tx.oncomplete = r);
+        results.write.push(performance.now() - start);
+        
+        // Read (all)
+        start = performance.now();
+        const readTx = db.transaction(storeName, 'readonly');
+        const readStore = readTx.objectStore(storeName);
+        await new Promise(r => {
+          readStore.getAll().onsuccess = e => r();
+        });
+        results.read.push(performance.now() - start);
+        
+        // Delete
+        start = performance.now();
+        const delTx = db.transaction(storeName, 'readwrite');
+        delTx.objectStore(storeName).clear();
+        await new Promise(r => delTx.oncomplete = r);
+        results.delete.push(performance.now() - start);
+        
+        db.close();
+      }
+      
+      return {
+        write: results.write.reduce((a, b) => a + b, 0) / RUNS,
+        read: results.read.reduce((a, b) => a + b, 0) / RUNS,
+        delete: results.delete.reduce((a, b) => a + b, 0) / RUNS
+      };
+    }
+    
+    // Cache API tests
+    async function testCacheAPI() {
+      const results = { write: [], read: [], delete: [] };
+      const cacheName = 'benchmark_cache_' + Date.now();
+      
+      for (let run = 0; run < RUNS; run++) {
+        const cache = await caches.open(cacheName + run);
+        const data = generateData(RECORD_COUNT);
+        
+        // Write (as Response objects)
+        let start = performance.now();
+        for (let i = 0; i < data.length; i++) {
+          await cache.put(
+            `/item_${i}.json`,
+            new Response(JSON.stringify(data[i]), { headers: { 'Content-Type': 'application/json' } })
+          );
+        }
+        results.write.push(performance.now() - start);
+        
+        // Read
+        start = performance.now();
+        const keys = await cache.keys();
+        for (const request of keys) {
+          await cache.match(request);
+        }
+        results.read.push(performance.now() - start);
+        
+        // Delete
+        start = performance.now();
+        await caches.delete(cacheName + run);
+        results.delete.push(performance.now() - start);
+      }
+      
+      return {
+        write: results.write.reduce((a, b) => a + b, 0) / RUNS,
+        read: results.read.reduce((a, b) => a + b, 0) / RUNS,
+        delete: results.delete.reduce((a, b) => a + b, 0) / RUNS
+      };
+    }
+    
+    function displayResults(id, results) {
+      document.getElementById(id).innerHTML = `
+        <div class="result-row"><span class="result-label">Write (${RECORD_COUNT} records):</span><span class="result-value">${formatTime(results.write)}</span></div>
+        <div class="result-row"><span class="result-label">Read all:</span><span class="result-value">${formatTime(results.read)}</span></div>
+        <div class="result-row"><span class="result-label">Delete all:</span><span class="result-value">${formatTime(results.delete)}</span></div>
+      `;
+    }
+    
+    async function runAllTests() {
+      const btn = document.getElementById('runAll');
+      btn.disabled = true;
+      btn.textContent = 'Running...';
+      
+      document.getElementById('lsResults').textContent = 'Testing...';
+      document.getElementById('idbResults').textContent = 'Testing...';
+      document.getElementById('cacheResults').textContent = 'Testing...';
+      document.getElementById('summary').style.display = 'none';
+      
+      try {
+        const lsResults = await testLocalStorage();
+        displayResults('lsResults', lsResults);
+        
+        const idbResults = await testIndexedDB();
+        displayResults('idbResults', idbResults);
+        
+        const cacheResults = await testCacheAPI();
+        displayResults('cacheResults', cacheResults);
+        
+        // Summary
+        const allResults = [
+          { name: 'localStorage', write: lsResults.write, read: lsResults.read },
+          { name: 'IndexedDB', write: idbResults.write, read: idbResults.read },
+          { name: 'Cache API', write: cacheResults.write, read: cacheResults.read }
+        ];
+        
+        const writeWinner = allResults.reduce((a, b) => a.write < b.write ? a : b);
+        const readWinner = allResults.reduce((a, b) => a.read < b.read ? a : b);
+        
+        document.getElementById('summaryText').innerHTML = `
+          <div class="result-row"><span class="result-label">Fastest Write:</span><span class="winner">${writeWinner.name}</span> (${formatTime(writeWinner.write)})</div>
+          <div class="result-row"><span class="result-label">Fastest Read:</span><span class="winner">${readWinner.name}</span> (${formatTime(readWinner.read)})</div>
+        `;
+        document.getElementById('summary').style.display = 'block';
+      } catch (e) {
+        document.getElementById('lsResults').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+      }
+      
+      btn.disabled = false;
+      btn.textContent = 'Run All Tests';
+    }
+  </script>
+</body>
+</html>
