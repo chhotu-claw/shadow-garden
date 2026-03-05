@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waves — Shadow's Garden</title>
+<meta name="description" content="Interactive wave simulation with interference patterns — click to create ripples and watch waves interact">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #0a0a0f;
+  }
+  h1 { color: #f0e6d3; margin-bottom: 10px; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button, input[type="range"] {
+    padding: 8px 14px;
+    border: 2px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  button:hover { background: #252535; }
+  button.active { border-color: #ff6b35; background: #2a1a14; }
+  input[type="range"] {
+    width: 100px;
+    accent-color: #ff6b35;
+  }
+  canvas {
+    border: 2px solid #333;
+    cursor: crosshair;
+  }
+  .info { color: #666; font-size: 12px; margin-top: 10px; }
+  label { color: #888; font-size: 12px; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Waves</h1>
+  <div class="controls">
+    <button class="active" data-mode="ripple">Ripple</button>
+    <button data-mode="sine">Sine</button>
+    <button data-mode="noise">Noise</button>
+    <button id="clearBtn">Clear</button>
+    <label>Amplitude: <input type="range" id="amp" min="5" max="50" value="25"></label>
+    <label>Frequency: <input type="range" id="freq" min="1" max="20" value="5"></label>
+    <label>Speed: <input type="range" id="speed" min="1" max="10" value="3"></label>
+  </div>
+  <canvas id="canvas" width="600" height="400"></canvas>
+  <div class="info">Click and drag to create ripples • Different modes show wave behavior</div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    
+    // Two buffers for wave simulation
+    let current = new Float32Array(W * H);
+    let previous = new Float32Array(W * H);
+    let damping = 0.99;
+    
+    let mode = 'ripple';
+    let time = 0;
+    let mouseX = 0, mouseY = 0, mouseDown = false;
+    
+    const ampSlider = document.getElementById('amp');
+    const freqSlider = document.getElementById('freq');
+    const speedSlider = document.getElementById('speed');
+    
+    document.querySelectorAll('button[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('button[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+      });
+    });
+    
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      current.fill(0);
+      previous.fill(0);
+    });
+    
+    canvas.addEventListener('mousedown', e => { mouseDown = true; handleMouse(e); });
+    canvas.addEventListener('mousemove', e => { if (mouseDown) handleMouse(e); });
+    canvas.addEventListener('mouseup', () => mouseDown = false);
+    canvas.addEventListener('mouseleave', () => mouseDown = false);
+    
+    function handleMouse(e) {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = Math.floor(e.clientX - rect.left);
+      mouseY = Math.floor(e.clientY - rect.top);
+      
+      if (mode === 'ripple' && mouseX > 0 && mouseX < W - 1 && mouseY > 0 && mouseY < H - 1) {
+        const idx = mouseY * W + mouseX;
+        const amp = parseInt(ampSlider.value);
+        current[idx] = amp;
+        current[idx - 1] = amp * 0.5;
+        current[idx + 1] = amp * 0.5;
+        current[idx - W] = amp * 0.5;
+        current[idx + W] = amp * 0.5;
+      }
+    }
+    
+    function updateWave() {
+      const newBuf = new Float32Array(W * H);
+      const amp = parseInt(ampSlider.value) / 100;
+      const freq = parseInt(freqSlider.value) / 100;
+      const speed = parseInt(speedSlider.value);
+      
+      time += speed * 0.02;
+      
+      for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+          const i = y * W + x;
+          
+          if (mode === 'ripple') {
+            // Wave equation: avg of neighbors - previous
+            const val = (
+              current[i - 1] +
+              current[i + 1] +
+              current[i - W] +
+              current[i + W]
+            ) / 2 - previous[i];
+            
+            newBuf[i] = val * damping;
+          } else if (mode === 'sine') {
+            // Standing wave pattern
+            const wx = Math.sin(x * freq + time) * amp;
+            const wy = Math.sin(y * freq * 0.7 + time * 0.8) * amp;
+            newBuf[i] = (wx + wy) * 0.5;
+          } else if (mode === 'noise') {
+            // Layered sine waves for organic look
+            const n1 = Math.sin(x * freq * 0.3 + time) * amp;
+            const n2 = Math.sin(y * freq * 0.2 - time * 0.7) * amp;
+            const n3 = Math.sin((x + y) * freq * 0.1 + time * 1.2) * amp;
+            newBuf[i] = (n1 + n2 + n3) / 3;
+          }
+        }
+      }
+      
+      previous = current;
+      current = newBuf;
+    }
+    
+    function render() {
+      const imageData = ctx.createImageData(W, H);
+      const data = imageData.data;
+      const maxVal = 50;
+      
+      for (let i = 0; i < W * H; i++) {
+        const val = Math.max(-maxVal, Math.min(maxVal, current[i]));
+        const norm = (val + maxVal) / (maxVal * 2);
+        
+        const r = Math.floor(norm * 255);
+        const b = Math.floor((1 - norm) * 255);
+        const g = Math.floor(Math.abs(val) / maxVal * 150);
+        
+        const idx = i * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = 255;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function loop() {
+      updateWave();
+      render();
+      requestAnimationFrame(loop);
+    }
+    
+    loop();
+  </script>
+</body>
+</html>
