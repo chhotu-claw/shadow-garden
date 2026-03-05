@@ -4,275 +4,271 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reaction Diffusion — Shadow's Garden</title>
-<meta name="description" content="Interactive reaction-diffusion simulator — Gray-Scott model, click to add chemicals, adjustable parameters">
+<meta name="description" content="Interactive reaction-diffusion simulator using the Gray-Scott model — click to add chemicals, watch patterns emerge">
 <link rel="stylesheet" href="../style.css">
-<script src="../nav.js" deFer></script>
+<script src="../nav.js" defer></script>
 <style>
   body {
-    margin: 0;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
     background: #0a0a0f;
-    font-family: 'IBM Plex Mono', monospace;
   }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
+  h1 {
+    color: #f0e6d3;
+    margin-bottom: 10px;
   }
   .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
-    gap: 12px;
+    gap: 10px;
+    margin-bottom: 15px;
     flex-wrap: wrap;
     justify-content: center;
-    z-index: 10;
   }
-  .btn {
-    background: rgba(20, 20, 35, 0.9);
-    border: 1px solid rgba(100, 150, 255, 0.3);
-    color: rgba(180, 200, 255, 0.9);
-    padding: 8px 16px;
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .control-group label {
+    color: #888;
     font-size: 11px;
-    cursor: pointer;
-    transition: all 0.3s;
     text-transform: uppercase;
-    letter-spacing: 1px;
   }
-  .btn:hover {
-    background: rgba(40, 40, 80, 0.9);
-    border-color: rgba(100, 150, 255, 0.6);
-    box-shadow: 0 0 20px rgba(100, 150, 255, 0.3);
+  input[type="range"] {
+    width: 100px;
+  }
+  button {
+    padding: 8px 16px;
+    border: 2px solid #333;
+    background: #1a1a24;
+    color: #f0e6d3;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: #252535;
+  }
+  button.active {
+    border-color: #ff6b35;
+    background: #2a1a14;
+  }
+  canvas {
+    border: 2px solid #333;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .presets button {
+    padding: 5px 10px;
+    font-size: 12px;
   }
   .info {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(150, 180, 255, 0.5);
-    font-size: 11px;
-    pointer-events: none;
-  }
-  .params {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    color: rgba(150, 180, 255, 0.6);
-    font-size: 10px;
-    text-align: right;
-  }
-  .params label {
-    display: block;
-    margin-bottom: 4px;
-  }
-  .params input {
-    width: 80px;
-    background: rgba(20, 20, 40, 0.8);
-    border: 1px solid rgba(100, 150, 255, 0.3);
-    color: rgba(180, 200, 255, 0.9);
-    padding: 4px;
-    font-size: 10px;
-    font-family: inherit;
+    color: #666;
+    font-size: 12px;
+    margin-top: 10px;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <canvas id="canvas"></canvas>
-  <div class="info">click to add chemicals • space to pause</div>
-  <div class="params">
-    <label>Feed Rate: <input type="number" id="feed" value="0.055" step="0.001"></label>
-    <label>Kill Rate: <input type="number" id="kill" value="0.062" step="0.001"></label>
-  </div>
+  <h1>Reaction Diffusion</h1>
   <div class="controls">
-    <button class="btn" onclick="setPreset('coral')">Coral</button>
-    <button class="btn" onclick="setPreset('mitosis')">Mitosis</button>
-    <button class="btn" onclick="setPreset('spots')">Spots</button>
-    <button class="btn" onclick="setPreset('waves')">Waves</button>
-    <button class="btn" onclick="setPreset('maze')">Maze</button>
-    <button class="btn" onclick="togglePause()">Pause</button>
-    <button class="btn" onclick="reset()">Reset</button>
+    <div class="control-group">
+      <label>Feed Rate</label>
+      <input type="range" id="feed" min="0.01" max="0.1" step="0.001" value="0.055">
+    </div>
+    <div class="control-group">
+      <label>Kill Rate</label>
+      <input type="range" id="kill" min="0.01" max="0.1" step="0.001" value="0.062">
+    </div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="20" step="1" value="8">
+    </div>
+    <button id="resetBtn">Reset</button>
+    <button id="pauseBtn">Pause</button>
   </div>
-
+  <div class="presets">
+    <button data-feed="0.0367" data-kill="0.0649">Coral</button>
+    <button data-feed="0.029" data-kill="0.057">Spots</button>
+    <button data-feed="0.025" data-kill="0.060">Worms</button>
+    <button data-feed="0.078" data-kill="0.061">Mazes</button>
+    <button data-feed="0.014" data-kill="0.054">Solitons</button>
+  </div>
+  <canvas id="canvas" width="400" height="300"></canvas>
+  <div class="info">Click to add chemicals • Drag to draw • Gray-Scott model</div>
+  
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const SCALE = 4;
+    const COLS = Math.floor(W / SCALE);
+    const ROWS = Math.floor(H / SCALE);
     
-    let width, height;
-    let scale = 4;
-    let gridWidth, gridHeight;
-    let gridA, gridB, nextA, nextB;
-    let paused = false;
+    let gridA = new Float32Array(COLS * ROWS);
+    let gridB = new Float32Array(COLS * ROWS);
+    let nextA = new Float32Array(COLS * ROWS);
+    let nextB = new Float32Array(COLS * ROWS);
+    
+    // Initialize with chemical A everywhere
+    gridA.fill(1);
+    
     let feed = 0.055;
     let kill = 0.062;
-    let da = 1.0;
-    let db = 0.5;
+    let diffusionA = 1.0;
+    let diffusionB = 0.5;
+    let speed = 8;
+    let paused = false;
+    let isDrawing = false;
     
-    const presets = {
-      coral: { feed: 0.0545, kill: 0.062 },
-      mitosis: { feed: 0.0367, kill: 0.0649 },
-      spots: { feed: 0.025, kill: 0.060 },
-      waves: { feed: 0.014, kill: 0.054 },
-      maze: { feed: 0.029, kill: 0.057 }
-    };
+    // UI
+    document.getElementById('feed').addEventListener('input', e => feed = parseFloat(e.target.value));
+    document.getElementById('kill').addEventListener('input', e => kill = parseFloat(e.target.value));
+    document.getElementById('speed').addEventListener('input', e => speed = parseInt(e.target.value));
     
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      gridWidth = Math.floor(width / scale);
-      gridHeight = Math.floor(height / scale);
-      initGrid();
-    }
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      gridA.fill(1);
+      gridB.fill(0);
+    });
     
-    function initGrid() {
-      gridA = new Float32Array(gridWidth * gridHeight);
-      gridB = new Float32Array(gridWidth * gridHeight);
-      nextA = new Float32Array(gridWidth * gridHeight);
-      nextB = new Float32Array(gridWidth * gridHeight);
-      
-      // Initialize with chemical A everywhere
-      for (let i = 0; i < gridWidth * gridHeight; i++) {
-        gridA[i] = 1.0;
-        gridB[i] = 0;
-      }
-      
-      // Add initial disturbance
-      addCircle(Math.floor(gridWidth / 2), Math.floor(gridHeight / 2), 10);
-    }
+    document.getElementById('pauseBtn').addEventListener('click', e => {
+      paused = !paused;
+      e.target.textContent = paused ? 'Resume' : 'Pause';
+    });
     
-    function addCircle(cx, cy, radius) {
-      for (let y = cy - radius; y <= cy + radius; y++) {
-        for (let x = cx - radius; x <= cx + radius; x++) {
-          if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
-            const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-            if (dist < radius) {
-              gridB[y * gridWidth + x] = 1;
+    // Presets
+    document.querySelectorAll('.presets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        feed = parseFloat(btn.dataset.feed);
+        kill = parseFloat(btn.dataset.kill);
+        document.getElementById('feed').value = feed;
+        document.getElementById('kill').value = kill;
+        gridA.fill(1);
+        gridB.fill(0);
+      });
+    });
+    
+    // Drawing
+    function addChemical(cx, cy, radius) {
+      for (let y = -radius; y <= radius; y++) {
+        for (let x = -radius; x <= radius; x++) {
+          if (x*x + y*y <= radius*radius) {
+            const px = cx + x;
+            const py = cy + y;
+            if (px >= 0 && px < COLS && py >= 0 && py < ROWS) {
+              gridB[py * COLS + px] = 1;
             }
           }
         }
       }
     }
     
-    function setPreset(name) {
-      const p = presets[name];
-      feed = p.feed;
-      kill = p.kill;
-      document.getElementById('feed').value = feed;
-      document.getElementById('kill').value = kill;
-      reset();
+    canvas.addEventListener('mousedown', e => {
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / SCALE);
+      const y = Math.floor((e.clientY - rect.top) / SCALE);
+      addChemical(x, y, 5);
+    });
+    
+    canvas.addEventListener('mousemove', e => {
+      if (isDrawing) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / SCALE);
+        const y = Math.floor((e.clientY - rect.top) / SCALE);
+        addChemical(x, y, 3);
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+    
+    function update() {
+      const dA = diffusionA;
+      const dB = diffusionB;
+      
+      for (let iter = 0; iter < speed; iter++) {
+        for (let y = 1; y < ROWS - 1; y++) {
+          for (let x = 1; x < COLS - 1; x++) {
+            const i = y * COLS + x;
+            
+            const a = gridA[i];
+            const b = gridB[i];
+            
+            // Laplacian
+            const lapA = (gridA[i-1] + gridA[i+1] + gridA[i-COLS] + gridA[i+COLS]) / 4 - a;
+            const lapB = (gridB[i-1] + gridB[i+1] + gridB[i-COLS] + gridB[i+COLS]) / 4 - b;
+            
+            const reaction = a * b * b;
+            
+            nextA[i] = a + (dA * lapA - reaction + feed * (1 - a));
+            nextB[i] = b + (dB * lapB + reaction - (kill + feed) * b);
+            
+            // Clamp
+            nextA[i] = Math.max(0, Math.min(1, nextA[i]));
+            nextB[i] = Math.max(0, Math.min(1, nextB[i]));
+          }
+        }
+        
+        // Swap buffers
+        [gridA, nextA] = [nextA, gridA];
+        [gridB, nextB] = [nextB, gridB];
+      }
     }
     
-    function togglePause() {
-      paused = !paused;
-    }
-    
-    function reset() {
-      initGrid();
-    }
-    
-    function updateParams() {
-      feed = parseFloat(document.getElementById('feed').value);
-      kill = parseFloat(document.getElementById('kill').value);
-    }
-    
-    document.getElementById('feed').addEventListener('change', updateParams);
-    document.getElementById('kill').addEventListener('change', updateParams);
-    
-    function simulate() {
-      for (let y = 1; y < gridHeight - 1; y++) {
-        for (let x = 1; x < gridWidth - 1; x++) {
-          const i = y * gridWidth + x;
-          
+    function render() {
+      const imageData = ctx.createImageData(W, H);
+      const data = imageData.data;
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const i = y * COLS + x;
           const a = gridA[i];
           const b = gridB[i];
           
-          // Laplacian (convolution with kernel)
-          let lapA = 0;
-          let lapB = 0;
+          const c = Math.floor((a - b) * 255);
+          const idx = (y * SCALE * W + x * SCALE) * 4;
           
-          // 0  1  0
-          // 1 -4  1
-          // 0  1  0
-          
-          lapA = gridA[i-1] + gridA[i+1] + gridA[i-gridWidth] + gridA[i+gridWidth] - 4 * a;
-          lapB = gridB[i-1] + gridB[i+1] + gridB[i-gridWidth] + gridB[i+gridWidth] - 4 * b;
-          
-          // Gray-Scott reaction-diffusion
-          const reaction = a * b * b;
-          nextA[i] = a + (da * lapA - reaction + feed * (1 - a));
-          nextB[i] = b + (db * lapB + reaction - (kill + feed) * b);
-          
-          // Clamp values
-          nextA[i] = Math.max(0, Math.min(1, nextA[i]));
-          nextB[i] = Math.max(0, Math.min(1, nextB[i]));
+          for (let sy = 0; sy < SCALE; sy++) {
+            for (let sx = 0; sx < SCALE; sx++) {
+              const pi = ((y * SCALE + sy) * W + (x * SCALE + sx)) * 4;
+              const v = Math.max(0, Math.min(255, c));
+              data[pi] = v * 0.2;
+              data[pi + 1] = v * 0.6;
+              data[pi + 2] = v * 0.8;
+              data[pi + 3] = 255;
+            }
+          }
         }
       }
       
-      // Swap buffers
-      [gridA, nextA] = [nextA, gridA];
-      [gridB, nextB] = [nextB, gridB];
-    }
-    
-    function draw() {
-      const imageData = ctx.createImageData(gridWidth, gridHeight);
-      const data = imageData.data;
-      
-      for (let i = 0; i < gridWidth * gridHeight; i++) {
-        const a = gridA[i];
-        const b = gridB[i];
-        
-        // Chemical concentration visualization
-        const value = Math.floor((a - b) * 255);
-        const idx = i * 4;
-        
-        // Color scheme: dark blue to cyan to white
-        const t = b * 3;
-        data[idx] = Math.min(255, Math.floor(t * 100));     // R
-        data[idx + 1] = Math.min(255, Math.floor(t * 200)); // G  
-        data[idx + 2] = Math.min(255, Math.floor(t * 255)); // B
-        data[idx + 3] = 255;
-      }
-      
-      // Scale up the image
-      ctx.imageSmoothingEnabled = false;
       ctx.putImageData(imageData, 0, 0);
-      ctx.drawImage(canvas, 0, 0, gridWidth, gridHeight, 0, 0, width, height);
     }
     
-    function animate() {
+    function loop() {
       if (!paused) {
-        // Run multiple simulation steps per frame
-        for (let i = 0; i < 8; i++) {
-          simulate();
-        }
+        update();
       }
-      draw();
-      requestAnimationFrame(animate);
+      render();
+      requestAnimationFrame(loop);
     }
     
-    canvas.addEventListener('click', (e) => {
-      const x = Math.floor(e.clientX / scale);
-      const y = Math.floor(e.clientY / scale);
-      addCircle(x, y, 15);
-    });
+    // Initial splash
+    addChemical(Math.floor(COLS/2), Math.floor(ROWS/2), 10);
     
-    canvas.addEventListener('mousemove', (e) => {
-      if (e.buttons === 1) {
-        const x = Math.floor(e.clientX / scale);
-        const y = Math.floor(e.clientY / scale);
-        addCircle(x, y, 8);
-      }
-    });
-    
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePause();
-      }
-    });
-    
-    window.addEventListener('resize', resize);
-    resize();
-    animate();
+    loop();
   </script>
 </body>
 </html>
