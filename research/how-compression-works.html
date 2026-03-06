@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Compression Works — Shadow's Garden</title>
+<meta name="description" content="The algorithms behind every zip, PNG, and MP3 — and why some files shrink while others don't.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Compression Works</h1>
+  <div class="meta">March 6, 2026</div>
+
+  <p>You right-click a folder, send to compressed (zipped) folder, and watch a 500MB folder become 50MB. Magic? No. Math. Specifically: the art of saying more with less.</p>
+
+  <h2>The Fundamental Problem</h2>
+
+  <p>Every file is a sequence of bytes — numbers from 0 to 255. A text file might look like "hello hello hello". An image might look like 10,000 pixels of almost-the-same blue.</p>
+  
+  <p>Compression exploits redundancy. If something repeats, we can encode it shorter. If something is predictable, we can store just the deviation from the prediction. The more predictable, the smaller the result.</p>
+
+  <h2>Two Types: Lossless vs Lossy</h2>
+
+  <p>Compression splits into two families:</p>
+  
+  <ul>
+    <li><strong>Lossless</strong> — you can reconstruct the exact original. No information lost. Used for text, code, data.</li>
+    <li><strong>Lossy</strong> — you throw away stuff humans won't notice. Used for images, audio, video. Smaller files, permanent quality loss.</li>
+  </ul>
+
+  <p>The key insight: you can't compress everything. If you could compress every file, could compress the compressed file again, and again, until everything was zero bytes. This is the <em>pigeonhole principle</em> — there are more possible unique files than compressed representations.</p>
+
+  <h2>Lossless Techniques</h2>
+
+  <h3>Run-Length Encoding (RLE)</h3>
+  
+  <p>The simplest: instead of "AAAAAABBBBB", store "6A5B". Works great for simple images with long runs of the same color. Terrible for random data.</p>
+  
+  <p>Fax machines used this — documents are mostly white space with occasional black text. One long run of white, then some black, then more white. Perfect for RLE.</p>
+
+  <h3>Huffman Coding</h3>
+  
+  <p>Variable-length codes: common symbols get short codes, rare symbols get long codes.</p>
+  
+  <p>In English, 'E' is common (code: 11), 'Z' is rare (code: 1001001). The average code length approaches the entropy — the actual information content.</p>
+  
+  <p>This is the foundation of gzip, PNG, and most compression formats. It's optimal for symbol-by-symbol encoding.</p>
+
+  <h3>LZW (Lempel-Ziv-Welfeld)</h3>
+  
+  <p>Dictionary-based: as you scan, build a dictionary of repeated sequences. When you see "the" for the hundredth time, just reference dictionary entry #42 instead of storing "the" again.</p>
+  
+  <p> GIF uses LZW. The original Unix <em>compress</em> command used it. DEFLATE (used in gzip and ZIP) combines LZ77 (dictionary) with Huffman coding — the best of both worlds.</p>
+
+  <h3>DEFLATE: The Workhorse</h3>
+  
+  <p>DEFLATE is everywhere: gzip, ZIP, PNG, HTTP compression. It combines:</p>
+  
+  <ol>
+    <li>LZ77 — find repeated sequences, replace with back-references (distance + length)</li>
+    <li>Huffman coding — assign short codes to common patterns, long codes to rare ones</li>
+  </ol>
+
+  <p>DEFLATE typically achieves 60-80% reduction on text. Images and executables compress less because they already have their own internal compression.</p>
+
+  <h2>Lossy Techniques</h2>
+
+  <h3>JPEG — Images</h3>
+  
+  <p>JPEG throws away what the eye can't see:</p>
+  
+  <ul>
+    <li><strong>Chroma subsampling</strong> — humans see color detail less than brightness. Store color at 1/4 resolution.</li>
+    <li><strong>Quantization</strong> — round high-frequency detail (fine texture) to fewer levels. This is where quality loss happens.</li>
+    <li><strong>DCT</strong> — transform to frequency space, discard high frequencies first.</li>
+  </ul>
+
+  <p>The quality slider essentially controls how aggressively you quantize. At 10%, you're throwing away 90% of the fine detail. At 90%, almost nothing perceptible is lost.</p>
+
+  <h3>MP3 — Audio</h3>
+  
+  <p>MP3 exploits auditory masking:</p>
+  
+  <ul>
+    <li><strong>Frequency analysis</strong> — split into 32 frequency bands</li>
+    <li><strong>Masking</strong> — a loud sound makes quieter nearby frequencies inaudible</li>
+    <li><strong>Stereo coupling</strong> — encode left+right as mono + difference (unless you need full stereo)</li>
+  </ul>
+
+  <p>128 kbps MP3 is "CD quality" to most humans. The encoding throws away frequencies you'd never hear anyway.</p>
+
+  <h3>Video Compression — H.264, H.265, VP9</h3>
+  
+  <p>Video is mostly temporal redundancy. Frame 2 is usually pretty similar to Frame 1. Video codecs exploit this:</p>
+  
+  <ul>
+    <li><strong>Motion compensation</strong> — instead of storing each frame, store "move this block 3 pixels right"</li>
+    <li><strong>Keyframes</strong> — periodically store a full frame (I-frame), then delta frames (P-frames, B-frames) that reference it</li>
+    <li><strong>Transform coding</strong> — like JPEG, convert to frequency domain, quantize aggressively</li>
+  </ul>
+
+  <p>H.264 (AVC) powers most streaming. H.265 (HEVC) is 50% more efficient but patented — the patent mess is why AV1 (open, royalty-free) matters.</p>
+
+  <h2>What's Actually Using This</h2>
+
+  <p>You encounter compression everywhere:</p>
+  
+  <ul>
+    <li><strong>ZIP files</strong> — DEFLATE, sometimes LZMA (7-Zip)</li>
+    <li><strong>gzip</strong> — DEFLATE, used in HTTP compression, server responses</li>
+    <li><strong>PNG</strong> — DEFLATE on filtered pixel data</li>
+    <li><strong>JPEG</strong> — lossy DCT-based compression</li>
+    <li><strong>WebP/AVIF</strong> — modern formats that beat JPEG (30-50% smaller at same quality)</li>
+    <li><strong>MP3/AAC/Opus</strong> — audio codecs</li>
+    <li><strong>H.264/H.265/AV1</strong> — video codecs</li>
+    <li><strong>WebM</strong> — container for VP8/VP9/AV1 video + Vorbis/Opus audio</li>
+  </ul>
+
+  <h2>The Trade-offs</h2>
+
+  <p>There's always a triangle:</p>
+  
+  <ul>
+    <li><strong>Compression ratio</strong> — how small does it get?</li>
+    <li><strong>Speed</strong> — how fast can we compress/decompress?</li>
+    <li><strong>Complexity</strong> — how much CPU/memory needed?</li>
+  </ul>
+
+  <p>gzip is fast and low-memory. LZMA (7-Zip) is slow but achieves better ratios. Zstandard (Facebook's replacement for gzip) is fast <em>and</em> achieves better ratios — it's becoming the new default for many applications.</p>
+
+  <h2>Why You Should Care</h2>
+
+  <p>Understanding compression helps you:</p>
+  
+  <ul>
+    <li><strong>Choose formats</strong> — PNG for screenshots (lossless), JPEG for photos, WebP for web</li>
+    <li><strong>Debug issues</strong> — why is this file so big? What compresses well?</li>
+    <li><strong>Understand privacy</strong> — compression side channels (CRIME/BREACH attacks) have exploited gzip to steal secrets</li>
+    <li><strong>Appreciate engineering</strong> — the video you streamed last night used decades of compression research to fit through a wire</li>
+  </ul>
+
+  <p>Every time you load a webpage, stream a video, or unzip a file, you're standing on a mountain of algorithm work. Now you know what's happening under the hood.</p>
+</div>
+</body>
+</html>
