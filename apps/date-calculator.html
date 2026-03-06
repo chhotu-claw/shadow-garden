@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Date Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate days between dates, add/subtract days, and count working days. No more manual counting.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --accent: #6366f1;
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e5e5e5;
+    --muted: #737373;
+    --success: #22c55e;
+  }
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+    box-sizing: border-box;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card h2 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin: 0 0 1rem 0;
+    font-weight: 500;
+  }
+  .input-group {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .input-group input, .input-group select {
+    flex: 1;
+    min-width: 140px;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  .result {
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--success);
+    margin: 1rem 0;
+  }
+  .result-label {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .result-details {
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+  }
+  .toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .toggle button {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid #333;
+    color: var(--muted);
+  }
+  .toggle button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .history {
+    margin-top: 2rem;
+  }
+  .history-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #2a2a2a;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .history-item:last-child {
+    border-bottom: none;
+  }
+  .history-item span {
+    color: var(--text);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Date Calculator</h1>
+    <p class="subtitle">Days between dates, add/subtract days, working days</p>
+    
+    <div class="card">
+      <div class="toggle">
+        <button class="active" onclick="setMode('diff')" id="btn-diff">Days Between</button>
+        <button onclick="setMode('add')" id="btn-add">Add/Subtract</button>
+        <button onclick="setMode('weekday')" id="btn-weekday">Working Days</button>
+      </div>
+
+      <div id="diff-mode">
+        <div class="input-group">
+          <input type="date" id="date1">
+          <input type="date" id="date2">
+        </div>
+        <button onclick="calculateDiff()">Calculate</button>
+        <div class="result" id="diff-result"></div>
+        <div class="result-details" id="diff-details"></div>
+      </div>
+
+      <div id="add-mode" style="display:none">
+        <div class="input-group">
+          <input type="date" id="add-date">
+          <select id="add-op">
+            <option value="add">Add</option>
+            <option value="sub">Subtract</option>
+          </select>
+          <input type="number" id="add-days" placeholder="Days" value="7">
+        </div>
+        <button onclick="calculateAdd()">Calculate</button>
+        <div class="result" id="add-result"></div>
+        <div class="result-details" id="add-details"></div>
+      </div>
+
+      <div id="weekday-mode" style="display:none">
+        <div class="input-group">
+          <input type="date" id="weekday-start">
+          <input type="date" id="weekday-end">
+        </div>
+        <button onclick="calculateWeekdays()">Calculate</button>
+        <div class="result" id="weekday-result"></div>
+        <div class="result-details" id="weekday-details"></div>
+      </div>
+    </div>
+
+    <div class="card history">
+      <h2>Recent</h2>
+      <div id="history-list">
+        <div class="history-item">No calculations yet</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'diff';
+    const history = [];
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.toggle button').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + mode).classList.add('active');
+      document.getElementById('diff-mode').style.display = mode === 'diff' ? 'block' : 'none';
+      document.getElementById('add-mode').style.display = mode === 'add' ? 'block' : 'none';
+      document.getElementById('weekday-mode').style.display = mode === 'weekday' ? 'block' : 'none';
+    }
+
+    function formatDate(d) {
+      return d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function dayName(d) {
+      return d.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+
+    function addToHistory(text) {
+      history.unshift(text);
+      if (history.length > 5) history.pop();
+      document.getElementById('history-list').innerHTML = history.map(h => 
+        '<div class="history-item">' + h + '</div>'
+      ).join('');
+    }
+
+    function calculateDiff() {
+      const d1 = new Date(document.getElementById('date1').value);
+      const d2 = new Date(document.getElementById('date2').value);
+      
+      if (isNaN(d1) || isNaN(d2)) {
+        document.getElementById('diff-result').textContent = 'Select both dates';
+        return;
+      }
+
+      const diffTime = Math.abs(d2 - d1);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffWeeks = Math.floor(diffDays / 7);
+      const diffMonths = Math.floor(diffDays / 30);
+      
+      const start = d1 < d2 ? d1 : d2;
+      const end = d1 < d2 ? d2 : d1;
+      
+      document.getElementById('diff-result').textContent = diffDays + ' days';
+      document.getElementById('diff-details').innerHTML = 
+        `${diffWeeks} weeks · ${diffMonths} months<br>${formatDate(start)} → ${formatDate(end)}`;
+      
+      addToHistory(`<span>${diffDays} days</span> between ${start.toLocaleDateString()} and ${end.toLocaleDateString()}`);
+    }
+
+    function calculateAdd() {
+      const d = new Date(document.getElementById('add-date').value);
+      const op = document.getElementById('add-op').value;
+      const days = parseInt(document.getElementById('add-days').value) || 0;
+      
+      if (isNaN(d)) {
+        document.getElementById('add-result').textContent = 'Select a date';
+        return;
+      }
+
+      const result = new Date(d);
+      result.setDate(result.getDate() + (op === 'add' ? days : -days));
+      
+      document.getElementById('add-result').textContent = formatDate(result);
+      document.getElementById('add-details').textContent = dayName(result);
+      
+      const opText = op === 'add' ? '+' : '-';
+      addToHistory(`<span>${formatDate(result)}</span> ${opText}${days} days from ${d.toLocaleDateString()}`);
+    }
+
+    function calculateWeekdays() {
+      let d1 = new Date(document.getElementById('weekday-start').value);
+      let d2 = new Date(document.getElementById('weekday-end').value);
+      
+      if (isNaN(d1) || isNaN(d2)) {
+        document.getElementById('weekday-result').textContent = 'Select both dates';
+        return;
+      }
+
+      if (d1 > d2) { [d1, d2] = [d2, d1]; }
+      
+      let weekdays = 0;
+      let current = new Date(d1);
+      
+      while (current <= d2) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) weekdays++;
+        current.setDate(current.getDate() + 1);
+      }
+
+      const totalDays = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+      const weekends = totalDays - weekdays;
+      
+      document.getElementById('weekday-result').textContent = weekdays + ' working days';
+      document.getElementById('weekday-details').innerHTML = 
+        `${weekends} weekend days · ${totalDays} total days<br>${formatDate(d1)} → ${formatDate(d2)}`;
+      
+      addToHistory(`<span>${weekdays} working days</span> ${d1.toLocaleDateString()} - ${d2.toLocaleDateString()}`);
+    }
+
+    // Set default dates
+    document.getElementById('date1').valueAsDate = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    document.getElementById('date2').valueAsDate = nextWeek;
+    document.getElementById('add-date').valueAsDate = new Date();
+    
+    const today = new Date();
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    document.getElementById('weekday-start').valueAsDate = today;
+    document.getElementById('weekday-end').valueAsDate = monthEnd;
+  </script>
+</body>
+</html>
