@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stopwatch — Shadow's Garden</title>
+<meta name="description" content="A simple, beautiful stopwatch with lap times. Click to start, click to stop, press lap to record splits.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  .stopwatch {
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .display {
+    font-size: clamp(3rem, 12vw, 5rem);
+    font-weight: 300;
+    letter-spacing: -2px;
+    margin-bottom: 30px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  
+  .display.running {
+    color: var(--accent);
+  }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 30px;
+  }
+  
+  button {
+    padding: 14px 28px;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    min-width: 90px;
+  }
+  
+  button:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  
+  button:active {
+    transform: translateY(0);
+  }
+  
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+  }
+  
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  
+  button.danger {
+    border-color: #e74c3c;
+    color: #e74c3c;
+  }
+  
+  button.danger:hover {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  button:disabled:hover {
+    border-color: var(--border);
+    transform: none;
+  }
+  
+  .laps {
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+  
+  .lap {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    animation: slideIn 0.2s ease;
+  }
+  
+  .lap:first-child {
+    border-top: none;
+  }
+  
+  .lap-time {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  
+  .lap-delta {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .hint {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="stopwatch">
+    <div class="display" id="display">00:00.00</div>
+    
+    <div class="controls">
+      <button id="startStop" class="primary">Start</button>
+      <button id="lap" disabled>Lap</button>
+      <button id="reset" class="danger" disabled>Reset</button>
+    </div>
+    
+    <div class="laps" id="laps"></div>
+    
+    <div class="hint">Space to start/stop · L to lap · R to reset</div>
+  </div>
+
+  <script>
+    const display = document.getElementById('display');
+    const startStopBtn = document.getElementById('startStop');
+    const lapBtn = document.getElementById('lap');
+    const resetBtn = document.getElementById('reset');
+    const lapsContainer = document.getElementById('laps');
+    
+    let startTime = 0;
+    let elapsed = 0;
+    let running = false;
+    let interval = null;
+    let laps = [];
+    
+    function formatTime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const centiseconds = Math.floor((ms % 1000) / 10);
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
+    }
+    
+    function update() {
+      const now = performance.now();
+      elapsed = now - startTime;
+      display.textContent = formatTime(elapsed);
+    }
+    
+    function start() {
+      if (running) return;
+      startTime = performance.now() - elapsed;
+      running = true;
+      interval = setInterval(update, 10);
+      display.classList.add('running');
+      startStopBtn.textContent = 'Stop';
+      lapBtn.disabled = false;
+      resetBtn.disabled = false;
+    }
+    
+    function stop() {
+      if (!running) return;
+      clearInterval(interval);
+      running = false;
+      display.classList.remove('running');
+      startStopBtn.textContent = 'Start';
+    }
+    
+    function toggle() {
+      if (running) stop();
+      else start();
+    }
+    
+    function lap() {
+      if (!running) return;
+      
+      const lapTime = elapsed;
+      const delta = laps.length > 0 ? lapTime - laps[laps.length - 1].time : lapTime;
+      
+      laps.push({ time: lapTime, delta });
+      
+      const lapEl = document.createElement('div');
+      lapEl.className = 'lap';
+      lapEl.innerHTML = `
+        <span>#${laps.length}</span>
+        <span class="lap-time">${formatTime(lapTime)}</span>
+        <span class="lap-delta">+${formatTime(delta)}</span>
+      `;
+      
+      lapsContainer.insertBefore(lapEl, lapsContainer.firstChild);
+    }
+    
+    function reset() {
+      stop();
+      elapsed = 0;
+      laps = [];
+      display.textContent = '00:00.00';
+      lapsContainer.innerHTML = '';
+      startStopBtn.textContent = 'Start';
+      lapBtn.disabled = true;
+      resetBtn.disabled = true;
+    }
+    
+    startStopBtn.addEventListener('click', toggle);
+    lapBtn.addEventListener('click', lap);
+    resetBtn.addEventListener('click', reset);
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggle();
+      } else if (e.code === 'KeyL') {
+        lap();
+      } else if (e.code === 'KeyR') {
+        reset();
+      }
+    });
+  </script>
+</body>
+</html>
