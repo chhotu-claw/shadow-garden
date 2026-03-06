@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Art Editor — Shadow's Garden</title>
+<meta name="description" content="A browser-based pixel art editor with layers, color picker, and PNG export.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #e94560;
+    --text: #eaeaea;
+    --grid: #2a2a4a;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .toolbar {
+    background: var(--panel);
+    padding: 12px 20px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--grid);
+  }
+  .toolbar-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .toolbar label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+  }
+  button {
+    background: var(--grid);
+    border: none;
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  button:hover {
+    background: var(--accent);
+  }
+  button.active {
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  input[type="color"] {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--grid);
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+  }
+  input[type="range"] {
+    width: 80px;
+  }
+  select {
+    background: var(--grid);
+    border: none;
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .canvas-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: auto;
+  }
+  #pixelCanvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: crosshair;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .size-display {
+    font-size: 12px;
+    color: #666;
+    min-width: 60px;
+  }
+  .layers-panel {
+    position: fixed;
+    right: 20px;
+    top: 80px;
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    width: 160px;
+    border: 1px solid var(--grid);
+  }
+  .layers-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    margin: 4px 0;
+    background: var(--grid);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .layer.active {
+    border: 1px solid var(--accent);
+  }
+  .layer-vis {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: #444;
+    cursor: pointer;
+  }
+  .layer-vis.visible {
+    background: var(--accent);
+  }
+  .layer-name {
+    flex: 1;
+    font-size: 12px;
+  }
+  .layer-delete {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    background: transparent;
+  }
+  .layer-delete:hover {
+    background: #e94560;
+  }
+  .shortcuts {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    color: #666;
+    border: 1px solid var(--grid);
+  }
+  .shortcuts kbd {
+    background: var(--grid);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <label>Size</label>
+      <select id="canvasSize">
+        <option value="16">16×16</option>
+        <option value="32">32×32</option>
+        <option value="64" selected>64×64</option>
+        <option value="128">128×128</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
+      <label>Color</label>
+      <input type="color" id="colorPicker" value="#e94560">
+    </div>
+    <div class="toolbar-group">
+      <label>Brush</label>
+      <input type="range" id="brushSize" min="1" max="8" value="1">
+      <span class="size-display" id="brushDisplay">1px</span>
+    </div>
+    <div class="toolbar-group">
+      <button id="eraserBtn">Eraser</button>
+      <button id="fillBtn">Fill</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="addLayer">+ Layer</button>
+      <button id="exportBtn">Export PNG</button>
+    </div>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="pixelCanvas" width="64" height="64"></canvas>
+  </div>
+
+  <div class="layers-panel">
+    <h3>Layers</h3>
+    <div id="layersList"></div>
+  </div>
+
+  <div class="shortcuts">
+    <kbd>B</kbd> Brush · <kbd>E</kbd> Eraser · <kbd>F</kbd> Fill · <kbd>Ctrl+Z</kbd> Undo · <kbd>Del</kbd> Clear
+  </div>
+
+  <script>
+    const canvas = document.getElementById('pixelCanvas');
+    const ctx = canvas.getContext('2d');
+    const sizeSelect = document.getElementById('canvasSize');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSlider = document.getElementById('brushSize');
+    const brushDisplay = document.getElementById('brushDisplay');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const fillBtn = document.getElementById('fillBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const addLayerBtn = document.getElementById('addLayer');
+    const exportBtn = document.getElementById('exportBtn');
+    const layersList = document.getElementById('layersList');
+
+    let gridSize = 64;
+    let scale = 8;
+    let isDrawing = false;
+    let isErasing = false;
+    let currentColor = '#e94560';
+    let brushSize = 1;
+    let layers = [{ name: 'Layer 1', visible: true, data: null, active: true }];
+    let activeLayer = 0;
+    let history = [];
+    let historyIndex = -1;
+
+    function init() {
+      resizeCanvas();
+      renderLayers();
+      saveState();
+    }
+
+    function resizeCanvas() {
+      gridSize = parseInt(sizeSelect.value);
+      canvas.width = gridSize;
+      canvas.height = gridSize;
+      
+      const maxSize = Math.min(window.innerWidth - 280, window.innerHeight - 160, 512);
+      scale = Math.floor(maxSize / gridSize);
+      canvas.style.width = (gridSize * scale) + 'px';
+      canvas.style.height = (gridSize * scale) + 'px';
+      
+      ctx.imageSmoothingEnabled = false;
+      layers.forEach(layer => {
+        if (!layer.data) layer.data = createEmptyData();
+      });
+      redraw();
+    }
+
+    function createEmptyData() {
+      const data = [];
+      for (let y = 0; y < gridSize; y++) {
+        data[y] = [];
+        for (let x = 0; x < gridSize; x++) {
+          data[y][x] = null;
+        }
+      }
+      return data;
+    }
+
+    function redraw() {
+      ctx.clearRect(0, 0, gridSize, gridSize);
+      
+      // Draw checkerboard background
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          ctx.fillStyle = ((x + y) % 2 === 0) ? '#222' : '#2a2a2a';
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      
+      // Draw all visible layers
+      layers.forEach(layer => {
+        if (!layer.visible || !layer.data) return;
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            if (layer.data[y][x]) {
+              ctx.fillStyle = layer.data[y][x];
+              ctx.fillRect(x, y, 1, 1);
+            }
+          }
+        }
+      });
+    }
+
+    function getPixelCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / scale);
+      const y = Math.floor((e.clientY - rect.top) / scale);
+      return { x: Math.max(0, Math.min(gridSize - 1, x)), y: Math.max(0, Math.min(gridSize - 1, y)) };
+    }
+
+    function draw(x, y) {
+      if (!layers[activeLayer].visible) return;
+      const data = layers[activeLayer].data;
+      const color = isErasing ? null : currentColor;
+      
+      for (let dy = 0; dy < brushSize; dy++) {
+        for (let dx = 0; dx < brushSize; dx++) {
+          const px = x + dx;
+          const py = y + dy;
+          if (px < gridSize && py < gridSize) {
+            data[py][px] = color;
+          }
+        }
+      }
+      redraw();
+    }
+
+    function floodFill(startX, startY) {
+      if (!layers[activeLayer].visible) return;
+      const data = layers[activeLayer].data;
+      const targetColor = data[startY][startX];
+      const fillColor = currentColor;
+      
+      if (targetColor === fillColor) return;
+      
+      const stack = [[startX, startY]];
+      const visited = new Set();
+      
+      while (stack.length > 0) {
+        const [x, y] = stack.pop();
+        const key = `${x},${y}`;
+        
+        if (visited.has(key)) continue;
+        if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) continue;
+        if (data[y][x] !== targetColor) continue;
+        
+        visited.add(key);
+        data[y][x] = fillColor;
+        
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      redraw();
+    }
+
+    function saveState() {
+      const state = layers.map(layer => ({
+        name: layer.name,
+        visible: layer.visible,
+        active: layer.active,
+        data: layer.data.map(row => [...row])
+      }));
+      history = history.slice(0, historyIndex + 1);
+      history.push(JSON.stringify(state));
+      historyIndex++;
+      if (history.length > 50) {
+        history.shift();
+        historyIndex--;
+      }
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        restoreState(JSON.parse(history[historyIndex]));
+      }
+    }
+
+    function restoreState(state) {
+      layers = state.map(l => ({
+        name: l.name,
+        visible: l.visible,
+        active: l.active,
+        data: l.data
+      }));
+      renderLayers();
+      redraw();
+    }
+
+    function renderLayers() {
+      layersList.innerHTML = '';
+      layers.forEach((layer, i) => {
+        const div = document.createElement('div');
+        div.className = 'layer' + (layer.active ? ' active' : '');
+        div.innerHTML = `
+          <div class="layer-vis ${layer.visible ? 'visible' : ''}" data-idx="${i}"></div>
+          <span class="layer-name">${layer.name}</span>
+          <button class="layer-delete" data-idx="${i}">×</button>
+        `;
+        div.querySelector('.layer-name').addEventListener('click', () => setActiveLayer(i));
+        div.querySelector('.layer-vis').addEventListener('click', (e) => {
+          e.stopPropagation();
+          layers[i].visible = !layers[i].visible;
+          renderLayers();
+          redraw();
+        });
+        div.querySelector('.layer-delete').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (layers.length > 1) {
+            layers.splice(i, 1);
+            if (activeLayer >= layers.length) activeLayer = layers.length - 1;
+            layers[activeLayer].active = true;
+            renderLayers();
+            redraw();
+          }
+        });
+        layersList.appendChild(div);
+      });
+    }
+
+    function setActiveLayer(i) {
+      layers.forEach((l, j) => l.active = (j === i));
+      activeLayer = i;
+      renderLayers();
+    }
+
+    function addLayer() {
+      const name = 'Layer ' + (layers.length + 1);
+      layers.push({ name, visible: true, data: createEmptyData(), active: true });
+      layers.forEach((l, i) => l.active = (i === layers.length - 1));
+      activeLayer = layers.length - 1;
+      renderLayers();
+      saveState();
+    }
+
+    function clearCanvas() {
+      layers[activeLayer].data = createEmptyData();
+      redraw();
+      saveState();
+    }
+
+    function exportPNG() {
+      const link = document.createElement('a');
+      link.download = 'pixel-art.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Event listeners
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const { x, y } = getPixelCoords(e);
+      if (e.shiftKey || isErasing) {
+        // fill on shift+click
+        floodFill(x, y);
+        saveState();
+      } else {
+        draw(x, y);
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const { x, y } = getPixelCoords(e);
+      draw(x, y);
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (isDrawing) saveState();
+      isDrawing = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (isDrawing) saveState();
+      isDrawing = false;
+    });
+
+    sizeSelect.addEventListener('change', () => {
+      if (confirm('Changing canvas size will clear your work. Continue?')) {
+        layers = [{ name: 'Layer 1', visible: true, data: createEmptyData(), active: true }];
+        activeLayer = 0;
+        history = [];
+        historyIndex = -1;
+        resizeCanvas();
+        saveState();
+      } else {
+        sizeSelect.value = gridSize;
+      }
+    });
+
+    colorPicker.addEventListener('input', (e) => {
+      currentColor = e.target.value;
+      isErasing = false;
+      eraserBtn.classList.remove('active');
+    });
+
+    brushSlider.addEventListener('input', (e) => {
+      brushSize = parseInt(e.target.value);
+      brushDisplay.textContent = brushSize + 'px';
+    });
+
+    eraserBtn.addEventListener('click', () => {
+      isErasing = !isErasing;
+      eraserBtn.classList.toggle('active', isErasing);
+    });
+
+    fillBtn.addEventListener('click', () => {
+      const cx = Math.floor(gridSize / 2);
+      const cy = Math.floor(gridSize / 2);
+      floodFill(cx, cy);
+      saveState();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear this layer?')) {
+        clearCanvas();
+      }
+    });
+
+    addLayerBtn.addEventListener('click', addLayer);
+    exportBtn.addEventListener('click', exportPNG);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      
+      if (e.key === 'b' || e.key === 'B') {
+        isErasing = false;
+        eraserBtn.classList.remove('active');
+      } else if (e.key === 'e' || e.key === 'E') {
+        isErasing = true;
+        eraserBtn.classList.add('active');
+      } else if (e.key === 'f' || e.key === 'F') {
+        const cx = Math.floor(gridSize / 2);
+        const cy = Math.floor(gridSize / 2);
+        floodFill(cx, cy);
+        saveState();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if (e.key === 'Delete') {
+        if (confirm('Clear this layer?')) clearCanvas();
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
