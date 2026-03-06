@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipboard History — Shadow's Garden</title>
+<meta name="description" content="Never lose copied text again. Simple clipboard history with search and one-click re-copy.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { background: var(--bg); }
+  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
+  
+  .header { margin-bottom: 1.5rem; }
+  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-dim); font-size: 0.9rem; }
+  
+  .controls { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .controls input { 
+    flex: 1; padding: 0.75rem; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface); color: var(--text);
+    font-size: 1rem;
+  }
+  .controls button {
+    padding: 0.75rem 1rem; border: none; border-radius: 8px;
+    background: var(--accent); color: white; cursor: pointer; font-weight: 500;
+  }
+  .controls button:hover { opacity: 0.9; }
+  .controls button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  
+  .clip-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .clip-item { 
+    padding: 0.75rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; transition: all 0.15s;
+  }
+  .clip-item:hover { border-color: var(--accent); }
+  .clip-item .content { 
+    font-size: 0.95rem; line-height: 1.4; max-height: 3em; overflow: hidden;
+    text-overflow: ellipsis; white-space: pre-wrap; word-break: break-word;
+  }
+  .clip-item .meta { 
+    display: flex; justify-content: space-between; margin-top: 0.5rem;
+    font-size: 0.75rem; color: var(--text-dim);
+  }
+  .clip-item .delete { color: #e74c3c; cursor: pointer; }
+  .clip-item .delete:hover { text-decoration: underline; }
+  
+  .empty { text-align: center; padding: 2rem; color: var(--text-dim); }
+  .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  
+  .toast {
+    position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+    padding: 0.75rem 1.5rem; background: #27ae60; color: white;
+    border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <div class="header">
+      <h1>📋 Clipboard History</h1>
+      <div class="subtitle">Copies are saved automatically. Click to re-copy.</div>
+    </div>
+    
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search clips...">
+      <button id="clearBtn" class="secondary">Clear All</button>
+    </div>
+    
+    <div class="clip-list" id="clipList"></div>
+  </div>
+  
+  <div class="toast" id="toast">Copied!</div>
+
+  <script>
+    const STORAGE_KEY = 'shadow-clipboard-history';
+    const MAX_ITEMS = 50;
+    
+    let clips = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let searchTerm = '';
+    
+    const clipList = document.getElementById('clipList');
+    const searchInput = document.getElementById('search');
+    const clearBtn = document.getElementById('clearBtn');
+    const toast = document.getElementById('toast');
+    
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(clips));
+      render();
+    }
+    
+    function addClip(text) {
+      if (!text || !text.trim()) return;
+      text = text.trim();
+      
+      // Don't duplicate
+      if (clips[0] && clips[0].text === text) return;
+      
+      clips.unshift({
+        text: text,
+        time: Date.now(),
+        charCount: text.length
+      });
+      
+      if (clips.length > MAX_ITEMS) clips.pop();
+      save();
+    }
+    
+    function deleteClip(index) {
+      clips.splice(index, 1);
+      save();
+    }
+    
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast();
+      });
+    }
+    
+    function showToast() {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+    
+    function formatTime(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return new Date(ts).toLocaleDateString();
+    }
+    
+    function render() {
+      const filtered = searchTerm 
+        ? clips.filter(c => c.text.toLowerCase().includes(searchTerm.toLowerCase()))
+        : clips;
+      
+      if (filtered.length === 0) {
+        clipList.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">📋</div>
+            <div>${searchTerm ? 'No matches found' : 'Copy something to get started'}</div>
+          </div>
+        `;
+        return;
+      }
+      
+      clipList.innerHTML = filtered.map((clip, i) => `
+        <div class="clip-item" data-index="${i}">
+          <div class="content">${escapeHtml(clip.text)}</div>
+          <div class="meta">
+            <span>${clip.charCount} chars · ${formatTime(clip.time)}</span>
+            <span class="delete" data-delete="${i}">Delete</span>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Event listeners
+    searchInput.addEventListener('input', (e) => {
+      searchTerm = e.target.value;
+      render();
+    });
+    
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear all clipboard history?')) {
+        clips = [];
+        save();
+      }
+    });
+    
+    clipList.addEventListener('click', (e) => {
+      const deleteBtn = e.target.closest('.delete');
+      if (deleteBtn) {
+        const index = parseInt(deleteBtn.dataset.delete);
+        deleteClip(index);
+        return;
+      }
+      
+      const item = e.target.closest('.clip-item');
+      if (item) {
+        const filtered = searchTerm 
+          ? clips.filter(c => c.text.toLowerCase().includes(searchTerm.toLowerCase()))
+          : clips;
+        const index = parseInt(item.dataset.index);
+        copyToClipboard(filtered[index].text);
+      }
+    });
+    
+    // Watch clipboard
+    let lastClip = '';
+    setInterval(async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text !== lastClip) {
+          lastClip = text;
+          addClip(text);
+        }
+      } catch (e) {
+        // Permission denied or other error - silently ignore
+      }
+    }, 1000);
+    
+    render();
+  </script>
+</body>
+</html>
