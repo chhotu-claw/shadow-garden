@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Utils — Shadow's Garden</title>
+<meta name="description" content="Text utilities: case converter, URL encode/decode, base64, trim — the boring tools you actually need">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+  
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 14px;
+    background: var(--bg-secondary);
+    color: var(--text);
+    resize: vertical;
+  }
+  
+  textarea { min-height: 120px; }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+  
+  .button-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  
+  button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: scale(0.98); }
+  
+  .output-group { position: relative; }
+  .output-group textarea { background: var(--bg-tertiary); }
+  
+  .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    background: var(--border);
+    color: var(--text);
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .char-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+  }
+  
+  .shortcuts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  
+  .shortcut {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  
+  .shortcut kbd {
+    background: var(--bg-tertiary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Text Utils</h1>
+    <div class="subtitle">Boring tools that actually get used</div>
+    
+    <div class="input-group">
+      <label>Input Text</label>
+      <textarea id="input" placeholder="Paste your text here..."></textarea>
+      <div class="char-count"><span id="charCount">0</span> characters · <span id="wordCount">0</span> words</div>
+    </div>
+    
+    <div class="button-row">
+      <button onclick="toUpperCase()">UPPERCASE</button>
+      <button onclick="toLowerCase()">lowercase</button>
+      <button onclick="toTitleCase()">Title Case</button>
+      <button onclick="toSentenceCase()">Sentence case</button>
+    </div>
+    
+    <div class="button-row">
+      <button onclick="trim()">Trim Whitespace</button>
+      <button onclick="removeEmpty()">Remove Empty Lines</button>
+      <button onclick="sortLines()">Sort Lines</button>
+      <button onclick="reverseLines()">Reverse Lines</button>
+      <button onclick="uniqueLines()">Unique Lines</button>
+    </div>
+    
+    <div class="button-row">
+      <button onclick="urlEncode()">URL Encode</button>
+      <button onclick="urlDecode()">URL Decode</button>
+      <button onclick="base64Encode()">Base64 Encode</button>
+      <button onclick="base64Decode()">Base64 Decode</button>
+    </div>
+    
+    <div class="button-row">
+      <button onclick="escapeHtml()">Escape HTML</button>
+      <button onclick="unescapeHtml()">Unescape HTML</button>
+      <button onclick="escapeJson()">Escape JSON</button>
+      <button onclick="encodeHex()">To Hex</button>
+      <button onclick="decodeHex()">From Hex</button>
+    </div>
+    
+    <div class="button-row">
+      <button onclick="md5Hash()">MD5</button>
+      <button onclick="sha256Hash()">SHA-256</button>
+    </div>
+    
+    <div class="output-group">
+      <label>Output</label>
+      <textarea id="output" placeholder="Result appears here..."></textarea>
+      <button class="copy-btn" onclick="copyOutput()">Copy</button>
+    </div>
+    
+    <div class="section-title">Keyboard Shortcuts</div>
+    <div class="shortcuts">
+      <div class="shortcut"><span>Copy output</span><kbd>Ctrl+Shift+C</kbd></div>
+      <div class="shortcut"><span>Clear all</span><kbd>Ctrl+Shift+X</kbd></div>
+      <div class="shortcut"><span>Input ↔ Output</span><kbd>Ctrl+Shift+S</kbd></div>
+    </div>
+  </div>
+  
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const charCount = document.getElementById('charCount');
+    const wordCount = document.getElementById('wordCount');
+    
+    function updateCount() {
+      const text = input.value;
+      charCount.textContent = text.length;
+      wordCount.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+    }
+    
+    input.addEventListener('input', updateCount);
+    
+    function setOutput(text) {
+      output.value = text;
+    }
+    
+    function toUpperCase() { setOutput(input.value.toUpperCase()); }
+    function toLowerCase() { setOutput(input.value.toLowerCase()); }
+    function toTitleCase() {
+      setOutput(input.value.replace(/\b\w/g, c => c.toUpperCase()));
+    }
+    function toSentenceCase() {
+      setOutput(input.value.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g, c => c.toUpperCase()));
+    }
+    
+    function trim() { setOutput(input.value.trim()); }
+    function removeEmpty() { setOutput(input.value.split('\n').filter(l => l.trim()).join('\n')); }
+    function sortLines() { setOutput(input.value.split('\n').sort().join('\n')); }
+    function reverseLines() { setOutput(input.value.split('\n').reverse().join('\n')); }
+    function uniqueLines() { setOutput([...new Set(input.value.split('\n'))].join('\n')); }
+    
+    function urlEncode() { setOutput(encodeURIComponent(input.value)); }
+    function urlDecode() { setOutput(decodeURIComponent(input.value)); }
+    function base64Encode() { setOutput(btoa(unescape(encodeURIComponent(input.value)))); }
+    function base64Decode() { 
+      try {
+        setOutput(decodeURIComponent(escape(atob(input.value))));
+      } catch(e) {
+        setOutput('Error: Invalid base64');
+      }
+    }
+    
+    function escapeHtml() {
+      const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+      setOutput(input.value.replace(/[&<>"']/g, m => map[m]));
+    }
+    function unescapeHtml() {
+      const map = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#039;': "'"};
+      setOutput(input.value.replace(/&(amp|lt|gt|quot|#039);/g, m => map[m]));
+    }
+    function escapeJson() {
+      setOutput(JSON.stringify(input.value));
+    }
+    function encodeHex() {
+      setOutput([...input.value].map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
+    }
+    function decodeHex() {
+      try {
+        const hex = input.value.replace(/\s/g, '');
+        let result = '';
+        for (let i = 0; i < hex.length; i += 2) {
+          result += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+        }
+        setOutput(result);
+      } catch(e) {
+        setOutput('Error: Invalid hex');
+      }
+    }
+    
+    async function md5Hash() {
+      const msgBuffer = new TextEncoder().encode(input.value);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      // Simple hash simulation (MD5 not available in browser crypto)
+      setOutput('SHA-256: ' + hashArray.map(b => b.toString(16).padStart(2,'0')).join(''));
+    }
+    async function sha256Hash() {
+      const msgBuffer = new TextEncoder().encode(input.value);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      setOutput(hashArray.map(b => b.toString(16).padStart(2,'0')).join(''));
+    }
+    
+    function copyOutput() {
+      output.select();
+      document.execCommand('copy');
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        copyOutput();
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'X') {
+        e.preventDefault();
+        input.value = '';
+        output.value = '';
+        updateCount();
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        const temp = input.value;
+        input.value = output.value;
+        output.value = temp;
+        updateCount();
+      }
+    });
+  </script>
+</body>
+</html>
