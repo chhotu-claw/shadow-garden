@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snippet Keeper — Shadow's Garden</title>
+<meta name="description" content="Save and quick-copy text you use often. Code, templates, addresses. Local-only, instant.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --success: #3fb950;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: var(--accent);
+  }
+  .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  input, textarea, select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  input { flex: 1; }
+  textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    margin-bottom: 10px;
+  }
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button.secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover { background: var(--border); }
+  .search-bar {
+    margin-bottom: 15px;
+  }
+  .search-bar input {
+    width: 100%;
+  }
+  .snippet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .snippet {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    position: relative;
+  }
+  .snippet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .snippet-title {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 0.95rem;
+  }
+  .snippet-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .snippet-tags {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    background: var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+  }
+  .snippet-content {
+    background: var(--bg);
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 100px;
+    overflow: hidden;
+    position: relative;
+  }
+  .snippet-content.expanded {
+    max-height: none;
+  }
+  .snippet-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .snippet-actions button {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+  .copy-feedback {
+    color: var(--success);
+    font-size: 0.8rem;
+    margin-left: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .copy-feedback.show {
+    opacity: 1;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px;
+  }
+  .char-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>📋 Snippet Keeper</h1>
+  
+  <div class="input-group">
+    <input type="text" id="titleInput" placeholder="Title (e.g., SSH key, email sig)">
+    <input type="text" id="tagInput" placeholder="Tags (comma separated)">
+  </div>
+  
+  <textarea id="contentInput" placeholder="Paste your snippet here..."></textarea>
+  <div class="char-count"><span id="charCount">0</span> chars</div>
+  
+  <button onclick="addSnippet()">Save Snippet</button>
+  
+  <div class="search-bar" style="margin-top: 30px;">
+    <input type="text" id="searchInput" placeholder="Search snippets..." oninput="filterSnippets()">
+  </div>
+  
+  <div class="snippet-list" id="snippetList"></div>
+</div>
+
+<script>
+const STORAGE_KEY = 'shadow-snippets';
+
+let snippets = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+}
+
+function addSnippet() {
+  const title = document.getElementById('titleInput').value.trim();
+  const tagStr = document.getElementById('tagInput').value.trim();
+  const content = document.getElementById('contentInput').value.trim();
+  
+  if (!title || !content) {
+    alert('Title and content required');
+    return;
+  }
+  
+  const tags = tagStr.split(',').map(t => t.trim()).filter(t => t);
+  
+  snippets.unshift({
+    id: Date.now(),
+    title,
+    tags,
+    content,
+    created: new Date().toISOString()
+  });
+  
+  save();
+  render();
+  
+  document.getElementById('titleInput').value = '';
+  document.getElementById('tagInput').value = '';
+  document.getElementById('contentInput').value = '';
+  document.getElementById('charCount').textContent = '0';
+}
+
+function deleteSnippet(id) {
+  if (!confirm('Delete this snippet?')) return;
+  snippets = snippets.filter(s => s.id !== id);
+  save();
+  render();
+}
+
+function copyToClipboard(id) {
+  const snippet = snippets.find(s => s.id === id);
+  if (!snippet) return;
+  
+  navigator.clipboard.writeText(snippet.content).then(() => {
+    const feedback = document.getElementById(`feedback-${id}`);
+    feedback.classList.add('show');
+    setTimeout(() => feedback.classList.remove('show'), 1500);
+  });
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(`content-${id}`);
+  el.classList.toggle('expanded');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function render(filter = '') {
+  const list = document.getElementById('snippetList');
+  const filtered = snippets.filter(s => {
+    const q = filter.toLowerCase();
+    return s.title.toLowerCase().includes(q) || 
+           s.content.toLowerCase().includes(q) ||
+           s.tags.some(t => t.toLowerCase().includes(q));
+  });
+  
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">' + 
+      (filter ? 'No snippets match your search' : 'No snippets yet. Save your first!') + 
+      '</div>';
+    return;
+  }
+  
+  list.innerHTML = filtered.map(s => `
+    <div class="snippet">
+      <div class="snippet-header">
+        <div>
+          <div class="snippet-title">${escapeHtml(s.title)}</div>
+          <div class="snippet-meta">${formatDate(s.created)}</div>
+        </div>
+      </div>
+      ${s.tags.length ? `<div class="snippet-tags">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+      <div class="snippet-content" id="content-${s.id}" onclick="toggleExpand(${s.id})">${escapeHtml(s.content)}</div>
+      <div class="snippet-actions">
+        <button onclick="copyToClipboard(${s.id})">Copy</button>
+        <span class="copy-feedback" id="feedback-${s.id}">✓ Copied!</span>
+        <button class="secondary" onclick="deleteSnippet(${s.id})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function filterSnippets() {
+  const q = document.getElementById('searchInput').value;
+  render(q);
+}
+
+document.getElementById('contentInput').addEventListener('input', function() {
+  document.getElementById('charCount').textContent = this.value.length;
+});
+
+render();
+</script>
+</body>
+</html>
