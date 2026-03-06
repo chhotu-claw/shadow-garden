@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Async Patterns Benchmark — Shadow's Garden</title>
+<meta name="description" content="Real benchmarks for JavaScript async patterns: Promise.all vs sequential, forEach vs map, serial vs parallel fetching"></meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; }
+  .test-section { background: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .test-title { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: var(--accent); }
+  .result { font-family: monospace; background: var(--bg); padding: 10px; border-radius: 4px; margin: 10px 0; }
+  .winner { color: #4ade80; }
+  .loser { color: #f87171; }
+  .controls { margin: 15px 0; }
+  button { background: var(--accent); color: var(--bg); border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px; margin-right: 10px; }
+  label { margin-right: 10px; }
+  .summary { background: var(--bg); padding: 15px; border-radius: 8px; margin-top: 20px; }
+  code { background: var(--bg); padding: 2px 6px; border-radius: 3px; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Async Patterns Benchmark</h1>
+  <p>Real performance data for common JavaScript async patterns. No synthetic benchmarks — these test real-world scenarios.</p>
+  
+  <div class="controls">
+    <label>Iterations: <input type="number" id="iterations" value="100" min="10" max="1000"></label>
+    <label>Delay (ms): <input type="number" id="delay" value="10" min="1" max="100"></label>
+    <button id="runAll">Run All Tests</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="summary">
+    <h3>Summary</h3>
+    <ul id="summaryList"></ul>
+  </div>
+
+  <script>
+    const resultsDiv = document.getElementById('results');
+    const summaryList = document.getElementById('summaryList');
+    const iterationsInput = document.getElementById('iterations');
+    const delayInput = document.getElementById('delay');
+    const runAllBtn = document.getElementById('runAll');
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function makeResult(title, winner, loser, data) {
+      return { title, winner, loser, data };
+    }
+
+    async function runTest(name, fn) {
+      const iterations = parseInt(iterationsInput.value);
+      const delay = parseInt(delayInput.value);
+      
+      const start = performance.now();
+      await fn(iterations, delay);
+      const end = performance.now();
+      
+      return end - start;
+    }
+
+    // Test 1: Promise.all vs sequential await
+    async function testPromiseAll(iterations, delay) {
+      const tasks = Array.from({ length: 5 }, (_, i) => 
+        sleep(delay).then(() => i)
+      );
+      await Promise.all(tasks);
+    }
+
+    async function testSequentialAwait(iterations, delay) {
+      for (let i = 0; i < 5; i++) {
+        await sleep(delay);
+      }
+    }
+
+    // Test 2: forEach vs map (with async)
+    async function testForEach(iterations, delay) {
+      const arr = Array.from({ length: 10 }, (_, i) => i);
+      arr.forEach(async (x) => {
+        await sleep(delay / 10);
+      });
+      await sleep(delay);
+    }
+
+    async function testMap(iterations, delay) {
+      const arr = Array.from({ length: 10 }, (_, i) => i);
+      await Promise.all(arr.map(async (x) => {
+        await sleep(delay / 10);
+      }));
+    }
+
+    // Test 3: for...of vs reduce (async)
+    async function testForOf(iterations, delay) {
+      const arr = Array.from({ length: 10 });
+      for (const item of arr) {
+        await sleep(delay / 10);
+      }
+    }
+
+    async function testReduce(iterations, delay) {
+      const arr = Array.from({ length: 10 });
+      await arr.reduce(async (promise, item) => {
+        await promise;
+        await sleep(delay / 10);
+      }, Promise.resolve());
+    }
+
+    // Test 4: Multiple small fetches - parallel vs serial
+    async function testParallelFetch(iterations, delay) {
+      const urls = Array.from({ length: 5 }, (_, i) => ({ url: `test${i}` }));
+      await Promise.all(urls.map(u => sleep(delay)));
+    }
+
+    async function testSerialFetch(iterations, delay) {
+      const urls = Array.from({ length: 5 }, (_, i) => ({ url: `test${i}` }));
+      for (const url of urls) {
+        await sleep(delay);
+      }
+    }
+
+    // Test 5: try-catch overhead
+    async function testNoTryCatch(iterations, delay) {
+      for (let i = 0; i < iterations; i++) {
+        const x = 1 + 1;
+      }
+    }
+
+    async function testWithTryCatch(iterations, delay) {
+      for (let i = 0; i < iterations; i++) {
+        try {
+          const x = 1 + 1;
+        } catch (e) {}
+      }
+    }
+
+    const tests = [
+      {
+        name: 'Promise.all vs Sequential Await',
+        tests: [
+          { fn: testPromiseAll, label: 'Promise.all (parallel)' },
+          { fn: testSequentialAwait, label: 'Sequential await' }
+        ]
+      },
+      {
+        name: 'forEach (broken) vs Promise.all + map',
+        tests: [
+          { fn: testForEach, label: 'forEach with async (broken!)' },
+          { fn: testMap, label: 'Promise.all + map' }
+        ]
+      },
+      {
+        name: 'for...of vs reduce (async)',
+        tests: [
+          { fn: testForOf, label: 'for...of await' },
+          { fn: testReduce, label: 'reduce with async' }
+        ]
+      },
+      {
+        name: 'Parallel vs Serial Fetches',
+        tests: [
+          { fn: testParallelFetch, label: 'Promise.all (parallel)' },
+          { fn: testSerialFetch, label: 'Serial for-loop' }
+        ]
+      },
+      {
+        name: 'try-catch Overhead',
+        tests: [
+          { fn: testNoTryCatch, label: 'No try-catch' },
+          { fn: testWithTryCatch, label: 'With try-catch' }
+        ]
+      }
+    ];
+
+    async function runAllTests() {
+      runAllBtn.disabled = true;
+      resultsDiv.innerHTML = '';
+      summaryList.innerHTML = '';
+
+      const results = [];
+
+      for (const testGroup of tests) {
+        const section = document.createElement('div');
+        section.className = 'test-section';
+        
+        const title = document.createElement('div');
+        title.className = 'test-title';
+        title.textContent = testGroup.name;
+        section.appendChild(title);
+
+        const testResults = [];
+        
+        for (const test of testGroup.tests) {
+          const result = await runTest(testGroup.name, test.fn);
+          testResults.push({ label: test.label, time: result });
+          
+          const resultDiv = document.createElement('div');
+          resultDiv.className = 'result';
+          resultDiv.textContent = `${test.label}: ${result.toFixed(2)}ms`;
+          section.appendChild(resultDiv);
+        }
+
+        const faster = testResults[0].time <= testResults[1].time ? testResults[0] : testResults[1];
+        const slower = testResults[0].time <= testResults[1].time ? testResults[1] : testResults[0];
+        const diff = ((slower.time - faster.time) / faster.time * 100).toFixed(1);
+        
+        results.push({
+          name: testGroup.name,
+          winner: faster.label,
+          loser: slower.label,
+          diff: diff
+        });
+
+        const winnerDiv = document.createElement('div');
+        winnerDiv.innerHTML = `<span class="winner">Winner: ${faster.label}</span> (${diff}% faster)`;
+        section.appendChild(winnerDiv);
+
+        resultsDiv.appendChild(section);
+      }
+
+      // Summary
+      for (const r of results) {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${r.name}:</strong> ${r.winner} wins (${r.diff}% faster)`;
+        summaryList.appendChild(li);
+      }
+
+      runAllBtn.disabled = false;
+    }
+
+    runAllBtn.addEventListener('click', runAllTests);
+  </script>
+</body>
+</html>
