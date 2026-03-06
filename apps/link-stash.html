@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Stash — Shadow's Garden</title>
+<meta name="description" content="Fast local bookmark manager — save, tag, search, and copy links instantly.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --card: #161b22; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .add-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .add-form input { flex: 1; min-width: 200px; padding: 0.75rem 1rem; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 1rem; }
+  .add-form input:focus { outline: none; border-color: var(--accent); }
+  .add-form button { padding: 0.75rem 1.5rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .add-form button:hover { opacity: 0.9; }
+  
+  .search-bar { width: 100%; padding: 0.75rem 1rem; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 1rem; margin-bottom: 1rem; }
+  .search-bar:focus { outline: none; border-color: var(--accent); }
+  
+  .links { display: flex; flex-direction: column; gap: 0.5rem; }
+  .link-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
+  .link-item:hover { border-color: var(--accent); }
+  .link-info { flex: 1; min-width: 0; }
+  .link-title { font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link-url { font-size: 0.8rem; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .tag { font-size: 0.7rem; padding: 0.15rem 0.5rem; background: #21262d; border-radius: 12px; color: var(--accent); }
+  .link-actions { display: flex; gap: 0.5rem; }
+  .link-actions button { padding: 0.4rem 0.75rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: var(--fg); cursor: pointer; font-size: 0.8rem; }
+  .link-actions button:hover { border-color: var(--accent); }
+  .link-actions button.delete { color: #f85149; }
+  .link-actions button.delete:hover { border-color: #f85149; background: #f8514920; }
+  
+  .empty { text-align: center; padding: 3rem; color: #8b949e; }
+  .empty strong { display: block; margin-bottom: 0.5rem; color: var(--fg); }
+  
+  .stats { text-align: center; margin-top: 2rem; color: #8b949e; font-size: 0.85rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Link Stash</h1>
+    <div class="subtitle">Fast local bookmark manager • All data stays in your browser</div>
+    
+    <form class="add-form" id="addForm">
+      <input type="text" id="linkTitle" placeholder="Title" required>
+      <input type="url" id="linkUrl" placeholder="https://..." required>
+      <input type="text" id="linkTags" placeholder="Tags (comma separated)">
+      <button type="submit">Add Link</button>
+    </form>
+    
+    <input type="text" class="search-bar" id="searchBar" placeholder="Search links or tags...">
+    
+    <div class="links" id="linksList"></div>
+    <div class="empty" id="emptyState" style="display:none;">
+      <strong>No links saved yet</strong>
+      Add your first link above
+    </div>
+    
+    <div class="stats" id="stats"></div>
+  </div>
+  
+  <script>
+    const STORAGE_KEY = 'link-stash';
+    let links = [];
+    
+    function loadLinks() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      links = stored ? JSON.parse(stored) : [];
+      render();
+    }
+    
+    function saveLinks() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+      render();
+    }
+    
+    function addLink(title, url, tags) {
+      const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+      links.unshift({ id: Date.now(), title, url, tags: tagArray, created: new Date().toISOString() });
+      saveLinks();
+    }
+    
+    function deleteLink(id) {
+      links = links.filter(l => l.id !== id);
+      saveLinks();
+    }
+    
+    function copyLink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        // Brief visual feedback could go here
+      });
+    }
+    
+    function filterLinks(query) {
+      if (!query) return links;
+      const q = query.toLowerCase();
+      return links.filter(l => 
+        l.title.toLowerCase().includes(q) || 
+        l.url.toLowerCase().includes(q) ||
+        l.tags.some(t => t.toLowerCase().includes(q))
+      );
+    }
+    
+    function render() {
+      const query = document.getElementById('searchBar').value;
+      const filtered = filterLinks(query);
+      const container = document.getElementById('linksList');
+      const empty = document.getElementById('emptyState');
+      const stats = document.getElementById('stats');
+      
+      if (links.length === 0) {
+        container.innerHTML = '';
+        empty.style.display = 'block';
+        stats.textContent = '';
+        return;
+      }
+      
+      empty.style.display = filtered.length === 0 ? 'block' : 'none';
+      stats.textContent = `${links.length} link${links.length !== 1 ? 's' : ''} saved`;
+      
+      if (filtered.length === 0 && links.length > 0) {
+        container.innerHTML = '<div class="empty"><strong>No matches</strong>Try a different search</div>';
+        return;
+      }
+      
+      container.innerHTML = filtered.map(link => `
+        <div class="link-item">
+          <div class="link-info">
+            <div class="link-title">${escapeHtml(link.title)}</div>
+            <div class="link-url">${escapeHtml(link.url)}</div>
+            ${link.tags.length ? `<div class="link-tags">${link.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          </div>
+          <div class="link-actions">
+            <button onclick="copyLink('${escapeHtml(link.url)}')">Copy</button>
+            <button class="delete" onclick="deleteLink(${link.id})">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+    
+    document.getElementById('addForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = document.getElementById('linkTitle').value.trim();
+      const url = document.getElementById('linkUrl').value.trim();
+      const tags = document.getElementById('linkTags').value.trim();
+      addLink(title, url, tags);
+      e.target.reset();
+      document.getElementById('linkTitle').focus();
+    });
+    
+    document.getElementById('searchBar').addEventListener('input', render);
+    
+    loadLinks();
+  </script>
+</body>
+</html>
