@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Focus — Shadow's Garden</title>
+<meta name="description" content="A simple, elegant Pomodoro timer with customizable intervals and session tracking.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --work-color: #e74c3c;
+    --break-color: #27ae60;
+    --long-break-color: #3498db;
+  }
+  
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  .timer-container {
+    text-align: center;
+    padding: 3rem;
+    background: var(--bg-secondary);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    width: 90%;
+    max-width: 400px;
+  }
+  
+  .mode-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2rem;
+    justify-content: center;
+  }
+  
+  .mode-tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  
+  .mode-tab.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+  
+  .timer-display {
+    font-size: 6rem;
+    font-weight: 700;
+    letter-spacing: -2px;
+    margin: 1rem 0;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  .timer-display.work { color: var(--work-color); }
+  .timer-display.break { color: var(--break-color); }
+  .timer-display.long-break { color: var(--long-break-color); }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 2rem 0;
+  }
+  
+  .btn {
+    padding: 14px 32px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  
+  .btn-primary {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+  }
+  
+  .btn-primary:hover {
+    transform: scale(1.05);
+  }
+  
+  .btn-secondary {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+  
+  .btn-secondary:hover {
+    background: var(--bg-secondary);
+  }
+  
+  .settings {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+  
+  .settings-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  .settings-panel {
+    display: none;
+    margin-top: 1rem;
+    text-align: left;
+  }
+  
+  .settings-panel.open { display: block; }
+  
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+  }
+  
+  .setting-row label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  
+  .setting-row input {
+    width: 70px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    text-align: center;
+    font-family: inherit;
+  }
+  
+  .session-count {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  
+  .session-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  
+  .session-dot.completed {
+    background: var(--work-color);
+  }
+  
+  .notification-permission {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="timer-container">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="work">Work</button>
+      <button class="mode-tab" data-mode="break">Short Break</button>
+      <button class="mode-tab" data-mode="long-break">Long Break</button>
+    </div>
+    
+    <div class="timer-display work">25:00</div>
+    
+    <div class="controls">
+      <button class="btn btn-primary" id="startBtn">Start</button>
+      <button class="btn btn-secondary" id="resetBtn">Reset</button>
+      <button class="btn btn-secondary" id="skipBtn">Skip</button>
+    </div>
+    
+    <div class="session-count" id="sessionCount"></div>
+    
+    <div class="settings">
+      <button class="settings-toggle" id="settingsToggle">⚙️ Settings</button>
+      <div class="settings-panel" id="settingsPanel">
+        <div class="setting-row">
+          <label>Work (min)</label>
+          <input type="number" id="workDuration" value="25" min="1" max="60">
+        </div>
+        <div class="setting-row">
+          <label>Short Break (min)</label>
+          <input type="number" id="shortBreak" value="5" min="1" max="30">
+        </div>
+        <div class="setting-row">
+          <label>Long Break (min)</label>
+          <input type="number" id="longBreak" value="15" min="1" max="60">
+        </div>
+        <div class="setting-row">
+          <label>Sessions until long break</label>
+          <input type="number" id="sessionsUntilLong" value="4" min="1" max="10">
+        </div>
+      </div>
+    </div>
+    
+    <div class="notification-permission" id="notificationMsg"></div>
+  </div>
+
+  <script>
+    const modes = {
+      work: { color: 'work', duration: 25 * 60 },
+      break: { color: 'break', duration: 5 * 60 },
+      longBreak: { color: 'long-break', duration: 15 * 60 }
+    };
+    
+    let currentMode = 'work';
+    let timeLeft = modes.work.duration;
+    let isRunning = false;
+    let timer = null;
+    let completedSessions = 0;
+    let settings = {
+      work: 25,
+      shortBreak: 5,
+      longBreak: 15,
+      sessionsUntilLong: 4
+    };
+    
+    const display = document.querySelector('.timer-display');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const skipBtn = document.getElementById('skipBtn');
+    const modeTabs = document.querySelectorAll('.mode-tab');
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const sessionCount = document.getElementById('sessionCount');
+    const notificationMsg = document.getElementById('notificationMsg');
+    
+    // Load settings from localStorage
+    const saved = localStorage.getItem('pomodoroSettings');
+    if (saved) {
+      settings = JSON.parse(saved);
+      document.getElementById('workDuration').value = settings.work;
+      document.getElementById('shortBreak').value = settings.shortBreak;
+      document.getElementById('longBreak').value = settings.longBreak;
+      document.getElementById('sessionsUntilLong').value = settings.sessionsUntilLong;
+    }
+    
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      notificationMsg.textContent = 'Click to enable notifications';
+      notificationMsg.style.cursor = 'pointer';
+      notificationMsg.onclick = () => {
+        Notification.requestPermission().then(perm => {
+          notificationMsg.textContent = perm === 'granted' ? '🔔 Notifications enabled' : 'Notifications blocked';
+        });
+      };
+    } else if (Notification.permission === 'granted') {
+      notificationMsg.textContent = '🔔 Notifications enabled';
+    }
+    
+    function updateDisplay() {
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      display.className = `timer-display ${modes[currentMode].color}`;
+      document.title = `${display.textContent} — Pomodoro`;
+    }
+    
+    function updateSessionDots() {
+      sessionCount.innerHTML = '';
+      for (let i = 0; i < settings.sessionsUntilLong; i++) {
+        const dot = document.createElement('div');
+        dot.className = `session-dot ${i < (completedSessions % settings.sessionsUntilLong) ? 'completed' : ''}`;
+        sessionCount.appendChild(dot);
+      }
+    }
+    
+    function switchMode(mode) {
+      currentMode = mode;
+      timeLeft = modes[mode].duration * 60;
+      isRunning = false;
+      clearInterval(timer);
+      startBtn.textContent = 'Start';
+      
+      modeTabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.mode === mode);
+      });
+      
+      updateDisplay();
+    }
+    
+    function tick() {
+      if (timeLeft > 0) {
+        timeLeft--;
+        updateDisplay();
+      } else {
+        // Timer complete
+        clearInterval(timer);
+        isRunning = false;
+        startBtn.textContent = 'Start';
+        
+        // Play sound
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.value = currentMode === 'work' ? 880 : 440;
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.5);
+        } catch (e) {}
+        
+        // Send notification
+        if (Notification.permission === 'granted') {
+          new Notification(currentMode === 'work' ? 'Work session complete!' : 'Break over!');
+        }
+        
+        // Auto-switch modes
+        if (currentMode === 'work') {
+          completedSessions++;
+          const nextMode = completedSessions % settings.sessionsUntilLong === 0 ? 'longBreak' : 'break';
+          switchMode(nextMode);
+        } else {
+          switchMode('work');
+        }
+        
+        updateSessionDots();
+      }
+    }
+    
+    function toggleTimer() {
+      if (isRunning) {
+        clearInterval(timer);
+        isRunning = false;
+        startBtn.textContent = 'Start';
+      } else {
+        timer = setInterval(tick, 1000);
+        isRunning = true;
+        startBtn.textContent = 'Pause';
+      }
+    }
+    
+    function reset() {
+      clearInterval(timer);
+      isRunning = false;
+      timeLeft = modes[currentMode].duration * 60;
+      startBtn.textContent = 'Start';
+      updateDisplay();
+    }
+    
+    function skip() {
+      if (currentMode === 'work') {
+        const nextMode = (completedSessions + 1) % settings.sessionsUntilLong === 0 ? 'longBreak' : 'break';
+        switchMode(nextMode);
+      } else {
+        switchMode('work');
+      }
+    }
+    
+    function saveSettings() {
+      settings = {
+        work: parseInt(document.getElementById('workDuration').value) || 25,
+        shortBreak: parseInt(document.getElementById('shortBreak').value) || 5,
+        longBreak: parseInt(document.getElementById('longBreak').value) || 15,
+        sessionsUntilLong: parseInt(document.getElementById('sessionsUntilLong').value) || 4
+      };
+      localStorage.setItem('pomodoroSettings', JSON.stringify(settings));
+      
+      // Update mode durations
+      modes.work.duration = settings.work * 60;
+      modes.break.duration = settings.shortBreak * 60;
+      modes.longBreak.duration = settings.longBreak * 60;
+      
+      if (!isRunning) {
+        timeLeft = modes[currentMode].duration;
+        updateDisplay();
+      }
+    }
+    
+    startBtn.addEventListener('click', toggleTimer);
+    resetBtn.addEventListener('click', reset);
+    skipBtn.addEventListener('click', skip);
+    
+    modeTabs.forEach(tab => {
+      tab.addEventListener('click', () => switchMode(tab.dataset.mode));
+    });
+    
+    settingsToggle.addEventListener('click', () => {
+      settingsPanel.classList.toggle('open');
+    });
+    
+    document.querySelectorAll('.settings-panel input').forEach(input => {
+      input.addEventListener('change', saveSettings);
+    });
+    
+    updateDisplay();
+    updateSessionDots();
+  </script>
+</body>
+</html>
