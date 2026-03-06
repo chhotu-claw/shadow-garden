@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>localStorage Benchmark — Shadow's Garden</title>
+<meta name="description" content="Real-world benchmarks on localStorage performance: read, write, storage limits, and edge cases.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 2rem; font-family: monospace; }
+  .test { margin: 1rem 0; padding: 1rem; border: 1px solid #333; }
+  .test h3 { margin: 0 0 0.5rem 0; }
+  .result { color: #4ade80; }
+  .error { color: #f87171; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border: 1px solid #333; padding: 0.5rem; text-align: left; }
+  th { background: #222; }
+  .controls { margin: 1rem 0; }
+  button { padding: 0.5rem 1rem; background: #333; color: #fff; border: none; cursor: pointer; margin-right: 0.5rem; }
+  button:hover { background: #444; }
+  pre { background: #111; padding: 1rem; overflow-x: auto; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>localStorage Benchmark</h1>
+  <p>Real-world tests on how localStorage actually performs.</p>
+  
+  <div class="controls">
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="clearData()">Clear All Data</button>
+  </div>
+
+  <div id="results"></div>
+
+  <script>
+    const results = [];
+    
+    function log(name, value, details = '') {
+      results.push({ name, value, details });
+      render();
+    }
+    
+    function render() {
+      const html = results.map(r => `
+        <div class="test">
+          <h3>${r.name}</h3>
+          <span class="result">${r.value}</span>
+          ${r.details ? `<pre>${r.details}</pre>` : ''}
+        </div>
+      `).join('');
+      document.getElementById('results').innerHTML = html;
+    }
+    
+    function clearData() {
+      localStorage.clear();
+      results.length = 0;
+      render();
+    }
+    
+    // Test 1: Write speed (small data)
+    function testWriteSmall() {
+      const start = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        localStorage.setItem('test_' + i, 'value_' + i);
+      }
+      const end = performance.now();
+      log('Write 1000 items', (end - start).toFixed(2) + 'ms', `avg ${(end - start).toFixed(3)}ms per write`);
+    }
+    
+    // Test 2: Read speed (small data)
+    function testReadSmall() {
+      const start = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        localStorage.getItem('test_' + i);
+      }
+      const end = performance.now();
+      log('Read 1000 items', (end - start).toFixed(2) + 'ms', `avg ${(end - start).toFixed(3)}ms per read`);
+    }
+    
+    // Test 3: Large string write
+    function testLargeWrite() {
+      const large = 'x'.repeat(100000); // 100KB
+      const start = performance.now();
+      localStorage.setItem('large', large);
+      const end = performance.now();
+      log('Write 100KB string', (end - start).toFixed(2) + 'ms');
+    }
+    
+    // Test 4: Large string read
+    function testLargeRead() {
+      const start = performance.now();
+      const data = localStorage.getItem('large');
+      const end = performance.now();
+      log('Read 100KB string', (end - start).toFixed(2) + 'ms', `retrieved ${data.length} chars`);
+    }
+    
+    // Test 5: JSON object storage
+    function testJSONWrite() {
+      const obj = { items: [] };
+      for (let i = 0; i < 100; i++) {
+        obj.items.push({ id: i, name: 'item_' + i, value: Math.random() });
+      }
+      const start = performance.now();
+      localStorage.setItem('json_test', JSON.stringify(obj));
+      const end = performance.now();
+      log('Write JSON (100 items)', (end - start).toFixed(2) + 'ms');
+    }
+    
+    // Test 6: JSON parse
+    function testJSONRead() {
+      const start = performance.now();
+      const data = JSON.parse(localStorage.getItem('json_test'));
+      const end = performance.now();
+      log('Parse JSON', (end - start).toFixed(2) + 'ms', `parsed ${data.items.length} items`);
+    }
+    
+    // Test 7: Storage quota detection
+    function testQuota() {
+      let used = 0;
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          used += localStorage[key].length + key.length;
+        }
+      }
+      // Try to find the limit
+      let testKey = 'quota_test';
+      let size = 1024 * 1024; // 1MB start
+      let limit = 0;
+      
+      try {
+        while (size > 0) {
+          localStorage.setItem(testKey, 'x'.repeat(size));
+          limit = size;
+          size = Math.floor(size * 1.5);
+        }
+      } catch (e) {
+        // Found rough limit
+        let low = limit / 2;
+        let high = limit;
+        while (high - low > 10000) {
+          let mid = Math.floor((low + high) / 2);
+          try {
+            localStorage.setItem(testKey, 'x'.repeat(mid));
+            low = mid;
+          } catch (e) {
+            high = mid;
+          }
+        }
+        limit = low;
+      }
+      localStorage.removeItem(testKey);
+      
+      log('Storage used', (used / 1024).toFixed(2) + ' KB');
+      log('Estimated quota', (limit / 1024 / 1024).toFixed(2) + ' MB');
+    }
+    
+    // Test 8: Delete performance
+    function testDelete() {
+      // First add some items
+      for (let i = 0; i < 100; i++) {
+        localStorage.setItem('delete_test_' + i, 'value');
+      }
+      const start = performance.now();
+      for (let i = 0; i < 100; i++) {
+        localStorage.removeItem('delete_test_' + i);
+      }
+      const end = performance.now();
+      log('Delete 100 items', (end - start).toFixed(2) + 'ms');
+    }
+    
+    // Test 9: Clear performance
+    function testClear() {
+      // Add items
+      for (let i = 0; i < 100; i++) {
+        localStorage.setItem('clear_test_' + i, 'value');
+      }
+      const start = performance.now();
+      localStorage.clear();
+      const end = performance.now();
+      log('Clear 100 items', (end - start).toFixed(2) + 'ms');
+    }
+    
+    // Test 10: key() method
+    function testKeyMethod() {
+      // Add items
+      for (let i = 0; i < 100; i++) {
+        localStorage.setItem('key_test_' + i, 'value');
+      }
+      const start = performance.now();
+      for (let i = 0; i < 100; i++) {
+        localStorage.key(i);
+      }
+      const end = performance.now();
+      log('key() 100 times', (end - start).toFixed(2) + 'ms');
+      localStorage.clear();
+    }
+    
+    // Test 11: Update existing vs new
+    function testUpdateVsNew() {
+      localStorage.setItem('update_test', 'initial');
+      
+      const startNew = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        localStorage.setItem('new_key_' + i, 'value');
+      }
+      const endNew = performance.now();
+      
+      localStorage.setItem('update_test', 'updated');
+      const startUpdate = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        localStorage.setItem('update_test', 'value_' + i);
+      }
+      const endUpdate = performance.now();
+      
+      log('Set 1000 NEW keys', (endNew - startNew).toFixed(2) + 'ms');
+      log('Set 1000 EXISTING keys', (endUpdate - startUpdate).toFixed(2) + 'ms');
+      localStorage.clear();
+    }
+    
+    async function runAllTests() {
+      results.length = 0;
+      render();
+      
+      // Run tests with small delays to not freeze
+      testWriteSmall();
+      await new Promise(r => setTimeout(r, 10));
+      testReadSmall();
+      await new Promise(r => setTimeout(r, 10));
+      testLargeWrite();
+      await new Promise(r => setTimeout(r, 10));
+      testLargeRead();
+      await new Promise(r => setTimeout(r, 10));
+      testJSONWrite();
+      await new Promise(r => setTimeout(r, 10));
+      testJSONRead();
+      await new Promise(r => setTimeout(r, 10));
+      testQuota();
+      await new Promise(r => setTimeout(r, 10));
+      testDelete();
+      testClear();
+      await new Promise(r => setTimeout(r, 10));
+      testKeyMethod();
+      await new Promise(r => setTimeout(r, 10));
+      testUpdateVsNew();
+    }
+    
+    // Auto-run on load
+    setTimeout(runAllTests, 100);
+  </script>
+</body>
+</html>
