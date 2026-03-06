@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regex Playground — Shadow's Garden</title>
+<meta name="description" content="Real-time regex tester with match highlighting, capture groups, and pattern explanation.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --match-bg: #ffd33d33;
+    --match: #ffd33d;
+    --group-1: #ff7b72;
+    --group-2: #79c0ff;
+    --group-3: #d2a8ff;
+    --group-4: #7ee787;
+    --error: #f85149;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+  }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  input[type="text"], textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-family: 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  #regex-input {
+    font-size: 1.1rem;
+  }
+
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  .flags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .flag-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
+
+  .flag-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .flag-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+
+  .preset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+  }
+
+  .preset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  #output {
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+    min-height: 100px;
+  }
+
+  .match {
+    background: var(--match-bg);
+    color: var(--match);
+    border-radius: 2px;
+    padding: 1px 2px;
+  }
+
+  .group-1 { color: var(--group-1); }
+  .group-2 { color: var(--group-2); }
+  .group-3 { color: var(--group-3); }
+  .group-4 { color: var(--group-4); }
+
+  .error-msg {
+    color: var(--error);
+    font-size: 0.9rem;
+    padding: 0.75rem;
+    background: #f8514922;
+    border-radius: 6px;
+    border: 1px solid var(--error);
+  }
+
+  .groups-list {
+    margin-top: 1rem;
+  }
+
+  .group-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+  }
+
+  .group-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat {
+    font-size: 0.85rem;
+  }
+
+  .stat-value {
+    color: var(--accent);
+    font-weight: bold;
+  }
+
+  .empty-state {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Regex Playground</h1>
+    <p class="subtitle">Test regular expressions in real-time with live highlighting</p>
+
+    <div class="section">
+      <label>Pattern</label>
+      <input type="text" id="regex-input" placeholder="Enter regex pattern..." value="\b(\w+)\b">
+      <div class="flags">
+        <button class="flag-btn active" data-flag="g">g</button>
+        <button class="flag-btn" data-flag="i">i</button>
+        <button class="flag-btn" data-flag="m">m</button>
+        <button class="flag-btn" data-flag="s">s</button>
+      </div>
+      <div class="presets">
+        <button class="preset-btn" data-re="(\w+@\w+\.\w+)">Email</button>
+        <button class="preset-btn" data-re="(\d{3,4}[-.\s]?\d{3,4}[-.\s]?\d{3,4})">Phone</button>
+        <button class="preset-btn" data-re="(https?://[^\s]+)">URL</button>
+        <button class="preset-btn" data-re="(#\w+)">Hashtag</button>
+        <button class="preset-btn" data-re="(\d{4}-\d{2}-\d{2})">Date</button>
+        <button class="preset-btn" data-re="(\b\w{1,3}\b)">Short words</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Test String</label>
+      <textarea id="test-input" placeholder="Enter text to test against...">Contact us at hello@example.com or support@company.org for help.
+
+Call us at 555-123-4567 or (800) 555-0199.
+
+Visit https://example.com/page?id=123 for more info.
+
+#regex #testing #coding</textarea>
+    </div>
+
+    <div class="section">
+      <label>Matches</label>
+      <div id="output"><span class="empty-state">Start typing a pattern to see matches</span></div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="section" id="groups-section" style="display:none;">
+      <label>Capture Groups</label>
+      <div class="groups-list" id="groups"></div>
+    </div>
+  </div>
+
+  <script>
+    const regexInput = document.getElementById('regex-input');
+    const testInput = document.getElementById('test-input');
+    const output = document.getElementById('output');
+    const stats = document.getElementById('stats');
+    const groupsSection = document.getElementById('groups-section');
+    const groups = document.getElementById('groups');
+    const flagBtns = document.querySelectorAll('.flag-btn');
+    const presetBtns = document.querySelectorAll('.preset-btn');
+
+    let flags = 'g';
+
+    function getFlags() {
+      return flags;
+    }
+
+    flagBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const flag = btn.dataset.flag;
+        if (flags.includes(flag)) {
+          flags = flags.replace(flag, '');
+          btn.classList.remove('active');
+        } else {
+          flags += flag;
+          btn.classList.add('active');
+        }
+        runRegex();
+      });
+    });
+
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        regexInput.value = btn.dataset.re;
+        runRegex();
+      });
+    });
+
+    regexInput.addEventListener('input', runRegex);
+    testInput.addEventListener('input', runRegex);
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function runRegex() {
+      const pattern = regexInput.value;
+      const testStr = testInput.value;
+
+      if (!pattern) {
+        output.innerHTML = '<span class="empty-state">Start typing a pattern to see matches</span>';
+        stats.innerHTML = '';
+        groupsSection.style.display = 'none';
+        return;
+      }
+
+      try {
+        const regex = new RegExp(pattern, getFlags());
+        
+        if (!testStr) {
+          output.innerHTML = '<span class="empty-state">Enter some text to test</span>';
+          stats.innerHTML = '';
+          groupsSection.style.display = 'none';
+          return;
+        }
+
+        let matches = [];
+        let match;
+        
+        if (flags.includes('g')) {
+          while ((match = regex.exec(testStr)) !== null) {
+            matches.push(match);
+            if (match.index === regex.lastIndex) {
+              regex.lastIndex++;
+            }
+          }
+        } else {
+          match = regex.exec(testStr);
+          if (match) matches.push(match);
+        }
+
+        if (matches.length === 0) {
+          output.innerHTML = '<span class="empty-state">No matches found</span>';
+          stats.innerHTML = '<div class="stat"><span class="stat-value">0</span> matches</div>';
+          groupsSection.style.display = 'none';
+          return;
+        }
+
+        // Build highlighted output
+        let highlighted = '';
+        let lastIndex = 0;
+        
+        matches.forEach((m, i) => {
+          highlighted += escapeHtml(testStr.slice(lastIndex, m.index));
+          highlighted += `<span class="match">${escapeHtml(m[0])}</span>`;
+          lastIndex = m.index + m[0].length;
+        });
+        highlighted += escapeHtml(testStr.slice(lastIndex));
+        
+        output.innerHTML = highlighted;
+
+        // Stats
+        stats.innerHTML = `
+          <div class="stat"><span class="stat-value">${matches.length}</span> match${matches.length !== 1 ? 'es' : ''}</div>
+          <div class="stat">First: <span class="stat-value">"${escapeHtml(matches[0][0])}"</span></div>
+        `;
+
+        // Groups
+        if (matches[0].length > 1) {
+          groupsSection.style.display = 'block';
+          let groupsHtml = '';
+          
+          matches.forEach((m, mi) => {
+            if (m.length > 1) {
+              groupsHtml += `<div class="group-item"><div class="group-label">Match ${mi + 1}</div>`;
+              for (let gi = 1; gi < m.length; gi++) {
+                const colorClass = `group-${((gi - 1) % 4) + 1}`;
+                groupsHtml += `<div class="${colorClass}">Group ${gi}: "${escapeHtml(m[gi] || '')}"</div>`;
+              }
+              groupsHtml += '</div>';
+            }
+          });
+          groups.innerHTML = groupsHtml || '<div class="empty-state">No capture groups</div>';
+        } else {
+          groupsSection.style.display = 'none';
+        }
+
+      } catch (e) {
+        output.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+        stats.innerHTML = '';
+        groupsSection.style.display = 'none';
+      }
+    }
+
+    // Initial run
+    runRegex();
+  </script>
+</body>
+</html>
