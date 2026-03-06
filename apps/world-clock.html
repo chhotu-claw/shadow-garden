@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Clock — Shadow's Garden</title>
+<meta name="description" content="A clean world clock showing multiple time zones at once. Add, remove, and customize.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { font-family: var(--font-mono); }
+  .clock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .clock-card { background: var(--bg-secondary); border-radius: 8px; padding: 1.25rem; position: relative; }
+  .clock-card .city { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .clock-card .time { font-size: 2rem; font-weight: 600; font-family: var(--font-mono); }
+  .clock-card .date { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem; }
+  .clock-card .remove { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem; opacity: 0.5; }
+  .clock-card .remove:hover { opacity: 1; color: var(--accent); }
+  .add-zone { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .add-zone select, .add-zone button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text); font-size: 0.9rem; }
+  .add-zone button { background: var(--accent); color: var(--bg); border: none; cursor: pointer; font-weight: 600; }
+  .add-zone button:hover { opacity: 0.9; }
+  .current-tz { background: var(--accent); color: var(--bg); }
+  .controls { margin-bottom: 1rem; display: flex; gap: 0.5rem; }
+  .controls button { padding: 0.4rem 0.75rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-muted); cursor: pointer; font-size: 0.8rem; }
+  .controls button:hover { color: var(--text); }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 1.5rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>World Clock</h1>
+  <p class="subtitle">Track time across the world. Add up to 8 zones.</p>
+  
+  <div class="controls">
+    <button onclick="saveToFile()">💾 Save</button>
+    <button onclick="document.getElementById('fileInput').click()">📂 Load</button>
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadFromFile(event)">
+  </div>
+
+  <div class="add-zone">
+    <select id="zoneSelect">
+      <option value="">Add a city...</option>
+      <option value="Pacific/Honolulu">Honolulu (HST)</option>
+      <option value="America/Los_Angeles">Los Angeles (PST)</option>
+      <option value="America/Denver">Denver (MST)</option>
+      <option value="America/Chicago">Chicago (CST)</option>
+      <option value="America/New_York">New York (EST)</option>
+      <option value="America/Sao_Paulo">São Paulo (BRT)</option>
+      <option value="Europe/London">London (GMT/BST)</option>
+      <option value="Europe/Paris">Paris (CET)</option>
+      <option value="Europe/Berlin">Berlin (CET)</option>
+      <option value="Europe/Moscow">Moscow (MSK)</option>
+      <option value="Asia/Dubai">Dubai (GST)</option>
+      <option value="Asia/Kolkata">Mumbai/Delhi (IST)</option>
+      <option value="Asia/Bangkok">Bangkok (ICT)</option>
+      <option value="Asia/Singapore">Singapore (SGT)</option>
+      <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+      <option value="Asia/Tokyo">Tokyo (JST)</option>
+      <option value="Australia/Sydney">Sydney (AEDT)</option>
+      <option value="Pacific/Auckland">Auckland (NZDT)</option>
+    </select>
+    <button onclick="addZone()">Add</button>
+  </div>
+
+  <div class="clock-grid" id="clockGrid"></div>
+
+  <script>
+    const STORAGE_KEY = 'world-clock-zones';
+    let zones = [];
+    
+    // Default zones
+    const defaults = [
+      { zone: 'America/New_York', city: 'New York' },
+      { zone: 'Europe/London', city: 'London' },
+      { zone: 'Asia/Tokyo', city: 'Tokyo' },
+      { zone: 'Asia/Dubai', city: 'Dubai' }
+    ];
+
+    function load() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        zones = JSON.parse(saved);
+      } else {
+        zones = [...defaults];
+      }
+      render();
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(zones));
+      render();
+    }
+
+    function render() {
+      const grid = document.getElementById('clockGrid');
+      grid.innerHTML = '';
+      
+      const now = new Date();
+      
+      zones.forEach((z, i) => {
+        const date = new Date(now.toLocaleString('en-US', { timeZone: z.zone }));
+        const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        
+        const isLocal = z.zone === Intl.DateTimeFormat().resolvedOptions().timeZone;
+        
+        const card = document.createElement('div');
+        card.className = 'clock-card' + (isLocal ? ' current-tz' : '');
+        card.innerHTML = `
+          <button class="remove" onclick="removeZone(${i})" title="Remove">×</button>
+          <div class="city">${z.city}</div>
+          <div class="time">${time}</div>
+          <div class="date">${dateStr}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function addZone() {
+      const select = document.getElementById('zoneSelect');
+      const value = select.value;
+      if (!value) return;
+      
+      const option = select.options[select.selectedIndex];
+      const city = option.text.split(' (')[0];
+      
+      if (zones.length >= 8) {
+        alert('Maximum 8 zones. Remove one first.');
+        return;
+      }
+      
+      if (zones.find(z => z.zone === value)) {
+        alert('Zone already added');
+        return;
+      }
+      
+      zones.push({ zone: value, city: city });
+      select.value = '';
+      save();
+    }
+
+    function removeZone(index) {
+      zones.splice(index, 1);
+      save();
+    }
+
+    function saveToFile() {
+      const data = JSON.stringify(zones, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'world-clock.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const loaded = JSON.parse(e.target.result);
+          if (Array.isArray(loaded) && loaded.length > 0) {
+            zones = loaded;
+            save();
+          }
+        } catch(err) {
+          alert('Invalid file');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // Update every second
+    setInterval(render, 1000);
+    load();
+  </script>
+</body>
+</html>
