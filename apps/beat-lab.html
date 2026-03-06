@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+title>Beat Lab — Shadow's Garden</title>
+<meta name="description" content="Create beats and loops in your browser. Synthesized drums, step sequencer, export to WAV.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg-dark: #0a0a0f;
+    --bg-panel: #12121a;
+    --accent: #ff3366;
+    --accent-dim: #ff336633;
+    --beat-active: #00ff88;
+    --beat-play: #ffdd00;
+    --text: #e0e0e0;
+    --text-dim: #666;
+  }
+  body { background: var(--bg-dark); color: var(--text); font-family: 'JetBrains Mono', monospace; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+  h1 { color: var(--accent); text-align: center; margin-bottom: 10px; }
+  .subtitle { text-align: center; color: var(--text-dim); margin-bottom: 30px; }
+  
+  .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+  button {
+    background: var(--bg-panel); border: 1px solid var(--text-dim); color: var(--text);
+    padding: 12px 24px; font-size: 14px; cursor: pointer; border-radius: 4px;
+    font-family: inherit; transition: all 0.2s;
+  }
+  button:hover { border-color: var(--accent); background: var(--accent-dim); }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.playing { background: var(--beat-play); color: #000; border-color: var(--beat-play); }
+  
+  .transport { display: flex; align-items: center; gap: 15px; justify-content: center; margin-bottom: 20px; }
+  .bpm-control { display: flex; align-items: center; gap: 10px; }
+  .bpm-control input { width: 60px; background: var(--bg-panel); border: 1px solid var(--text-dim); color: var(--text); padding: 8px; text-align: center; font-size: 16px; border-radius: 4px; }
+  
+  .sequencer { background: var(--bg-panel); border-radius: 8px; padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+  .track { display: flex; align-items: center; margin-bottom: 8px; }
+  .track-label { width: 80px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; }
+  .steps { display: flex; gap: 4px; }
+  .step {
+    width: 32px; height: 32px; background: #1a1a24; border: 1px solid #2a2a34;
+    border-radius: 3px; cursor: pointer; transition: all 0.1s;
+  }
+  .step:hover { border-color: var(--accent); }
+  background: var(-- .step.active {accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-dim); }
+  .step.playing { border-color: var(--beat-play); box-shadow: 0 0 8px var(--beat-play); }
+  .step.beat { background: #1a1a24; }
+  .step.active.playing { background: var(--beat-play); }
+  
+  .volume-sliders { display: flex; gap: 20px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .volume-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+  .volume-item input { width: 80px; accent-color: var(--accent); }
+  
+  .pattern-select { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+  .pattern-btn { padding: 8px 16px; font-size: 12px; }
+  
+  .export-btn { background: linear-gradient(135deg, var(--accent), #ff6699); border: none; color: white; }
+  .export-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--accent-dim); }
+
+  @media (max-width: 600px) {
+    .step { width: 24px; height: 24px; }
+    .track-label { width: 50px; font-size: 10px; }
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🥁 Beat Lab</h1>
+  <div class="subtitle">Create beats • Loop infinitely • Export to WAV</div>
+  
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stopBtn">■ Stop</button>
+    <button id="clearBtn">Clear All</button>
+    <button id="randomBtn">🎲 Random</button>
+    <button id="exportBtn" class="export-btn">⬇ Export WAV</button>
+  </div>
+  
+  <div class="transport">
+    <div class="bpm-control">
+      <label>BPM:</label>
+      <input type="number" id="bpmInput" value="120" min="40" max="200">
+    </div>
+    <div class="pattern-select">
+      <button class="pattern-btn" data-pattern="kick">Kick</button>
+      <button class="pattern-btn" data-pattern="snare">Snare</button>
+      <button class="pattern-btn" data-pattern="hihat">Hi-Hat</button>
+      <button class="pattern-btn" data-pattern="808">808</button>
+      <button class="pattern-btn" data-pattern="house">House</button>
+      <button class="pattern-btn" data-pattern="break">Break</button>
+    </div>
+  </div>
+  
+  <div class="sequencer" id="sequencer"></div>
+  
+  <div class="volume-sliders" id="volumes"></div>
+</div>
+
+<script>
+const TRACKS = [
+  { name: 'Kick', color: '#ff3366' },
+  { name: 'Snare', color: '#00ff88' },
+  { name: 'Hi-Hat', color: '#ffdd00' },
+  { name: 'Clap', color: '#00aaff' },
+  { name: 'Tom', color: '#ff6600' },
+  { name: 'Perc', color: '#aa66ff' }
+];
+
+const STEPS = 16;
+let bpm = 120;
+let isPlaying = false;
+let currentStep = 0;
+let interval = null;
+let audioCtx = null;
+let pattern = Array(TRACKS.length).fill(null).map(() => Array(STEPS).fill(false));
+let volumes = [0.8, 0.7, 0.5, 0.6, 0.6, 0.5];
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function createKick(ctx, time, vol) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+  gain.gain.setValueAtTime(vol, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+  osc.start(time);
+  osc.stop(time + 0.5);
+}
+
+function createSnare(ctx, time, vol) {
+  const noise = ctx.createBufferSource();
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+  noise.buffer = noiseBuffer;
+  const noiseGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 1000;
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  noiseGain.gain.setValueAtTime(vol * 0.5, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+  noise.start(time);
+  
+  const osc = ctx.createOscillator();
+  const oscGain = ctx.createGain();
+  osc.connect(oscGain);
+  oscGain.connect(ctx.destination);
+  osc.frequency.setValueAtTime(200, time);
+  oscGain.gain.setValueAtTime(vol * 0.5, time);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+  osc.start(time);
+  osc.stop(time + 0.1);
+}
+
+function createHihat(ctx, time, vol) {
+  const noise = ctx.createBufferSource();
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+  noise.buffer = noiseBuffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 7000;
+  const gain = ctx.createGain();
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(vol * 0.3, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  noise.start(time);
+}
+
+function createClap(ctx, time, vol) {
+  const noise = ctx.createBufferSource();
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+  noise.buffer = noiseBuffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1500;
+  const gain = ctx.createGain();
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(vol * 0.4, time + 0.01);
+  gain.gain.linearRampToValueAtTime(0, time + 0.02);
+  gain.gain.linearRampToValueAtTime(vol * 0.4, time + 0.03);
+  gain.gain.linearRampToValueAtTime(0, time + 0.04);
+  gain.gain.linearRampToValueAtTime(vol * 0.3, time + 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+  noise.start(time);
+}
+
+function createTom(ctx, time, vol) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(80, time + 0.2);
+  gain.gain.setValueAtTime(vol, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+  osc.start(time);
+  osc.stop(time + 0.3);
+}
+
+function createPerc(ctx, time, vol) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.setValueAtTime(800 + Math.random() * 400, time);
+  gain.gain.setValueAtTime(vol * 0.3, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+  osc.start(time);
+  osc.stop(time + 0.1);
+}
+
+const sounds = [createKick, createSnare, createHihat, createClap, createTom, createPerc];
+
+function playSound(trackIdx, time) {
+  initAudio();
+  sounds[trackIdx](audioCtx, time, volumes[trackIdx]);
+}
+
+function buildUI() {
+  const seq = document.getElementById('sequencer');
+  seq.innerHTML = '';
+  
+  TRACKS.forEach((track, ti) => {
+    const trackEl = document.createElement('div');
+    trackEl.className = 'track';
+    
+    const label = document.createElement('div');
+    label.className = 'track-label';
+    label.textContent = track.name;
+    label.style.color = track.color;
+    trackEl.appendChild(label);
+    
+    const steps = document.createElement('div');
+    steps.className = 'steps';
+    
+    for (let s = 0; s < STEPS; s++) {
+      const step = document.createElement('div');
+      step.className = 'step beat';
+      if (s % 4 === 0) step.classList.add('beat');
+      step.dataset.track = ti;
+      step.dataset.step = s;
+      step.onclick = () => toggleStep(ti, s, step);
+      steps.appendChild(step);
+    }
+    
+    trackEl.appendChild(steps);
+    seq.appendChild(trackEl);
+  });
+  
+  const vols = document.getElementById('volumes');
+  vols.innerHTML = '';
+  TRACKS.forEach((track, i) => {
+    const item = document.createElement('div');
+    item.className = 'volume-item';
+    item.innerHTML = `<span>${track.name}</span><input type="range" min="0" max="1" step="0.1" value="${volumes[i]}" onchange="setVolume(${i}, this.value)">`;
+    vols.appendChild(item);
+  });
+}
+
+function toggleStep(track, step, el) {
+  pattern[track][step] = !pattern[track][step];
+  el.classList.toggle('active');
+}
+
+function setVolume(track, val) {
+  volumes[track] = parseFloat(val);
+}
+
+function updatePlayhead() {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('playing'));
+  document.querySelectorAll(`.step[data-step="${currentStep}"]`).forEach(s => s.classList.add('playing'));
+}
+
+function tick() {
+  const now = audioCtx ? audioCtx.currentTime : 0;
+  
+  for (let t = 0; t < TRACKS.length; t++) {
+    if (pattern[t][currentStep]) {
+      playSound(t, now);
+    }
+  }
+  
+  updatePlayhead();
+  currentStep = (currentStep + 1) % STEPS;
+}
+
+function start() {
+  initAudio();
+  if (isPlaying) return;
+  isPlaying = true;
+  document.getElementById('playBtn').classList.add('playing');
+  currentStep = 0;
+  const intervalMs = (60 / bpm / 4) * 1000;
+  tick();
+  interval = setInterval(tick, intervalMs);
+}
+
+function stop() {
+  isPlaying = false;
+  document.getElementById('playBtn').classList.remove('playing');
+  if (interval) clearInterval(interval);
+  currentStep = 0;
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('playing'));
+}
+
+function clearAll() {
+  pattern = Array(TRACKS.length).fill(null).map(() => Array(STEPS).fill(false));
+  buildUI();
+}
+
+function randomize() {
+  pattern = Array(TRACKS.length).fill(null).map(() => 
+    Array(STEPS).fill(null).map(() => Math.random() > 0.7)
+  );
+  buildUI();
+}
+
+function setBPM(val) {
+  bpm = parseInt(val);
+  if (isPlaying) {
+    stop();
+    start();
+  }
+}
+
+const patterns = {
+  kick: [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  snare: [[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+  hihat: [[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+  808: [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], [0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,1], [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  house: [[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  break: [[1,0,0,1,0,1,0,0,1,0,1,0,0,1,0,0], [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0], [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]]
+};
+
+function loadPattern(name) {
+  const p = patterns[name];
+  if (!p) return;
+  pattern = p.map(row => row.slice(0, STEPS));
+  buildUI();
+}
+
+async function exportWAV() {
+  initAudio();
+  const offlineCtx = new OfflineAudioContext(2, 44100 * 4, 44100);
+  const duration = 4;
+  const stepDur = 60 / bpm / 4;
+  
+  for (let s = 0; s < STEPS; s++) {
+    const time = s * stepDur;
+    for (let t = 0; t < TRACKS.length; t++) {
+      if (pattern[t][s]) {
+        const osc = offlineCtx.createOscillator();
+        const gain = offlineCtx.createGain();
+        osc.connect(gain);
+        gain.connect(offlineCtx.destination);
+        
+        if (t === 0) {
+          osc.frequency.setValueAtTime(150, time);
+          osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+          gain.gain.setValueAtTime(volumes[t], time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+        } else if (t === 1) {
+          const noise = offlineCtx.createBufferSource();
+          const noiseBuffer = offlineCtx.createBuffer(1, offlineCtx.sampleRate * 0.2, offlineCtx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+          noise.buffer = noiseBuffer;
+          const noiseGain = offlineCtx.createGain();
+          noise.connect(noiseGain);
+          noiseGain.connect(offlineCtx.destination);
+          noiseGain.gain.setValueAtTime(volumes[t] * 0.3, time);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+          noise.start(time);
+        } else if (t === 2) {
+          const noise = offlineCtx.createBufferSource();
+          const noiseBuffer = offlineCtx.createBuffer(1, offlineCtx.sampleRate * 0.05, offlineCtx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+          noise.buffer = noiseBuffer;
+          const filter = offlineCtx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.value = 7000;
+          const gain = offlineCtx.createGain();
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(offlineCtx.destination);
+          gain.gain.setValueAtTime(volumes[t] * 0.2, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+          noise.start(time);
+        } else {
+          osc.frequency.setValueAtTime(200 + t * 100, time);
+          gain.gain.setValueAtTime(volumes[t] * 0.3, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+        }
+        osc.start(time);
+        osc.stop(time + 0.5);
+      }
+    }
+  }
+  
+  const rendered = await offlineCtx.startRendering();
+  const wav = audioBufferToWAV(rendered);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'beat-lab.wav';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function audioBufferToWAV(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1;
+  const bitDepth = 16;
+  
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  const data = buffer.getChannelData(0);
+  const dataLength = data.length * bytesPerSample;
+  const bufferLength = 44 + dataLength;
+  
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(arrayBuffer);
+  
+  const writeString = (view, offset, string) => {
+    for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+  };
+  
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataLength, true);
+  
+  let offset = 44;
+  for (let i = 0; i < data.length; i++, offset += 2) {
+    const sample = Math.max(-1, Math.min(1, data[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+  }
+  
+  return arrayBuffer;
+}
+
+document.getElementById('playBtn').onclick = start;
+document.getElementById('stopBtn').onclick = stop;
+document.getElementById('clearBtn').onclick = clearAll;
+document.getElementById('randomBtn').onclick = randomize;
+document.getElementById('bpmInput').onchange = (e) => setBPM(e.target.value);
+document.getElementById('exportBtn').onclick = exportWAV;
+
+document.querySelectorAll('.pattern-btn').forEach(btn => {
+  btn.onclick = () => loadPattern(btn.dataset.pattern);
+});
+
+buildUI();
+</script>
+</body>
+</html>
