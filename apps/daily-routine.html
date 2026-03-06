@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Routine — Shadow's Garden</title>
+<meta name="description" content="A minimal daily routine tracker — track recurring tasks that repeat each day. Simple, local-first, keyboard-driven.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --danger: #f85149;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    font-size: 1rem;
+  }
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button.secondary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: border-color 0.2s;
+  }
+  .task-item:hover {
+    border-color: var(--muted);
+  }
+  .task-item.completed {
+    opacity: 0.5;
+  }
+  .task-item.completed .task-text {
+    text-decoration: line-through;
+  }
+  .checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .checkbox:hover {
+    border-color: var(--accent);
+  }
+  .task-item.completed .checkbox {
+    background: var(--success);
+    border-color: var(--success);
+  }
+  .task-text {
+    flex: 1;
+    font-size: 0.95rem;
+  }
+  .delete-btn {
+    background: transparent;
+    color: var(--danger);
+    padding: 0.25rem 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .task-item:hover .delete-btn {
+    opacity: 1;
+  }
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .stat-value {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .reset-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+  }
+  .reset-btn:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Daily Routine</h1>
+    <p class="subtitle">Track recurring tasks. Resets every day.</p>
+    
+    <div class="input-group">
+      <input type="text" id="newTask" placeholder="Add a task..." autofocus>
+      <button id="addBtn">Add</button>
+    </div>
+    
+    <ul class="task-list" id="taskList"></ul>
+    
+    <div class="stats">
+      <div><span class="stat-value" id="completedCount">0</span> / <span id="totalCount">0</span> done</div>
+      <div><span class="stat-value" id="percent">0%</span> complete</div>
+      <button class="reset-btn" id="resetBtn">Reset All</button>
+    </div>
+    
+    <p class="hint">Press Enter to add. Click checkbox to complete. • Tasks persist in localStorage</p>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'daily-routine-tasks';
+    const COMPLETED_KEY = 'daily-routine-completed';
+    const DATE_KEY = 'daily-routine-date';
+    
+    const newTaskInput = document.getElementById('newTask');
+    const addBtn = document.getElementById('addBtn');
+    const taskList = document.getElementById('taskList');
+    const completedCountEl = document.getElementById('completedCount');
+    const totalCountEl = document.getElementById('totalCount');
+    const percentEl = document.getElementById('percent');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    let tasks = [];
+    let completed = new Set();
+    
+    function getToday() {
+      return new Date().toLocaleDateString('en-CA');
+    }
+    
+    function load() {
+      const today = getToday();
+      const savedDate = localStorage.getItem(DATE_KEY);
+      
+      if (savedDate !== today) {
+        localStorage.setItem(COMPLETED_KEY, JSON.stringify([]));
+        localStorage.setItem(DATE_KEY, today);
+        completed = new Set();
+      } else {
+        const saved = JSON.parse(localStorage.getItem(COMPLETED_KEY) || '[]');
+        completed = new Set(saved);
+      }
+      
+      tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      render();
+    }
+    
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      localStorage.setItem(COMPLETED_KEY, JSON.stringify([...completed]));
+      localStorage.setItem(DATE_KEY, getToday());
+    }
+    
+    function addTask(text) {
+      if (!text.trim()) return;
+      tasks.push({ id: Date.now(), text: text.trim() });
+      save();
+      render();
+      newTaskInput.value = '';
+      newTaskInput.focus();
+    }
+    
+    function toggleTask(id) {
+      if (completed.has(id)) {
+        completed.delete(id);
+      } else {
+        completed.add(id);
+      }
+      save();
+      render();
+    }
+    
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      completed.delete(id);
+      save();
+      render();
+    }
+    
+    function resetAll() {
+      if (confirm('Reset all tasks for today?')) {
+        completed = new Set();
+        save();
+        render();
+      }
+    }
+    
+    function render() {
+      taskList.innerHTML = '';
+      
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'task-item' + (completed.has(task.id) ? ' completed' : '');
+        li.innerHTML = `
+          <div class="checkbox" data-id="${task.id}">${completed.has(task.id) ? '✓' : ''}</div>
+          <span class="task-text">${escapeHtml(task.text)}</span>
+          <button class="delete-btn" data-id="${task.id}">×</button>
+        `;
+        taskList.appendChild(li);
+      });
+      
+      const total = tasks.length;
+      const done = completed.size;
+      completedCountEl.textContent = done;
+      totalCountEl.textContent = total;
+      percentEl.textContent = total > 0 ? Math.round((done / total) * 100) + '%' : '0%';
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    addBtn.addEventListener('click', () => addTask(newTaskInput.value));
+    
+    newTaskInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addTask(newTaskInput.value);
+    });
+    
+    taskList.addEventListener('click', (e) => {
+      const checkbox = e.target.closest('.checkbox');
+      const deleteBtn = e.target.closest('.delete-btn');
+      
+      if (checkbox) {
+        toggleTask(parseInt(checkbox.dataset.id));
+      } else if (deleteBtn) {
+        deleteTask(parseInt(deleteBtn.dataset.id));
+      }
+    });
+    
+    resetBtn.addEventListener('click', resetAll);
+    
+    load();
+  </script>
+</body>
+</html>
