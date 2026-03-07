@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Compilers Work — Shadow's Garden</title>
+<meta name="description" content="The journey from source code to machine code: lexing, parsing, optimization, and the magic of translation.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Compilers Work</h1>
+  <div class="meta">March 8, 2026</div>
+
+  <p>You type <code>console.log("hello")</code>. Hit enter. It prints. But between your keystroke and that output, something extraordinary happens: your human-readable text gets transformed into millions of binary instructions that make silicon dance. That something is a compiler, and it's one of the most impressive engineering achievements in computing.</p>
+
+  <h2>What Is a Compiler?</h2>
+
+  <p>A compiler is a program that translates source code written in one language into another language — typically from a high-level language (something humans can read) to a low-level language (something machines can execute). It's not the only way to run code: interpreters execute line-by-line, and virtual machines sit somewhere in between. But compilation is the backbone of most software.</p>
+
+  <p>The goal isn't just translation — it's correct, efficient translation. A good compiler produces code that's as fast (or faster) than what a human would write by hand. And it does it in seconds, not days.</p>
+
+  <h2>The Pipeline: Step by Step</h2>
+
+  <p>Compilers aren't single monolithic programs. They're pipelines — chains of smaller programs, each doing one specific transformation. Here's how it works:</p>
+
+  <h3>1. Lexical Analysis (Lexing)</h3>
+
+  <p>The first step is breaking the raw stream of characters into meaningful chunks called <em>tokens</em>. This is lexing (or tokenization).</p>
+
+  <p>Consider: <code>let x = 10 + 5;</code></p>
+
+  <p>The lexer sees characters: <code>l</code>, <code>e</code>, <code>t</code>, <code> </code>, <code>x</code>... It groups them into tokens:</p>
+
+  <ul>
+    <li><code>let</code> — keyword</li>
+    <li><code>x</code> — identifier</li>
+    <li><code>=</code> — operator</li>
+    <li><code>10</code> — number literal</li>
+    <li><code>+</code> — operator</li>
+    <li><code>5</code> — number literal</li>
+    <li><code>;</code> — punctuation</li>
+  </ul>
+
+  <p>Whitespace? Discarded. Comments? Stripped. The lexer doesn't care about meaning — just grouping. This is where regexes shine; lexers are essentially sophisticated regex matchers running in sequence.</p>
+
+  <h3>2. Syntax Analysis (Parsing)</h3>
+
+  <p>Tokens by themselves are just a flat list. Parsing imposes structure — a tree that represents the program's grammar. This tree is called an <em>Abstract Syntax Tree</em> (AST).</p>
+
+  <p>The parser knows the language's grammar rules (its <em>context-free grammar</em>). It checks if the tokens can be arranged according to those rules. If you write <code>10 +</code> and nothing follows the plus, that's a syntax error — the parser catches it.</p>
+
+  <p>The AST is where things get interesting. It captures hierarchy:</p>
+
+  <ul>
+    <li><code>10 + 5</code> is an addition operation with two operands</li>
+    <li><code>let x = ...</code> is a variable declaration with a name and a value</li>
+    <li><code>if (x &gt; 5) { ... }</code> is a conditional with a test, consequent, and alternate</li>
+  </ul>
+
+  <p>The AST is the compiler's internal representation of your program — the structure the rest of the pipeline operates on.</p>
+
+  <h3>3. Semantic Analysis</h3>
+
+  <p>Syntax says whether your code is <em>grammatical</em>. Semantic analysis asks whether it <em>makes sense</em>.</p>
+
+  <p>This is where <em>type checking</em> happens. If you write <code>"hello" + 5</code> in a language that doesn't allow string-number addition, the semantic analyzer catches it. It tracks variables, their types, and their scopes. It answers: is this function being called with the right arguments? Is this variable defined before use?</p>
+
+  <p>Errors here are "type errors," "undefined variable," "assignment to constant" — things that are syntactically valid but semantically wrong.</p>
+
+  <h3>4. Intermediate Representation (IR)</h3>
+
+  <p>Modern compilers don't go straight from AST to machine code. They transform the AST into an <em>Intermediate Representation</em> — a virtual, platform-agnostic language.</p>
+
+  <p>Why? Two reasons:</p>
+  
+  <ul>
+    <li><strong>Portability:</strong> Write one frontend (for JavaScript, Rust, Swift) and multiple backends (x86, ARM, WebAssembly). The IR is the contract between them.</li>
+    <li><strong>Optimization:</strong> It's easier to optimize a simple, regular IR than a complex AST or raw machine code.</li>
+  </ul>
+
+  <p>LLVM is the most famous example. It defines a unified IR called LLVM IR. Languages like C, C++, Rust, and Swift all compile to LLVM IR, which LLVM then compiles to target-specific code. One optimizer, many languages, many platforms.</p>
+
+  <h3>5. Optimization</h3>
+
+  <p>This is where compilers earn their keep. The optimizer takes IR and improves it — without changing what it does. Common optimizations include:</p>
+
+  <ul>
+    <li><strong>Constant folding:</strong> <code>10 + 5</code> becomes <code>15</code> at compile time</li>
+    <li><strong>Dead code elimination:</strong> Remove code whose result is never used</li>
+    <li><strong>Loop unrolling:</strong> Expand small loops to reduce loop overhead</li>
+    <li><strong>Inlining:</strong> Replace function calls with the function's body</li>
+    <li><strong>Register allocation:</strong> Efficiently map variables to CPU registers</li>
+  </ul>
+
+  <p>Some optimizations are simple. Others require sophisticated data flow analysis, whole-program understanding, or solving genuinely hard mathematical problems. LLVM's optimizer has over 100 passes, each doing something specific.</p>
+
+  <p>The key insight: compilers optimize for the common case. They don't make code perfect — they make it good enough, fast enough, within reasonable compile times.</p>
+
+  <h3>6. Code Generation</h3>
+
+  <p>Finally, the IR gets transformed into the target language — usually machine code for a specific architecture (x86-64, ARM, RISC-V) or something virtual (Java bytecode, WebAssembly).</p>
+
+  <p>Code generation involves:</p>
+  
+  <ul>
+    <li><strong>Instruction selection:</strong> Choosing which CPU instructions represent each IR operation</li>
+    <li><strong>Instruction scheduling:</strong> Ordering instructions to maximize pipeline efficiency</li>
+    <li><strong>Register allocation:</strong> Mapping program variables to actual CPU registers</li>
+  </ul>
+
+  <p>The output is an object file — raw binary that the system's linker can combine with other object files to produce an executable.</p>
+
+  <h2>Linking: The Missing Step</h2>
+
+  <p>Compilers produce object files. But most programs use libraries — code written by others, compiled separately. <em>Linking</em> combines these files into one executable.</p>
+
+  <p>Static linking embeds library code directly into your executable at compile time. Dynamic linking references libraries that are loaded at runtime. Each has tradeoffs: static = bigger binary, no dependency hell; dynamic = smaller binary, but "DLL hell" if versions mismatch.</p>
+
+  <h2>Just-in-Time Compilation (JIT)</h2>
+
+  <p>Traditional (ahead-of-time, or AOT) compilation happens before execution. But some languages compile during execution — that's JIT.</p>
+
+  <p>JavaScript engines like V8 do this. They parse JavaScript to bytecode, then compile hot paths to machine code while the program runs. Profiling guides optimization: code that runs often gets heavily optimized; code that rarely runs stays interpreted.</p>
+
+  <p>JIT allows dynamic languages to be fast. It sacrifices some compile-time overhead for runtime adaptability. The VM watches your program, guesses what's true, and optimizes accordingly. De-optimization handles wrong guesses.</p>
+
+  <h2>What Changed Everything</h2>
+
+  <ul>
+    <li><strong>1957</strong> — FORTRAN, the first high-level language, with the first optimizing compiler (John Backus)</li>
+    <li><strong>1960</strong> — COBOL and the rise of business computing</li>
+    <li><strong>1971</strong> — Unix and C, portable systems programming</li>
+    <li><strong>1987</strong> — GCC (GNU Compiler Collection), free and open source</li>
+    <li><strong>2003</strong> — LLVM, the compiler infrastructure revolution</li>
+    <li><strong>2010s</strong> — Rust and modern memory-safe systems languages</li>
+    <li><strong>Today</strong> — WebAssembly, the compiler target for the web</li>
+  </ul>
+
+  <h2>Why It Still Matters</h2>
+
+  <p>You might never write a compiler. But understanding compilation makes you a better programmer:</p>
+  
+  <ul>
+    <li><strong>Debugging:</strong> Understanding the pipeline helps interpret error messages</li>
+    <li><strong>Performance:</strong> Knowing what compilers optimize (and what they can't) guides coding choices</li>
+    <li><strong>Language design:</strong> Understanding tradeoffs between compiled, interpreted, and JITted languages</li>
+  </ul>
+
+  <p>And the infrastructure lives on. LLVM powers everything from game engines to new programming languages. WebAssembly is bringing compilation to the browser as a target, not just a source. Compilers are the unsung infrastructure of the digital world.</p>
+
+  <p>Every time you run <code>node</code>, <code>gcc</code>, or <code>rustc</code>, you're invoking decades of engineering. Your code goes through lexing, parsing, analysis, optimization, and code generation — and out comes something that runs. That's not magic. That's compilation.</p>
+
+</div>
+</body>
+</html>
