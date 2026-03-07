@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMI Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate your monthly loan payments. Principal, interest rate, tenure — get instant results.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+  .calculator { background: var(--card-bg, #1a1a2e); border-radius: 16px; padding: 32px; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  h1 { margin: 0 0 24px 0; font-size: 1.5rem; text-align: center; color: var(--text-primary, #eee); }
+  .input-group { margin-bottom: 20px; }
+  label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary, #aaa); }
+  input { width: 100%; padding: 14px 16px; font-size: 1.1rem; border: 2px solid var(--border, #333); border-radius: 10px; background: var(--input-bg, #0f0f1a); color: var(--text-primary, #eee); box-sizing: border-box; transition: border-color 0.2s; }
+  input:focus { outline: none; border-color: var(--accent, #6366f1); }
+  .result { margin-top: 28px; padding: 24px; background: var(--result-bg, #252540); border-radius: 12px; text-align: center; }
+  .result-label { font-size: 0.85rem; color: var(--text-secondary, #aaa); margin-bottom: 4px; }
+  .result-value { font-size: 2rem; font-weight: 700; color: var(--accent, #6366f1); }
+  .result-value.total { color: var(--success, #22c55e); }
+  .breakdown { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border, #333); }
+  .breakdown-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 0.9rem; }
+  .breakdown-label { color: var(--text-secondary, #aaa); }
+  .breakdown-value { color: var(--text-primary, #eee); }
+  .history-btn { margin-top: 20px; width: 100%; padding: 12px; background: transparent; border: 2px solid var(--border, #333); border-radius: 8px; color: var(--text-secondary, #aaa); cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+  .history-btn:hover { border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
+  .history { margin-top: 16px; display: none; }
+  .history.open { display: block; }
+  .history-item { padding: 12px; background: var(--input-bg, #0f0f1a); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+  .history-item:hover { background: var(--border, #333); }
+  .history-item-principal { font-size: 0.8rem; color: var(--text-secondary, #aaa); }
+  .history-item-result { font-weight: 600; color: var(--accent, #6366f1); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="calculator">
+  <h1>💰 EMI Calculator</h1>
+  
+  <div class="input-group">
+    <label>Loan Amount (Principal)</label>
+    <input type="number" id="principal" placeholder="e.g. 100000" min="1">
+  </div>
+  
+  <div class="input-group">
+    <label>Interest Rate (% per year)</label>
+    <input type="number" id="rate" placeholder="e.g. 7.5" step="0.1" min="0">
+  </div>
+  
+  <div class="input-group">
+    <label>Loan Tenure</label>
+    <input type="number" id="tenure" placeholder="Months (e.g. 24)" min="1">
+  </div>
+  
+  <div class="result" id="result" style="display: none;">
+    <div class="result-label">Monthly Payment</div>
+    <div class="result-value" id="emi">₹0</div>
+    <div class="breakdown">
+      <div class="breakdown-row">
+        <span class="breakdown-label">Total Payment</span>
+        <span class="breakdown-value" id="total">₹0</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Total Interest</span>
+        <span class="breakdown-value" id="interest">₹0</span>
+      </div>
+    </div>
+  </div>
+  
+  <button class="history-btn" id="historyBtn">📋 View History</button>
+  <div class="history" id="history"></div>
+</div>
+
+<script>
+const principalEl = document.getElementById('principal');
+const rateEl = document.getElementById('rate');
+const tenureEl = document.getElementById('tenure');
+const resultEl = document.getElementById('result');
+const emiEl = document.getElementById('emi');
+const totalEl = document.getElementById('total');
+const interestEl = document.getElementById('interest');
+const historyBtn = document.getElementById('historyBtn');
+const historyEl = document.getElementById('history');
+
+function formatCurrency(num) {
+  return '₹' + Math.round(num).toLocaleString('en-IN');
+}
+
+function calculateEMI() {
+  const principal = parseFloat(principalEl.value);
+  const rate = parseFloat(rateEl.value);
+  const tenure = parseInt(tenureEl.value);
+  
+  if (!principal || !rate || !tenure) {
+    resultEl.style.display = 'none';
+    return;
+  }
+  
+  const monthlyRate = rate / 12 / 100;
+  const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, tenure) / (Math.pow(1 + monthlyRate, tenure) - 1);
+  const totalPayment = emi * tenure;
+  const totalInterest = totalPayment - principal;
+  
+  emiEl.textContent = formatCurrency(emi);
+  totalEl.textContent = formatCurrency(totalPayment);
+  interestEl.textContent = formatCurrency(totalInterest);
+  
+  resultEl.style.display = 'block';
+  
+  saveToHistory(principal, rate, tenure, emi);
+}
+
+function saveToHistory(principal, rate, tenure, emi) {
+  const history = JSON.parse(localStorage.getItem('emiHistory') || '[]');
+  const entry = { principal, rate, tenure, emi, date: Date.now() };
+  
+  // Don't add duplicate if last entry is same
+  const last = history[0];
+  if (last && last.principal === principal && last.rate === rate && last.tenure === tenure) {
+    return;
+  }
+  
+  history.unshift(entry);
+  if (history.length > 10) history.pop();
+  localStorage.setItem('emiHistory', JSON.stringify(history));
+}
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('emiHistory') || '[]');
+  if (history.length === 0) {
+    historyEl.innerHTML = '<p style="color: var(--text-secondary, #aaa); text-align: center;">No calculations yet</p>';
+    return;
+  }
+  
+  historyEl.innerHTML = history.map((h, i) => `
+    <div class="history-item" onclick="loadFromHistory(${i})">
+      <div class="history-item-principal">${formatCurrency(h.principal)} at ${h.rate}% for ${h.tenure} months</div>
+      <div class="history-item-result">${formatCurrency(h.emi)}/month</div>
+    </div>
+  `).join('');
+}
+
+function loadFromHistory(index) {
+  const history = JSON.parse(localStorage.getItem('emiHistory') || '[]');
+  const h = history[index];
+  if (h) {
+    principalEl.value = h.principal;
+    rateEl.value = h.rate;
+    tenureEl.value = h.tenure;
+    calculateEMI();
+  }
+}
+
+let historyOpen = false;
+historyBtn.addEventListener('click', () => {
+  historyOpen = !historyOpen;
+  historyEl.classList.toggle('open', historyOpen);
+  historyBtn.textContent = historyOpen ? '📋 Hide History' : '📋 View History';
+  if (historyOpen) loadHistory();
+});
+
+principalEl.addEventListener('input', calculateEMI);
+rateEl.addEventListener('input', calculateEMI);
+tenureEl.addEventListener('input', calculateEMI);
+</script>
+</body>
+</html>
