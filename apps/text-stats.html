@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Stats — Shadow's Garden</title>
+<meta name="description" content="Analyze text — word count, reading time, sentence analysis. Simple and local.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; max-width: 900px; margin: 0 auto; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--bg-secondary, #f5f5f5); padding: 16px; border-radius: 8px; text-align: center; }
+  .stat-value { font-size: 2em; font-weight: bold; color: var(--accent, #2563eb); }
+  .stat-label { font-size: 0.85em; color: var(--text-secondary, #666); margin-top: 4px; }
+  textarea { width: 100%; height: 300px; padding: 16px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: inherit; }
+  textarea:focus { outline: 2px solid var(--accent, #2563eb); border-color: transparent; }
+  .secondary-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  .secondary-stat { background: var(--bg-secondary, #f5f5f5); padding: 8px 12px; border-radius: 6px; font-size: 0.9em; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Text Stats</h1>
+  <p style="color: var(--text-secondary, #666); margin-bottom: 24px;">Paste or type text below to analyze. All processing happens locally in your browser.</p>
+  
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="wordCount">0</div>
+      <div class="stat-label">Words</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="charCount">0</div>
+      <div class="stat-label">Characters</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="charCountNoSpace">0</div>
+      <div class="stat-label">Chars (no spaces)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="sentenceCount">0</div>
+      <div class="stat-label">Sentences</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="paragraphCount">0</div>
+      <div class="stat-label">Paragraphs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="lineCount">0</div>
+      <div class="stat-label">Lines</div>
+    </div>
+  </div>
+  
+  <div class="secondary-stats">
+    <div class="secondary-stat">📖 Reading time: <strong id="readingTime">0 min</strong></div>
+    <div class="secondary-stat">🎤 Speaking time: <strong id="speakingTime">0 min</strong></div>
+    <div class="secondary-stat">📏 Avg word length: <strong id="avgWordLength">0</strong> chars</div>
+    <div class="secondary-stat">📝 Avg sentence length: <strong id="avgSentenceLength">0</strong> words</div>
+  </div>
+  
+  <textarea id="textInput" placeholder="Paste or type your text here..."></textarea>
+  
+  <script>
+    const textInput = document.getElementById('textInput');
+    
+    function analyzeText(text) {
+      if (!text.trim()) {
+        return { words: 0, chars: 0, charsNoSpace: 0, sentences: 0, paragraphs: 0, lines: 0 };
+      }
+      
+      // Word count - split by whitespace, filter empty
+      const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+      const wordCount = words.length;
+      
+      // Character counts
+      const charCount = text.length;
+      const charCountNoSpace = text.replace(/\s/g, '').length;
+      
+      // Sentence count - split by . ! ?
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      const sentenceCount = Math.max(1, sentences.length);
+      
+      // Paragraphs - split by double newline
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+      const paragraphCount = Math.max(1, paragraphs.length);
+      
+      // Lines
+      const lines = text.split('\n').filter(l => l.length > 0);
+      const lineCount = lines.length;
+      
+      return {
+        words: wordCount,
+        chars: charCount,
+        charsNoSpace: charCountNoSpace,
+        sentences: sentenceCount,
+        paragraphs: paragraphCount,
+        lines: lineCount
+      };
+    }
+    
+    function updateStats() {
+      const text = textInput.value;
+      const stats = analyzeText(text);
+      
+      document.getElementById('wordCount').textContent = stats.words.toLocaleString();
+      document.getElementById('charCount').textContent = stats.chars.toLocaleString();
+      document.getElementById('charCountNoSpace').textContent = stats.charsNoSpace.toLocaleString();
+      document.getElementById('sentenceCount').textContent = stats.sentences.toLocaleString();
+      document.getElementById('paragraphCount').textContent = stats.paragraphs.toLocaleString();
+      document.getElementById('lineCount').textContent = stats.lines.toLocaleString();
+      
+      // Reading time: avg 200-250 words per minute
+      const readingTime = stats.words / 225;
+      document.getElementById('readingTime').textContent = readingTime < 1 
+        ? `${Math.round(readingTime * 60)} sec` 
+        : `${readingTime.toFixed(1)} min`;
+      
+      // Speaking time: avg 150 words per minute
+      const speakingTime = stats.words / 150;
+      document.getElementById('speakingTime').textContent = speakingTime < 1 
+        ? `${Math.round(speakingTime * 60)} sec` 
+        : `${speakingTime.toFixed(1)} min`;
+      
+      // Average word length
+      const avgWordLength = stats.words > 0 ? (stats.charsNoSpace / stats.words).toFixed(1) : 0;
+      document.getElementById('avgWordLength').textContent = avgWordLength;
+      
+      // Average sentence length
+      const avgSentenceLength = stats.sentences > 0 ? (stats.words / stats.sentences).toFixed(1) : 0;
+      document.getElementById('avgSentenceLength').textContent = avgSentenceLength;
+    }
+    
+    // Load saved text from localStorage
+    const saved = localStorage.getItem('textStatsContent');
+    if (saved) {
+      textInput.value = saved;
+      updateStats();
+    }
+    
+    // Auto-save and update on input
+    textInput.addEventListener('input', () => {
+      updateStats();
+      localStorage.setItem('textStatsContent', textInput.value);
+    });
+    
+    // Keyboard shortcut: Ctrl+Shift+C to clear
+    textInput.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        textInput.value = '';
+        localStorage.removeItem('textStatsContent');
+        updateStats();
+      }
+    });
+  </script>
+</body>
+</html>
