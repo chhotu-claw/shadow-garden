@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator with History — Shadow's Garden</title>
+<meta name="description" content="A calculator that saves your history to localStorage — never lose a calculation again">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --danger: #f85149;
+    --success: #3fb950;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .calculator {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    text-align: right;
+  }
+
+  .expression {
+    color: var(--text-dim);
+    font-size: 14px;
+    min-height: 20px;
+    word-break: break-all;
+  }
+
+  .result {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 4px;
+    word-break: break-all;
+  }
+
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 500;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  button:hover {
+    background: var(--border);
+  }
+
+  button:active {
+    transform: scale(0.95);
+  }
+
+  button.operator {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  button.operator:hover {
+    background: var(--accent-hover);
+  }
+
+  button.clear {
+    color: var(--danger);
+  }
+
+  button.clear:hover {
+    background: rgba(248, 81, 73, 0.15);
+  }
+
+  .history-section {
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .history-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .clear-history {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .clear-history:hover {
+    background: rgba(248, 81, 73, 0.15);
+  }
+
+  .history-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .history-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .history-item:hover {
+    border-color: var(--accent);
+  }
+
+  .history-calc {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .history-result {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .history-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .shortcuts {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  .shortcuts kbd {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="calculator">
+    <div class="display">
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="buttons">
+      <button class="clear" onclick="clearAll()">AC</button>
+      <button class="clear" onclick="clearEntry()">CE</button>
+      <button onclick="append('%')">%</button>
+      <button class="operator" onclick="append('/')">÷</button>
+      
+      <button onclick="append('7')">7</button>
+      <button onclick="append('8')">8</button>
+      <button onclick="append('9')">9</button>
+      <button class="operator" onclick="append('*')">×</button>
+      
+      <button onclick="append('4')">4</button>
+      <button onclick="append('5')">5</button>
+      <button onclick="append('6')">6</button>
+      <button class="operator" onclick="append('-')">−</button>
+      
+      <button onclick="append('1')">1</button>
+      <button onclick="append('2')">2</button>
+      <button onclick="append('3')">3</button>
+      <button class="operator" onclick="append('+')">+</button>
+      
+      <button onclick="append('0')" style="grid-column: span 2">0</button>
+      <button onclick="append('.')">.</button>
+      <button class="operator" onclick="calculate()">=</button>
+    </div>
+
+    <div class="shortcuts">
+      <kbd>Enter</kbd> = Calculate · <kbd>Esc</kbd> = Clear · <kbd>↑↓</kbd> = History
+    </div>
+
+    <div class="history-section">
+      <div class="history-header">
+        <h3>History</h3>
+        <button class="clear-history" onclick="clearHistory()">Clear</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    let expression = '';
+    let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+
+    function updateDisplay() {
+      document.getElementById('expression').textContent = expression || ' ';
+      document.getElementById('result').textContent = expression === '' ? '0' : evalExpression(expression);
+    }
+
+    function evalExpression(expr) {
+      if (!expr) return '0';
+      try {
+        // Sanitize: only allow numbers, operators, decimal
+        const sanitized = expr.replace(/[^0-9+\-*/.%]/g, '');
+        if (!sanitized) return '0';
+        const result = Function('"use strict"; return (' + sanitized + ')')();
+        return typeof result === 'number' ? (Number.isFinite(result) ? result : 'Error') : 'Error';
+      } catch {
+        return expression || '0';
+      }
+    }
+
+    function append(val) {
+      expression += val;
+      updateDisplay();
+    }
+
+    function clearEntry() {
+      expression = expression.slice(0, -1);
+      updateDisplay();
+    }
+
+    function clearAll() {
+      expression = '';
+      updateDisplay();
+    }
+
+    function calculate() {
+      const result = evalExpression(expression);
+      if (result !== 'Error' && expression) {
+        const calc = expression + ' = ' + result;
+        history.unshift({ calc, expression, result: String(result), time: Date.now() });
+        if (history.length > 50) history.pop();
+        localStorage.setItem('calcHistory', JSON.stringify(history));
+        expression = String(result);
+        updateHistory();
+      }
+      updateDisplay();
+    }
+
+    function useHistoryItem(index) {
+      expression = history[index].expression;
+      updateDisplay();
+    }
+
+    function clearHistory() {
+      history = [];
+      localStorage.setItem('calcHistory', JSON.stringify(history));
+      updateHistory();
+    }
+
+    function updateHistory() {
+      const list = document.getElementById('historyList');
+      if (history.length === 0) {
+        list.innerHTML = '<div class="history-empty">No calculations yet</div>';
+        return;
+      }
+      list.innerHTML = history.map((item, i) => `
+        <div class="history-item" onclick="useHistoryItem(${i})">
+          <span class="history-calc">${item.calc}</span>
+        </div>
+      `).join('');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        calculate();
+      } else if (e.key === 'Escape') {
+        clearAll();
+      } else if (e.key === 'Backspace') {
+        clearEntry();
+      } else if (e.key >= '0' && e.key <= '9') {
+        append(e.key);
+      } else if (e.key === '.') {
+        append('.');
+      } else if (e.key === '+') {
+        append('+');
+      } else if (e.key === '-') {
+        append('-');
+      } else if (e.key === '*') {
+        append('*');
+      } else if (e.key === '/') {
+        e.preventDefault();
+        append('/');
+      } else if (e.key === '%') {
+        append('%');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        // Could implement history navigation
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+      }
+    });
+
+    updateDisplay();
+    updateHistory();
+  </script>
+</body>
+</html>
