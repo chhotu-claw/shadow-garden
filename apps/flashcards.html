@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards — Shadow's Garden</title>
+<meta name="description" content="A simple flashcard app with spaced repetition — create cards, study, track progress.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --accent: #6366f1;
+    --bg: #0f0f0f;
+    --card-bg: #1a1a1a;
+    --text: #e5e5e5;
+    --text-dim: #888;
+  }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+    box-sizing: border-box;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--accent);
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+  }
+  .card-front, .card-back {
+    font-size: 1.25rem;
+    word-break: break-word;
+  }
+  .card-back {
+    display: none;
+    color: var(--accent);
+    margin-top: 1rem;
+  }
+  .card.flipped .card-front {
+    display: none;
+  }
+  .card.flipped .card-back {
+    display: block;
+  }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  button {
+    background: var(--card-bg);
+    border: 1px solid #333;
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: background 0.1s;
+  }
+  button:hover {
+    background: #252525;
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    background: #5558e3;
+  }
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  input {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid #333;
+    color: var(--text);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .deck-list {
+    margin-top: 2rem;
+  }
+  .deck-item {
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .deck-name {
+    font-weight: bold;
+  }
+  .deck-count {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+  }
+  .study-mode, .edit-mode {
+    display: none;
+  }
+  .study-mode.active, .edit-mode.active {
+    display: block;
+  }
+  .stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .hint {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 2rem;
+  }
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  .btn-group button {
+    min-width: 80px;
+  }
+  .btn-hard { border-color: #ef4444; color: #ef4444; }
+  .btn-hard:hover { background: rgba(239, 68, 68, 0.1); }
+  .btn-good { border-color: #22c55e; color: #22c55e; }
+  .btn-good:hover { background: rgba(34, 197, 94, 0.1); }
+  .btn-easy { border-color: #3b82f6; color: #3b82f6; }
+  .btn-easy:hover { background: rgba(59, 130, 246, 0.1); }
+  .progress-bar {
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🃏 Flashcards</h1>
+  
+  <div class="stats" id="stats">
+    <span>Deck: <strong id="deckName">Default</strong></span>
+    <span>Cards: <strong id="cardCount">0</strong></span>
+    <span>Due: <strong id="dueCount">0</strong></span>
+  </div>
+
+  <div class="controls">
+    <button onclick="showEditMode()" class="primary">Edit Deck</button>
+    <button onclick="startStudy()" id="studyBtn" disabled>Start Study</button>
+    <button onclick="addNewDeck()">New Deck</button>
+    <button onclick="exportDeck()">Export</button>
+    <button onclick="importDeck()">Import</button>
+  </div>
+
+  <div class="study-mode" id="studyMode">
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="card" id="flashcard" onclick="flipCard()">
+      <div class="card-front" id="cardFront">Click to add cards</div>
+      <div class="card-back" id="cardBack"></div>
+    </div>
+    <div class="hint">Click card to flip • Rate your recall below</div>
+    <div class="btn-group" id="ratingBtns" style="display:none">
+      <button class="btn-hard" onclick="rateCard(1)">Hard</button>
+      <button class="btn-good" onclick="rateCard(2)">Good</button>
+      <button class="btn-easy" onclick="rateCard(3)">Easy</button>
+    </div>
+    <div class="btn-group">
+      <button onclick="prevCard()">← Prev</button>
+      <button onclick="nextCard()">Next →</button>
+    </div>
+  </div>
+
+  <div class="edit-mode" id="editMode">
+    <div class="input-group">
+      <input type="text" id="frontInput" placeholder="Front (question)">
+      <input type="text" id="backInput" placeholder="Back (answer)">
+      <button onclick="addCard()" class="primary">Add</button>
+    </div>
+    <div id="cardList"></div>
+  </div>
+
+  <input type="file" id="importFile" style="display:none" accept=".json" onchange="handleImport(event)">
+</div>
+
+<script>
+let decks = {};
+let currentDeck = 'Default';
+let studyQueue = [];
+let currentIndex = 0;
+let isFlipped = false;
+
+function load() {
+  const saved = localStorage.getItem('flashcards');
+  if (saved) {
+    decks = JSON.parse(saved);
+  } else {
+    decks = { 'Default': [] };
+  }
+  if (Object.keys(decks).length === 0) {
+    decks = { 'Default': [] };
+  }
+  if (!decks[currentDeck]) {
+    decks[currentDeck] = [];
+  }
+  save();
+  renderCardList();
+  updateStats();
+}
+
+function save() {
+  localStorage.setItem('flashcards', JSON.stringify(decks));
+}
+
+function updateStats() {
+  document.getElementById('deckName').textContent = currentDeck;
+  const deck = decks[currentDeck] || [];
+  document.getElementById('cardCount').textContent = deck.length;
+  const due = deck.filter(c => !c.nextReview || c.nextReview <= Date.now()).length;
+  document.getElementById('dueCount').textContent = due;
+  document.getElementById('studyBtn').disabled = deck.length === 0;
+}
+
+function renderCardList() {
+  const list = document.getElementById('cardList');
+  const deck = decks[currentDeck] || [];
+  if (deck.length === 0) {
+    list.innerHTML = '<div class="empty-state">No cards yet. Add some above!</div>';
+    return;
+  }
+  list.innerHTML = deck.map((c, i) => `
+    <div class="deck-item">
+      <div>
+        <div class="deck-name">${escapeHtml(c.front)}</div>
+        <div class="deck-count">${escapeHtml(c.back)}</div>
+      </div>
+      <button onclick="deleteCard(${i})" style="background:#333;color:#ef4444;border-color:#ef4444">×</button>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function addCard() {
+  const front = document.getElementById('frontInput').value.trim();
+  const back = document.getElementById('backInput').value.trim();
+  if (!front || !back) return;
+  
+  if (!decks[currentDeck]) {
+    decks[currentDeck] = [];
+  }
+  decks[currentDeck].push({
+    front,
+    back,
+    nextReview: Date.now(),
+    interval: 1
+  });
+  
+  document.getElementById('frontInput').value = '';
+  document.getElementById('backInput').value = '';
+  save();
+  renderCardList();
+  updateStats();
+}
+
+function deleteCard(index) {
+  decks[currentDeck].splice(index, 1);
+  save();
+  renderCardList();
+  updateStats();
+}
+
+function showEditMode() {
+  document.getElementById('editMode').classList.add('active');
+  document.getElementById('studyMode').classList.remove('active');
+  renderCardList();
+}
+
+function startStudy() {
+  const deck = decks[currentDeck] || [];
+  if (deck.length === 0) return;
+  
+  studyQueue = deck.map((c, i) => ({...c, originalIndex: i}))
+    .filter(c => !c.nextReview || c.nextReview <= Date.now());
+  
+  if (studyQueue.length === 0) {
+    studyQueue = deck.map((c, i) => ({...c, originalIndex: i}));
+  }
+  
+  currentIndex = 0;
+  isFlipped = false;
+  
+  document.getElementById('studyMode').classList.add('active');
+  document.getElementById('editMode').classList.remove('active');
+  document.getElementById('ratingBtns').style.display = 'none';
+  
+  showCurrentCard();
+}
+
+function showCurrentCard() {
+  if (studyQueue.length === 0) {
+    document.getElementById('cardFront').textContent = 'No cards to study!';
+    document.getElementById('cardBack').textContent = '';
+    return;
+  }
+  
+  const card = studyQueue[currentIndex];
+  document.getElementById('cardFront').textContent = card.front;
+  document.getElementById('cardBack').textContent = card.back;
+  document.getElementById('flashcard').classList.remove('flipped');
+  isFlipped = false;
+  
+  const progress = ((currentIndex) / studyQueue.length) * 100;
+  document.getElementById('progress').style.width = progress + '%';
+}
+
+function flipCard() {
+  const card = document.getElementById('flashcard');
+  card.classList.toggle('flipped');
+  isFlipped = !isFlipped;
+  
+  if (isFlipped) {
+    document.getElementById('ratingBtns').style.display = 'flex';
+  }
+}
+
+function rateCard(rating) {
+  const card = studyQueue[currentIndex];
+  const deck = decks[currentDeck];
+  const originalCard = deck[card.originalIndex];
+  
+  const multiplier = rating === 1 ? 1.5 : rating === 2 ? 2.5 : 4;
+  originalCard.interval = (originalCard.interval || 1) * multiplier;
+  originalCard.nextReview = Date.now() + originalCard.interval * 24 * 60 * 60 * 1000;
+  
+  save();
+  
+  nextCard();
+}
+
+function nextCard() {
+  if (currentIndex < studyQueue.length - 1) {
+    currentIndex++;
+    isFlipped = false;
+    document.getElementById('ratingBtns').style.display = 'none';
+    showCurrentCard();
+  } else {
+    document.getElementById('cardFront').textContent = '🎉 Done!';
+    document.getElementById('cardBack').textContent = '';
+    document.getElementById('ratingBtns').style.display = 'none';
+    updateStats();
+  }
+}
+
+function prevCard() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    isFlipped = false;
+    document.getElementById('ratingBtns').style.display = 'none';
+    showCurrentCard();
+  }
+}
+
+function addNewDeck() {
+  const name = prompt('Deck name:');
+  if (name && !decks[name]) {
+    decks[name] = [];
+    currentDeck = name;
+    save();
+    renderCardList();
+    updateStats();
+  }
+}
+
+function exportDeck() {
+  const data = JSON.stringify(decks, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'flashcards.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importDeck() {
+  document.getElementById('importFile').click();
+}
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      decks = {...decks, ...imported};
+      save();
+      renderCardList();
+      updateStats();
+      alert('Imported!');
+    } catch (err) {
+      alert('Invalid file');
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('studyMode').classList.contains('active')) {
+    if (e.code === 'Space') { flipCard(); e.preventDefault(); }
+    if (e.code === 'ArrowRight') nextCard();
+    if (e.code === 'ArrowLeft') prevCard();
+    if (e.key === '1') rateCard(1);
+    if (e.key === '2') rateCard(2);
+    if (e.key === '3') rateCard(3);
+  }
+});
+
+load();
+</script>
+</body>
+</html>
