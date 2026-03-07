@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Hash Verifier — Shadow's Garden</title>
+<meta name="description" content="Drop a file to calculate its MD5, SHA-1, SHA-256, SHA-384, or SHA-512 hash. Verify downloads locally in your browser.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+  }
+  .drop-zone {
+    border: 2px dashed #666;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 1.5rem;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: #00d4aa;
+    background: rgba(0,212,170,0.05);
+  }
+  .drop-zone p {
+    margin: 0;
+    color: #888;
+  }
+  .drop-zone .icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+  }
+  #file-info {
+    display: none;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  #file-info.visible {
+    display: block;
+  }
+  #file-name {
+    font-weight: 600;
+    color: #00d4aa;
+  }
+  #file-size {
+    color: #888;
+    font-size: 0.9rem;
+  }
+  .hash-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    background: rgba(255,255,255,0.02);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+  }
+  .hash-label {
+    min-width: 80px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #888;
+  }
+  .hash-value {
+    flex: 1;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+    color: #ddd;
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover {
+    border-color: #00d4aa;
+    color: #00d4aa;
+  }
+  .copy-btn.copied {
+    border-color: #00d4aa;
+    color: #00d4aa;
+    background: rgba(0,212,170,0.1);
+  }
+  #compare-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #333;
+  }
+  #compare-section h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: #888;
+  }
+  #compare-input {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #ddd;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+  }
+  #compare-input:focus {
+    outline: none;
+    border-color: #00d4aa;
+  }
+  #compare-result {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .match { color: #00d4aa; }
+  .no-match { color: #ff6b6b; }
+  .progress-bar {
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar.visible {
+    display: block;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #00d4aa;
+    width: 0%;
+    transition: width 0.1s;
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>File Hash Verifier</h1>
+    <p style="color: #666; margin-bottom: 1.5rem;">Drop a file to calculate its hash. Verify downloads locally.</p>
+    
+    <div class="drop-zone" id="drop-zone">
+      <div class="icon">📁</div>
+      <p>Drop a file here or click to browse</p>
+      <input type="file" id="file-input" style="display: none;">
+    </div>
+
+    <div class="progress-bar" id="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div id="file-info">
+      <div id="file-name"></div>
+      <div id="file-size"></div>
+    </div>
+
+    <div id="hash-results" class="hidden">
+      <div class="hash-row">
+        <span class="hash-label">MD5</span>
+        <span class="hash-value" id="hash-md5"></span>
+        <button class="copy-btn" data-target="hash-md5">Copy</button>
+      </div>
+      <div class="hash-row">
+        <span class="hash-label">SHA-1</span>
+        <span class="hash-value" id="hash-sha1"></span>
+        <button class="copy-btn" data-target="hash-sha1">Copy</button>
+      </div>
+      <div class="hash-row">
+        <span class="hash-label">SHA-256</span>
+        <span class="hash-value" id="hash-sha256"></span>
+        <button class="copy-btn" data-target="hash-sha256">Copy</button>
+      </div>
+      <div class="hash-row">
+        <span class="hash-label">SHA-384</span>
+        <span class="hash-value" id="hash-sha384"></span>
+        <button class="copy-btn" data-target="hash-sha384">Copy</button>
+      </div>
+      <div class="hash-row">
+        <span class="hash-label">SHA-512</span>
+        <span class="hash-value" id="hash-sha512"></span>
+        <button class="copy-btn" data-target="hash-sha512">Copy</button>
+      </div>
+
+      <div id="compare-section">
+        <h3>Compare with expected hash</h3>
+        <input type="text" id="compare-input" placeholder="Paste an expected hash to compare...">
+        <div id="compare-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    const hashResults = document.getElementById('hash-results');
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    const compareInput = document.getElementById('compare-input');
+    const compareResult = document.getElementById('compare-result');
+
+    let calculatedHashes = {};
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    async function calculateHash(buffer, algo) {
+      const hashBuffer = await crypto.subtle.digest(algo, buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function processFile(file) {
+      fileName.textContent = file.name;
+      fileSize.textContent = formatSize(file.size);
+      fileInfo.classList.add('visible');
+      hashResults.classList.add('hidden');
+      progressBar.classList.add('visible');
+      progressFill.style.width = '0%';
+
+      const buffer = await file.arrayBuffer();
+      const algorithms = [
+        { name: 'MD5', algo: 'MD5' },
+        { name: 'SHA-1', algo: 'SHA-1' },
+        { name: 'SHA-256', algo: 'SHA-256' },
+        { name: 'SHA-384', algo: 'SHA-384' },
+        { name: 'SHA-512', algo: 'SHA-512' }
+      ];
+
+      calculatedHashes = {};
+
+      for (let i = 0; i < algorithms.length; i++) {
+        progressFill.style.width = ((i + 1) / algorithms.length * 100) + '%';
+        
+        const hash = await calculateHash(buffer, algorithms[i].algo);
+        calculatedHashes[algorithms[i].name] = hash;
+        document.getElementById('hash-' + algorithms[i].name.toLowerCase()).textContent = hash;
+        
+        // Small delay to let UI update
+        await new Promise(r => setTimeout(r, 10));
+      }
+
+      progressBar.classList.remove('visible');
+      hashResults.classList.remove('hidden');
+      compareResult.innerHTML = '';
+      compareInput.value = '';
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) processFile(file);
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const target = document.getElementById(btn.dataset.target);
+        await navigator.clipboard.writeText(target.textContent);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    });
+
+    // Compare functionality
+    compareInput.addEventListener('input', () => {
+      const expected = compareInput.value.trim().toLowerCase();
+      if (!expected) {
+        compareResult.innerHTML = '';
+        return;
+      }
+
+      const hashes = Object.values(calculatedHashes).map(h => h.toLowerCase());
+      const matches = hashes.includes(expected);
+
+      if (matches) {
+        const matchedAlgo = Object.keys(calculatedHashes).find(
+          k => calculatedHashes[k].toLowerCase() === expected
+        );
+        compareResult.innerHTML = `<span class="match">✓ Match found (${matchedAlgo})</span>`;
+      } else {
+        compareResult.innerHTML = `<span class="no-match">✗ No match</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
