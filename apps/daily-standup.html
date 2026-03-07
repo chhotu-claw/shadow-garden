@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Standup — Shadow's Garden</title>
+<meta name="description" content="Simple standup notes: what you did yesterday, what you're doing today, blockers.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { font-family: var(--font-mono); }
+  .standup-container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  .section { margin-bottom: 2rem; }
+  .section h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.75rem; }
+  textarea { 
+    width: 100%; min-height: 100px; padding: 1rem; 
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: inherit; font-size: 1rem;
+    resize: vertical; transition: border-color 0.2s;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .history { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+  .history-item { margin-bottom: 1.5rem; }
+  .history-date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .history-content { font-size: 0.9rem; line-height: 1.6; }
+  .history-content p { margin: 0.25rem 0; }
+  .history-content strong { color: var(--text-muted); }
+  .actions { display: flex; gap: 1rem; margin-top: 1rem; }
+  button {
+    padding: 0.5rem 1rem; background: var(--accent); color: var(--bg);
+    border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: 600;
+    transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
+  .clear-btn { color: var(--error); background: transparent; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="standup-container">
+    <h1>Daily Standup</h1>
+    
+    <div class="section">
+      <h2>Yesterday</h2>
+      <textarea id="yesterday" placeholder="What did you accomplish yesterday?"></textarea>
+    </div>
+    
+    <div class="section">
+      <h2>Today</h2>
+      <textarea id="today" placeholder="What will you work on today?"></textarea>
+    </div>
+    
+    <div class="section">
+      <h2>Blockers</h2>
+      <textarea id="blockers" placeholder="Any blockers? (leave empty if none)"></textarea>
+    </div>
+    
+    <div class="actions">
+      <button onclick="saveStandup()">Save Standup</button>
+      <button class="secondary" onclick="clearForm()">Clear</button>
+    </div>
+    
+    <div class="history">
+      <h2>History</h2>
+      <div id="history"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'shadow-standup-history';
+    
+    function loadForm() {
+      const today = new Date().toISOString().split('T')[0];
+      const drafts = JSON.parse(localStorage.getItem('shadow-standup-draft') || '{}');
+      if (drafts.date === today) {
+        document.getElementById('yesterday').value = drafts.yesterday || '';
+        document.getElementById('today').value = drafts.today || '';
+        document.getElementById('blockers').value = drafts.blockers || '';
+      }
+    }
+    
+    function saveDraft() {
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem('shadow-standup-draft', JSON.stringify({
+        date: today,
+        yesterday: document.getElementById('yesterday').value,
+        today: document.getElementById('today').value,
+        blockers: document.getElementById('blockers').value
+      }));
+    }
+    
+    function saveStandup() {
+      const yesterday = document.getElementById('yesterday').value.trim();
+      const today = document.getElementById('today').value.trim();
+      const blockers = document.getElementById('blockers').value.trim();
+      
+      if (!yesterday && !today && !blockers) return;
+      
+      const entry = {
+        date: new Date().toISOString(),
+        yesterday, today, blockers
+      };
+      
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      history.unshift(entry);
+      // Keep last 30
+      if (history.length > 30) history.pop();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      
+      renderHistory();
+      clearForm();
+      localStorage.removeItem('shadow-standup-draft');
+    }
+    
+    function clearForm() {
+      document.getElementById('yesterday').value = '';
+      document.getElementById('today').value = '';
+      document.getElementById('blockers').value = '';
+      localStorage.removeItem('shadow-standup-draft');
+    }
+    
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const container = document.getElementById('history');
+      
+      if (history.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted)">No standups saved yet.</p>';
+        return;
+      }
+      
+      container.innerHTML = history.map(entry => {
+        const d = new Date(entry.date);
+        const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        return `
+          <div class="history-item">
+            <div class="history-date">${dateStr}</div>
+            <div class="history-content">
+              ${entry.yesterday ? `<p><strong>Yesterday:</strong> ${escapeHtml(entry.yesterday)}</p>` : ''}
+              ${entry.today ? `<p><strong>Today:</strong> ${escapeHtml(entry.today)}</p>` : ''}
+              ${entry.blockers ? `<p><strong>Blockers:</strong> ${escapeHtml(entry.blockers)}</p>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    // Auto-save drafts
+    ['yesterday', 'today', 'blockers'].forEach(id => {
+      document.getElementById(id).addEventListener('input', saveDraft);
+    });
+    
+    loadForm();
+    renderHistory();
+  </script>
+</body>
+</html>
