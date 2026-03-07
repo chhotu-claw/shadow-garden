@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Timer — Shadow's Garden</title>
+<meta name="description" content="A simple timer for everything: cooking, breaks, quick tasks. Set minutes, hit start, get notified.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .timer-display {
+    font-size: clamp(3rem, 15vw, 8rem);
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    margin: 2rem 0;
+    letter-spacing: -0.05em;
+  }
+  .timer-display.running { color: var(--accent); }
+  .timer-display.done { 
+    color: #ef4444;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .controls {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+  input[type="number"] {
+    font-size: 1.5rem;
+    padding: 0.75rem 1rem;
+    width: 100px;
+    text-align: center;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    font-family: inherit;
+  }
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:hover { transform: scale(1.02); }
+  button:active { transform: scale(0.98); }
+  .btn-start { background: var(--accent); color: var(--bg); }
+  .btn-stop { background: #ef4444; color: white; }
+  .btn-reset { background: var(--border); color: var(--text); }
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  .presets span { color: var(--text-dim); font-size: 0.875rem; margin-right: 0.5rem; }
+  .preset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sound-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-dim);
+    font-size: 0.875rem;
+  }
+  .sound-toggle button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  .sound-toggle button.active { background: var(--accent); color: var(--bg); }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="sound-toggle">
+    <button id="soundBtn" class="active">🔔 Sound On</button>
+  </div>
+  
+  <div class="timer-display" id="display">00:00</div>
+  
+  <div class="controls">
+    <input type="number" id="minutes" min="0" max="999" value="5" placeholder="min">
+    <button class="btn-start" id="startBtn">Start</button>
+    <button class="btn-stop" id="stopBtn" style="display:none;">Stop</button>
+    <button class="btn-reset" id="resetBtn">Reset</button>
+  </div>
+  
+  <div class="presets">
+    <span>Quick:</span>
+    <button class="preset-btn" data-min="1">1m</button>
+    <button class="preset-btn" data-min="3">3m</button>
+    <button class="preset-btn" data-min="5">5m</button>
+    <button class="preset-btn" data-min="10">10m</button>
+    <button class="preset-btn" data-min="15">15m</button>
+    <button class="preset-btn" data-min="25">25m</button>
+    <button class="preset-btn" data-min="30">30m</button>
+  </div>
+
+  <script>
+    const display = document.getElementById('display');
+    const minutesInput = document.getElementById('minutes');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    
+    let timer = null;
+    let remaining = 0;
+    let soundEnabled = localStorage.getItem('timerSound') !== 'false';
+    
+    // Audio context for beep
+    let audioCtx = null;
+    
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    
+    function playBeep() {
+      if (!soundEnabled) return;
+      initAudio();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    }
+    
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    
+    function updateDisplay() {
+      display.textContent = formatTime(remaining);
+    }
+    
+    function tick() {
+      if (remaining <= 0) {
+        clearInterval(timer);
+        timer = null;
+        display.classList.add('done');
+        display.classList.remove('running');
+        stopBtn.style.display = 'none';
+        startBtn.style.display = 'inline-block';
+        
+        // Play beep 3 times
+        playBeep();
+        setTimeout(playBeep, 600);
+        setTimeout(playBeep, 1200);
+        
+        // Try notification
+        if (Notification.permission === 'granted') {
+          new Notification('Timer Done!', { body: 'Your timer has finished.' });
+        }
+        return;
+      }
+      
+      remaining--;
+      updateDisplay();
+      document.title = `${formatTime(remaining)} — Timer`;
+    }
+    
+    function start() {
+      initAudio();
+      const mins = parseInt(minutesInput.value) || 0;
+      if (mins <= 0 && remaining <= 0) return;
+      
+      if (remaining <= 0) {
+        remaining = mins * 60;
+      }
+      
+      updateDisplay();
+      display.classList.add('running');
+      display.classList.remove('done');
+      
+      timer = setInterval(tick, 1000);
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+      minutesInput.disabled = true;
+    }
+    
+    function stop() {
+      clearInterval(timer);
+      timer = null;
+      display.classList.remove('running');
+      stopBtn.style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      startBtn.textContent = 'Resume';
+      minutesInput.disabled = false;
+      document.title = 'Quick Timer — Shadow\'s Garden';
+    }
+    
+    function reset() {
+      stop();
+      remaining = 0;
+      updateDisplay();
+      display.classList.remove('done');
+      minutesInput.disabled = false;
+      startBtn.textContent = 'Start';
+      document.title = 'Quick Timer — Shadow\'s Garden';
+    }
+    
+    // Event listeners
+    startBtn.addEventListener('click', start);
+    stopBtn.addEventListener('click', stop);
+    resetBtn.addEventListener('click', reset);
+    
+    // Preset buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        minutesInput.value = btn.dataset.min;
+      });
+    });
+    
+    // Sound toggle
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem('timerSound', soundEnabled);
+      soundBtn.textContent = soundEnabled ? '🔔 Sound On' : '🔕 Sound Off';
+      soundBtn.classList.toggle('active', soundEnabled);
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (timer) stop();
+        else start();
+      }
+      if (e.code === 'KeyR') {
+        reset();
+      }
+    });
+    
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    
+    // Load sound preference
+    if (!soundEnabled) {
+      soundBtn.textContent = '🔕 Sound Off';
+      soundBtn.classList.remove('active');
+    }
+    
+    // Update sound button on load
+    soundBtn.textContent = soundEnabled ? '🔔 Sound On' : '🔕 Sound Off';
+    soundBtn.classList.toggle('active', soundEnabled);
+  </script>
+</body>
+</html>
