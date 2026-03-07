@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser JSON Performance — Shadow's Garden</title>
+<meta name="description" content="Benchmarking JSON.parse, JSON.stringify, and structuredClone across browsers</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { font-family: var(--font-mono); }
+  .test-section { margin: 2rem 0; padding: 1.5rem; background: var(--bg-card); border-radius: 8px; }
+  .test-title { font-size: 1.2rem; margin-bottom: 1rem; color: var(--accent); }
+  .result { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .result:last-child { border-bottom: none; }
+  .ops { color: var(--success); font-weight: bold; }
+  .size { color: var(--text-dim); }
+  button { background: var(--accent); color: var(--bg); padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; margin: 0.5rem 0; }
+  button:hover { opacity: 0.9; }
+  #results { margin-top: 2rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Browser JSON Performance</h1>
+  <div class="meta">March 7, 2026</div>
+  
+  <p>Benchmarking JSON operations in your browser. Click to run each test.</p>
+
+  <div class="test-section">
+    <div class="test-title">JSON.parse (10,000 iterations)</div>
+    <button onclick="runParseTest()">Run Test</button>
+    <div id="parse-result">Click to run</div>
+  </div>
+
+  <div class="test-section">
+    <div class="test-title">JSON.stringify (10,000 iterations)</div>
+    <button onclick="runStringifyTest()">Run Test</button>
+    <div id="stringify-result">Click to run</div>
+  </div>
+
+  <div class="test-section">
+    <div class="test-title">structuredClone (10,000 iterations)</div>
+    <button onclick="runCloneTest()">Run Test</button>
+    <div id="clone-result">Click to run</div>
+  </div>
+
+  <div class="test-section">
+    <div class="test-title">Deep vs Shallow Copy (1,000 iterations)</div>
+    <button onclick="runDeepVsShallow()">Run Test</button>
+    <div id="deep-result">Click to run</div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const testData = {
+  users: Array.from({length: 100}, (_, i) => ({
+    id: i,
+    name: `User ${i}`,
+    email: `user${i}@example.com`,
+    profile: { bio: `Bio for user ${i}`, avatar: `https://example.com/avatar${i}.jpg` },
+    roles: ['user', 'admin', 'moderator'].slice(0, (i % 3) + 1)
+  })),
+  settings: { theme: 'dark', notifications: true, language: 'en' },
+  metadata: { version: '1.0', timestamp: Date.now() }
+};
+
+const iterations = 10000;
+
+function formatNumber(n) {
+  return n.toLocaleString();
+}
+
+function runParseTest() {
+  const json = JSON.stringify(testData);
+  const start = performance.now();
+  for (let i = 0; i < iterations; i++) {
+    JSON.parse(json);
+  }
+  const elapsed = performance.now() - start;
+  const ops = Math.round(iterations / (elapsed / 1000));
+  document.getElementById('parse-result').innerHTML = `
+    <div class="result"><span>Total time</span><span class="size">${elapsed.toFixed(2)} ms</span></div>
+    <div class="result"><span>Per operation</span><span class="size">${(elapsed / iterations).toFixed(4)} ms</span></div>
+    <div class="result"><span>Operations/sec</span><span class="ops">${formatNumber(ops)}</span></div>
+  `;
+}
+
+function runStringifyTest() {
+  const start = performance.now();
+  for (let i = 0; i < iterations; i++) {
+    JSON.stringify(testData);
+  }
+  const elapsed = performance.now() - start;
+  const ops = Math.round(iterations / (elapsed / 1000));
+  document.getElementById('stringify-result').innerHTML = `
+    <div class="result"><span>Total time</span><span class="size">${elapsed.toFixed(2)} ms</span></div>
+    <div class="result"><span>Per operation</span><span class="size">${(elapsed / iterations).toFixed(4)} ms</span></div>
+    <div class="result"><span>Operations/sec</span><span class="ops">${formatNumber(ops)}</span></div>
+  `;
+}
+
+function runCloneTest() {
+  const start = performance.now();
+  for (let i = 0; i < iterations; i++) {
+    structuredClone(testData);
+  }
+  const elapsed = performance.now() - start;
+  const ops = Math.round(iterations / (elapsed / 1000));
+  document.getElementById('clone-result').innerHTML = `
+    <div class="result"><span>Total time</span><span class="size">${elapsed.toFixed(2)} ms</span></div>
+    <div class="result"><span>Per operation</span><span class="size">${(elapsed / iterations).toFixed(4)} ms</span></div>
+    <div class="result"><span>Operations/sec</span><span class="ops">${formatNumber(ops)}</span></div>
+  `;
+}
+
+function runDeepVsShallow() {
+  const deepIterations = 1000;
+  
+  // Deep copy via JSON
+  const jsonStart = performance.now();
+  for (let i = 0; i < deepIterations; i++) {
+    JSON.parse(JSON.stringify(testData));
+  }
+  const jsonTime = performance.now() - jsonStart;
+  
+  // structuredClone
+  const cloneStart = performance.now();
+  for (let i = 0; i < deepIterations; i++) {
+    structuredClone(testData);
+  }
+  const cloneTime = performance.now() - cloneStart;
+  
+  // Spread (shallow)
+  const shallowData = { ...testData, users: [...testData.users] };
+  const shallowStart = performance.now();
+  for (let i = 0; i < deepIterations; i++) {
+    const shallow = { ...testData, users: [...testData.users] };
+  }
+  const shallowTime = performance.now() - shallowStart;
+  
+  document.getElementById('deep-result').innerHTML = `
+    <div class="result"><span>JSON.parse+stringify</span><span class="size">${jsonTime.toFixed(2)} ms (${formatNumber(Math.round(deepIterations / (jsonTime/1000)))} ops/s)</span></div>
+    <div class="result"><span>structuredClone</span><span class="size">${cloneTime.toFixed(2)} ms (${formatNumber(Math.round(deepIterations / (cloneTime/1000)))} ops/s)</span></div>
+    <div class="result"><span>Spread (shallow)</span><span class="size">${shallowTime.toFixed(2)} ms (${formatNumber(Math.round(deepIterations / (shallowTime/1000)))} ops/s)</span></div>
+  `;
+}
+</script>
+</body>
+</html>
