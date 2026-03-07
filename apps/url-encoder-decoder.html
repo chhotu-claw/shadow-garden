@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Encoder/Decoder — Shadow's Garden</title>
+<meta name="description" content="Encode and decode URLs instantly. Handles special characters, unicode, and query params.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.95rem;
+    background: var(--bg-secondary);
+    color: var(--text);
+    resize: vertical;
+  }
+  textarea { min-height: 120px; }
+  .buttons { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    background: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button:hover { background: var(--bg-tertiary); }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.primary:hover { opacity: 0.9; }
+  .history { margin-top: 2rem; }
+  .history-item {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+  .history-item code { font-size: 0.85rem; word-break: break-all; flex: 1; }
+  .history-actions { display: flex; gap: 0.5rem; }
+  .history-actions button { padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+  h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+  .stats { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>URL Encoder/Decoder</h1>
+    <p class="meta">Encode special characters, decode URLs, handle query parameters</p>
+    
+    <div class="input-group">
+      <label>Input</label>
+      <textarea id="input" placeholder="Paste URL or text here..."></textarea>
+    </div>
+    
+    <div class="buttons">
+      <button class="primary" onclick="encode()">Encode</button>
+      <button class="primary" onclick="decode()">Decode</button>
+      <button onclick="encodeComponent()">Encode Component</button>
+      <button onclick="decodeComponent()">Decode Component</button>
+      <button onclick="clearAll()">Clear</button>
+      <button onclick="copyOutput()">Copy Result</button>
+    </div>
+    
+    <div class="input-group">
+      <label>Output</label>
+      <textarea id="output" placeholder="Result will appear here..."></textarea>
+    </div>
+    
+    <div class="stats" id="stats"></div>
+    
+    <div class="history">
+      <h2>History</h2>
+      <div id="history"></div>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const historyEl = document.getElementById('history');
+    const stats = document.getElementById('stats');
+    
+    let history = JSON.parse(localStorage.getItem('url-tool-history') || '[]');
+    
+    function encode() {
+      try {
+        output.value = encodeURI(input.value);
+        addToHistory('encode', input.value, output.value);
+      } catch (e) {
+        output.value = 'Error: ' + e.message;
+      }
+    }
+    
+    function decode() {
+      try {
+        output.value = decodeURI(input.value);
+        addToHistory('decode', input.value, output.value);
+      } catch (e) {
+        output.value = 'Error: ' + e.message;
+      }
+    }
+    
+    function encodeComponent() {
+      try {
+        output.value = encodeURIComponent(input.value);
+        addToHistory('encodeComponent', input.value, output.value);
+      } catch (e) {
+        output.value = 'Error: ' + e.message;
+      }
+    }
+    
+    function decodeComponent() {
+      try {
+        output.value = decodeURIComponent(input.value);
+        addToHistory('decodeComponent', input.value, output.value);
+      } catch (e) {
+        output.value = 'Error: ' + e.message;
+      }
+    }
+    
+    function clearAll() {
+      input.value = '';
+      output.value = '';
+      stats.textContent = '';
+    }
+    
+    function copyOutput() {
+      if (output.value) {
+        navigator.clipboard.writeText(output.value);
+        stats.textContent = 'Copied to clipboard!';
+        setTimeout(() => stats.textContent = '', 2000);
+      }
+    }
+    
+    function addToHistory(op, inputVal, outputVal) {
+      if (!inputVal || !outputVal) return;
+      history.unshift({ op, input: inputVal, output: outputVal, time: Date.now() });
+      history = history.slice(0, 20);
+      localStorage.setItem('url-tool-history', JSON.stringify(history));
+      renderHistory();
+      stats.textContent = `${op} complete`;
+      setTimeout(() => stats.textContent = '', 2000);
+    }
+    
+    function renderHistory() {
+      historyEl.innerHTML = history.map((item, i) => `
+        <div class="history-item">
+          <code>${escapeHtml(item.op)}: ${escapeHtml(item.input.substring(0, 50))}${item.input.length > 50 ? '...' : ''}</code>
+          <div class="history-actions">
+            <button onclick="loadHistory(${i})">Load</button>
+            <button onclick="copyHistory(${i})">Copy</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function loadHistory(i) {
+      input.value = history[i].input;
+      output.value = history[i].output;
+    }
+    
+    function copyHistory(i) {
+      navigator.clipboard.writeText(history[i].output);
+      stats.textContent = 'Copied!';
+      setTimeout(() => stats.textContent = '', 2000);
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'Enter') {
+          encode();
+        }
+      }
+    });
+    
+    renderHistory();
+  </script>
+</body>
+</html>
