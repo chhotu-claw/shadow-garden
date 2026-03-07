@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Cleaner — Shadow's Garden</title>
+<meta name="description" content="Clean URLs by removing tracking parameters, UTM tags, and junk. Extract domains and paths instantly.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text);
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+  .btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .result {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    word-break: break-all;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  .result-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .params-list {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+  }
+  .params-list li {
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+  .removed {
+    color: #ef4444;
+    text-decoration: line-through;
+  }
+  .kept {
+    color: #22c55e;
+  }
+  .copy-feedback {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .copy-feedback.show {
+    opacity: 1;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>URL Cleaner</h1>
+  <p style="color: var(--text-secondary); margin-bottom: 2rem;">Remove tracking params, UTM tags, and clean up messy links instantly.</p>
+
+  <div class="input-group">
+    <label for="urlInput">Paste URL(s) here (one per line)</label>
+    <textarea id="urlInput" placeholder="https://example.com?utm_source=twitter&fbclid=abc123"></textarea>
+  </div>
+
+  <button class="btn" onclick="cleanUrls()">Clean URLs</button>
+  <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+
+  <div id="results"></div>
+  <div id="copyFeedback" class="copy-feedback">Copied!</div>
+
+  <script>
+    // Common tracking parameters to remove
+    const TRACKING_PARAMS = [
+      // UTM params
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
+      // Facebook
+      'fbclid', 'fb_action_ids', 'fb_action_types', 'fb_source', 'fb_ref',
+      // Google
+      'gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid',
+      // Microsoft/Bing
+      'msclkid',
+      // Twitter
+      'twclid',
+      // Amazon
+      'ref_', 'pf_rd_r', 'pf_rd_p', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t', 'pf_rd_l',
+      // Other common
+      'mc_cid', 'mc_eid', '_ga', '_gl', 'ml_subscriber', 'ml_subscriber_hash',
+      'vero_id', 'vero_conv', '__s', 'ss_email_id', 'bsft_', 'cn', 'mbid',
+      'igshid', 'oly_enc_id', 'oly_anon_id', '_hsenc', '_hsmi', 'mkt_tok',
+      'yclid', '_openstat', 'wickedid', 'swu', 'sig', 'fbc', 'ffc', 'aff_id',
+      'anon_id', 'trk', 'trkContact', 'trkMsg', 'trkModule', 'trkSid',
+      's_kwcid', 'soc_src', 'soc_trk', 'otm_content', 'otm_click'
+    ];
+
+    function cleanUrls() {
+      const input = document.getElementById('urlInput').value.trim();
+      if (!input) return;
+
+      const urls = input.split('\n').filter(u => u.trim());
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      urls.forEach((url, idx) => {
+        url = url.trim();
+        try {
+          const cleaned = cleanSingleUrl(url);
+          const extracted = extractParts(url);
+          
+          const div = document.createElement('div');
+          div.className = 'result';
+          div.innerHTML = `
+            <div class="result-label">Cleaned URL ${idx + 1}</div>
+            <div style="margin-bottom: 1rem; word-break: break-all;">${cleaned}</div>
+            
+            <div class="result-label">Extracted Parts</div>
+            <div style="margin-bottom: 1rem;">
+              <strong>Domain:</strong> ${extracted.domain || '-'}<br>
+              <strong>Path:</strong> ${extracted.path || '/'}<br>
+              <strong>Protocol:</strong> ${extracted.protocol || '-'}
+            </div>
+            
+            ${cleaned.params.removed.length > 0 ? `
+              <div class="result-label">Removed Parameters</div>
+              <ul class="params-list">
+                ${cleaned.params.removed.map(p => `<li class="removed">${p}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${cleaned.params.kept.length > 0 ? `
+              <div class="result-label">Kept Parameters</div>
+              <ul class="params-list">
+                ${cleaned.params.kept.map(p => `<li class="kept">${p}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            <button class="btn btn-secondary" onclick="copyToClipboard('${cleaned.url.replace(/'/g, "\\'")}')" style="margin-top: 1rem;">Copy Clean URL</button>
+          `;
+          resultsDiv.appendChild(div);
+        } catch (e) {
+          const div = document.createElement('div');
+          div.className = 'result';
+          div.innerHTML = `<div class="result-label">Error</div><div style="color: #ef4444;">Invalid URL: ${url}</div>`;
+          resultsDiv.appendChild(div);
+        }
+      });
+    }
+
+    function cleanSingleUrl(url) {
+      // Add protocol if missing
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      const urlObj = new URL(url);
+      const params = new URLSearchParams(urlObj.search);
+      
+      const removed = [];
+      const kept = [];
+
+      TRACKING_PARAMS.forEach(tracker => {
+        if (params.has(tracker)) {
+          removed.push(`${tracker}=${params.get(tracker)}`);
+          params.delete(tracker);
+        }
+      });
+
+      // Also check for any param that looks like it's tracking (starts with _ or contains id/hash)
+      for (const [key, value] of params.entries()) {
+        if (!removed.includes(`${key}=${value}`)) {
+          if (key.startsWith('_') || key.toLowerCase().includes('id') && value.length > 20) {
+            removed.push(`${key}=${value}`);
+            params.delete(key);
+          } else {
+            kept.push(`${key}=${value}`);
+          }
+        }
+      }
+
+      // Rebuild the URL
+      urlObj.search = params.toString();
+      
+      return {
+        url: urlObj.toString(),
+        params: { removed, kept: kept.length ? kept : params.toString().split('&').filter(p => p) }
+      };
+    }
+
+    function extractParts(url) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      const urlObj = new URL(url);
+      return {
+        protocol: urlObj.protocol,
+        domain: urlObj.hostname,
+        path: urlObj.pathname
+      };
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const feedback = document.getElementById('copyFeedback');
+        feedback.classList.add('show');
+        setTimeout(() => feedback.classList.remove('show'), 1500);
+      });
+    }
+
+    function clearAll() {
+      document.getElementById('urlInput').value = '';
+      document.getElementById('results').innerHTML = '';
+    }
+  </script>
+</body>
+</html>
