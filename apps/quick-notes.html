@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Notes — Shadow's Garden</title>
+<meta name="description" content="A clean, auto-saving notepad. No account needed.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; max-width: 900px; margin: 0 auto; }
+  textarea {
+    width: 100%;
+    height: 70vh;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--text);
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .status {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .status span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+  .dot.saving { background: var(--warning); }
+  .word-count { font-variant-numeric: tabular-nums; }
+  .clear-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .clear-btn:hover { opacity: 0.9; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="status">
+    <span><span class="dot" id="dot"></span><span id="status">Ready</span></span>
+    <span class="word-count" id="count">0 words · 0 characters</span>
+  </div>
+  <textarea id="notes" placeholder="Start typing... your notes auto-save as you type."></textarea>
+  <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+    <button class="clear-btn" onclick="clearNotes()">Clear All</button>
+    <button class="clear-btn" style="background: var(--accent);" onclick="downloadNotes()">Download</button>
+  </div>
+
+  <script>
+    const notes = document.getElementById('notes');
+    const status = document.getElementById('status');
+    const dot = document.getElementById('dot');
+    const count = document.getElementById('count');
+    const STORAGE_KEY = 'shadow-quick-notes';
+    let saveTimeout;
+
+    // Load saved notes on startup
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      notes.value = saved;
+      updateCount();
+    }
+
+    notes.addEventListener('input', () => {
+      updateCount();
+      dot.classList.add('saving');
+      status.textContent = 'Saving...';
+      
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        localStorage.setItem(STORAGE_KEY, notes.value);
+        dot.classList.remove('saving');
+        status.textContent = 'Saved';
+      }, 800);
+    });
+
+    function updateCount() {
+      const text = notes.value;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const chars = text.length;
+      count.textContent = `${words.toLocaleString()} word${words !== 1 ? 's' : ''} · ${chars.toLocaleString()} characters`;
+    }
+
+    function clearNotes() {
+      if (confirm('Clear all notes? This cannot be undone.')) {
+        notes.value = '';
+        localStorage.removeItem(STORAGE_KEY);
+        updateCount();
+        status.textContent = 'Cleared';
+        setTimeout(() => status.textContent = 'Ready', 1500);
+      }
+    }
+
+    function downloadNotes() {
+      const blob = new Blob([notes.value], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `notes-${new Date().toISOString().split('T')[0]}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
