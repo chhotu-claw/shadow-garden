@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timestamp Converter — Shadow's Garden</title>
+<meta name="description" content="Convert between Unix timestamps, ISO dates, and human-readable formats. Instant, local, no tracking.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 2rem; max-width: 800px; margin: 0 auto; }
+  .converter { background: var(--card-bg, #1a1a1a); border-radius: 12px; padding: 2rem; margin-top: 1rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-muted, #888); }
+  input, select { 
+    width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border, #333);
+    background: var(--bg, #111); color: var(--text, #eee); font-size: 1rem; font-family: monospace;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent, #00d4ff); border-color: transparent; }
+  .results { display: grid; gap: 1rem; margin-top: 1.5rem; }
+  .result-row { 
+    background: var(--bg, #111); padding: 1rem; border-radius: 8px; 
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .result-label { color: var(--text-muted, #888); font-size: 0.875rem; }
+  .result-value { font-family: monospace; font-size: 1rem; }
+  .copy-btn {
+    background: var(--accent, #00d4ff); color: #000; border: none; padding: 0.5rem 1rem;
+    border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500;
+  }
+  .copy-btn:hover { opacity: 0.9; }
+  .copy-btn.copied { background: #22c55e; }
+  .now-btn {
+    background: transparent; border: 1px solid var(--border, #333); color: var(--text, #eee);
+    padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem;
+  }
+  .now-btn:hover { border-color: var(--accent, #00d4ff); }
+  .input-row { display: flex; gap: 0.5rem; align-items: center; }
+  h1 { margin-bottom: 0.5rem; }
+  .hint { font-size: 0.875rem; color: var(--text-muted, #888); margin-top: 0.25rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Timestamp Converter</h1>
+  <p style="color: var(--text-muted); margin-bottom: 2rem;">Convert between Unix timestamps and human-readable formats. All processing happens locally.</p>
+  
+  <div class="converter">
+    <div class="input-group">
+      <label>Unix Timestamp (seconds)</label>
+      <div class="input-row">
+        <input type="text" id="epochInput" placeholder="e.g. 1704067200" autocomplete="off">
+        <button class="now-btn" onclick="setNow()">Now</button>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Or enter a date/time</label>
+      <input type="datetime-local" id="dateInput">
+    </div>
+
+    <div class="results">
+      <div class="result-row">
+        <div>
+          <div class="result-label">Unix Timestamp (seconds)</div>
+          <div class="result-value" id="resultEpoch">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultEpoch')">Copy</button>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="result-label">Unix Timestamp (milliseconds)</div>
+          <div class="result-value" id="resultEpochMs">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultEpochMs')">Copy</button>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="result-label">ISO 8601</div>
+          <div class="result-value" id="resultISO">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultISO')">Copy</button>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="result-label">UTC</div>
+          <div class="result-value" id="resultUTC">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultUTC')">Copy</button>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="result-label">Local</div>
+          <div class="result-value" id="resultLocal">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultLocal')">Copy</button>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="result-label">Relative</div>
+          <div class="result-value" id="resultRelative">—</div>
+        </div>
+        <button class="copy-btn" onclick="copy('resultRelative')">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const epochInput = document.getElementById('epochInput');
+    const dateInput = document.getElementById('dateInput');
+    
+    function updateFromEpoch() {
+      const val = epochInput.value.trim();
+      if (!val) return clearResults();
+      
+      let ts = parseInt(val);
+      if (isNaN(ts)) return clearResults();
+      
+      // Detect if milliseconds (10+ digits) or seconds
+      if (ts > 9999999999) ts = Math.floor(ts / 1000);
+      
+      const date = new Date(ts * 1000);
+      if (isNaN(date.getTime())) return clearResults();
+      
+      displayResults(date);
+      updateDateInput(date);
+    }
+
+    function updateFromDate() {
+      const val = dateInput.value;
+      if (!val) return;
+      
+      const date = new Date(val);
+      if (isNaN(date.getTime())) return;
+      
+      displayResults(date);
+      epochInput.value = Math.floor(date.getTime() / 1000);
+    }
+
+    function displayResults(date) {
+      document.getElementById('resultEpoch').textContent = Math.floor(date.getTime() / 1000);
+      document.getElementById('resultEpochMs').textContent = date.getTime();
+      document.getElementById('resultISO').textContent = date.toISOString();
+      document.getElementById('resultUTC').textContent = date.toUTCString();
+      document.getElementById('resultLocal').textContent = date.toLocaleString();
+      document.getElementById('resultRelative').textContent = getRelativeTime(date);
+    }
+
+    function updateDateInput(date) {
+      // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+      const pad = n => n.toString().padStart(2, '0');
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      dateInput.value = local.toISOString().slice(0, 16);
+    }
+
+    function getRelativeTime(date) {
+      const now = new Date();
+      const diff = now - date;
+      const absDiff = Math.abs(diff);
+      const suffix = diff > 0 ? 'ago' : 'from now';
+      
+      const seconds = Math.floor(absDiff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      const months = Math.floor(days / 30);
+      const years = Math.floor(days / 365);
+      
+      if (years > 0) return `${years} year${years > 1 ? 's' : ''} ${suffix}`;
+      if (months > 0) return `${months} month${months > 1 ? 's' : ''} ${suffix}`;
+      if (days > 0) return `${days} day${days > 1 ? 's' : ''} ${suffix}`;
+      if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ${suffix}`;
+      if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ${suffix}`;
+      return `${seconds} second${seconds !== 1 ? 's' : ''} ${suffix}`;
+    }
+
+    function setNow() {
+      const now = new Date();
+      epochInput.value = Math.floor(now.getTime() / 1000);
+      updateFromEpoch();
+    }
+
+    function clearResults() {
+      document.querySelectorAll('.result-value').forEach(el => el.textContent = '—');
+    }
+
+    function copy(id) {
+      const text = document.getElementById(id).textContent;
+      if (text === '—') return;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`[onclick="copy('${id}')"]`);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+
+    epochInput.addEventListener('input', updateFromEpoch);
+    dateInput.addEventListener('change', updateFromDate);
+    
+    // Initialize with current time
+    setNow();
+  </script>
+</body>
+</html>
