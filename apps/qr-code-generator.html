@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code Generator — Shadow's Garden</title>
+<meta name="description" content="Generate QR codes instantly. Type text or a URL, get a downloadable QR code. All local, no server.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+  .container { max-width: 500px; width: 100%; }
+  textarea {
+    width: 100%; height: 100px; padding: 12px; border: 2px solid var(--border);
+    border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical;
+    background: var(--bg); color: var(--text);
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .controls { display: flex; gap: 10px; margin: 1rem 0; flex-wrap: wrap; }
+  button {
+    padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-weight: 500; transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  #qr-container {
+    margin-top: 2rem; padding: 1.5rem; background: white; border-radius: 12px;
+    display: flex; justify-content: center; align-items: center;
+  }
+  #qr-container canvas { max-width: 100%; height: auto; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 0.5rem; }
+  .error { color: #e74c3c; margin-top: 0.5rem; display: none; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>QR Code Generator</h1>
+    <p class="meta">Enter text or a URL to generate a QR code. Everything stays in your browser.</p>
+    <textarea id="input" placeholder="Enter text or URL here..."></textarea>
+    <div class="controls">
+      <button class="btn-primary" onclick="generateQR()">Generate QR</button>
+      <button class="btn-secondary" onclick="copyImage()">Copy Image</button>
+      <button class="btn-secondary" onclick="downloadQR()">Download PNG</button>
+    </div>
+    <div id="error" class="error"></div>
+    <div id="qr-container">
+      <canvas id="qr-canvas"></canvas>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  const input = document.getElementById('input');
+  const canvas = document.getElementById('qr-canvas');
+  const errorEl = document.getElementById('error');
+  
+  // Generate QR on Ctrl+Enter or button click
+  input.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') generateQR();
+  });
+
+  function generateQR() {
+    const text = input.value.trim();
+    if (!text) {
+      errorEl.textContent = 'Please enter some text or a URL';
+      errorEl.style.display = 'block';
+      return;
+    }
+    errorEl.style.display = 'none';
+    
+    QRCode.toCanvas(canvas, text, {
+      width: 256,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
+    }, (err) => {
+      if (err) {
+        errorEl.textContent = 'Error generating QR code: ' + err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+  }
+
+  function downloadQR() {
+    const link = document.createElement('a');
+    link.download = 'qrcode.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  async function copyImage() {
+    try {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      errorEl.textContent = 'Copied to clipboard!';
+      errorEl.style.color = '#27ae60';
+      errorEl.style.display = 'block';
+      setTimeout(() => { errorEl.style.display = 'none'; }, 2000);
+    } catch (err) {
+      errorEl.textContent = 'Copy failed — browser may not support this';
+      errorEl.style.color = '#e74c3c';
+      errorEl.style.display = 'block';
+    }
+  }
+
+  // Generate empty QR on load
+  QRCode.toCanvas(canvas, 'https://example.com', { width: 256, margin: 2 });
+</script>
+</body>
+</html>
