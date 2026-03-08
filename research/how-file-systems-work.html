@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How File Systems Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive into file systems: NTFS, ext4, inode, journaling, how files are stored and retrieved.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How File Systems Work</h1>
+  <div class="meta">2026-03-08</div>
+
+  <p>Every file on your computer lives inside a filesystem — a layered abstraction that turns raw bytes into named objects you can find, modify, and share. But how does it actually work?</p>
+
+  <h2>The Job of a Filesystem</h2>
+  <p>A filesystem does five things:</p>
+  <ul>
+    <li><strong>Stores data</strong> — maps file contents to physical storage</li>
+    <li><strong>Organizes files</strong> — hierarchical directories</li>
+    <li><strong>Tracks metadata</strong> — permissions, timestamps, ownership</li>
+    <li><strong>Manages space</strong> — allocates free blocks, handles fragmentation</li>
+    <li><strong>Protects data</strong> — journaling, checksums, redundancy</li>
+  </ul>
+
+  <h2>From Disk to File: The Structure</h2>
+
+  <h3>Blocks and Sectors</h3>
+  <p>Storage devices read and write in <strong>sectors</strong> (typically 512 bytes or 4KB). Filesystems operate in <strong>blocks</strong> — groups of sectors (usually 4KB). You can't allocate a single byte; everything lives in blocks.</p>
+
+  <h3>Inodes: The Metadata Index</h3>
+  <p>On Unix-like systems (ext4, XFS, Btrfs), every file is represented by an <strong>inode</strong> — a data structure containing:</p>
+  <ul>
+    <li>File size</li>
+    <li>Timestamps (created, modified, accessed)</li>
+    <li>Ownership (UID, GID)</li>
+    <li>Permissions</li>
+    <li><strong>Pointers to data blocks</strong></li>
+  </ul>
+
+  <p>The inode doesn't store the filename — that's in the <strong>directory entry</strong>, which maps names to inode numbers. This is why hard links work: multiple names can point to the same inode.</p>
+
+  <h3>Data Pointers</h3>
+  <p>An inode contains direct and indirect pointers to data blocks:</p>
+  <ul>
+    <li><strong>Direct pointers</strong> — 12 pointers to the first 12 blocks (48KB for 4KB blocks)</li>
+    <li><strong>Single indirect</strong> — pointer to a block of pointers</li>
+    <li><strong>Double indirect</strong> — pointer to a block of blocks of pointers</li>
+    <li><strong>Triple indirect</strong> — pointer to a block of blocks of blocks of pointers</li>
+  </ul>
+
+  <p>This tree structure lets a single file span terabytes — the theoretical max for ext4 is 16TB.</p>
+
+  <h2>NTFS: The Windows Approach</h2>
+
+  <p>NTFS uses a different model — the <strong>Master File Table (MFT)</strong>. Every file has an entry in the MFT, and each entry stores both metadata and (for small files) the data itself.</p>
+
+  <p>NTFS features:</p>
+  <ul>
+    <li><strong>Compression</strong> — block-level compression using LZNT</li>
+    <li><strong>Encryption</strong> — built-in EFS (Encrypting File System)</li>
+    <li><strong>Journaling</strong> — records transactions before applying</li>
+    <li><strong>Alternate data streams</strong> — multiple data streams per file</li>
+    <li><strong>Sparse files</strong> — holes that don't consume space</li>
+  </ul>
+
+  <h2>Journaling: Preventing Corruption</h2>
+
+  <p>When you save a file, the filesystem must:</p>
+  <ol>
+    <li>Allocate data blocks</li>
+    <li>Write the data</li>
+    <li>Update metadata (inode/MFT)</li>
+    <li>Mark the file as complete</li>
+  </ol>
+
+  <p>If the system crashes mid-operation, you get corruption — partial writes, orphaned blocks, inconsistent structures.</p>
+
+  <p><strong>Journaling</strong> solves this: before making changes, the filesystem writes a <strong>journal entry</strong> describing the planned operation. After the crash:</p>
+  <ul>
+    <li><strong>Replay</strong> — complete the operation from the journal</li>
+    <li><strong>Rollback</strong> — undo partial changes</li>
+  </ul>
+
+  <p>Journaling only protects metadata by default (ext3/4). Full data journaling (write-through) is slower but safer.</p>
+
+  <h2>Directories: Just Special Files</h2>
+
+  <p>Directories are files that contain <strong>directory entries</strong>. Each entry maps:</p>
+  <ul>
+    <li>Filename</li>
+    <li>Inode number (or MFT reference on NTFS)</li>
+    <li>Metadata (optional, depending on filesystem)</li>
+  </ul>
+
+  <p>When you <code>ls</code>, the OS reads the directory file, parses entries, and looks up inodes for each name.</p>
+
+  <h2>How Reads and Writes Actually Work</h2>
+
+  <h3>Reading a File</h3>
+  <ol>
+    <li>User requests <code>/home/user/doc.txt</code></li>
+    <li>Kernel looks up root directory → finds inode for <code>/home</code></li>
+    <li>Reads <code>/home</code> directory → finds inode for <code>/home/user</code></li>
+    <li>Reads <code>/home/user</code> → finds inode for <code>doc.txt</code></li>
+    <li>Reads inode → gets data block pointers</li>
+    <li>Reads data blocks → returns content to user</li>
+  </ol>
+
+  <h3>Writing a File</h3>
+  <ol>
+    <li>Find or create inode</li>
+    <li>Allocate data blocks (from free space bitmap)</li>
+    <li>Write data to blocks</li>
+    <li>Update inode with pointers and metadata</li>
+    <li>Update parent directory with new entry</li>
+    <li>Write journal entry (if journaling)</li>
+  </ol>
+
+  <h2>The Tradeoffs</h2>
+
+  <table>
+    <tr><th>Filesystem</th><th>Strengths</th><th>Weaknesses</th></tr>
+    <tr><td>ext4</td><td>Mature, fast, journaling</td><td>32K subdir limit (fixed in newer), no built-in encryption</td></tr>
+    <tr><td>XFS</td><td>Scalable, fast for large files</td><td>Can't shrink partitions, slower on many small files</td></tr>
+    <tr><td>NTFS</td><td>Compression, encryption, permissions</td><td>Linux driver limitations</td></tr>
+    <tr><td>Btrfs</td><td>Snapshots, checksums, RAID built-in</td><td>Still maturing, less battle-tested</td></tr>
+    <tr><td>APFS</td><td>Snapshots, fast cloning, encryption</td><td>Mac-only</td></tr>
+  </table>
+
+  <h2>What Actually Matters</h2>
+
+  <ul>
+    <li><strong>Block size</strong> — matches your workload. 4KB is standard. Databases often use 8KB+.</li>
+    <li><strong>Journal mode</strong> — ordered (default on ext4) is usually best balance.</li>
+    <li><strong>Free space</strong> — below 10-20% free, performance drops. Filesystem fragmentation increases.</li>
+    <li><strong>fsck time</strong> — on large filesystems, fsck can take hours. Btrfs and XFS skip this.</li>
+  </ul>
+
+  <h2>The Bottom Line</h2>
+
+  <p>A filesystem is a database for files — indexing data blocks, tracking metadata, ensuring consistency. The concepts (inodes, directories, journaling) apply across systems, even if the implementations differ. Next time you save a file, remember: dozens of operations happen in milliseconds, blocks are allocated, journals written, inodes updated. Your OS handles it all.</p>
+
+</div>
+</body>
+</html>
