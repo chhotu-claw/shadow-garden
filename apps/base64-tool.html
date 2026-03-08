@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base64 Tool — Shadow's Garden</title>
+<meta name="description" content="Encode and decode Base64 strings instantly. All processing happens locally in your browser.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --success: #22c55e;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    background: var(--card);
+    padding: 0.5rem;
+    border-radius: 8px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .tab:hover:not(.active) {
+    background: var(--border);
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    background: #475569;
+  }
+
+  .hidden { display: none; }
+
+  .result-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .stats {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .copy-btn {
+    margin-top: 0.5rem;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--success);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; }
+
+  .error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🔤 Base64 Tool</h1>
+    <p class="subtitle">Encode and decode Base64. All local, all private.</p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="encode">Encode</button>
+      <button class="tab" data-tab="decode">Decode</button>
+    </div>
+
+    <!-- Encode -->
+    <div id="encode-tab">
+      <div class="card">
+        <label>Plain Text</label>
+        <textarea id="encode-input" placeholder="Enter text to encode..."></textarea>
+        
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="encode()">Encode →</button>
+          <button class="btn btn-secondary" onclick="clearEncode()">Clear</button>
+        </div>
+
+        <label>Base64 Output</label>
+        <div class="result-box" id="encode-output"></div>
+        <button class="btn btn-secondary copy-btn" onclick="copy('encode-output')">Copy</button>
+        <p class="stats" id="encode-stats"></p>
+      </div>
+    </div>
+
+    <!-- Decode -->
+    <div id="decode-tab" class="hidden">
+      <div class="card">
+        <label>Base64 Input</label>
+        <textarea id="decode-input" placeholder="Enter Base64 to decode..."></textarea>
+        
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="decode()">Decode →</button>
+          <button class="btn btn-secondary" onclick="clearDecode()">Clear</button>
+        </div>
+
+        <label>Plain Text Output</label>
+        <div class="result-box" id="decode-output"></div>
+        <button class="btn btn-secondary copy-btn" onclick="copy('decode-output')">Copy</button>
+        <p class="stats" id="decode-stats"></p>
+        <p class="error hidden" id="decode-error"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied!</div>
+
+  <script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        document.getElementById('encode-tab').classList.add('hidden');
+        document.getElementById('decode-tab').classList.add('hidden');
+        
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.remove('hidden');
+      });
+    });
+
+    function encode() {
+      const input = document.getElementById('encode-input').value;
+      if (!input) return;
+      
+      try {
+        // Handle UTF-8 properly
+        const encoded = btoa(unescape(encodeURIComponent(input)));
+        document.getElementById('encode-output').textContent = encoded;
+        document.getElementById('encode-stats').textContent = 
+          `Input: ${input.length} chars → Output: ${encoded.length} chars`;
+      } catch (e) {
+        document.getElementById('encode-output').textContent = 'Error encoding';
+      }
+    }
+
+    function decode() {
+      const input = document.getElementById('decode-input').value.trim();
+      if (!input) return;
+      
+      const errorEl = document.getElementById('decode-error');
+      
+      try {
+        const decoded = decodeURIComponent(escape(atob(input)));
+        document.getElementById('decode-output').textContent = decoded;
+        document.getElementById('decode-stats').textContent = 
+          `Input: ${input.length} chars → Output: ${decoded.length} chars`;
+        errorEl.classList.add('hidden');
+      } catch (e) {
+        document.getElementById('decode-output').textContent = '';
+        document.getElementById('decode-stats').textContent = '';
+        errorEl.textContent = 'Invalid Base64 string';
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function clearEncode() {
+      document.getElementById('encode-input').value = '';
+      document.getElementById('encode-output').textContent = '';
+      document.getElementById('encode-stats').textContent = '';
+    }
+
+    function clearDecode() {
+      document.getElementById('decode-input').value = '';
+      document.getElementById('decode-output').textContent = '';
+      document.getElementById('decode-stats').textContent = '';
+      document.getElementById('decode-error').classList.add('hidden');
+    }
+
+    function copy(elementId) {
+      const text = document.getElementById(elementId).textContent;
+      if (!text) return;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied!');
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Auto-encode on typing with debounce
+    let encodeTimeout;
+    document.getElementById('encode-input').addEventListener('input', () => {
+      clearTimeout(encodeTimeout);
+      encodeTimeout = setTimeout(encode, 300);
+    });
+
+    let decodeTimeout;
+    document.getElementById('decode-input').addEventListener('input', () => {
+      clearTimeout(decodeTimeout);
+      decodeTimeout = setTimeout(decode, 300);
+    });
+  </script>
+</body>
+</html>
