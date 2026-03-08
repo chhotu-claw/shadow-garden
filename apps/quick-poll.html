@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Poll — Shadow's Garden</title>
+<meta name="description" content="Simple polling tool for quick decisions. Create polls, vote, see results instantly.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --border: #334155;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--card);
+    padding: 0.5rem;
+    border-radius: 8px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .tab:hover:not(.active) {
+    background: var(--border);
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  input[type="text"],
+  input[type="number"],
+  textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    background: #475569;
+  }
+
+  .poll-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .poll-option:hover {
+    border-color: var(--primary);
+  }
+
+  .poll-option input[type="radio"],
+  .poll-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+  }
+
+  .poll-option span {
+    flex: 1;
+  }
+
+  .option-input {
+    flex: 1;
+  }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .add-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .add-option:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .poll-view {
+    text-align: center;
+  }
+
+  .poll-question {
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .vote-btn {
+    padding: 1rem 2rem;
+    margin: 0.5rem;
+    min-width: 200px;
+  }
+
+  .results {
+    text-align: left;
+  }
+
+  .result-bar {
+    margin-bottom: 1rem;
+  }
+
+  .result-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .bar-bg {
+    height: 24px;
+    background: var(--bg);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 12px;
+    transition: width 0.5s ease;
+  }
+
+  .total-votes {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-top: 1rem;
+  }
+
+  .share-link {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .share-link input {
+    flex: 1;
+    font-size: 0.75rem;
+  }
+
+  .copy-btn {
+    padding: 0.75rem;
+    min-width: auto;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 3rem 1rem;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--success);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+  }
+
+  .hidden { display: none; }
+
+  .poll-type {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .poll-type label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--text);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🗳️ Quick Poll</h1>
+    <p class="subtitle">Make decisions fast. No accounts, no fuss.</p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="create">Create</button>
+      <button class="tab" data-tab="vote">Vote</button>
+    </div>
+
+    <!-- Create Poll -->
+    <div id="create-tab">
+      <div class="card">
+        <div class="form-group">
+          <label>Question</label>
+          <input type="text" id="question" placeholder="What should we have for lunch?">
+        </div>
+
+        <div class="poll-type">
+          <label>
+            <input type="radio" name="pollType" value="single" checked>
+            Single choice
+          </label>
+          <label>
+            <input type="radio" name="pollType" value="multiple">
+            Multiple choice
+          </label>
+        </div>
+
+        <div id="options-container">
+          <div class="poll-option">
+            <input type="text" class="option-input" placeholder="Option 1">
+            <button class="remove-btn" onclick="removeOption(this)">×</button>
+          </div>
+          <div class="poll-option">
+            <input type="text" class="option-input" placeholder="Option 2">
+            <button class="remove-btn" onclick="removeOption(this)">×</button>
+          </div>
+        </div>
+
+        <button class="add-option" onclick="addOption()">+ Add Option</button>
+
+        <button class="btn btn-primary" onclick="createPoll()">Create Poll</button>
+      </div>
+    </div>
+
+    <!-- Vote -->
+    <div id="vote-tab" class="hidden">
+      <div class="card">
+        <div class="form-group">
+          <label>Poll ID</label>
+          <input type="text" id="poll-id" placeholder="Enter poll ID">
+        </div>
+        <button class="btn btn-primary" onclick="loadPoll()">Load Poll</button>
+      </div>
+
+      <div id="poll-view" class="hidden">
+        <div class="card poll-view">
+          <h2 class="poll-question" id="view-question"></h2>
+          <div id="vote-options"></div>
+          <button class="btn btn-primary vote-btn" onclick="submitVote()">Vote</button>
+        </div>
+
+        <div class="card">
+          <h3>Results</h3>
+          <div class="results" id="results"></div>
+          <p class="total-votes" id="total-votes"></p>
+        </div>
+
+        <div class="card">
+          <label>Share this poll</label>
+          <div class="share-link">
+            <input type="text" id="share-url" readonly>
+            <button class="btn btn-secondary copy-btn" onclick="copyShare()">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="empty-vote" class="empty-state">
+        Enter a poll ID or use a shared link to vote
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied!</div>
+
+  <script>
+    // Simple localStorage-based polling
+    const POLLS_KEY = 'quickpolls_polls';
+
+    function getPolls() {
+      try {
+        return JSON.parse(localStorage.getItem(POLLS_KEY)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function savePolls(polls) {
+      localStorage.setItem(POLLS_KEY, JSON.stringify(polls));
+    }
+
+    function generateId() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function addOption() {
+      const container = document.getElementById('options-container');
+      const count = container.children.length + 1;
+      const div = document.createElement('div');
+      div.className = 'poll-option';
+      div.innerHTML = `
+        <input type="text" class="option-input" placeholder="Option ${count}">
+        <button class="remove-btn" onclick="removeOption(this)">×</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeOption(btn) {
+      const container = document.getElementById('options-container');
+      if (container.children.length > 2) {
+        btn.parentElement.remove();
+      }
+    }
+
+    function createPoll() {
+      const question = document.getElementById('question').value.trim();
+      const pollType = document.querySelector('input[name="pollType"]:checked').value;
+      const optionInputs = document.querySelectorAll('.option-input');
+      const options = [];
+
+      optionInputs.forEach(input => {
+        const val = input.value.trim();
+        if (val) options.push(val);
+      });
+
+      if (!question) {
+        showToast('Please enter a question');
+        return;
+      }
+
+      if (options.length < 2) {
+        showToast('Please add at least 2 options');
+        return;
+      }
+
+      const id = generateId();
+      const poll = {
+        id,
+        question,
+        type: pollType,
+        options: options.map(o => ({ text: o, votes: 0 })),
+        created: Date.now()
+      };
+
+      const polls = getPolls();
+      polls[id] = poll;
+      savePolls(polls);
+
+      // Clear form
+      document.getElementById('question').value = '';
+      optionInputs[0].value = '';
+      optionInputs[1].value = '';
+      if (optionInputs[2]) optionInputs[2].value = '';
+      while (document.getElementById('options-container').children.length > 2) {
+        document.getElementById('options-container').lastChild.remove();
+      }
+
+      // Show share link
+      document.getElementById('poll-id').value = id;
+      loadPoll();
+      showToast(`Poll created! ID: ${id}`);
+    }
+
+    function loadPoll() {
+      const id = document.getElementById('poll-id').value.trim().toUpperCase();
+      const polls = getPolls();
+      const poll = polls[id];
+
+      if (!poll) {
+        showToast('Poll not found');
+        document.getElementById('poll-view').classList.add('hidden');
+        document.getElementById('empty-vote').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('view-question').textContent = poll.question;
+      document.getElementById('share-url').value = `${window.location.origin}${window.location.pathname}?poll=${id}`;
+
+      const isMultiple = poll.type === 'multiple';
+      const optionsContainer = document.getElementById('vote-options');
+      optionsContainer.innerHTML = poll.options.map((opt, i) => `
+        <label class="poll-option">
+          <input type="${isMultiple ? 'checkbox' : 'radio'}" name="vote" value="${i}">
+          <span>${opt.text}</span>
+        </label>
+      `).join('');
+
+      renderResults(poll);
+
+      document.getElementById('poll-view').classList.remove('hidden');
+      document.getElementById('empty-vote').classList.add('hidden');
+    }
+
+    function renderResults(poll) {
+      const total = poll.options.reduce((sum, o) => sum + o.votes, 0);
+      const resultsDiv = document.getElementById('results');
+      
+      resultsDiv.innerHTML = poll.options.map((opt, i) => {
+        const pct = total > 0 ? (opt.votes / total * 100).toFixed(1) : 0;
+        return `
+          <div class="result-bar">
+            <div class="result-label">
+              <span>${opt.text}</span>
+              <span>${opt.votes} vote${opt.votes !== 1 ? 's' : ''} (${pct}%)</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('total-votes').textContent = `${total} total vote${total !== 1 ? 's' : ''}`;
+    }
+
+    function submitVote() {
+      const id = document.getElementById('poll-id').value.trim().toUpperCase();
+      const selected = document.querySelectorAll('input[name="vote"]:checked');
+      
+      if (selected.length === 0) {
+        showToast('Please select an option');
+        return;
+      }
+
+      const polls = getPolls();
+      const poll = polls[id];
+      
+      if (!poll) return;
+
+      selected.forEach(input => {
+        poll.options[input.value].votes++;
+      });
+
+      savePolls(polls);
+      renderResults(poll);
+      showToast('Vote submitted!');
+    }
+
+    function copyShare() {
+      const input = document.getElementById('share-url');
+      input.select();
+      document.execCommand('copy');
+      showToast('Link copied!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        document.getElementById('create-tab').classList.add('hidden');
+        document.getElementById('vote-tab').classList.add('hidden');
+        
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.remove('hidden');
+      });
+    });
+
+    // Check URL for poll ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const pollParam = urlParams.get('poll');
+    if (pollParam) {
+      document.getElementById('poll-id').value = pollParam;
+      document.querySelector('[data-tab="vote"]').click();
+      loadPoll();
+    }
+  </script>
+</body>
+</html>
