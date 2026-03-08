@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Diff — Shadow's Garden</title>
+<meta name="description" content="Compare two texts and see the differences. Side-by-side and unified views.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --add-bg: #166534;
+    --add-text: #bbf7d0;
+    --del-bg: #991b1b;
+    --del-text: #fecaca;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card);
+    color: var(--text);
+  }
+
+  .btn:hover {
+    background: var(--border);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .editor-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .editor-box {
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .editor-header {
+    padding: 0.75rem 1rem;
+    background: var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .clear-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+  }
+
+  .clear-btn:hover {
+    color: var(--text);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 300px;
+    padding: 1rem;
+    background: var(--card);
+    border: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875rem;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+
+  textarea:focus {
+    outline: none;
+  }
+
+  .diff-container {
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .diff-header {
+    padding: 0.75rem 1rem;
+    background: var(--border);
+    font-size: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .diff-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+  }
+
+  .diff-stat-add {
+    color: #4ade80;
+  }
+
+  .diff-stat-del {
+    color: #f87171;
+  }
+
+  .diff-output {
+    padding: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  .diff-add {
+    background: var(--add-bg);
+    color: var(--add-text);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .diff-del {
+    background: var(--del-bg);
+    color: var(--del-text);
+    border-radius: 2px;
+    padding: 0 2px;
+    text-decoration: line-through;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+  }
+
+  .view-toggle {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg);
+    padding: 2px;
+    border-radius: 4px;
+  }
+
+  .view-toggle button {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 0.75rem;
+  }
+
+  .view-toggle button.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .line-numbers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .side-panel {
+    background: var(--card);
+    padding: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .side-panel .diff-add {
+    display background: var(--add-bg);
+  }
+
+  .side-panel .diff-del {
+    display:: block;
+    block;
+    background: var(--del-bg);
+    text-decoration: line-through;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>📄 Text Diff</h1>
+    <p class="subtitle">Compare two texts and see what's changed</p>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="compareDiff()">Compare</button>
+      <button class="btn" onclick="swapTexts()">Swap ↑↓</button>
+      <button class="btn" onclick="clearAll()">Clear All</button>
+    </div>
+
+    <div class="editor-container">
+      <div class="editor-box">
+        <div class="editor-header">
+          <span>Original Text</span>
+          <button class="clear-btn" onclick="document.getElementById('text1').value=''">Clear</button>
+        </div>
+        <textarea id="text1" placeholder="Paste original text here..."></textarea>
+      </div>
+      <div class="editor-box">
+        <div class="editor-header">
+          <span>New Text</span>
+          <button class="clear-btn" onclick="document.getElementById('text2').value=''">Clear</button>
+        </div>
+        <textarea id="text2" placeholder="Paste new text here..."></textarea>
+      </div>
+    </div>
+
+    <div class="diff-container">
+      <div class="diff-header">
+        <span>Diff Output</span>
+        <div class="diff-stats" id="diff-stats"></div>
+      </div>
+      <div class="diff-output" id="diff-output">
+        <div class="empty-state">Enter text above and click Compare to see differences</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function computeDiff(text1, text2) {
+      const lines1 = text1.split('\n');
+      const lines2 = text2.split('\n');
+      
+      // Simple line-by-line diff using LCS approach
+      const m = lines1.length;
+      const n = lines2.length;
+      
+      // Build LCS table
+      const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+      
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (lines1[i - 1] === lines2[j - 1]) {
+            dp[i][j] = dp[i - 1][j - 1] + 1;
+          } else {
+            dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+          }
+        }
+      }
+
+      // Backtrack to get diff
+      const diff = [];
+      let i = m, j = n;
+      
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && lines1[i - 1] === lines2[j - 1]) {
+          diff.unshift({ type: 'same', text: lines1[i - 1] });
+          i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          diff.unshift({ type: 'add', text: lines2[j - 1] });
+          j--;
+        } else if (i > 0) {
+          diff.unshift({ type: 'del', text: lines1[i - 1] });
+          i--;
+        }
+      }
+
+      return diff;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function compareDiff() {
+      const text1 = document.getElementById('text1').value;
+      const text2 = document.getElementById('text2').value;
+      const output = document.getElementById('diff-output');
+      const stats = document.getElementById('diff-stats');
+
+      if (!text1 && !text2) {
+        output.innerHTML = '<div class="empty-state">Enter text above and click Compare to see differences</div>';
+        stats.innerHTML = '';
+        return;
+      }
+
+      const diff = computeDiff(text1, text2);
+      
+      let additions = 0;
+      let deletions = 0;
+      
+      let html = '';
+      diff.forEach(item => {
+        if (item.type === 'add') {
+          html += `<span class="diff-add">+ ${escapeHtml(item.text)}</span>\n`;
+          additions++;
+        } else if (item.type === 'del') {
+          html += `<span class="diff-del">- ${escapeHtml(item.text)}</span>\n`;
+          deletions++;
+        } else {
+          html += `  ${escapeHtml(item.text)}\n`;
+        }
+      });
+
+      stats.innerHTML = `<span class="diff-stat-add">+${additions}</span><span class="diff-stat-del">-${deletions}</span>`;
+      output.innerHTML = html || '<div class="empty-state">Texts are identical</div>';
+    }
+
+    function swapTexts() {
+      const t1 = document.getElementById('text1').value;
+      const t2 = document.getElementById('text2').value;
+      document.getElementById('text1').value = t2;
+      document.getElementById('text2').value = t1;
+    }
+
+    function clearAll() {
+      document.getElementById('text1').value = '';
+      document.getElementById('text2').value = '';
+      document.getElementById('diff-output').innerHTML = '<div class="empty-state">Enter text above and click Compare to see differences</div>';
+      document.getElementById('diff-stats').innerHTML = '';
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        compareDiff();
+      }
+    });
+  </script>
+</body>
+</html>
