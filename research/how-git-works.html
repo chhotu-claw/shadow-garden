@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Git Works — Shadow's Garden</title>
+<meta name="description" content="Understanding Git's internals: the object model, blobs, trees, commits, refs, and how branches actually work.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Git Works</h1>
+  <div class="meta">March 8, 2026</div>
+
+<p>Most developers use Git daily. But very few understand how it actually works. The commands make sense once you understand the data model — and it's surprisingly simple.</p>
+
+<h2>The Three Objects</h2>
+
+<p>Git is fundamentally a content-addressable filesystem. Everything is stored as one of three object types:</p>
+
+<h3>Blob</h3>
+<p>A <strong>blob</strong> is raw file content. Just the bytes — no filename, no metadata. Every file you commit becomes a blob. Two identical files = same blob (deduplicated).</p>
+
+<h3>Tree</h3>
+<p>A <strong>tree</strong> is a directory. It lists filenames and maps them to blobs (files) or other trees (subdirectories). Trees can nest arbitrarily deep.</p>
+
+<h3>Commit</h3>
+<p>A <strong>commit</strong> is a snapshot of the entire repository at a point in time. It contains:</p>
+<ul>
+  <li>A reference to a tree (the root directory)</li>
+  <li>References to parent commits (one for normal commits, multiple for merges)</li>
+  <li>An author and committer (with timestamps)</li>
+  <li>A commit message</li>
+</ul>
+
+<p>The magic: commits are immutable. Change a file and commit → new blob, new tree, new commit. Old commits stay exactly as they were.</p>
+
+<h2>Content Addressing</h2>
+
+<p>Every object has a SHA-1 hash as its key. SHA-1 produces a 40-character hexadecimal string from any content. This is why:</p>
+<ul>
+  <li><strong>Deduplication</strong> — identical content gets identical hashes, Git stores it once</li>
+  <li><strong>Integrity</strong> — you can't change content without the hash changing</li>
+  <li><strong>Distribution</strong> — any two repos can compare objects by hash, no central server needed</li>
+</ul>
+
+<p>SHA-1 isn't cryptographically secure (known collisions exist), but for content-addressing it's still useful. Git is migrating to SHA-256.</p>
+
+<h2>Refs: The Branching Magic</h2>
+
+<p>A <strong>ref</strong> (reference) is just a file in <code>.git/refs/heads/</code> containing a commit hash. That's it. A branch is just a pointer to a commit.</p>
+
+<pre><code># What a branch actually looks like
+$ cat .git/refs/heads/main
+a1b2c3d4e5f6...</code></pre>
+
+<p>Creating a branch = writing a hash to a file. Checking out a branch = making HEAD point to that file. Merging = finding a common ancestor and applying changes.</p>
+
+<h3>HEAD</h3>
+<p>HEAD is a special ref pointing to the current checkout. Usually it's a symbolic ref pointing to a branch:</p>
+
+<pre><code>$ cat .git/HEAD
+ref: refs/heads/main</code></pre>
+
+<p>When you checkout a specific commit (detached HEAD), HEAD points directly to a commit hash.</p>
+
+<h3>Tags</h3>
+<p>Tags are like refs, but they don't move. Once you create <code>v1.0</code>, it stays pointing to that commit forever (unless you force-update). Lightweight tags are just refs; annotated tags are separate objects.</p>
+
+<h3>Remotes</h3>
+<p><code>origin/main</code> is just <code>refs/remotes/origin/main</code>. It's a ref that your local Git updates when you fetch/pull. It tracks where the remote's branch was last time you checked.</p>
+
+<h2>The Index (Staging Area)</h2>
+
+<p>The index is Git's secret weapon. It's a file (<code>.git/index</code>) that sits between your working directory and the commit. When you <code>git add</code>:</p>
+
+<ol>
+  <li>Git hashes the file → creates a blob</li>
+  <li>Git adds an entry to the index: filename → blob hash</li>
+</ol>
+
+<p>The index is essentially "the next commit's tree, pre-built." When you <code>git commit</code>, Git just packages up what's in the index.</p>
+
+<p>This is why staging matters: you can craft exactly what the next commit looks like, one file at a time.</p>
+
+<h2>Packfiles: Why Git is Space-Efficient</h2>
+
+<p>Blobs are stored individually in <code>.git/objects/</code>, but only when needed. When you push or gc, Git bundles objects into <strong>packfiles</strong>. Packfiles store objects as deltas:</p>
+
+<ul>
+  <li>Store the first version whole</li>
+  <li>Store subsequent versions as "here's how to transform the previous version to get this one"</li>
+</ul>
+
+<p>Git figures out the delta automatically using longest-common-substring matching. This is why a 1MB file changed slightly doesn't double your repo size.</p>
+
+<h2>Merge vs Rebase</h2>
+
+<h3>Merge</h3>
+<p>Git finds the common ancestor (merge base), compares each branch to it, and creates a new "merge commit" that combines both sets of changes. Preserves history exactly as it happened.</p>
+
+<h3>Rebase</h3>
+<p>Git takes your commits, temporarily discards them, moves your branch pointer to the target, then replays your commits on top. Creates linear history — no merge commits.</p>
+
+<p>Rebase rewrites history (the commit hashes change). Never rebase commits you've shared with others.</p>
+
+<h2>Reset vs Checkout vs Restore</h2>
+
+<p>Three ways to undo things, with subtle differences:</p>
+
+<ul>
+  <li><strong>checkout</strong> — switches branches or restores files (affects HEAD or files)</li>
+  <li><strong>reset</strong> — moves the current branch's tip (changes history)</li>
+  <li><strong>restore</strong> — newer syntax, restores files without touching HEAD</li>
+</ul>
+
+<pre><code># Discard changes in working directory
+git restore file.txt
+
+# Unstage a file
+git restore --staged file.txt
+
+# Reset branch to previous commit (DANGEROUS)
+git reset --hard HEAD~1
+
+# Switch to a commit (detached HEAD)
+git checkout abc123
+</code></pre>
+
+<h2>Why It Matters</h2>
+
+<p>Understanding the object model makes everything clearer:</p>
+
+<ul>
+  <li><strong>Why can't I delete a branch?</strong> — Refs are just files. The commits may still exist (garbage collected later).</li>
+  <li><strong>Why is rebase dangerous?</strong> — It creates new commit objects with new hashes. Shared history diverges.</li>
+  <li><strong>Why is Git fast?</strong> — SHA-1 lookups are O(1). Most operations are local. Deltas minimize storage.</li>
+  <li><strong>Why does "git add" matter?</strong> — Index = next commit. Staging is explicit tree-building.</li>
+</ul>
+
+<p>Git is a content-addressable filesystem with a DVCS wrapper. Once that clicks, the commands stop being magic.</p>
+
+</div>
+</body>
+</html>
