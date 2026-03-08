@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Encoder/Decoder — Shadow's Garden</title>
+<meta name="description" content="Encode and decode URLs instantly. Simple, fast, local.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --success: #22c55e;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    background: #475569;
+  }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+
+  .btn-success:hover {
+    background: #16a34a;
+  }
+
+  .stats {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .stats span {
+    background: var(--bg);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--success);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .preset {
+    padding: 0.4rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .preset:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🔗 URL Encoder/Decoder</h1>
+    <p class="subtitle">Encode special characters, decode encoded URLs. All local.</p>
+
+    <div class="card">
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="encode">Encode</button>
+        <button class="mode-btn" data-mode="decode">Decode</button>
+      </div>
+
+      <div class="presets">
+        <span class="preset" onclick="fillPreset('space')">space → %20</span>
+        <span class="preset" onclick="fillPreset('amp')">ampersand → %26</span>
+        <span class="preset" onclick="fillPreset('equals')">equals → %3D</span>
+        <span class="preset" onclick="fillPreset('question')">question → %3F</span>
+        <span class="preset" onclick="fillPreset('hash')">hash → %23</span>
+      </div>
+
+      <div id="input-section">
+        <label id="input-label">Enter text to encode</label>
+        <textarea id="input" placeholder="Paste URL or text here..."></textarea>
+        <div class="stats">
+          <span id="char-count">0 chars</span>
+          <span id="byte-count">0 bytes</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="process()">Convert</button>
+        <button class="btn btn-secondary" onclick="swap()">⇅ Swap</button>
+        <button class="btn btn-success" onclick="copyResult()">📋 Copy</button>
+        <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+      </div>
+
+      <div id="output-section">
+        <label id="output-label">Encoded result</label>
+        <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--text-muted);">Quick Examples</h3>
+      <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.8;">
+        <div><code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">hello world</code> → <code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">hello%20world</code></div>
+        <div><code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">foo=bar&baz=qux</code> → <code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">foo%3Dbar%26baz%3Dqux</code></div>
+        <div><code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">hello%20world</code> → <code style="background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;">hello world</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied!</div>
+
+  <script>
+    let mode = 'encode';
+
+    const inputEl = document.getElementById('input');
+    const outputEl = document.getElementById('output');
+    const inputLabel = document.getElementById('input-label');
+    const outputLabel = document.getElementById('output-label');
+    const charCount = document.getElementById('char-count');
+    const byteCount = document.getElementById('byte-count');
+
+    // Update stats on input
+    inputEl.addEventListener('input', updateStats);
+
+    function updateStats() {
+      const text = inputEl.value;
+      charCount.textContent = `${text.length} chars`;
+      const bytes = new TextEncoder().encode(text).length;
+      byteCount.textContent = `${bytes} bytes`;
+    }
+
+    // Mode toggle
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        updateLabels();
+      });
+    });
+
+    function updateLabels() {
+      if (mode === 'encode') {
+        inputLabel.textContent = 'Enter text to encode';
+        outputLabel.textContent = 'Encoded result';
+      } else {
+        inputLabel.textContent = 'Enter URL or text to decode';
+        outputLabel.textContent = 'Decoded result';
+      }
+    }
+
+    function process() {
+      const input = inputEl.value;
+      if (!input) return;
+
+      try {
+        if (mode === 'encode') {
+          outputEl.value = encodeURIComponent(input);
+        } else {
+          outputEl.value = decodeURIComponent(input);
+        }
+      } catch (e) {
+        outputEl.value = 'Error: Invalid input for decoding';
+      }
+    }
+
+    function swap() {
+      const temp = inputEl.value;
+      inputEl.value = outputEl.value;
+      outputEl.value = temp;
+      updateStats();
+    }
+
+    function copyResult() {
+      if (!outputEl.value) return;
+      outputEl.select();
+      document.execCommand('copy');
+      showToast('Copied to clipboard!');
+    }
+
+    function clearAll() {
+      inputEl.value = '';
+      outputEl.value = '';
+      updateStats();
+    }
+
+    function fillPreset(preset) {
+      const presets = {
+        space: ' ',
+        amp: '&',
+        equals: '=',
+        question: '?',
+        hash: '#'
+      };
+      inputEl.value = presets[preset];
+      inputEl.focus();
+      updateStats();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Auto-convert on typing (optional - can be toggled)
+    let autoConvert = false;
+    inputEl.addEventListener('input', () => {
+      if (autoConvert) process();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          process();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
