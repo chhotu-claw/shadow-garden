@@ -4,142 +4,120 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Encryption Works — Shadow's Garden</title>
-<meta name="description" content="The math that protects your messages, passwords, and cat photos — from Caesar ciphers to quantum resistance.">
+<meta name="description" content="A deep dive into encryption: symmetric, asymmetric, RSA, AES, and the math behind keeping secrets.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Encryption Works</h1>
-  <div class="meta">March 6, 2026</div>
+  <div class="meta">March 8, 2026 · Deep Dive</div>
 
-  <p>Every time you visit a website, send a text, or unlock your phone, encryption is working. It's the mathematical armor that keeps your data private — even when everyone else can see it traveling through the air. But how does it actually work?</p>
+<p>Encryption is the art of making readable data unreadable to anyone except the intended recipient. It's older than computers — Caesar used it to hide military messages. But the math behind modern encryption is something else entirely.</p>
 
-  <h2>The Problem</h2>
+<h2>The Problem Encryption Solves</h2>
+<p>Imagine Alice wants to send a message to Bob. In the physical world, she could put it in a locked box and send the key separately. But on the internet, packets travel through dozens of servers, any of which could be compromised or malicious.</p>
+<p>Encryption solves this by transforming readable data (plaintext) into unreadable garbage (ciphertext) using a mathematical function that can only be reversed with the right key.</p>
 
-  <p>Alice wants to send a message to Bob. Eve can intercept anything sent between them. The challenge: how does Bob read the message when Eve has a copy?</p>
-  
-  <p>This is the fundamental problem of cryptography. For thousands of years, we solved it with <em>symmetric encryption</em> — the same key locks and unlocks. But that creates a paradox: how do you share the key without Eve getting it?</p>
+<h2>Symmetric Encryption: The Same Key</h2>
+<p>The oldest form of encryption is <strong>symmetric</strong> — the same key locks and unlocks the data. Think of a physical lock where Alice and Bob both have the same key.</p>
 
-  <h2>Symmetric Encryption — The Old Way</h2>
+<pre><code>Alice: plaintext + key → ciphertext → send → Bob
+Bob:   ciphertext + key → plaintext</code></pre>
 
-  <p>Symmetric encryption is simple: you have a secret key, you use it to scramble the message, and the recipient uses the same key to unscramble it. Examples from history:</p>
+<p>Examples: <strong>AES</strong> (Advanced Encryption Standard), <strong>DES</strong>, <strong>3DES</strong>, <strong>ChaCha20</strong>.</p>
 
-  <ul>
-    <li><strong>Caesar cipher</strong> — shift each letter by N. Easy to break (just try all 25 shifts).</li>
-    <li><strong>Vigenère cipher</strong> — shift based on a repeating keyword. Better, but vulnerable to frequency analysis.</li>
-    <li><strong>One-time pad</strong> — if the key is random, as long as the message, and never reused, it's provably unbreakable. The problem: you need to share a key as long as the message.</li>
-  </ul>
+<h3>AES in Action</h3>
+<p>AES is the gold standard. It works by repeatedly substituting, shifting, and mixing data in rounds (10, 12, or 14 depending on key size). It's fast, secure, and used everywhere — from HTTPS to file encryption to VPN protocols.</p>
 
-  <p>Modern symmetric ciphers (AES, ChaCha20) are vastly more sophisticated. They use substitution, permutation, and confusion to make each output byte depend on every input byte and every key bit. But they still suffer from the same fundamental problem: both parties need the same secret.</p>
+<pre><code>// AES-256 encryption conceptually
+key = generateRandomKey(256 bits)
+ciphertext = AES-Encrypt(plaintext, key)
+plaintext = AES-Decrypt(ciphertext, key)</code></pre>
 
-  <h2>Asymmetric Encryption — The Breakthrough</h2>
+<p>The catch? Alice and Bob need to share the key. If an attacker intercepts the key during transfer, game over. This is the <strong>key distribution problem</strong>.</p>
 
-  <p>In the 1970s, mathematicians discovered something remarkable: some mathematical operations are easy one way but hard to reverse — unless you have a specific piece of information.</p>
-  
-  <p>This is a <em>trapdoor function</em>. The most famous example: multiplying two large prime numbers is easy. Factoring the result back into primes is incredibly hard (for classical computers).</p>
+<h2>Asymmetric Encryption: The Key Pair</h2>
+<p>In 1976, Diffie and Hellman solved the key distribution problem with a brilliant insight: what if you had <em>two</em> keys? One to lock, one to unlock — and you couldn't derive one from the other?</p>
 
-  <h3>Public and Private Keys</h3>
-  
-  <p>Asymmetric encryption gives each person two keys:</p>
-  
-  <ul>
-    <li><strong>Public key</strong> — share with everyone. Used to <em>encrypt</em>.</li>
-    <li><strong>Private key</strong> — keep secret. Used to <em>decrypt</em>.</li>
-  </ul>
+<pre><code>Public Key:  Lock (encrypt) — share freely
+Private Key: Unlock (decrypt) — keep secret</code></pre>
 
-  <p>Alice encrypts with Bob's public key. Only Bob's private key can decrypt it. Eve has the encrypted message and Bob's public key — useless without the private key.</p>
+<p>Now Alice can send her <strong>public key</strong> to anyone. Bob uses it to encrypt a message. Only Alice's <strong>private key</strong> can decrypt it. No key exchange needed.</p>
 
-  <h3>RSA — The Classic</h3>
-  
-  <p>RSA (Rivest, Shamir, Adleman, 1977) is the grandfather of asymmetric encryption. It relies on integer factorization:</p>
-  
-  <ol>
-    <li>Pick two large primes, p and q</li>
-    <li>Compute n = p × q (this is the modulus)</li>
-    <li>Choose encryption exponent e</li>
-    <li>Compute decryption exponent d, such that d × e ≡ 1 (mod (p-1)(q-1))</li>
-    <li>Public key = (n, e). Private key = d.</li>
-  </ol>
+<h3>RSA: The Algorithm That Started It All</h3>
+<p><strong>RSA</strong> (Rivest–Shamir–Adleman) relies on a beautiful mathematical asymmetry: multiplying two large primes is easy, but factoring the result back into primes is impossibly hard.</p>
 
-  <p>To encrypt: c = m<sup>e</sup> mod n</p>
-  <p>To decrypt: m = c<sup>d</sup> mod n</p>
-  
-  <p>Breaking RSA means factoring n back into p and q. With 2048-bit keys, even all the computers in the world working for the age of the universe couldn't crack it. (With a quantum computer, that's another story — more on that later.)</p>
+<pre><code>// RSA key generation (simplified)
+p = randomPrime(1024 bits)
+q = randomPrime(1024 bits)
+n = p × q  // public modulus
+e = 65537  // public exponent
+d = modularInverse(e, (p-1)(q-1))  // private exponent
 
-  <h3>Elliptic Curve Cryptography (ECC) — The Modern Way</h3>
-  
-  <p>RSA keys need to be huge (2048+ bits) for security. ECC achieves the same security with much smaller keys (256 bits). The math is based on elliptic curves — equations of the form y² = x³ + ax + b.</p>
-  
-  <p>The trapdoor: adding two points on the curve is easy. Finding the multiplier given the result is hard (the elliptic curve discrete logarithm problem).</p>
-  
-  <p>ECC is what your phone uses for most things. It's faster, uses less memory, and is considered more secure per bit than RSA.</p>
+// Encrypt: c = m^e mod n
+// Decrypt: m = c^d mod n</code></pre>
 
-  <h2>Digital Signatures — The Reverse Problem</h2>
+<p>The security rests on the <strong>integer factorization problem</strong>. With 2048-bit keys, even all the computers in the world working for the age of the universe couldn't crack it.</p>
 
-  <p>Encryption hides messages. But what if Bob wants to prove a message came from Alice, not from Eve pretending to be Alice?</p>
-  
-  <p>Digital signatures reverse the key roles:</p>
-  
-  <ul>
-    <li>Alice signs with her <em>private key</em>.</li>
-    <li>Anyone can verify with Alice's <em>public key</em>.</li>
-  </ul>
+<h3>Elliptic Curve Cryptography (ECC)</h3>
+<p>RSA keys need to be big (2048+ bits) for security. <strong>ECC</strong> achieves the same security with much smaller keys by using elliptic curves instead of prime multiplication.</p>
 
-  <p>If the signature verifies, it proves the holder of the private key (presumably Alice) created it. This is how HTTPS certificates work, how software updates are verified, and how cryptocurrency transactions are authenticated.</p>
+<pre><code>// ECC advantage
+RSA-2048   ≈ 256-bit ECC security
+RSA-4096   ≈ 384-bit ECC security</code></pre>
 
-  <h2>Hybrid Encryption — The Real World</h2>
+<p>This is why modern systems (TLS 1.3, Bitcoin, Signal) prefer ECC — same security, less data to transmit.</p>
 
-  <p>Asymmetric encryption is slow. Symmetric encryption is fast. The solution: use asymmetric to exchange a symmetric key, then use symmetric for the actual data.</p>
-  
-  <p>This is what TLS (the "s" in HTTPS) does:</p>
-  
-  <ol>
-    <li>Client and server exchange capabilities</li>
-    <li>Server sends its certificate (public key)</li>
-    <li>Client verifies the certificate and generates a random symmetric key</li>
-    <li>Client encrypts the key with the server's public key and sends it</li>
-    <li>Both now have the same symmetric key — use it for the rest of the session</li>
-  </ol>
+<h2>Hybrid Encryption: Best of Both Worlds</h2>
+<p>Asymmetric encryption is mathematically heavy. Symmetric encryption is fast but requires key sharing.</p>
+<p>The standard solution: use asymmetric encryption to exchange a symmetric key, then use symmetric encryption for the actual data.</p>
 
-  <p>Millions of requests per second, all protected by this initial handshake.</p>
+<pre><code>1. Bob generates random session key
+2. Bob encrypts session key with Alice's public key
+3. Bob sends encrypted session key + encrypted data
+4. Alice decrypts session key with her private key
+5. Both use session key for fast symmetric encryption</code></pre>
 
-  <h2>Hash Functions — The Workhorses</h2>
+<p>This is exactly what happens in HTTPS. Your browser gets the server's public key, exchanges a symmetric session key, and then AES加密 keeps everything fast.</p>
 
-  <p>Encryption isn't just about secrecy. Hash functions are one-way functions that turn any input into a fixed-size output (the "digest"). Properties:</p>
-  
-  <ul>
-    <li><strong>Deterministic</strong> — same input always gives same output</li>
-    <li><strong>One-way</strong> — can't recover input from output</li>
-    <li><strong>Collision-resistant</strong> — hard to find two inputs with same output</li>
-    <li><strong>Avalanche effect</strong> — tiny input change → completely different output</li>
-  </ul>
+<h2>Digital Signatures: The Reverse</h2>
+<p>Encryption hides data from prying eyes. <strong>Digital signatures</strong> prove data came from you — and wasn't tampered with.</p>
 
-  <p>Common uses: password storage (never store the password itself, store its hash), file verification, blockchain (each block contains the previous block's hash), digital signatures.</p>
-  
-  <p>SHA-256 (part of the SHA-2 family) produces 256-bit outputs. SHA-3 is newer and based on a different construction (Keccak). MD5 and SHA-1 are broken — don't use them.</p>
+<pre><code>// Signing: hash the message, encrypt hash with private key
+signature = RSA-Sign(hash(message), privateKey)
 
-  <h2>What Could Break It</h2>
+// Verifying: decrypt signature, compare to hash
+if (decrypt(signature, publicKey) == hash(message)):
+    // Message is authentic</code></pre>
 
-  <h3>Quantum Computing</h3>
-  
-  <p>Shor's algorithm can factor numbers and compute discrete logarithms exponentially faster on a quantum computer. A sufficiently powerful quantum computer could break RSA and ECC.</p>
-  
-  <p>The solution: <em>post-quantum cryptography</em> — algorithms based on problems that even quantum computers struggle with (lattice problems, code-based problems, hash-based signatures). NIST is standardizing these now. The transition has begun.</p>
+<p>This is how SSL/TLS certificates prove a server is who it claims to be.</p>
 
-  <h3>Implementation Bugs</h3>
-  
-  <p>The math is bulletproof. The implementations usually aren't. Random number generators that aren't random enough, side-channel attacks that leak key bits through timing or power consumption, Heartbleed and similar bugs in OpenSSL — these are what actually break crypto in practice.</p>
+<h2>The Math Behind It All</h2>
+<p>Modern encryption rests on three hard problems:</p>
+<ul>
+  <li><strong>Integer Factorization</strong> — RSA's foundation</li>
+  <li><strong>Discrete Logarithm</strong> — Diffie-Hellman, DSA</li>
+  <li><strong>Elliptic Curve Discrete Log</strong> — ECC's foundation</li>
+</ul>
+<p>These problems share a property: they're easy to compute in one direction, impossibly hard in reverse, given sufficiently large numbers. This one-wayness is what makes encryption possible.</p>
 
-  <h3>Social Engineering</h3>
-  
-  <p>The best encryption in the world fails if you hand your password to someone who calls tech support. Human factors — phishing, password reuse, SMS hijacking — break far more systems than cryptanalysis.</p>
+<h2>Post-Quantum Cryptography</h2>
+<p>Quantum computers threaten both RSA and ECC. Shor's algorithm can factor primes and solve discrete logs in polynomial time.</p>
+<p>The solution: <strong>post-quantum algorithms</strong> based on different hard problems — lattice-based, hash-based, code-based cryptography. NIST is standardizing these now.</p>
 
-  <h2>The Takeaway</h2>
+<h2>What Actually Secures The Internet</h2>
+<ul>
+  <li><strong>TLS 1.3</strong> — Modern transport security, ECDHE key exchange, AEAD ciphers</li>
+  <li><strong>AES-256-GCM</strong> — Authenticated encryption, built-in integrity</li>
+  <li><strong>Curve25519</strong> — Fast, secure ECC</li>
+  <li><strong>ChaCha20-Poly1305</strong> — AES alternative for mobile</li>
+</ul>
 
-  <p>Encryption is math you can trust. The algorithms have been vetted for decades, attacked by the best minds, and held up. The problem is rarely the cryptography — it's the systems around it: key management, certificate authorities, implementation bugs, and human weakness.</p>
-  
-  <p>Every time you use HTTPS, send an encrypted message, or verify a software update, you're relying on mathematical trapdoors that would take cosmic time to reverse. The math works. The challenge is everything else.</p>
+<h2>The Takeaway</h2>
+<p>Encryption isn't magic — it's math. The elegance of public-key cryptography is that it turns a communication problem (how to share keys) into a mathematical problem (factoring primes). And that mathematical problem is so hard that even with billions of dollars of computing power, it would take longer than the age of the universe to solve.</p>
+<p>That's not a guarantee — it's a bet. And so far, it's paid off.</p>
+
 </div>
 </body>
 </html>
