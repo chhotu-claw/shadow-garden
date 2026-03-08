@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timer — Shadow's Garden</title>
+<meta name="description" content="Simple countdown timer with presets, audio notification, and persistent state.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --primary: #f59e0b;
+    --primary-hover: #d97706;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --border: #334155;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .timer-display {
+    font-size: 5rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    margin: 2rem 0;
+    color: var(--primary);
+    text-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+  }
+
+  .timer-display.running {
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .timer-display.finished {
+    color: var(--success);
+    animation: blink 0.5s ease-in-out 3;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .btn {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: #000;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--border);
+  }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .preset {
+    padding: 0.5rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .preset:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .preset.active {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+  }
+
+  .custom-time {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+    align-items: center;
+  }
+
+  .custom-time input {
+    width: 80px;
+    padding: 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1.25rem;
+    text-align: center;
+  }
+
+  .custom-time input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .custom-time span {
+    color: var(--text-muted);
+    font-size: 1.5rem;
+  }
+
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+
+  .input-group input {
+    width: 70px;
+    padding: 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1.25rem;
+    text-align: center;
+  }
+
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .input-group label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .mode-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .mode-btn {
+    padding: 0.5rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+  }
+
+  .volume-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .volume-control input[type="range"] {
+    width: 100px;
+    accent-color: var(--primary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>⏱️ Timer</h1>
+    <p class="subtitle">Countdown timer with presets</p>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="timer">Timer</button>
+      <button class="mode-btn" data-mode="stopwatch">Stopwatch</button>
+    </div>
+
+    <div class="timer-display" id="display">00:00:00</div>
+
+    <div id="timer-mode">
+      <div class="presets">
+        <button class="preset" data-minutes="1">1 min</button>
+        <button class="preset" data-minutes="5">5 min</button>
+        <button class="preset" data-minutes="10">10 min</button>
+        <button class="preset" data-minutes="15">15 min</button>
+        <button class="preset" data-minutes="30">30 min</button>
+        <button class="preset" data-minutes="60">1 hour</button>
+      </div>
+
+      <div class="input-group">
+        <div>
+          <label>Hours</label>
+          <input type="number" id="hours" min="0" max="23" value="0">
+        </div>
+        <div>
+          <label>Minutes</label>
+          <input type="number" id="minutes" min="0" max="59" value="5">
+        </div>
+        <div>
+          <label>Seconds</label>
+          <input type="number" id="seconds" min="0" max="59" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="start-btn" onclick="startTimer()">Start</button>
+      <button class="btn btn-secondary" id="pause-btn" onclick="pauseTimer()" style="display:none;">Pause</button>
+      <button class="btn btn-danger" onclick="resetTimer()">Reset</button>
+    </div>
+
+    <div class="volume-control">
+      <span>🔊</span>
+      <input type="range" id="volume" min="0" max="1" step="0.1" value="0.7">
+    </div>
+  </div>
+
+  <script>
+    let timeLeft = 0;
+    let elapsed = 0;
+    let interval = null;
+    let isRunning = false;
+    let isTimerMode = true;
+
+    const display = document.getElementById('display');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const hoursInput = document.getElementById('hours');
+    const minutesInput = document.getElementById('minutes');
+    const secondsInput = document.getElementById('seconds');
+    const timerMode = document.getElementById('timer-mode');
+    const volumeSlider = document.getElementById('volume');
+
+    // Load saved state
+    const saved = localStorage.getItem('shadow_timer_state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.timeLeft > 0 && !state.isRunning) {
+          timeLeft = state.timeLeft;
+          updateDisplay();
+        }
+      } catch (e) {}
+    }
+
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateDisplay() {
+      if (isTimerMode) {
+        display.textContent = formatTime(timeLeft);
+      } else {
+        display.textContent = formatTime(elapsed);
+      }
+    }
+
+    function startTimer() {
+      if (isTimerMode && timeLeft === 0) {
+        const h = parseInt(hoursInput.value) || 0;
+        const m = parseInt(minutesInput.value) || 0;
+        const s = parseInt(secondsInput.value) || 0;
+        timeLeft = h * 3600 + m * 60 + s;
+        if (timeLeft === 0) return;
+      }
+
+      isRunning = true;
+      startBtn.style.display = 'none';
+      pauseBtn.style.display = 'inline-block';
+      display.classList.add('running');
+
+      interval = setInterval(() => {
+        if (isTimerMode) {
+          timeLeft--;
+          if (timeLeft <= 0) {
+            finishTimer();
+          }
+        } else {
+          elapsed++;
+        }
+        updateDisplay();
+        saveState();
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      isRunning = false;
+      clearInterval(interval);
+      startBtn.style.display = 'inline-block';
+      pauseBtn.style.display = 'none';
+      display.classList.remove('running');
+      startBtn.textContent = 'Resume';
+      saveState();
+    }
+
+    function resetTimer() {
+      clearInterval(interval);
+      isRunning = false;
+      timeLeft = 0;
+      elapsed = 0;
+      display.classList.remove('running', 'finished');
+      startBtn.style.display = 'inline-block';
+      pauseBtn.style.display = 'none';
+      startBtn.textContent = 'Start';
+      updateDisplay();
+      localStorage.removeItem('shadow_timer_state');
+    }
+
+    function finishTimer() {
+      clearInterval(interval);
+      isRunning = false;
+      timeLeft = 0;
+      display.classList.remove('running');
+      display.classList.add('finished');
+      startBtn.style.display = 'inline-block';
+      pauseBtn.style.display = 'none';
+      startBtn.textContent = 'Start';
+      playAlarm();
+    }
+
+    function playAlarm() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const volume = volumeSlider.value;
+      
+      // Play a pleasant chime sequence
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      notes.forEach((freq, i) => {
+        setTimeout(() => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(volume * 0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.5);
+        }, i * 200);
+      });
+    }
+
+    function saveState() {
+      localStorage.setItem('shadow_timer_state', JSON.stringify({
+        timeLeft,
+        isRunning
+      }));
+    }
+
+    // Preset buttons
+    document.querySelectorAll('.preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mins = parseInt(btn.dataset.minutes);
+        timeLeft = mins * 60;
+        updateDisplay();
+        document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Mode toggle
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        isTimerMode = btn.dataset.mode === 'timer';
+        
+        if (isTimerMode) {
+          timerMode.style.display = 'block';
+        } else {
+          timerMode.style.display = 'none';
+        }
+        
+        resetTimer();
+      });
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (isRunning) {
+          pauseTimer();
+        } else {
+          startTimer();
+        }
+      } else if (e.code === 'KeyR') {
+        resetTimer();
+      }
+    });
+
+    updateDisplay();
+  </script>
+</body>
+</html>
