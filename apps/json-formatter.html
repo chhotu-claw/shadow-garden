@@ -4,171 +4,445 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Formatter — Shadow's Garden</title>
-<meta name="description" content="Format, minify, and validate JSON. Paste, click, copy.">
+<meta name="description" content="Format, validate, and minify JSON. Paste, process, copy.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --success: #3fb950; --error: #f85149; --panel: #161b22; }
-  .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-  h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-  .toolbar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-  button {
-    background: var(--panel); border: 1px solid var(--border); color: var(--fg);
-    padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem;
-    transition: all 0.15s;
+  :root {
+    --primary: #22c55e;
+    --primary-hover: #16a34a;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --error: #ef4444;
   }
-  button:hover { background: var(--border); }
-  button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
-  button.primary:hover { opacity: 0.9; }
-  .editor-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 700px) { .editor-container { grid-template-columns: 1fr; } }
-  .panel { display: flex; flex-direction: column; }
-  label { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  textarea {
-    flex: 1; min-height: 400px; background: var(--panel); border: 1px solid var(--border);
-    color: var(--fg); font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    font-size: 0.875rem; padding: 1rem; border-radius: 8px; resize: vertical; line-height: 1.5;
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
   }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .status { font-size: 0.875rem; padding: 0.5rem; border-radius: 6px; margin-top: 0.5rem; }
-  .status.valid { background: rgba(63,185,80,0.15); color: var(--success); }
-  .status.invalid { background: rgba(248,81,73,0.15); color: var(--error); }
-  .status.info { background: rgba(88,166,255,0.15); color: var(--accent); }
-  .shortcuts { font-size: 0.75rem; color: #8b949e; margin-top: 1rem; }
-  .shortcuts kbd { background: var(--panel); border: 1px solid var(--border); padding: 0.15rem 0.4rem; border-radius: 4px; font-family: inherit; }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn:hover {
+    background: var(--border);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-error {
+    background: var(--error);
+    color: white;
+    border-color: var(--error);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .panel-title {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  textarea, .output-area {
+    flex: 1;
+    min-height: 400px;
+    padding: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+    white-space: pre-wrap;
+    overflow: auto;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .output-area {
+    background: #0d1117;
+  }
+
+  textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  .status {
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    display: none;
+  }
+
+  .status.show {
+    display: block;
+  }
+
+  .status.error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--error);
+    color: var(--error);
+  }
+
+  .status.success {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+  }
+
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .stat span {
+    color: var(--text);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: #000;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+  }
+
+  .error-line {
+    color: var(--error);
+  }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>JSON Formatter</h1>
-  
-  <div class="toolbar">
-    <button class="primary" onclick="format()">Format</button>
-    <button onclick="minify()">Minify</button>
-    <button onclick="validate()">Validate</button>
-    <button onclick="clearAll()">Clear</button>
-    <button onclick="copyOutput()">Copy</button>
-  </div>
-  
-  <div class="editor-container">
-    <div class="panel">
-      <label>Input</label>
-      <textarea id="input" placeholder="Paste JSON here..."></textarea>
+  <div class="container">
+    <h1>📄 JSON Formatter</h1>
+    <p class="subtitle">Format, validate, minify JSON. No data leaves your browser.</p>
+
+    <div class="status" id="status"></div>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="format()">Format</button>
+      <button class="btn" onclick="minify()">Minify</button>
+      <button class="btn" onclick="validate()">Validate</button>
+      <button class="btn" onclick="sortKeys()">Sort Keys</button>
+      <button class="btn" onclick="clearAll()">Clear</button>
     </div>
-    <div class="panel">
-      <label>Output</label>
-      <textarea id="output" placeholder="Formatted JSON..."></textarea>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Input</span>
+          <button class="btn copy-btn" onclick="pasteInput()">📋 Paste</button>
+        </div>
+        <textarea id="input" placeholder='{"paste": "your JSON here"}'></textarea>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Output</span>
+          <button class="btn copy-btn" onclick="copyOutput()">📋 Copy</button>
+        </div>
+        <div class="output-area" id="output"></div>
+        <div class="stats" id="stats"></div>
+      </div>
     </div>
   </div>
-  
-  <div id="status" class="status info">Paste JSON and click Format</div>
-  
-  <div class="shortcuts">
-    <kbd>Ctrl</kbd>+<kbd>Enter</kbd> Format &nbsp;
-    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> Minify &nbsp;
-    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> Copy output
-  </div>
-</div>
 
-<script>
-  const input = document.getElementById('input');
-  const output = document.getElementById('output');
-  const status = document.getElementById('status');
+  <div class="toast" id="toast">Copied!</div>
 
-  function showStatus(msg, type) {
-    status.textContent = msg;
-    status.className = 'status ' + type;
-  }
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+    const stats = document.getElementById('stats');
 
-  function getInput() {
-    const val = input.value.trim();
-    if (!val) {
-      showStatus('Paste some JSON first', 'info');
-      return null;
+    function showStatus(msg, type) {
+      status.textContent = msg;
+      status.className = `status show ${type}`;
+      setTimeout(() => status.classList.remove('show'), 3000);
     }
-    return val;
-  }
 
-  function format() {
-    const val = getInput();
-    if (!val) return;
-    
-    try {
-      const parsed = JSON.parse(val);
-      output.value = JSON.stringify(parsed, null, 2);
-      showStatus('Valid JSON — formatted', 'valid');
-    } catch (e) {
-      showStatus('Invalid JSON: ' + e.message, 'error');
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
     }
-  }
 
-  function minify() {
-    const val = getInput();
-    if (!val) return;
-    
-    try {
-      const parsed = JSON.parse(val);
-      output.value = JSON.stringify(parsed);
-      showStatus('Valid JSON — minified', 'valid');
-    } catch (e) {
-      showStatus('Invalid JSON: ' + e.message, 'error');
-    }
-  }
-
-  function validate() {
-    const val = getInput();
-    if (!val) return;
-    
-    try {
-      JSON.parse(val);
-      const parsed = JSON.parse(val);
-      const keys = Object.keys(parsed).length;
-      const type = Array.isArray(parsed) ? 'array' : 'object';
-      showStatus('Valid JSON — ' + type + ' with ' + keys + ' keys', 'valid');
-    } catch (e) {
-      showStatus('Invalid JSON: ' + e.message, 'error');
-    }
-  }
-
-  function clearAll() {
-    input.value = '';
-    output.value = '';
-    showStatus('Cleared', 'info');
-    input.focus();
-  }
-
-  function copyOutput() {
-    if (!output.value) {
-      showStatus('Nothing to copy', 'info');
-      return;
-    }
-    navigator.clipboard.writeText(output.value).then(() => {
-      showStatus('Copied to clipboard', 'valid');
-    }).catch(() => {
-      showStatus('Failed to copy', 'error');
-    });
-  }
-
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        format();
-      } else if (e.shiftKey && e.key.toLowerCase() === 'm') {
-        e.preventDefault();
-        minify();
-      } else if (e.shiftKey && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        copyOutput();
+    function parseJSON(text) {
+      try {
+        return [JSON.parse(text), null];
+      } catch (e) {
+        // Try to extract line number from error
+        const match = e.message.match(/position (\d+)/);
+        let errorMsg = e.message;
+        
+        if (match) {
+          const pos = parseInt(match[1]);
+          const lines = text.substring(0, pos).split('\n');
+          const line = lines.length;
+          const col = lines[lines.length - 1].length + 1;
+          errorMsg = `Error at line ${line}, column ${col}: ${e.message}`;
+        }
+        
+        return [null, errorMsg];
       }
     }
-  });
 
-  // Auto-format on paste
-  input.addEventListener('paste', () => {
-    setTimeout(format, 10);
-  });
-</script>
+    function format() {
+      const text = input.value.trim();
+      if (!text) {
+        showStatus('Please enter some JSON', 'error');
+        return;
+      }
+
+      const [parsed, error] = parseJSON(text);
+      if (error) {
+        showStatus(error, 'error');
+        output.textContent = '';
+        stats.innerHTML = '';
+        return;
+      }
+
+      output.textContent = JSON.stringify(parsed, null, 2);
+      showStatus('Valid JSON ✓', 'success');
+      updateStats(parsed);
+    }
+
+    function minify() {
+      const text = input.value.trim();
+      if (!text) {
+        showStatus('Please enter some JSON', 'error');
+        return;
+      }
+
+      const [parsed, error] = parseJSON(text);
+      if (error) {
+        showStatus(error, 'error');
+        return;
+      }
+
+      output.textContent = JSON.stringify(parsed);
+      showStatus('Minified ✓', 'success');
+      updateStats(parsed);
+    }
+
+    function validate() {
+      const text = input.value.trim();
+      if (!text) {
+        showStatus('Please enter some JSON', 'error');
+        return;
+      }
+
+      const [parsed, error] = parseJSON(text);
+      if (error) {
+        showStatus(error, 'error');
+        output.textContent = '';
+        stats.innerHTML = '';
+        return;
+      }
+
+      output.textContent = JSON.stringify(parsed, null, 2);
+      showStatus('Valid JSON ✓', 'success');
+      updateStats(parsed);
+    }
+
+    function sortKeys() {
+      const text = input.value.trim();
+      if (!text) {
+        showStatus('Please enter some JSON', 'error');
+        return;
+      }
+
+      const [parsed, error] = parseJSON(text);
+      if (error) {
+        showStatus(error, 'error');
+        return;
+      }
+
+      const sorted = sortObjectKeys(parsed);
+      output.textContent = JSON.stringify(sorted, null, 2);
+      showStatus('Keys sorted ✓', 'success');
+      updateStats(sorted);
+    }
+
+    function sortObjectKeys(obj) {
+      if (Array.isArray(obj)) {
+        return obj.map(sortObjectKeys);
+      }
+      if (obj !== null && typeof obj === 'object') {
+        const sorted = {};
+        Object.keys(obj).sort().forEach(key => {
+          sorted[key] = sortObjectKeys(obj[key]);
+        });
+        return sorted;
+      }
+      return obj;
+    }
+
+    function updateStats(parsed) {
+      const str = JSON.stringify(parsed);
+      const lines = output.textContent.split('\n').length;
+      const bytes = new Blob([str]).size;
+      
+      stats.innerHTML = `
+        <div class="stat">Size: <span>${formatBytes(bytes)}</span></div>
+        <div class="stat">Lines: <span>${lines}</span></div>
+        <div class="stat">Keys: <span>${countKeys(parsed)}</span></div>
+      `;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function countKeys(obj, count = 0) {
+      if (Array.isArray(obj)) {
+        obj.forEach(item => count = countKeys(item, count));
+      } else if (obj !== null && typeof obj === 'object') {
+        count += Object.keys(obj).length;
+        Object.values(obj).forEach(val => count = countKeys(val, count));
+      }
+      return count;
+    }
+
+    function clearAll() {
+      input.value = '';
+      output.textContent = '';
+      stats.innerHTML = '';
+      status.className = 'status';
+    }
+
+    async function copyOutput() {
+      if (!output.textContent) {
+        showToast('Nothing to copy');
+        return;
+      }
+      await navigator.clipboard.writeText(output.textContent);
+      showToast('Copied!');
+    }
+
+    async function pasteInput() {
+      const text = await navigator.clipboard.readText();
+      input.value = text;
+    }
+
+    // Auto-format on paste
+    input.addEventListener('paste', () => {
+      setTimeout(format, 0);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          format();
+        }
+      }
+    });
+  </script>
 </body>
 </html>
