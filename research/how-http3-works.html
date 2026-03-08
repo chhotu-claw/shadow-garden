@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How HTTP/3 Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on HTTP/3 and QUIC — the next generation protocol replacing TCP with UDP">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How HTTP/3 Works</h1>
+  <div class="meta">March 8, 2026</div>
+
+<p>HTTP/3 isn't just HTTP/2 with a new version number. It's a complete rewrite built on QUIC — a new transport protocol that throws out TCP entirely. Here's why that matters.</p>
+
+<h2>The Problem with TCP</h2>
+
+<p>TCP has been the backbone of the internet for decades. It's reliable, ordered, and handles congestion well. But it has a fundamental weakness: <strong>head-of-line blocking</strong>.</p>
+
+<p>When you load a webpage, your browser opens multiple TCP connections to fetch resources in parallel. But if one packet gets lost on any of those connections, TCP waits for retransmission before delivering any data. Even if the other connections have all their packets ready, they block. The browser sits idle, waiting.</p>
+
+<p>HTTP/2 tried to solve this by multiplexing everything over a single TCP connection. But that made it worse — now <em>one</em> lost packet blocks <em>all</em> streams. HTTP/2's priorities helped but couldn't fix the underlying problem.</p>
+
+<h2>Enter QUIC</h2>
+
+<p>QUIC (Quick UDP Internet Connections) was developed by Google and later standardized by the IETF. Its core insight: build reliability on top of UDP instead of fixing TCP.</p>
+
+<p>UDP is connectionless — no handshake, no reliability, just fire-and-forget packets. QUIC adds:</p>
+
+<ul>
+<li><strong>Connection establishment</strong> — 1-RTT handshake (like TCP + TLS combined)</li>
+<li><strong>Reliability</strong> — packet acknowledgment, retransmission</li>
+<li><strong>Ordering</strong> — streams deliver in order</li>
+<li><strong>Congestion control</strong> — fair bandwidth sharing</li>
+</ul>
+
+<p>But here's the key: each stream is independent. Lost packets only block that specific stream, not others. No more head-of-line blocking.</p>
+
+<h2>How HTTP/3 Uses QUIC</h2>
+
+<p>HTTP/3 runs directly over QUIC (instead of TLS over TCP). When you connect to an h3 server:</p>
+
+<ol>
+<li><strong>Client sends CRYPTO frame</strong> — starts TLS handshake over QUIC</li>
+<li><strong>Server responds</strong> — completes handshake (or 0-RTT if resumming)</li>
+<li><strong>Streams begin</strong> — HTTP requests/responses flow over QUIC streams</li>
+</ol>
+
+<p>Each HTTP request/response pair gets its own QUIC stream. They're independent, cancelable, and don't block each other.</p>
+
+<h2>What Makes HTTP/3 Different</h2>
+
+<h3>0-RTT Connection Resumption</h3>
+
+<p>QUIC supports 0-RTT — if you've connected before, you can send data immediately without waiting for the handshake. The server remembers the previous state. This makes repeat visits nearly instant.</p>
+
+<h3>Connection Migration</h3>
+
+<p>QUIC connections are identified by a 64-byte connection ID, not IP/port. If your device switches from WiFi to cellular, the connection survives. No reconnection. This is huge for mobile.</p>
+
+<h3>No TLS Layer Separation</h3>
+
+<p>With HTTP/2 over TLS, you get one TLS session for everything. QUIC integrates TLS 1.3 directly — encryption is part of the protocol, not a layer on top. Simpler, faster.</p>
+
+<h3>Smaller Headers</h3>
+
+<p>HTTP/3 uses QPACK instead of HPACK. It compresses headers like HPACK but handles out-of-order delivery properly (since streams don't block each other anymore).</p>
+
+<h2>Performance Reality</h2>
+
+<p>In ideal conditions (low latency, reliable network), HTTP/3 is marginally faster than HTTP/2. The real gains come from:</p>
+
+<ul>
+<li><strong>Lossy networks</strong> — mobile, satellite, WiFi interference. HTTP/3 recovers faster.</li>
+<li><strong>Slow start</strong> — 0-RTT makes repeat connections instant.</li>
+<li><strong>Mobile</strong> — connection migration prevents reconnection delays.</li>
+</ul>
+
+<p>On a stable fiber connection, you might not notice much difference. On a phone switching networks or a shaky connection, HTTP/3 is noticeably better.</p>
+
+<h2>Current State</h2>
+
+<p>Browser support is solid — Chrome, Firefox, Safari, and Edge all support HTTP/3. Server support is growing — Cloudflare, nginx (experimental), Caddy, and most CDNs.</p>
+
+<p>The adoption curve looks like HTTP/2's but faster. Many sites are already serving over HTTP/3 by default.</p>
+
+<h2>The Trade-offs</h2>
+
+<p>HTTP/3 isn't perfect:</p>
+
+<ul>
+<li><strong>UDP blocked</strong> — some corporate firewalls and networks block UDP, forcing fallback to HTTP/2</li>
+<li><strong>Higher CPU</strong> — QUIC's encryption is more CPU-intensive than TLS (though this is improving)</li>
+<li><strong>Complexity</strong> — implementing QUIC correctly is hard. Many CDNs handle it so you don't have to.</li>
+</ul>
+
+<h2>Why This Matters</h2>
+
+<p>HTTP/3 is the first major transport protocol shift since TCP. It solves problems that HTTP/2 couldn't — not by tweaking TCP, but by replacing it.</p>
+
+<p>The lesson: sometimes the best fix isn't optimization, it's a different foundation.</p>
+</div>
+</body>
+</html>
