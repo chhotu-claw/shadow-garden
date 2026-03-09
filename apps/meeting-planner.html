@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Planner — Shadow's Garden</title>
+<meta name="description" content="Find the best meeting time across multiple time zones. Pick locations, see overlapping work hours.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; background: #0a0a0f; color: #e0e0e0; font-family: 'JetBrains Mono', monospace; }
+  .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+  h1 { color: #fff; font-size: 1.8rem; margin-bottom: 8px; }
+  .subtitle { color: #666; margin-bottom: 32px; font-size: 0.9rem; }
+  
+  .controls { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+  select, button { 
+    padding: 10px 16px; border: 1px solid #333; border-radius: 6px; 
+    background: #151520; color: #e0e0e0; font-size: 0.9rem; cursor: pointer;
+  }
+  button { background: #2563eb; border-color: #2563eb; color: #fff; }
+  button:hover { background: #1d4ed8; }
+  button.secondary { background: #333; border-color: #333; }
+  button.secondary:hover { background: #444; }
+  
+  .zones { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .zone-row { 
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px; 
+    background: #151520; border-radius: 8px; border: 1px solid #252530;
+  }
+  .zone-row select { flex: 1; }
+  .zone-info { min-width: 180px; }
+  .zone-time { font-size: 1.4rem; color: #fff; font-weight: bold; }
+  .zone-date { font-size: 0.8rem; color: #666; }
+  .zone-offset { font-size: 0.75rem; color: #888; }
+  .remove-btn { 
+    background: #dc2626; border-color: #dc2626; padding: 8px 12px; font-size: 0.8rem;
+  }
+  .remove-btn:hover { background: #b91c1c; }
+  
+  .grid-container { margin-top: 32px; }
+  .grid-title { color: #888; font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  .hour-grid { 
+    display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px;
+    background: #151520; padding: 16px; border-radius: 8px; overflow-x: auto;
+  }
+  .hour-cell { 
+    aspect-ratio: 1; min-width: 20px; border-radius: 3px; 
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; color: #666;
+  }
+  .hour-cell.work { background: #22c55e; color: #000; }
+  .hour-cell.evening { background: #f59e0b; color: #000; }
+  .hour-cell.night { background: #1e293b; color: #475569; }
+  .hour-cell.today { outline: 2px solid #2563eb; }
+  
+  .legend { display: flex; gap: 16px; margin-top: 16px; font-size: 0.75rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 2px; }
+  
+  .best-times { margin-top: 24px; padding: 16px; background: #151520; border-radius: 8px; }
+  .best-times h3 { color: #22c55e; margin-bottom: 12px; font-size: 0.9rem; }
+  .best-time { 
+    display: inline-block; padding: 6px 12px; margin: 4px; 
+    background: #22c55e; color: #000; border-radius: 4px; font-size: 0.85rem; 
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🌍 Meeting Planner</h1>
+  <p class="subtitle">Find overlapping work hours across time zones</p>
+  
+  <div class="controls">
+ id="zoneSelect">
+      <option value="">Add a city...</option>
+      <option value="UTC">UTC</option>
+      <option value="America/New_York">New York (EST/EDT)</option>
+      <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
+      <option value="America/Chicago">Chicago (CST/CDT)</option>
+      <option value="America/Denver">Denver (MST/MDT)</option>
+      <option value="Europe/London">London (GMT/BST)</option>
+      <option value="Europe/Paris">Paris (CET/CEST)</option>
+      <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+      <option value="Asia/Dubai">Dubai (GST)</option>
+      <option value="Asia/Kolkata">Mumbai (IST)</option>
+      <option value="Asia/Singapore">Singapore (SGT)</option>
+      <option value="Asia/Tokyo">Tokyo (JST)</option>
+      <option value="Asia/Shanghai">Shanghai (CST)</option>
+      <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+      <option value="Pacific/Auckland">Auckland (NZST/NZDT)</option>
+    </select>
+    <button onclick="addZone()">+ Add City</button>
+    <button class="secondary" onclick="clearZones()">Clear All</button>
+  </div>
+  
+  <div class="zones" id="zones"></div>
+  
+  <div class="grid-container" id="gridContainer" style="display:none;">
+    <div class="grid-title">24-Hour View (Your Time)</div>
+    <div class="hour-grid" id="hourGrid"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color" style="background:#22c55e"></div> Work (9-17)</div>
+      <div class="legend-item"><div class="legend-color" style="background:#f59e0b"></div> Evening (17-22)</div>
+      <div class="legend-item"><div class="legend-color" style="background:#1e293b"></div> Night</div>
+    </div>
+    <div class="best-times" id="bestTimes"></div>
+  </div>
+</div>
+
+<script>
+  let zones = JSON.parse(localStorage.getItem('meetingPlannerZones') || '["Asia/Dubai","America/New_York","Europe/London"]');
+  
+  const cityNames = {
+    'UTC': 'UTC',
+    'America/New_York': 'New York',
+    'America/Los_Angeles': 'Los Angeles',
+    'America/Chicago': 'Chicago',
+    'America/Denver': 'Denver',
+    'Europe/London': 'London',
+    'Europe/Paris': 'Paris',
+    'Europe/Berlin': 'Berlin',
+    'Asia/Dubai': 'Dubai',
+    'Asia/Kolkata': 'Mumbai',
+    'Asia/Singapore': 'Singapore',
+    'Asia/Tokyo': 'Tokyo',
+    'Asia/Shanghai': 'Shanghai',
+    'Australia/Sydney': 'Sydney',
+    'Pacific/Auckland': 'Auckland'
+  };
+
+  function getOffset(tz) {
+    const now = new Date();
+    const utc = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const local = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+    return (local - utc) / 3600000;
+  }
+
+  function formatOffset(offset) {
+    const sign = offset >= 0 ? '+' : '';
+    return `UTC${sign}${offset}`;
+  }
+
+  function getTimeInZone(tz) {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  }
+
+  function renderZones() {
+    const container = document.getElementById('zones');
+    container.innerHTML = '';
+    
+    zones.forEach((tz, i) => {
+      const time = getTimeInZone(tz);
+      const offset = getOffset(tz);
+      const row = document.createElement('div');
+      row.className = 'zone-row';
+      row.innerHTML = `
+        <div class="zone-info">
+          <div class="zone-time">${time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+          <div class="zone-date">${time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+          <div class="zone-offset">${cityNames[tz] || tz} · ${formatOffset(offset)}</div>
+        </div>
+        <button class="remove-btn" onclick="removeZone(${i})">✕</button>
+      `;
+      container.appendChild(row);
+    });
+    
+    localStorage.setItem('meetingPlannerZones', JSON.stringify(zones));
+    renderGrid();
+  }
+
+  function addZone() {
+    const select = document.getElementById('zoneSelect');
+    const tz = select.value;
+    if (tz && !zones.includes(tz)) {
+      zones.push(tz);
+      renderZones();
+    }
+    select.value = '';
+  }
+
+  function removeZone(i) {
+    zones.splice(i, 1);
+    renderZones();
+  }
+
+  function clearZones() {
+    zones = [];
+    renderZones();
+  }
+
+  function renderGrid() {
+    const container = document.getElementById('gridContainer');
+    const grid = document.getElementById('hourGrid');
+    const bestTimes = document.getElementById('bestTimes');
+    
+    if (zones.length < 2) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+    
+    grid.innerHTML = '';
+    const now = new Date();
+    const baseOffset = getOffset('Asia/Dubai'); // Using Dubai as base
+    
+    // Find overlapping work hours
+    const workOverlap = [];
+    for (let h = 0; h < 24; h++) {
+      let allWork = true;
+      let anyWork = false;
+      
+      zones.forEach(tz => {
+        const offset = getOffset(tz) - baseOffset;
+        const hourInZone = (h + offset + 24) % 24;
+        if (hourInZone >= 9 && hourInZone < 17) {
+          anyWork = true;
+        } else if (hourInZone >= 17 && hourInZone < 22) {
+          // evening is okay
+        } else {
+          allWork = false;
+        }
+      });
+      
+      if (allWork) workOverlap.push(h);
+    }
+    
+    // Render hours
+    for (let h = 0; h < 24; h++) {
+      const hourBase = new Date(now);
+      hourBase.setHours(h, 0, 0, 0);
+      
+      let cellClass = 'night';
+      let score = 0;
+      
+      zones.forEach(tz => {
+        const offset = getOffset(tz) - baseOffset;
+        const hourInZone = (h + offset + 24) % 24;
+        if (hourInZone >= 9 && hourInZone < 17) {
+          score += 2;
+        } else if (hourInZone >= 7 && hourInZone < 22) {
+          score += 1;
+        }
+      });
+      
+      if (score >= zones.length * 1.5) cellClass = 'work';
+      else if (score >= zones.length * 0.5) cellClass = 'evening';
+      
+      if (h === now.getHours()) cellClass += ' today';
+      
+      const cell = document.createElement('div');
+      cell.className = `hour-cell ${cellClass}`;
+      cell.textContent = h;
+      cell.title = `${h}:00 Dubai — Score: ${score}/${zones.length * 2}`;
+      grid.appendChild(cell);
+    }
+    
+    // Best times
+    if (workOverlap.length > 0) {
+      bestTimes.innerHTML = `<h3>✅ Best Times (all in work hours)</h3>` + 
+        workOverlap.map(h => `<span class="best-time">${h}:00 Dubai</span>`).join('');
+    } else {
+      bestTimes.innerHTML = `<h3>⚠️ No perfect overlap — some will meet outside work hours</h3>`;
+    }
+  }
+
+  document.getElementById('zoneSelect').addEventListener('keypress', e => {
+    if (e.key === 'Enter') addZone();
+  });
+
+  renderZones();
+</script>
+</body>
+</html>
