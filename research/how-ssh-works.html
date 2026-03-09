@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How SSH Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on SSH protocol: key exchange, encryption, authentication, and the architecture of secure shell access.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How SSH Works</h1>
+  <div class="meta">March 10, 2026</div>
+  
+  <p>SSH is the backbone of modern infrastructure. Every server, every cloud instance, every secure communication channel — it all flows through SSH or something built on top of it. Yet most developers treat it as magic: type <code>ssh user@host</code>, hope it works, move on.</p>
+
+  <h2>The Protocol Layers</h2>
+  <p>SSH isn't a single protocol — it's a layered system. At the bottom is the <strong>transport layer</strong>: a TCP connection that handles encryption and server authentication. Above that sits the <strong>user authentication layer</strong>: proving you are who you claim to be. And finally, the <strong>connection layer</strong>: multiplexing channels, port forwarding, and interactive sessions.</p>
+  
+  <p>Think of it like a secure post office: the transport layer is the armored truck, the auth layer is the ID check at the door, and the connection layer is the system of desks and mailboxes inside.</p>
+
+  <h2>Key Exchange: Building the Secure Channel</h2>
+  <p>Before any data moves, client and server must agree on how to encrypt it. This happens through <strong>Diffie-Hellman key exchange</strong> — a clever mathematical trick where two parties can generate a shared secret over an insecure channel.</p>
+  
+  <p>Both sides announce supported key exchange methods (curve25519, ecdh, diffie-hellman-group14-sha256). They pick one, exchange public keys, and each computes the same shared secret. Even if an eavesdropper captures every message, they can't derive the shared key. This is the foundation — the secure tunnel everything else travels through.</p>
+
+  <h2>Server Authentication: Knowing Who You're Talking To</h2>
+  <p>You connect to <code>server.example.com</code>. How do you know it's actually that server and not someone impersonating it? The server has a <strong>host key</strong> — a public/private key pair generated when SSH is first installed.</p>
+  
+  <p>On first connect, the server sends its host public key. Your client checks it against <code>known_hosts</code>. If it's new, you get the famous warning:</p>
+  
+  <pre><code>The authenticity of host 'server.example.com (1.2.3.4)' can't be established.
+ED25519 key fingerprint is SHA256:abcdef123456789...</code></pre>
+  
+  <p>If you accept, the key gets stored. Next time, the client verifies the server's identity by checking it can prove possession of the matching private key. This is how MITM attacks are prevented — the attacker would need the server's private key to impersonate it.</p>
+
+  <h2>User Authentication: Proving You Are You</h2>
+  <p>Now the server knows it's talking to a legitimate client. But which user? SSH supports multiple authentication methods:</p>
+  
+  <ul>
+    <li><strong>Password</strong>: Simple, but vulnerable to replay attacks if the transport layer is compromised. Generally discouraged.</li>
+    <li><strong>Public key</strong>: The gold standard. You prove you hold the private key matching a public key the server has authorized. No passwords sent over the wire.</li>
+    <li><strong>Keyboard-interactive</strong>: Server-driven prompts — useful for MFA, challenge-response systems.</li>
+    <li><strong>GSSAPI/Kerberos</strong>: Enterprise authentication, single sign-on environments.</li>
+  </ul>
+
+  <h2>Public Key Authentication Deep Dive</h2>
+  <p>This is the most important method to understand. Here's the flow:</p>
+  
+  <ol>
+    <li>You generate a key pair (<code>ssh-keygen</code>) — typically Ed25519 or RSA.</li>
+    <li>You add your public key to <code>~/.ssh/authorized_keys</code> on the server.</li>
+    <li>When you connect, the client announces which key it wants to use.</li>
+    <li>The server verifies that key is in <code>authorized_keys</code>.</li>
+    <li>The server sends a challenge — a random number encrypted with your public key.</li>
+    <li>Only you (with the private key) can decrypt it and prove ownership.</li>
+  </ol>
+  
+  <p>The private key never leaves your machine. The server never sees it. This is why SSH keys are considered secure — there's nothing to intercept.</p>
+
+  <h2>Encryption: The Tunnel</h2>
+  <p>Once authenticated, SSH encrypts everything. The transport layer uses <strong>symmetric encryption</strong> (AES, ChaCha20-Poly1305) with keys derived from the Diffie-Hellman exchange. Every session gets unique keys — compromising one session doesn't compromise others.</p>
+  
+  <p>SSH also includes <strong>integrity checking</strong> (HMAC or Poly1305) to prevent tampering. Encrypted data that was modified in transit gets rejected.</p>
+
+  <h2>Channels and Multiplexing</h2>
+  <p>Once authenticated, a single SSH connection can carry multiple "channels" — separate data streams for different purposes. This is why you can run <code>vim</code> in one terminal, <code>tail -f</code> in another, and <code>scp</code> simultaneously over the same connection.</p>
+  
+  <p>Channels also enable:</p>
+  <ul>
+    <li><strong>Local port forwarding</strong>: <code>ssh -L 8080:localhost:80</code> — forward local port to remote service</li>
+    <li><strong>Remote port forwarding</strong>: <code>ssh -R 9000:localhost:3000</code> — expose local service to remote</li>
+    <li><strong>SSH tunnels</strong>: VPN-like functionality with <code>-w</code></li>
+    <li><strong>Agent forwarding</code>: Use local SSH keys on remote servers without copying the key</li>
+  </ul>
+
+  <h2>Modern SSH: What's Changed</h2>
+  <p>SSH-1 existed but had flaws — notably, it used a single encryption key and had vulnerabilities in its CRC-32 integrity check. SSH-2 (the current standard) fixed these: better key exchange, stronger crypto, and modular design.</p>
+  
+  <p>Ed25519 keys have largely replaced RSA for new deployments — smaller, faster, and considered more secure. Curve25519 is the preferred key exchange algorithm. SHA-1 is deprecated for fingerprint verification.</p>
+
+  <h2>The Bigger Picture</h2>
+  <p>SSH is thirty years old and still the standard. It's survived because the core design was sound: modular, extensible, with clear separation between transport, auth, and connection. Newer protocols have come and gone. SSH persists.</p>
+  
+  <p>Understanding SSH isn't just about sysadmin work — it's about understanding how secure communication actually works. Key exchange, authenticated encryption, host verification, key-based auth — these patterns appear everywhere. SSH is a case study in doing security right.</p>
+</div>
+</body>
+</html>
