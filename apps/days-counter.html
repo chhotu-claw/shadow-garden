@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Days Counter — Shadow's Garden</title>
+<meta name="description" content="Count days until or since any date. Birthdays, anniversaries, milestones.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+  .container { max-width: 500px; width: 100%; }
+  h1 { text-align: center; margin-bottom: 0.5rem; }
+  .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; }
+  .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .mode-toggle button { flex: 1; padding: 0.75rem; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: all 0.2s; }
+  .mode-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .mode-toggle button:hover:not(.active) { border-color: var(--accent); }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; }
+  input[type="date"], input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; margin-bottom: 1.5rem; box-sizing: border-box; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .result { text-align: center; padding: 1.5rem; background: var(--bg); border-radius: 8px; margin-bottom: 1.5rem; }
+  .result-number { font-size: 3rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .result-label { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem; }
+  .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .presets button { padding: 0.4rem 0.75rem; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+  .presets button:hover { border-color: var(--accent); color: var(--accent); }
+  .history { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+  .history-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+  .history-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.85rem; }
+  .history-item button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; font-size: 1rem; }
+  .history-item button:hover { color: var(--accent); }
+  .zero-result { color: var(--text-muted); }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Days Counter</h1>
+    <p class="subtitle">Count days until or since any date</p>
+    
+    <div class="card">
+      <div class="mode-toggle">
+        <button id="untilBtn" class="active" onclick="setMode('until')">Days Until</button>
+        <button id="sinceBtn" onclick="setMode('since')">Days Since</button>
+      </div>
+      
+      <label for="targetDate">Target Date</label>
+      <input type="date" id="targetDate">
+      
+      <div class="presets">
+        <button onclick="setPreset(7)">+7 days</button>
+        <button onclick="setPreset(30)">+30 days</button>
+        <button onclick="setPreset(365)">+1 year</button>
+      </div>
+      
+      <div class="result" id="result">
+        <div class="result-number" id="resultNumber">—</div>
+        <div class="result-label" id="resultLabel">Enter a date</div>
+      </div>
+      
+      <button onclick="saveToHistory()" style="width: 100%; padding: 0.75rem; background: var(--accent); color: var(--bg); border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">Save to History</button>
+      
+      <div class="history" id="historySection" style="display: none;">
+        <div class="history-title">Recent</div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let mode = 'until';
+    const dateInput = document.getElementById('targetDate');
+    const resultNumber = document.getElementById('resultNumber');
+    const resultLabel = document.getElementById('resultLabel');
+    
+    dateInput.addEventListener('change', calculate);
+    
+    function setMode(m) {
+      mode = m;
+      document.getElementById('untilBtn').className = m === 'until' ? 'active' : '';
+      document.getElementById('sinceBtn').className = m === 'since' ? 'active' : '';
+      calculate();
+    }
+    
+    function setPreset(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      dateInput.value = d.toISOString().split('T')[0];
+      calculate();
+    }
+    
+    function calculate() {
+      const target = dateInput.value;
+      if (!target) {
+        resultNumber.textContent = '—';
+        resultNumber.className = 'result-number';
+        resultLabel.textContent = 'Enter a date';
+        return;
+      }
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(target);
+      targetDate.setHours(0, 0, 0, 0);
+      
+      const diff = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (mode === 'until') {
+        if (diff === 0) {
+          resultNumber.textContent = 'Today!';
+          resultNumber.className = 'result-number zero-result';
+          resultLabel.textContent = 'The date is today';
+        } else if (diff > 0) {
+          resultNumber.textContent = diff;
+          resultNumber.className = 'result-number';
+          resultLabel.textContent = `days until ${formatDate(targetDate)}`;
+        } else {
+          resultNumber.textContent = Math.abs(diff);
+          resultNumber.className = 'result-number';
+          resultLabel.textContent = `days ago (${formatDate(targetDate)})`;
+        }
+      } else {
+        if (diff === 0) {
+          resultNumber.textContent = '0';
+          resultNumber.className = 'result-number zero-result';
+          resultLabel.textContent = 'Today';
+        } else if (diff > 0) {
+          resultNumber.textContent = diff;
+          resultNumber.className = 'result-number';
+          resultLabel.textContent = `days to go`;
+        } else {
+          resultNumber.textContent = Math.abs(diff);
+          resultNumber.className = 'result-number';
+          resultLabel.textContent = `days ago`;
+        }
+      }
+    }
+    
+    function formatDate(d) {
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    // History
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem('daysCounterHistory') || '[]');
+      if (history.length === 0) {
+        document.getElementById('historySection').style.display = 'none';
+        return;
+      }
+      document.getElementById('historySection').style.display = 'block';
+      const list = document.getElementById('historyList');
+      list.innerHTML = history.map((h, i) => `
+        <div class="history-item">
+          <span>${h.label} — ${h.days} days</span>
+          <button onclick="deleteHistory(${i})">×</button>
+        </div>
+      `).join('');
+    }
+    
+    function saveToHistory() {
+      const target = dateInput.value;
+      if (!target) return;
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(target);
+      targetDate.setHours(0, 0, 0, 0);
+      const diff = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+      
+      const label = prompt('Label (e.g., "Birthday", "Anniversary"):');
+      if (!label) return;
+      
+      const history = JSON.parse(localStorage.getItem('daysCounterHistory') || '[]');
+      history.unshift({ date: target, label, days: diff });
+      if (history.length > 10) history.pop();
+      localStorage.setItem('daysCounterHistory', JSON.stringify(history));
+      loadHistory();
+    }
+    
+    function deleteHistory(index) {
+      const history = JSON.parse(localStorage.getItem('daysCounterHistory') || '[]');
+      history.splice(index, 1);
+      localStorage.setItem('daysCounterHistory', JSON.stringify(history));
+      loadHistory();
+    }
+    
+    loadHistory();
+  </script>
+</body>
+</html>
