@@ -4,307 +4,451 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Date Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate days between dates, add/subtract days, and count working days. No more manual counting.">
+<meta name="description" content="Add or subtract days from any date. Calculate date differences, find past/future dates.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   :root {
-    --accent: #6366f1;
-    --bg: #0f0f0f;
-    --card: #1a1a1a;
-    --text: #e5e5e5;
-    --muted: #737373;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border: #334155;
     --success: #22c55e;
   }
+
   body {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
-    padding: 2rem;
-    box-sizing: border-box;
+    padding: 2rem 1rem;
   }
+
   .container {
-    max-width: 600px;
+    max-width: 500px;
     margin: 0 auto;
   }
+
   h1 {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
-    font-weight: 500;
+    color: var(--text);
   }
-  .subtitle {
-    color: var(--muted);
-    font-size: 0.875rem;
+
+  .description {
+    color: var(--text-muted);
     margin-bottom: 2rem;
+    font-size: 0.875rem;
   }
+
   .card {
     background: var(--card);
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
   }
-  .card h2 {
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    margin: 0 0 1rem 0;
-    font-weight: 500;
-  }
+
   .input-group {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
   }
-  .input-group input, .input-group select {
-    flex: 1;
-    min-width: 140px;
-    padding: 0.75rem 1rem;
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  input[type="date"],
+  input[type="number"],
+  select {
+    width: 100%;
+    padding: 0.75rem;
     background: var(--bg);
-    border: 1px solid #333;
-    border-radius: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     color: var(--text);
     font-family: inherit;
     font-size: 1rem;
+    box-sizing: border-box;
   }
-  .input-group input:focus {
+
+  input:focus,
+  select:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--primary);
   }
+
+  .btn-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
   button {
-    background: var(--accent);
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: var(--primary);
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 6px;
+    border-radius: 8px;
     font-family: inherit;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: background 0.2s;
   }
+
   button:hover {
-    opacity: 0.9;
+    background: var(--primary-hover);
   }
+
+  button.secondary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  button.secondary:hover {
+    background: var(--border);
+  }
+
   .result {
-    font-size: 2rem;
-    font-weight: 500;
+    background: var(--bg);
+    border: 1px solid var(--success);
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .result-date {
+    font-size: 1.5rem;
+    font-weight: 600;
     color: var(--success);
-    margin: 1rem 0;
+    margin-bottom: 0.5rem;
   }
-  .result-label {
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
+
   .result-details {
-    color: var(--muted);
     font-size: 0.875rem;
-    margin-top: 0.5rem;
+    color: var(--text-muted);
   }
-  .toggle {
+
+  .result-error {
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+
+  .presets {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
-  .toggle button {
-    flex: 1;
-    background: var(--card);
-    border: 1px solid #333;
-    color: var(--muted);
+
+  .preset-btn {
+    padding: 0.375rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
   }
-  .toggle button.active {
-    background: var(--accent);
-    border-color: var(--accent);
+
+  .preset-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .tab-group {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .tab:first-child {
+    border-radius: 8px 0 0 8px;
+  }
+
+  .tab:last-child {
+    border-radius: 0 8px 8px 0;
+  }
+
+  .tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
     color: white;
   }
+
+  .mode-section {
+    display: none;
+  }
+
+  .mode-section.active {
+    display: block;
+  }
+
   .history {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
   }
+
+  .history h3 {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+
   .history-item {
+    background: var(--bg);
+    border-radius: 6px;
     padding: 0.75rem;
-    border-bottom: 1px solid #2a2a2a;
-    color: var(--muted);
+    margin-bottom: 0.5rem;
     font-size: 0.875rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .history-item:last-child {
-    border-bottom: none;
-  }
+
   .history-item span {
-    color: var(--text);
+    color: var(--text-muted);
+  }
+
+  .history-item strong {
+    color: var(--success);
+  }
+
+  .clear-btn {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    background(--text-muted: none;
+    border: none;
+    padding: 0;
+  }
+
+  .clear-btn:hover {
+    color: #ef4444;
   }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
     <h1>Date Calculator</h1>
-    <p class="subtitle">Days between dates, add/subtract days, working days</p>
-    
+    <p class="description">Add or subtract days from any date. Calculate differences between dates.</p>
+
     <div class="card">
-      <div class="toggle">
-        <button class="active" onclick="setMode('diff')" id="btn-diff">Days Between</button>
-        <button onclick="setMode('add')" id="btn-add">Add/Subtract</button>
-        <button onclick="setMode('weekday')" id="btn-weekday">Working Days</button>
+      <div class="tab-group">
+        <button class="tab active" data-mode="add">Add/Subtract</button>
+        <button class="tab" data-mode="diff">Difference</button>
       </div>
 
-      <div id="diff-mode">
+      <div class="mode-section active" id="add-mode">
         <div class="input-group">
-          <input type="date" id="date1">
-          <input type="date" id="date2">
+          <label>Start Date</label>
+          <input type="date" id="startDate">
         </div>
-        <button onclick="calculateDiff()">Calculate</button>
-        <div class="result" id="diff-result"></div>
-        <div class="result-details" id="diff-details"></div>
+
+        <div class="input-group">
+          <label>Operation</label>
+          <div class="btn-row">
+            <button class="secondary" id="addBtn" onclick="setOperation('add')">+ Add</button>
+            <button class="secondary" id="subBtn" onclick="setOperation('subtract')">− Subtract</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>Days</label>
+          <div class="presets">
+            <button class="preset-btn" onclick="setDays(1)">+1</button>
+            <button class="preset-btn" onclick="setDays(7)">+7</button>
+            <button class="preset-btn" onclick="setDays(30)">+30</button>
+            <button class="preset-btn" onclick="setDays(90)">+90</button>
+            <button class="preset-btn" onclick="setDays(365)">+365</button>
+          </div>
+          <input type="number" id="days" value="1" min="0">
+        </div>
+
+        <button onclick="calculate()">Calculate</button>
       </div>
 
-      <div id="add-mode" style="display:none">
+      <div class="mode-section" id="diff-mode">
         <div class="input-group">
-          <input type="date" id="add-date">
-          <select id="add-op">
-            <option value="add">Add</option>
-            <option value="sub">Subtract</option>
-          </select>
-          <input type="number" id="add-days" placeholder="Days" value="7">
+          <label>Start Date</label>
+          <input type="date" id="startDate2">
         </div>
-        <button onclick="calculateAdd()">Calculate</button>
-        <div class="result" id="add-result"></div>
-        <div class="result-details" id="add-details"></div>
-      </div>
 
-      <div id="weekday-mode" style="display:none">
         <div class="input-group">
-          <input type="date" id="weekday-start">
-          <input type="date" id="weekday-end">
+          <label>End Date</label>
+          <input type="date" id="endDate2">
         </div>
-        <button onclick="calculateWeekdays()">Calculate</button>
-        <div class="result" id="weekday-result"></div>
-        <div class="result-details" id="weekday-details"></div>
+
+        <button onclick="calculateDiff()">Calculate Difference</button>
       </div>
     </div>
 
-    <div class="card history">
-      <h2>Recent</h2>
-      <div id="history-list">
-        <div class="history-item">No calculations yet</div>
-      </div>
+    <div class="result" id="result" style="display: none;">
+      <div class="result-date" id="resultDate"></div>
+      <div class="result-details" id="resultDetails"></div>
+    </div>
+
+    <div class="history">
+      <h3>Recent <button class="clear-btn" onclick="clearHistory()">Clear</button></h3>
+      <div id="historyList"></div>
     </div>
   </div>
 
   <script>
-    let currentMode = 'diff';
-    const history = [];
+    let operation = 'add';
+    let history = JSON.parse(localStorage.getItem('dateCalcHistory') || '[]');
 
-    function setMode(mode) {
-      currentMode = mode;
-      document.querySelectorAll('.toggle button').forEach(b => b.classList.remove('active'));
-      document.getElementById('btn-' + mode).classList.add('active');
-      document.getElementById('diff-mode').style.display = mode === 'diff' ? 'block' : 'none';
-      document.getElementById('add-mode').style.display = mode === 'add' ? 'block' : 'none';
-      document.getElementById('weekday-mode').style.display = mode === 'weekday' ? 'block' : 'none';
+    // Set default dates
+    document.getElementById('startDate').valueAsDate = new Date();
+    document.getElementById('startDate2').valueAsDate = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('endDate2').valueAsDate = tomorrow;
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.mode-section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.mode + '-mode').classList.add('active');
+        hideResult();
+      });
+    });
+
+    function setOperation(op) {
+      operation = op;
+      document.getElementById('addBtn').classList.toggle('secondary', op !== 'add');
+      document.getElementById('subBtn').classList.toggle('secondary', op !== 'subtract');
+      hideResult();
     }
 
-    function formatDate(d) {
-      return d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    function setDays(val) {
+      document.getElementById('days').value = val;
     }
 
-    function dayName(d) {
-      return d.toLocaleDateString('en-US', { weekday: 'long' });
-    }
+    function calculate() {
+      const startDate = new Date(document.getElementById('startDate').value);
+      const days = parseInt(document.getElementById('days').value) || 0;
 
-    function addToHistory(text) {
-      history.unshift(text);
-      if (history.length > 5) history.pop();
-      document.getElementById('history-list').innerHTML = history.map(h => 
-        '<div class="history-item">' + h + '</div>'
-      ).join('');
+      if (isNaN(startDate.getTime())) {
+        showError('Please select a valid start date');
+        return;
+      }
+
+      const resultDate = new Date(startDate);
+      resultDate.setDate(resultDate.getDate() + (operation === 'add' ? days : -days));
+
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const formattedDate = resultDate.toLocaleDateString('en-US', options);
+
+      let details = `${operation === 'add' ? '+' : '-'}${days} day${days !== 1 ? 's' : ''} from ${startDate.toLocaleDateString()}`;
+
+      showResult(formattedDate, details);
+      addToHistory(`${operation === 'add' ? '+' : '-'}${days}d`, formattedDate);
     }
 
     function calculateDiff() {
-      const d1 = new Date(document.getElementById('date1').value);
-      const d2 = new Date(document.getElementById('date2').value);
-      
-      if (isNaN(d1) || isNaN(d2)) {
-        document.getElementById('diff-result').textContent = 'Select both dates';
+      const start = new Date(document.getElementById('startDate2').value);
+      const end = new Date(document.getElementById('endDate2').value);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        showError('Please select valid dates');
         return;
       }
 
-      const diffTime = Math.abs(d2 - d1);
+      const diffTime = end - start;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       const diffWeeks = Math.floor(diffDays / 7);
       const diffMonths = Math.floor(diffDays / 30);
-      
-      const start = d1 < d2 ? d1 : d2;
-      const end = d1 < d2 ? d2 : d1;
-      
-      document.getElementById('diff-result').textContent = diffDays + ' days';
-      document.getElementById('diff-details').innerHTML = 
-        `${diffWeeks} weeks · ${diffMonths} months<br>${formatDate(start)} → ${formatDate(end)}`;
-      
-      addToHistory(`<span>${diffDays} days</span> between ${start.toLocaleDateString()} and ${end.toLocaleDateString()}`);
+
+      let details = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`;
+      if (Math.abs(diffWeeks) > 0) details += ` (${Math.abs(diffWeeks)} weeks)`;
+      if (Math.abs(diffMonths) > 0) details += ` (${Math.abs(diffMonths)} months)`;
+
+      if (diffDays > 0) {
+        details += ' • Future';
+      } else if (diffDays < 0) {
+        details += ' • Past';
+      } else {
+        details += ' • Same day';
+      }
+
+      showResult(Math.abs(diffDays) + ' days', details);
+      addToHistory('diff', `${start.toLocaleDateString()} → ${end.toLocaleDateString()}: ${Math.abs(diffDays)}d`);
     }
 
-    function calculateAdd() {
-      const d = new Date(document.getElementById('add-date').value);
-      const op = document.getElementById('add-op').value;
-      const days = parseInt(document.getElementById('add-days').value) || 0;
-      
-      if (isNaN(d)) {
-        document.getElementById('add-result').textContent = 'Select a date';
+    function showResult(date, details) {
+      const resultEl = document.getElementById('result');
+      resultEl.style.display = 'block';
+      resultEl.classList.remove('result-error');
+      document.getElementById('resultDate').textContent = date;
+      document.getElementById('resultDetails').textContent = details;
+    }
+
+    function showError(msg) {
+      const resultEl = document.getElementById('result');
+      resultEl.style.display = 'block';
+      resultEl.classList.add('result-error');
+      document.getElementById('resultDate').textContent = 'Error';
+      document.getElementById('resultDetails').textContent = msg;
+    }
+
+    function hideResult() {
+      document.getElementById('result').style.display = 'none';
+    }
+
+    function addToHistory(action, result) {
+      history.unshift({ action, result, time: Date.now() });
+      history = history.slice(0, 10);
+      localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const list = document.getElementById('historyList');
+      if (history.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No recent calculations</p>';
         return;
       }
-
-      const result = new Date(d);
-      result.setDate(result.getDate() + (op === 'add' ? days : -days));
-      
-      document.getElementById('add-result').textContent = formatDate(result);
-      document.getElementById('add-details').textContent = dayName(result);
-      
-      const opText = op === 'add' ? '+' : '-';
-      addToHistory(`<span>${formatDate(result)}</span> ${opText}${days} days from ${d.toLocaleDateString()}`);
+      list.innerHTML = history.map(h => `
+        <div class="history-item">
+          <span>${h.action}</span>
+          <strong>${h.result}</strong>
+        </div>
+      `).join('');
     }
 
-    function calculateWeekdays() {
-      let d1 = new Date(document.getElementById('weekday-start').value);
-      let d2 = new Date(document.getElementById('weekday-end').value);
-      
-      if (isNaN(d1) || isNaN(d2)) {
-        document.getElementById('weekday-result').textContent = 'Select both dates';
-        return;
-      }
-
-      if (d1 > d2) { [d1, d2] = [d2, d1]; }
-      
-      let weekdays = 0;
-      let current = new Date(d1);
-      
-      while (current <= d2) {
-        const day = current.getDay();
-        if (day !== 0 && day !== 6) weekdays++;
-        current.setDate(current.getDate() + 1);
-      }
-
-      const totalDays = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
-      const weekends = totalDays - weekdays;
-      
-      document.getElementById('weekday-result').textContent = weekdays + ' working days';
-      document.getElementById('weekday-details').innerHTML = 
-        `${weekends} weekend days · ${totalDays} total days<br>${formatDate(d1)} → ${formatDate(d2)}`;
-      
-      addToHistory(`<span>${weekdays} working days</span> ${d1.toLocaleDateString()} - ${d2.toLocaleDateString()}`);
+    function clearHistory() {
+      history = [];
+      localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+      renderHistory();
     }
 
-    // Set default dates
-    document.getElementById('date1').valueAsDate = new Date();
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    document.getElementById('date2').valueAsDate = nextWeek;
-    document.getElementById('add-date').valueAsDate = new Date();
-    
-    const today = new Date();
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    document.getElementById('weekday-start').valueAsDate = today;
-    document.getElementById('weekday-end').valueAsDate = monthEnd;
+    renderHistory();
   </script>
 </body>
 </html>
