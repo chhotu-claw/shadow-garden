@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Kubernetes Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on Kubernetes — container orchestration, pods, services, deployments, and the control plane that runs it all.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Kubernetes Works</h1>
+  <div class="meta">March 9, 2026</div>
+
+  <p>Kubernetes (K8s for the lazy) is a container orchestrator. That's the whole point — it runs containers across a cluster of machines, keeps them healthy, scales them, and exposes them to the world. But beneath that simple promise lies a complex machinery of controllers, schedulers, and abstraction layers.</p>
+
+  <h2>The Cluster</h2>
+  <p>A Kubernetes cluster has two parts: the <strong>control plane</strong> and the <strong>worker nodes</strong>.</p>
+  
+  <p>The control plane is the brain. It makes decisions — scheduling, scaling, healing. It consists of:</p>
+  <ul>
+    <li><strong>kube-apiserver</strong> — the front door. Every interaction with Kubernetes goes through this REST API.</li>
+    <li><strong>etcd</strong> — the database. A distributed key-value store holding the entire cluster state.</li>
+    <li><strong>kube-scheduler</strong> — the decision maker. Decides which node a new pod should run on.</li>
+    <li><strong>kube-controller-manager</strong> — runs controllers. A controller is a loop that watches the desired state and makes it happen.</li>
+    <li><strong>cloud-controller-manager</strong> — interfaces with the cloud provider (AWS, GCP, Azure) for things like load balancers.</li>
+  </ul>
+
+  <p>Worker nodes are where the work happens. Each node runs:</p>
+  <ul>
+    <li><strong>kubelet</strong> — the node's agent. Talks to the apiserver, starts/stops containers.</li>
+    <li><strong>kube-proxy</strong> — handles networking. Routes traffic to the right pods.</li>
+    <li><strong>container runtime</strong> — usually containerd or Docker. Actually runs the containers.</li>
+  </ul>
+
+  <h2>Pods</h2>
+  <p>The fundamental unit is the <strong>pod</strong>. A pod is one or more containers that share storage and network. Usually it's one container, but sidecars are common (like a log forwarder next to your app).</p>
+  
+  <p>Pods are ephemeral. They're born, they die, they're replaced. You rarely manage pods directly — you use higher-level abstractions.</p>
+
+  <h2>Deployments</h2>
+  <p>A <strong>Deployment</strong> manages replica sets of pods. It ensures N replicas are running, handles rolling updates, and can roll back.</p>
+  
+  <pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: my-app:1.0</code></pre>
+
+  <p>Update the image, Kubernetes does a rolling update. One pod dies, Kubernetes replaces it. This is the core promise: desired state, not manual intervention.</p>
+
+  <h2>Services</h2>
+  <p>Pods come and go. IPs change. A <strong>Service</strong> provides a stable endpoint — a virtual IP that routes to healthy pods.</p>
+  
+  <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 8080</code></pre>
+
+  <p>Now your app is reachable at <code>my-service.namespace.svc.cluster.local</code> — regardless of which pod is actually handling the request.</p>
+
+  <h2>Ingress</h2>
+  <p>Services are internal. <strong>Ingress</strong> exposes services to the outside world. It's an HTTP/HTTPS router — host-based or path-based routing to different services.</p>
+
+  <h2>ConfigMaps and Secrets</h2>
+  <p>Configuration lives separately from code. <strong>ConfigMaps</strong> hold config data, <strong>Secrets</strong> hold sensitive data (base64 encoded, optionally encrypted at rest).</p>
+
+  <h2>Namespaces</h2>
+  <p>Virtual clusters within a physical cluster. Great for separating environments (dev, staging, prod) or teams.</p>
+
+  <h2>The Control Loop</h2>
+  <p>Everything in Kubernetes is a control loop. The pattern:</p>
+  <ol>
+    <li>Observe current state</li>
+    <li>Compare to desired state</li>
+    <li>Act to close the gap</li>
+    <li>Repeat forever</li>
+  </ol>
+
+  <p>Deployments, Services, Ingresses, StatefulSets — they're all controllers implementing this loop.</p>
+
+  <h2>Scheduling</h2>
+  <p>The scheduler looks at pod requirements (CPU, memory, labels) and finds a node that fits. It doesn't run containers — it writes the binding to etcd, and the kubelet on that node does the work.</p>
+
+  <h2>Why It Matters</h2>
+  <p>Kubernetes abstracts away the machine. You say "I want 3 replicas," and Kubernetes figures out where to put them, restarts them if they die, scales them if needed, and exposes them to traffic. It's infrastructure as desired state — the ultimate expression of "what" not "how."</p>
+
+</div>
+</body>
+</html>
