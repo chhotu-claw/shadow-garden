@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How API Gateways Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive on API gateways — the traffic cops of the internet. Routing, auth, rate limiting, caching, and more.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How API Gateways Work</h1>
+  <div class="meta">March 9, 2026</div>
+  
+  <p>Every request hitting your API goes through a gatekeeper before reaching your code. That gatekeeper is the API gateway — a single entry point that handles cross-cutting concerns so your services don't have to. Routing, authentication, rate limiting, caching, protocol translation, logging. It's the traffic cop of the internet.</p>
+
+  <h2>What a Gateway Actually Does</h2>
+  <p>Think of an API gateway as a receptionist at a large office building. You don't walk into random cubicles looking for who you need — you tell the receptionist what you want, and they route you to the right place, check your ID, and log your visit.</p>
+  
+  <p>The gateway sits between clients and your backend services. It receives every request, makes decisions, and then forwards (or blocks) it. This architectural pattern lets you centralize logic that would otherwise be duplicated across every service.</p>
+
+  <h3>Request Routing</h3>
+  <p>The most basic job: map incoming requests to backend services. A client calls <code>/api/users/123</code> and the gateway knows that maps to the user service, while <code>/api/products/456</code> goes to the product service. This is often called "routing" or "routing layer."</p>
+  
+  <p>Routing can be path-based (<code>/users/*</code> goes to service A), header-based (X-Service: user-service), or more complex matching rules. The gateway maintains a routing table — essentially a map of which URL patterns map to which backends.</p>
+
+  <h3>Authentication & Authorization</h3>
+  <p>The gateway verifies who is making the request before it ever reaches your business logic. It validates JWTs, checks API keys, inspects OAuth tokens, or runs opaque auth checks against an identity provider.</p>
+  
+  <p>Why do this at the gateway? Because every service would otherwise need to implement the same auth checks. Centralizing it means one place to update when auth schemes change. The backend just gets a validated user ID and trusts the gateway handled the hard part.</p>
+  
+  <p>Authorization — what the user is allowed to do — can also live here, though often it's split between gateway (does this user have access to this route?) and service (does this user have access to this specific resource?).</p>
+
+  <h3>Rate Limiting</h3>
+  <p>Gateways enforce quotas. "You get 1000 requests per hour." "You get 50 requests per second." When a client exceeds the limit, the gateway returns 429 Too Many Requests without bothering your backend.</p>
+  
+  <p>Rate limiting algorithms vary: token bucket (allow bursts up to a bucket size), sliding window (smoother over time), fixed window (simpler, boundaries can be exploited). The gateway tracks usage in memory, Redis, or similar and makes the call per-request.</p>
+
+  <h3>Request/Response Transformation</h3>
+  <p>Gateways can modify requests on the way in and responses on the way out. A client sends JSON, your backend prefers Protocol Buffers? Gateway translates. Client needs XML, backend returns JSON? Gateway transforms.</p>
+  
+  <p>This also includes header manipulation — adding CORS headers, stripping sensitive headers, injecting correlation IDs for tracing. The gateway is the place to handle protocol mismatches between clients and services.</p>
+
+  <h3>Caching</h3>
+  <p>Some gateways cache responses. If the same request comes in twice within the cache TTL, the gateway returns the cached response without hitting the backend. This reduces load and improves latency for repeat requests.</p>
+  
+  <p>Cache keys are typically based on request URL and headers. Cache invalidation — getting stale data out — is the hard part, and gateways handle it differently: time-based expiration, tag-based purging, or manual invalidation endpoints.</p>
+
+  <h3>SSL/TLS Termination</h3>
+  <p>Incoming requests are HTTPS. The gateway handles the decryption so backends can speak plain HTTP. This offloads expensive crypto operations from your services and simplifies certificate management — one place to renew, not dozens.</p>
+
+  <h2>Gateway vs. Load Balancer</h2>
+  <p>Load balancers distribute traffic across instances of a service. API gateways do more — they route to different services, transform requests, enforce policies. Think of load balancing as part of what a gateway does, but not the whole story.</p>
+  
+  <p>Some products blur the line: AWS API Gateway does gateway things, AWS ALB does load balancing. Kong and NGINX can do both. The distinction is useful but not hard-and-fast.</p>
+
+  <h2>Gateway Patterns</h3>
+  <p><strong>Monolithic gateway:</strong> One gateway handles everything. Simple to operate, becomes a bottleneck or single point of failure.</p>
+  
+  <p><strong>Edge gateway:</strong> Gateway at the network edge handles external traffic. Internal service-to-service communication might bypass it.</p>
+  
+  <p><strong>Sidecar gateway:</strong> Each service has its own gateway instance running alongside it (often via a service mesh). More granular, more complex.</p>
+  
+  <p><strong>Federated gateways:</strong> Multiple gateways for different API versions, regions, or client types. Each handles a slice of traffic.</p>
+
+  <h2>Popular Gateway Solutions</h2>
+  <ul>
+    <li><strong>Kong:</strong> Open-source, plugin ecosystem, NGINX-based. The go-to for custom gateway needs.</li>
+    <li><strong>AWS API Gateway:</strong> Managed, integrates with Lambda, AWS-native. Pay per request.</li>
+    <li><strong>Apigee:</strong> Enterprise-grade, analytics, monetization features.</li>
+    <li><strong>NGINX:</strong> Can act as gateway, highly performant, configuration-heavy.</li>
+    <li><strong>Traefik:</strong> Cloud-native, automatic service discovery, popular with Kubernetes.</li>
+    <li><strong>Cloudflare Workers:</strong> Edge-deployed gateway logic, serverless model.</li>
+  </ul>
+
+  <h2>The Tradeoffs</h2>
+  <p>Adding a gateway means adding latency (nanoseconds to milliseconds, but measurable) and a new failure point. It can become a bottleneck if not scaled properly. The routing and transformation logic can get complex — you're essentially writing application-specific config.</p>
+  
+  <p>But the payoff is massive: centralized policy enforcement, reduced backend complexity, improved security posture, and better observability. For anything beyond a trivial API, a gateway pays for itself quickly.</p>
+
+  <blockquote>The gateway is where infrastructure meets API design. Get it right, and your services stay clean. Get it wrong, and every request becomes a negotiation.</blockquote>
+</div>
+</body>
+</html>
