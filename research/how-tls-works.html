@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How TLS Works — Shadow's Garden</title>
+<meta name="description" content="A deep dive into TLS/SSL — the cryptographic protocols that secure the internet.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How TLS Works</h1>
+  <div class="meta">March 10, 2026</div>
+
+  <p>TLS (Transport Layer Security) is the protocol that makes "https" mean something. It's the layer of encryption that protects your password when you log into your bank, your credit card when you buy something, and your messages when you chat. Without TLS, the internet would be a glass house — everything visible to anyone watching.</p>
+
+  <h2>The Problem TLS Solves</h2>
+  <p>Imagine you're in a coffee shop using WiFi. Without encryption, anyone on that network can see everything you send — your emails, your passwords, your browsing history. This is called a <em>man-in-the-middle attack</em>.</p>
+  
+  <p>TLS solves three problems:</p>
+  <ul>
+    <li><strong>Confidentiality</strong> — Only the intended recipient can read the message</li>
+    <li><strong>Integrity</strong> — The message wasn't tampered with in transit</li>
+    <li><strong>Authentication</strong> — You're actually talking to who you think you're talking to</li>
+  </ul>
+
+  <h2>The TLS Handshake</h2>
+  <p>The magic happens in the <em>TLS handshake</em> — a brief negotiation where the client and server agree on how to encrypt their conversation. Here's how it works in TLS 1.3 (the current standard):</p>
+
+  <h3>Step 1: Client Hello</h3>
+  <p>The client sends a <em>ClientHello</em> message containing:</p>
+  <ul>
+    <li>TLS version (1.3)</li>
+    <li>A list of supported cipher suites</li>
+    <li>A random number</li>
+    <li>Key share (for Diffie-Hellman)</li>
+  </ul>
+
+  <h3>Step 2: Server Hello</h3>
+  <p>The server responds with:</p>
+  <ul>
+    <li>Selected cipher suite</li>
+    <li>Its digital certificate</li>
+    <li>Server key share</li>
+    <li>Done signal</li>
+  </ul>
+
+  <h3>Step 3: Key Derivation</h3>
+  <p>Both parties now have enough information to derive the same encryption keys using <em>Diffie-Hellman key exchange</em>. The beauty of DH is that both parties can compute the same shared secret without ever transmitting it over the network.</p>
+
+  <h3>Step 4: Finished</h3>
+  <p>Both sides verify the handshake (by hashing all previous messages and checking the signatures), and then the encrypted session begins.</p>
+
+  <h2>Certificates and Trust</h2>
+  <p>But there's a problem: how does the client know the server's certificate is real? This is where the <em>Certificate Authority (CA)</em> system comes in.</p>
+
+  <p>A CA is a trusted third party. The server's certificate is <em>signed</em> by a CA — meaning the CA cryptographically vouches for it. Your browser comes pre-loaded with a list of trusted CAs (DigiCert, Let's Encrypt, Comodo, etc.).</p>
+
+  <p>The trust chain looks like this:</p>
+  <pre><code>Root CA (trusted by browser)
+  └── Intermediate CA (signed by Root)
+      └── Server Certificate (signed by Intermediate)</code></pre>
+
+  <h2>Cipher Suites</h2>
+  <p>A <em>cipher suite</em> is a combination of algorithms that define how to encrypt. TLS 1.3 simplified this to just five suites. A typical one:</p>
+  <pre><code>TLS_AES_256_GCM_SHA384</code></pre>
+  <ul>
+    <li><strong>TLS_AES_256_GCM</strong> — AES encryption with 256-bit key in GCM mode</li>
+    <li><strong>SHA384</strong> — Hashing for integrity</li>
+  </ul>
+
+  <h2>Perfect Forward Secrecy</h2>
+  <p>One of the key improvements in TLS 1.3 is <em>Perfect Forward Secrecy (PFS)</em>. This means that even if someone steals the server's long-term private key years from now, they can't decrypt old conversations. This is because each session uses ephemeral (temporary) keys that are discarded after use.</p>
+
+  <h2>What TLS Doesn't Do</h2>
+  <p>TLS encrypts the content of communication, but it doesn't hide:</p>
+  <ul>
+    <li>Who you're communicating with (IP addresses are visible)</li>
+    <li>How much data you're sending (traffic analysis)</li>
+    <li>When you're communicating (timing patterns)</li>
+  </ul>
+  <p>For that, you need Tor or other anonymity networks.</p>
+
+  <h2>The TL;DR</h2>
+  <p>TLS is the foundation of web security. It uses asymmetric cryptography to establish a session, then symmetric encryption for speed. Certificates and CAs provide authentication. TLS 1.3 made it faster and more secure by requiring forward secrecy and reducing round trips.</p>
+  
+  <p>Next time you see that lock icon in your browser, you know what happened under the hood.</p>
+</div>
+</body>
+</html>
