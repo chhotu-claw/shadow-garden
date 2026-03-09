@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Tracker — Shadow's Garden</title>
+<meta name="description" content="Track your reading — books, pages, sessions, and completion estimates">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; max-width: 800px; margin: 0 auto; }
+  .app-header { margin-bottom: 24px; }
+  .app-header h1 { font-size: 1.8rem; margin-bottom: 4px; }
+  .app-header p { color: var(--text-muted); font-size: 0.9rem; }
+  
+  .add-book { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .add-book input { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+  .add-book button { padding: 10px 20px; background: var(--accent); color: var(--bg); border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .add-book button:hover { opacity: 0.9; }
+  
+  .book-card { background: var(--bg-secondary); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
+  .book-card.reading { border-left: 4px solid var(--accent); }
+  .book-card.completed { opacity: 0.6; border-left: 4px solid var(--success); }
+  
+  .book-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .book-title { font-weight: 600; font-size: 1.1rem; }
+  .book-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; background: var(--bg); }
+  .book-status.reading { background: var(--accent); color: var(--bg); }
+  .book-status.completed { background: var(--success); color: white; }
+  
+  .book-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .stat { text-align: center; }
+  .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 1.2rem; font-weight: 600; }
+  
+  .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.3s ease; }
+  
+  .book-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .book-actions input { width: 60px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 0.9rem; }
+  .book-actions button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); cursor: pointer; font-size: 0.85rem; }
+  .book-actions button:hover { background: var(--border); }
+  .book-actions button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .book-actions button.delete { color: var(--error); border-color: var(--error); }
+  
+  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+  
+  .reading-speed { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="app-header">
+    <h1>📚 Reading Tracker</h1>
+    <p>Track your books, pages, and reading pace</p>
+  </div>
+  
+  <div class="add-book">
+    <input type="text" id="bookTitle" placeholder="Book title..." />
+    <input type="number" id="totalPages" placeholder="Total pages" min="1" />
+    <button onclick="addBook()">Add Book</button>
+  </div>
+  
+  <div id="bookList"></div>
+
+  <script>
+    let books = JSON.parse(localStorage.getItem('reading-tracker') || '[]');
+    
+    function save() {
+      localStorage.setItem('reading-tracker', JSON.stringify(books));
+      render();
+    }
+    
+    function addBook() {
+      const title = document.getElementById('bookTitle').value.trim();
+      const total = parseInt(document.getElementById('totalPages').value);
+      if (!title || !total) return;
+      
+      books.unshift({
+        id: Date.now(),
+        title,
+        total,
+        current: 0,
+        sessions: [],
+        status: 'reading',
+        created: Date.now()
+      });
+      
+      document.getElementById('bookTitle').value = '';
+      document.getElementById('totalPages').value = '';
+      save();
+    }
+    
+    function logPages(id) {
+      const input = document.getElementById(`pages-${id}`);
+      const pages = parseInt(input.value);
+      if (!pages || pages <= 0) return;
+      
+      const book = books.find(b => b.id === id);
+      if (!book) return;
+      
+      book.current = Math.min(book.current + pages, book.total);
+      book.sessions.push({ pages, date: Date.now() });
+      
+      if (book.current >= book.total) {
+        book.status = 'completed';
+      }
+      
+      input.value = '';
+      save();
+    }
+    
+    function setPages(id) {
+      const input = document.getElementById(`pages-${id}`);
+      const pages = parseInt(input.value);
+      if (!pages || pages < 0) return;
+      
+      const book = books.find(b => b.id === id);
+      if (!book) return;
+      
+      book.current = Math.min(pages, book.total);
+      if (book.current >= book.total) {
+        book.status = 'completed';
+      } else {
+        book.status = 'reading';
+      }
+      
+      input.value = '';
+      save();
+    }
+    
+    function deleteBook(id) {
+      if (!confirm('Delete this book?')) return;
+      books = books.filter(b => b.id !== id);
+      save();
+    }
+    
+    function getReadingSpeed(sessions) {
+      if (sessions.length < 2) return null;
+      const recent = sessions.slice(-7);
+      if (recent.length < 2) return null;
+      
+      const first = recent[0];
+      const last = recent[recent.length - 1];
+      const daysDiff = (last.date - first.date) / (1000 * 60 * 60 * 24);
+      
+      if (daysDiff < 1) return null;
+      
+      const totalPages = recent.reduce((sum, s) => sum + s.pages, 0);
+      return Math.round(totalPages / daysDiff);
+    }
+    
+    function getDaysRemaining(book) {
+      const speed = getReadingSpeed(book.sessions);
+      if (!speed || speed <= 0) return null;
+      const remaining = book.total - book.current;
+      return Math.ceil(remaining / speed);
+    }
+    
+    function render() {
+      const list = document.getElementById('bookList');
+      
+      if (books.length === 0) {
+        list.innerHTML = '<div class="empty-state">No books yet. Add one above!</div>';
+        return;
+      }
+      
+      list.innerHTML = books.map(book => {
+        const percent = Math.round((book.current / book.total) * 100);
+        const speed = getReadingSpeed(book.sessions);
+        const daysLeft = getDaysRemaining(book);
+        
+        return `
+          <div class="book-card ${book.status}">
+            <div class="book-header">
+              <div class="book-title">${book.title}</div>
+              <div class="book-status ${book.status}">${book.status}</div>
+            </div>
+            <div class="book-stats">
+              <div class="stat">
+                <div class="stat-label">Progress</div>
+                <div class="stat-value">${book.current} / ${book.total}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Percent</div>
+                <div class="stat-value">${percent}%</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Sessions</div>
+                <div class="stat-value">${book.sessions.length}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Est. Finish</div>
+                <div class="stat-value">${daysLeft ? daysLeft + 'd' : '—'}</div>
+              </div>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${percent}%"></div>
+            </div>
+            ${speed ? `<div class="reading-speed">📖 ${speed} pages/day average</div>` : ''}
+            <div class="book-actions">
+              <input type="number" id="pages-${book.id}" placeholder="Pages" min="1" />
+              <button class="primary" onclick="logPages(${book.id})">Log</button>
+              <button onclick="setPages(${book.id})">Set</button>
+              <button class="delete" onclick="deleteBook(${book.id})">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    render();
+  </script>
+</body>
+</html>
