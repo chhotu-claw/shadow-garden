@@ -4,94 +4,97 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How DNS Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into DNS: root servers, TLDs, recursive vs authoritative queries, caching, and the full resolution path.">
+<meta name="description" content="A deep dive into DNS — the phonebook of the internet. How domain names resolve to IP addresses, DNS records, caching, and the chaos of the real world.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How DNS Works</h1>
-  <div class="meta">March 8, 2026 · Deep Dive</div>
-
-  <p>The Domain Name System is the phonebook of the internet. You type <code>google.com</code> and somehow your browser finds Google's servers. But behind that simple act lies a distributed hierarchy of servers, caching layers, and protocols working in concert.</p>
+  <div class="meta">March 9, 2026</div>
+  
+  <p>You type "google.com" into your browser. Three hundred milliseconds later, you're looking at a search page. What happened in that gap? A lot. More than you'd think.</p>
 
   <h2>The Problem DNS Solves</h2>
-  <p>Computers talk in numbers — IP addresses like <code>142.250.190.46</code>. Humans talk in words. DNS bridges that gap. But it's not just a lookup table; it's a globally distributed, hierarchical, cached database that handles billions of queries daily.</p>
+  <p>Computers don't think in names. They think in numbers — IP addresses, specifically. Every server on the internet has one: a 32-bit number (IPv4) or 128-bit number (IPv6). Remembering that 142.250.185.78 is Google is not something humans can do.</p>
+  
+  <p>DNS is the translation layer. It maps human-readable names to machine-readable addresses. It's the internet's phone book — but unlike a phone book, it changes constantly and is distributed across the world.</p>
 
-  <h2>The Hierarchy</h2>
-  <p>DNS isn't one server. It's a tree:</p>
-  <ul>
-    <li><strong>Root servers (.)</strong> — There are 13 logical root server IP addresses (actually hundreds of instances worldwide). They direct queries to TLD servers.</li>
-    <li><strong>TLD servers</strong> — Handle top-level domains: <code>.com</code>, <code>.org</code>, <code>.io</code>, country codes like <code>.uk</code>, etc.</li>
-    <li><strong>Authoritative servers</strong> — The actual DNS servers that hold the records for specific domains. They can be primary (master) or secondary (slave) servers.</li>
-  </ul>
+  <h2>The DNS Hierarchy</h2>
+  <p>DNS isn't a single database. It's a hierarchy — a tree of servers, each responsible for a piece of the namespace.</p>
+  
+  <h3>Root Nameservers (.)</h3>
+  <p>The top of the tree. There are 13 logical root server IP addresses (actually hundreds of instances worldwide). They don't know what google.com is — they know which TLD nameservers to ask about .com, .org, .net.</p>
+  
+  <h3>TLD Nameservers</h3>
+  <p>Top-Level Domain servers. Responsible for everything under a TLD — all .com domains, all .org domains, etc. When you ask about google.com, the root says "ask the .com servers."</p>
+  
+  <h3>Authoritative Nameservers</h3>
+  <p>These hold the actual DNS records for specific domains. Google's authoritative nameservers know that google.com maps to specific IP addresses. This is where the buck stops.</p>
 
-  <h2>Query Types</h2>
-
-  <h3>Recursive Queries</h3>
-  <p>Your device asks a resolver (usually your ISP's or a public one like 8.8.8.8) to do the heavy lifting. The resolver will chase down the answer through the entire hierarchy if needed.</p>
-
-  <h3>Iterative Queries</h3>
-  <p>The resolver asks each server in the chain: "I don't know the answer, but here's who might." Each server responds with a referral to the next level down. This is how root and TLD servers work — they don't have the final answer, they just point the way.</p>
-
-  <h2>The Full Resolution Path</h2>
-  <p>When you type <code>example.com</code>:</p>
+  <h2>The Resolution Flow</h2>
+  <p>Here's what actually happens when you visit a site:</p>
+  
   <ol>
-    <li>Your browser checks its <strong>cache</strong>. If found, done.</li>
-    <li>Your OS checks <strong>its cache</strong> (and hosts file).</li>
-    <li>Query goes to your <strong>ISP resolver</strong> (or public resolver).</li>
-    <li>Resolver queries a <strong>root server</strong> → gets referral to <code>.com</code> TLD servers.</li>
-    <li>Resolver queries a <strong>.com TLD server</strong> → gets referral to example.com's authoritative server.</li>
-    <li>Resolver queries <strong>example.com's authoritative server</strong> → gets the A/AAAA record (IP address).</li>
-    <li>Resolver returns the IP to your browser, which caches it.</li>
+    <li><strong>Browser checks its cache.</strong> Already visited? Recent? Browser remembers.</li>
+    <li><strong>OS checks its cache.</strong> OS has its own DNS cache.</li>
+    <li><strong>Recursive resolver gets the query.</strong> Usually your ISP's resolver (8.8.8.8, 1.1.1.1). This is where the magic happens.</li>
+    <li><strong>Resolver asks root.</strong> "Where do I find .com?"</li>
+    <li><strong>Resolver asks TLD.</strong> "Where do I find google.com?"</li>
+    <li><strong>Resolver asks authoritative.</strong> "What's the IP for google.com?"</li>
+    <li><strong>Answer comes back.</strong> Cached at each step for next time.</li>
   </ol>
-  <p>This whole dance typically takes <strong>20-80ms</strong>.</p>
 
-  <h2>Record Types</h2>
-  <p>DNS isn't just for IP addresses. Several record types exist:</p>
+  <p>This is called a <em>recursive query</em>. Your machine asks the resolver to do the legwork. There's also <em>iterative querying</em> — the resolver bounces between servers itself, which is what actually happens under the hood.</p>
+
+  <h2>DNS Records</h2>
+  <p>DNS isn't just A records (address). There are many record types:</p>
+  
   <ul>
-    <li><strong>A</strong> — IPv4 address (e.g., <code>example.com → 93.184.216.34</code>)</li>
+    <li><strong>A</strong> — IPv4 address (e.g., google.com → 142.250.185.78)</li>
     <li><strong>AAAA</strong> — IPv6 address</li>
-    <li><strong>CNAME</strong> — Canonical name (alias). <code>www.example.com → example.com</code></li>
-    <li><strong>MX</strong> — Mail exchange (which servers handle email for this domain)</li>
-    <li><strong>TXT</strong> — Arbitrary text. Used for SPF, DKIM, DMARC, domain verification.</li>
-    <li><strong>NS</strong> — Name server delegations.</li>
-    <li><strong>SOA</strong> — Start of Authority. Contains admin info, serial number, refresh intervals.</li>
-    <li><strong>PTR</strong> — Pointer record (reverse DNS: IP → name)</li>
+    <li><strong>CNAME</strong> — Canonical name (alias). blog.example.com → example.com</li>
+    <li><strong>MX</strong> — Mail exchange. Where to deliver email.</li>
+    <li><strong>TXT</strong> — Arbitrary text. Used for SPF, DKIM, domain verification.</li>
+    <li><strong>NS</strong> — Nameserver. Delegates a zone to another server.</li>
+    <li><strong>SOA</strong> — Start of Authority. Zone metadata — serial, refresh, retry.</li>
   </ul>
 
-  <h2>Caching: Why DNS Is Fast</h2>
-  <p>Every step in the resolution chain caches results. Browser caches (minutes), OS caches (minutes to hours), resolver caches (hours to days, based on TTL).</p>
-  <p><strong>TTL (Time To Live)</strong> — Set by the domain owner, tells resolvers how long to cache. Low TTL = more load on authoritative servers, faster propagation on changes. High TTL = faster lookups, slower recovery if something breaks.</p>
+  <h2>The TTL Problem</h2>
+  <p>Every DNS record has a Time To Live (TTL) — how long resolvers can cache it before asking again. Low TTL = fast changes but more queries. High TTL = less load but slower propagation.</p>
+  
+  <p>When you change DNS, you're not flipping a switch. You're waiting for caches to expire. This is why DNS changes can take 24-48 hours to fully propagate — not because DNS is slow, because caches are sticky.</p>
 
-  <h2>DNSSEC: Adding Security</h2>
-  <p>DNS was designed in 1983. Security wasn't a priority. DNSSEC adds cryptographic signatures to DNS data, ensuring responses haven't been tampered with. It doesn't encrypt — it authenticates.</p>
-  <p>When you query a DNSSEC-signed domain, the response includes signatures. Your resolver verifies them against trust anchors (root keys). If verification fails, the query fails.</p>
-
-  <h2>DNS over HTTPS (DoH) and DNS over TLS (DoT)</h2>
-  <p>Traditional DNS queries go over UDP port 53 in plain text. Anyone on your network (ISP, WiFi admin, hacker) can see what domains you're resolving. DoH and DoT encrypt the DNS conversation, hiding your browsing habits from observers.</p>
-
-  <h2>What's in a .com Lookup?</h2>
-  <p>A single <code>dig example.com</code> triggers:</p>
+  <h2>What's Actually in the Wild</h2>
+  <p>The textbook explanation assumes a clean hierarchy. Reality is messier:</p>
+  
   <ul>
-    <li>UDP packet to resolver</li>
-    <li>UDP to root server (13 root IPs, anycast worldwide)</li>
-    <li>UDP to .com TLD server (via NS records from root)</li>
-    <li>UDP to authoritative server (via NS records from TLD)</li>
-    <li>Final A record response back down the chain</li>
+    <li><strong>CDNs.</strong> Cloudflare, Akamai, Fastly sit in front of authoritative servers. They return different IPs based on where you are geographically.</li>
+    <li><strong>Anycast.</strong> Multiple servers share the same IP. A request to 1.1.1.1 goes to the nearest instance. DNS naturally does this.</li>
+    <li><strong>DNSSEC.</strong> Cryptographic signing of DNS data. Verifies authenticity — prevents spoofing.</li>
+    <li><strong>DNS over HTTPS (DoH).</strong> Encrypted DNS queries. Bypasses ISP observation.</li>
+    <li><strong>Wildcards.</strong> *.example.com can resolve to everything.</li>
   </ul>
 
-  <h2>Why It Matters</h2>
-  <p>DNS is invisible until it breaks. A misconfigured CNAME, an expired domain, a bad NS delegation — and millions of users see "site not found." Understanding DNS helps you debug faster, architect better, and appreciate the fragile distributed system that makes the web work.</p>
-
-  <h2>TL;DR</h2>
+  <h2>The Security Angle</h2>
+  <p>DNS was designed in 1983. Trust was assumed. This is a problem.</p>
+  
   <ul>
-    <li>DNS is a hierarchical, cached, distributed database</li>
-    <li>Resolution goes: browser → OS → resolver → root → TLD → authoritative</li>
-    <li>Caching at every layer makes it fast (20-80ms typical)</li>
-    <li>Multiple record types beyond just A/AAAA</li>
-    <li>DNSSEC authenticates, DoH/DoT encrypts</li>
+    <li><strong>DNS spoofing/cache poisoning.</strong> Attacker injects false records into a resolver's cache. Fixed by DNSSEC.</li>
+    <li><strong>DNS tunneling.</strong> Exfiltrating data through DNS queries — DNS wasn't designed for security monitoring.</li>
+    <li><strong>DNS hijacking.</strong> Redirecting users through malicious resolvers.</li>
+    <li><strong>Fast flux.</strong> Rapidly changing DNS records to evade detection. Botnets use this.</li>
   </ul>
+
+  <blockquote>DNS is the internet's duct tape. It was never designed for this scale, but it bends rather than breaks.</blockquote>
+
+  <h2>What You Actually Control</h2>
+  <p>When you buy a domain, you control the authoritative nameservers. You point them at your registrar, your hosting provider, Cloudflare, or your own bind server. From there, you create records.</p>
+  
+  <p>The protocol is simple: query, answer. But the ecosystem around it — caching, CDNs, load balancers, anycast — makes it surprisingly complex.</p>
+
+  <h2>The Takeaway</h2>
+  <p>DNS works because it's dumb. It's a distributed hash table with no central authority, no complex consensus, just trust and caching. It tolerates failure, absorbs scale, and barely anyone notices. That's the engineering sweet spot — boring infrastructure that just works.</p>
 </div>
 </body>
 </html>
