@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How OAuth Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on OAuth 2.0 — the authorization framework behind "Login with Google" and API access tokens.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How OAuth Works</h1>
+  <div class="meta">March 9, 2026</div>
+  
+  <p>Every time you click "Login with Google" or "Connect with GitHub," OAuth is working behind the scenes. It's the standard that lets you prove who you are to a service without handing over your password. But OAuth is famously confusing — the flow involves redirects, tokens, and actors with confusing names. Let's untangle it.</p>
+
+  <h2>The Problem OAuth Solves</h2>
+  <p>Before OAuth, the only way to authorize a third-party app was to give it your password. This was terrible: the app got full access to your account, you couldn't revoke just that app, and if the app was compromised, your whole account was compromised.</p>
+  
+  <p>OAuth introduces a middleman: the <strong>authorization server</strong>. Instead of giving your password to the app, you give the app a <strong>token</strong>. The token is scoped (can only do specific things), expiring (must be refreshed), and revocable (kill the token, kill the access).</p>
+
+  <h2>The Actors</h2>
+  <p>OAuth has four roles:</p>
+  <ul>
+    <li><strong>Resource Owner</strong> — That's you. The user.</li>
+    <li><strong>Client</strong> — The app wanting access (the "third-party app").</li>
+    <li><strong>Authorization Server</strong> — The trusted party that issues tokens (Google, GitHub, your own auth server).</li>
+    <li><strong>Resource Server</strong> — The API that holds your data and accepts tokens.</li>
+  </ul>
+
+  <h2>The Flow (Authorization Code Grant)</h2>
+  <p>This is the most common and most secure OAuth flow. Here's what happens:</p>
+
+  <h3>1. User clicks "Login with Google"</h3>
+  <p>The client redirects the browser to Google's authorization server with:</p>
+  <ul>
+    <li><code>client_id</code> — identifies the app</li>
+    <li><code>redirect_uri</code> — where Google sends the user back</li>
+    <li><code>scope</code> — what permissions the app wants</li>
+    <li><code>state</code> — a random string to prevent CSRF</li>
+  </ul>
+
+  <h3>2. User logs in and consents</h3>
+  <p>The user sees a Google login screen (if not already logged in) and a consent screen listing what the app is asking for. If they approve, Google redirects back to the <code>redirect_uri</code> with a temporary <strong>authorization code</strong>.</p>
+
+  <h3>3. App exchanges code for tokens</h3>
+  <p>The app takes that authorization code and makes a back-channel request (server-to-server) to Google to exchange it for an <strong>access token</strong> and optionally a <strong>refresh token</strong>. This happens in code the user never sees.</p>
+
+  <h3>4. App uses the access token</h3>
+  <p>Now the app can make API requests to Google (the resource server) by including the access token in the <code>Authorization: Bearer</code> header. The resource server validates the token and returns the data.</p>
+
+  <h3>5. Refresh (optional)</h3>
+  <p>Access tokens expire (usually in an hour). The app uses the <strong>refresh token</strong> to get a new access token without bothering the user.</p>
+
+  <h2>Why This Is Secure</h2>
+  <ul>
+    <li><strong>Password never leaves the user</strong> — the app never sees your Google password.</li>
+    <li><strong>Temporary code</strong> — the authorization code can only be used once and expires quickly.</li>
+    <li><strong>Back-channel exchange</strong> — the token exchange happens server-to-server, not in the browser where it could be intercepted.</li>
+    <li><strong>Scoping</strong> — you can limit what the token can do (read-only vs full access).</li>
+  </ul>
+
+  <h2>OAuth 2.0 Grants</h2>
+  <p>Authorization Code is the gold standard for web apps. But there are others:</p>
+  <ul>
+    <li><strong>Implicit Flow</strong> — (Deprecated) Tokens returned directly to browser. Too vulnerable to token leakage.</li>
+    <li><strong>Client Credentials</strong> — Machine-to-machine, no user involved (e.g., a background job accessing its own data).</li>
+    <li><strong>Device Code</strong> — For smart TVs and CLI apps — shows a code on the device, user enters it on another device.</li>
+  </ul>
+
+  <h2>OpenID Connect (OIDC)</h2>
+  <p>OAuth is for <em>authorization</em> (what can you do?). If you also need <em>authentication</em> (who are you?), you layer OpenID Connect on top. OIDC adds an <code>id_token</code> that contains user identity info (name, email, profile picture). "Login with Google" typically uses OIDC.</p>
+
+  <h2>What Could Go Wrong</h2>
+  <ul>
+    <li><strong>Redirect URI manipulation</strong> — attacker registers a malicious redirect URI. Mitigated by requiring exact URI matches.</li>
+    <li><strong>CSRF attacks</strong> — attacker tries to bind your account to their OAuth session. Mitigated by the <code>state</code> parameter.</li>
+    <li><strong>Token leakage</strong> — access tokens in URLs get logged in server logs. Use POST body or headers instead.</li>
+    <li><strong>Weak client secrets</strong> — if the client secret leaks, attacker can impersonate the app. Use PKCE (Proof Key for Code Exchange) for public clients.</li>
+  </ul>
+
+  <h2>PKCE: The Modern Standard</h2>
+  <p>PKCE (pronounced "pixie") adds cryptographic proof that the app that started the flow is the same app finishing it. It replaces the client secret for mobile and SPA apps where there's no server to keep a secret. If you're building a new OAuth app, use Authorization Code + PKCE.</p>
+
+  <blockquote>OAuth 2.0 is authorization. OpenID Connect is authentication built on OAuth 2.0. Most "Login with X" uses both.</blockquote>
+
+  <h2>Summary</h2>
+  <p>OAuth 2.0 solved the password-sharing problem by introducing a token-based middleman. The user authorizes an app once, gets a temporary code, the app exchanges it for a token, and the token is used for subsequent requests. It's not perfect — the spec is complex, security pitfalls abound — but it's the backbone of modern API security.</p>
+</div>
+</body>
+</html>
