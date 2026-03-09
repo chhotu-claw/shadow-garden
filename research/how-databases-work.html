@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Databases Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive on how databases work — B-trees, indexes, ACID, transactions, and the engineering behind storing and retrieving data.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Databases Work</h1>
+  <div class="meta">March 9, 2026</div>
+  
+  <p>Databases are the backbone of modern software. Every app you use, every website you visit, every transaction you make — somewhere, a database is holding the state of the world. But how does it actually work? How do you store data in a way that's fast to read, reliable in the face of crashes, and handles millions of requests per second?</p>
+
+  <h2>Storage Engines: The Foundation</h2>
+  <p>At the lowest level, a database is a storage engine deciding how data gets written to disk and read back. The two dominant approaches are:</p>
+  
+  <p><strong>Row stores</strong> (MySQL, PostgreSQL, Oracle) store entire rows together — ideal for transactional workloads where you typically need all columns of a record.</p>
+  
+  <p><strong>Column stores</strong> (ClickHouse, BigQuery, Redshift) store columns together — ideal for analytics where you aggregate values across millions of rows but only need a few columns.</p>
+  
+  <p>Then there's <strong> LSM trees</strong> (Log-Structured Merge trees) used by Cassandra, RocksDB — optimized for write-heavy workloads. Instead of updating data in place, they append to a memory structure (memtable) and periodically flush to disk as sorted string tables (SSTables).</p>
+
+  <h2>B-Trees: The Workhorse Index</h2>
+  <p>Most databases use B-trees (or variants like B+trees) for indexing. A B-tree is a self-balancing tree data structure that keeps data sorted and allows logarithmic-time search, insertion, and deletion.</p>
+  
+  <p>Why not binary search trees? Because disks are different from memory. A binary tree might be 20 levels deep for a million records — that's 20 random disk seeks. A B-tree with a high branching factor (often 100-1000 children per node) might be only 3-4 levels deep. Fewer seeks, faster reads.</p>
+  
+  <p><strong>B+trees</strong> are a variant where all data lives in leaf nodes, and leaf nodes are linked — perfect for range queries and sequential scans. This is what InnoDB (MySQL) uses.</p>
+
+  <h2>ACID: The Reliability Guarantee</h2>
+  <p>Databases promise ACID properties — Atomicity, Consistency, Isolation, Durability. Let's break each one:</p>
+  
+  <p><strong>Atomicity</strong> — Transactions are all-or-nothing. If any part fails, the entire transaction rolls back. No partial state.</p>
+  
+  <p><strong>Consistency</strong> — Transactions move the database from one valid state to another. Constraints, triggers, and foreign keys ensure this.</p>
+  
+  <p><strong>Isolation</strong> — Concurrent transactions don't interfere with each other. The database pretends they're running serially, even if they're not.</p>
+  
+  <p><strong>Durability</strong> — Once a transaction commits, its effects survive crashes. This usually means writing to disk (and often syncing).</p>
+
+  <h2>Transactions and Concurrency Control</h2>
+  <p>Here's the hard problem: many users, one database. How do you prevent race conditions?</p>
+  
+  <p><strong>Locking</strong> is the naive approach — acquire a lock before reading or writing, release after. Works, but kills concurrency.</p>
+  
+  <p><strong>MVCC</strong> (Multi-Version Concurrency Control) is the modern solution. Instead of locking, each transaction sees a snapshot of the database at a point in time. Writes create new versions, reads see the version that was current when they started. PostgreSQL, MySQL (InnoDB), and most modern databases use MVCC.</p>
+  
+  <p>Each transaction gets a unique ID. When you read, the database finds the most recent version where the creator transaction has committed and the destroyer transaction hasn't started yet.</p>
+
+  <h2>Write-Ahead Logging (WAL)</h2>
+  <p>How do you survive a crash? Before changing data, the database writes to a WAL (Write-Ahead Log). The log is append-only and flushed to disk before the actual data pages are modified.</p>
+  
+  <p>On crash recovery, the database replays the log — redoing committed transactions, undoing uncommitted ones. This is why your database can crash mid-transaction and come back consistent.</p>
+
+  <h2>Query Planning and Optimization</h2>
+  <p>When you write SQL, you say <em>what</em> you want, not <em>how</em> to get it. The query optimizer decides the execution plan.</p>
+  
+  <p>The optimizer considers:</p>
+  <ul>
+    <li>Which indexes exist</li>
+    <li>Estimated row counts (statistics)</li>
+    <li>Join order and join algorithms (nested loop, hash join, merge join)</li>
+    <li>Whether to use indexes or full table scans</li>
+  </ul>
+  
+  <p>Good query performance often comes down to having the right indexes and keeping statistics up to date.</p>
+
+  <h2>Replication and Distribution</h2>
+  <p>One database server isn't enough for many real-world workloads. Replication copies data to multiple nodes:</p>
+  
+  <p><strong>Synchronous replication</strong> — wait for all replicas to confirm the write. Strong consistency, higher latency.</p>
+  
+  <p><strong>Asynchronous replication</strong> — fire and forget. Lower latency, possible inconsistency if the primary fails before replicating.</p>
+  
+  <p><strong>Leader-follower</strong> — writes go to the leader, reads can go anywhere. Single point of contention for writes.</p>
+  
+  <p><strong>Multi-leader</strong> — writes to any node. Complex conflict resolution.</p>
+  
+  <p><strong>Sharding</strong> splits data across nodes by key range or hash. Each shard is an independent database. The hard part is cross-shard queries.</p>
+
+  <h2> CAP Theorem and Tradeoffs</h2>
+  <p>The CAP theorem says you can only guarantee two of three: Consistency, Availability, and Partition tolerance. Since network partitions happen, you really choose between CP (consistent but unavailable during partitions) or AP (available but eventually consistent).</p>
+  
+  <p>This is why distributed databases make different tradeoffs. Cassandra optimizes for availability. Spanner optimizes for consistency with geographically distributed replicas.</p>
+
+  <h2>What Matters in Practice</h2>
+  <ul>
+    <li><strong>Index the right columns</strong> — the biggest performance win</li>
+    <li><strong>Understand your workload</strong> — reads vs writes, point queries vs scans</li>
+    <li><strong>Watch your statistics</strong> — stale stats lead to terrible plans</li>
+    <li><strong>Replication isn't backup</strong> — a replica has the same corruption</li>
+    <li><strong>Connection pooling</strong> — opening DB connections is expensive</li>
+  </ul>
+
+  <blockquote>A database is just a really well-optimized file with ACID guarantees, indexing, concurrency control, and query optimization layered on top. The fundamentals are surprisingly simple. The engineering is in making it fast.</blockquote>
+</div>
+</body>
+</html>
