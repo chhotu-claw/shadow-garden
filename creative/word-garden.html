@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Garden — Shadow's Garden</title>
+<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    min-height: 100vh;
+    background: #0a0a0f;
+    overflow: hidden;
+  }
+  #garden {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .word {
+    position: absolute;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #7fdbca;
+    pointer-events: none;
+    text-shadow: 0 0 10px rgba(127, 219, 202, 0.5);
+    transition: color 2s ease;
+  }
+  .word.bloom {
+    color: #ff6b9d;
+    text-shadow: 0 0 20px rgba(255, 107, 157, 0.8);
+  }
+  .word.fade {
+    color: #4a5568;
+    text-shadow: none;
+  }
+  #controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+  }
+  #seed-input {
+    padding: 10px 15px;
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-family: 'Courier New', monospace;
+    width: 250px;
+  }
+  #seed-input:focus {
+    outline: none;
+    border-color: #7fdbca;
+  }
+  #plant-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #7fdbca, #5eead4);
+    border: none;
+    border-radius: 8px;
+    color: #0a0a0f;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  #plant-btn:hover {
+    transform: scale(1.05);
+  }
+  #hint {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #4a5568;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="garden"></canvas>
+  <div id="hint">type a word • press enter to plant</div>
+  <div id="controls">
+    <input type="text" id="seed-input" placeholder="plant a word..." maxlength="20">
+    <button id="plant-btn">plant</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('garden');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('seed-input');
+    const plantBtn = document.getElementById('plant-btn');
+
+    let words = [];
+    let particles = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const wordBank = [
+      'grow', 'bloom', 'seed', 'root', 'leaf', 'stem', 'petal', 'thorn',
+      'water', 'sun', 'soil', 'rain', 'wind', 'time', 'light', 'dark',
+      'dream', 'think', 'feel', 'live', 'die', 'fade', 'wake', 'sleep',
+      'echo', 'drift', 'flow', 'wave', 'spark', 'glow', 'burn', 'rest',
+      'memory', 'whisper', 'shadow', 'mist', 'cloud', 'star', 'moon', 'dust'
+    ];
+
+    function randomWord() {
+      return wordBank[Math.floor(Math.random() * wordBank.length)];
+    }
+
+    function plantWord(text, x, y) {
+      const word = {
+        text: text || randomWord(),
+        x: x || Math.random() * (canvas.width - 100) + 50,
+        y: y || canvas.height - 50,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: -Math.random() * 2 - 1,
+        life: 1,
+        age: 0,
+        state: 'grow'
+      };
+      words.push(word);
+      
+      // spawn particles
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: word.x,
+          y: word.y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 1,
+          color: `hsl(${160 + Math.random() * 40}, 70%, 60%)`
+        });
+      }
+    }
+
+    function update() {
+      words.forEach((word, i) => {
+        word.x += word.vx;
+        word.y += word.vy;
+        word.vy += 0.02; // gravity
+        word.age++;
+
+        // state transitions
+        if (word.age > 100 && word.state === 'grow') {
+          word.state = 'bloom';
+        }
+        if (word.age > 300 && word.state === 'bloom') {
+          word.state = 'fade';
+          word.life -= 0.005;
+        }
+
+        // gentle horizontal drift
+        word.vx += (Math.random() - 0.5) * 0.1;
+        word.vx *= 0.99;
+
+        // remove dead words
+        if (word.life <= 0) {
+          words.splice(i, 1);
+        }
+      });
+
+      // update particles
+      particles.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.02;
+        if (p.life <= 0) particles.splice(i, 1);
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // draw particles
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = p.color.replace(')', `, ${p.life})`).replace('hsl', 'hsla');
+        ctx.fill();
+      });
+
+      // draw words
+      words.forEach(word => {
+        ctx.font = '14px "Courier New", monospace';
+        ctx.globalAlpha = word.life;
+        
+        let color = '#7fdbca';
+        if (word.state === 'bloom') color = '#ff6b9d';
+        if (word.state === 'fade') color = '#4a5568';
+        
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = word.state === 'bloom' ? 20 : 10;
+        ctx.fillText(word.text, word.x, word.y);
+        ctx.shadowBlur = 0;
+      });
+
+      ctx.globalAlpha = 1;
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // input handlers
+    function handlePlant() {
+      const text = input.value.trim();
+      if (text) {
+        plantWord(text.toLowerCase());
+        input.value = '';
+      }
+    }
+
+    plantBtn.addEventListener('click', handlePlant);
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handlePlant();
+    });
+
+    // auto-plant occasionally
+    setInterval(() => {
+      if (words.length < 30) {
+        plantWord();
+      }
+    }, 2000);
+
+    // start
+    loop();
+    // plant initial words
+    setTimeout(() => plantWord('dream'), 500);
+    setTimeout(() => plantWord('grow'), 1000);
+    setTimeout(() => plantWord('bloom'), 1500);
+  </script>
+</body>
+</html>
