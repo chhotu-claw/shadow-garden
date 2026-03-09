@@ -4,654 +4,286 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Expense Splitter — Shadow's Garden</title>
-<meta name="description" content="Split expenses fairly. Add expenses, assign payers and participants, see who owes what.">
+<meta name="description" content="Split expenses with friends — track who paid what and calculate the simplest way to settle up.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --success: #22c55e;
-    --danger: #ef4444;
-    --border: #334155;
-    --warning: #f59e0b;
-  }
-
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem 1rem;
-  }
-
-  .container {
-    max-width: 700px;
-    margin: 0 auto;
-  }
-
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .subtitle {
-    text-align: center;
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-    font-size: 0.875rem;
-  }
-
-  .card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    border: 1px solid var(--border);
-  }
-
-  .card h3 {
-    margin: 0 0 1rem 0;
-    font-size: 1rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .form-row {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .form-group {
-    flex: 1;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 0.25rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  input, select {
-    width: 100%;
-    padding: 0.6rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.9rem;
-    box-sizing: border-box;
-  }
-
-  input:focus, select:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .btn {
-    padding: 0.6rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-hover);
-  }
-
-  .btn-danger {
-    background: var(--danger);
-    color: white;
-  }
-
-  .btn-secondary {
-    background: var(--border);
-    color: var(--text);
-  }
-
-  .btn-sm {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.75rem;
-  }
-
-  .btn-full {
-    width: 100%;
-  }
-
-  /* People management */
-  .people-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .person-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.75rem;
-    background: var(--primary);
-    border-radius: 20px;
-    font-size: 0.8rem;
-  }
-
-  .person-tag button {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 0;
-    font-size: 1rem;
-    line-height: 1;
-    opacity: 0.7;
-  }
-
-  .person-tag button:hover {
-    opacity: 1;
-  }
-
-  .add-person {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .add-person input {
-    flex: 1;
-  }
-
-  /* Expense list */
-  .expense-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: var(--bg);
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-  }
-
-  .expense-info {
-    flex: 1;
-  }
-
-  .expense-desc {
-    font-size: 0.9rem;
-  }
-
-  .expense-meta {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .expense-amount {
-    font-size: 1rem;
-    font-weight: bold;
-    color: var(--success);
-  }
-
-  .expense-delete {
-    background: none;
-    border: none;
-    color: var(--danger);
-    cursor: pointer;
-    padding: 0.25rem;
-    font-size: 1.25rem;
-  }
-
-  /* Participants checkboxes */
-  .participants-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-
-  .participant-check {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.6rem;
-    background: var(--bg);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-
-  .participant-check input {
-    width: auto;
-  }
-
-  .participant-check.checked {
-    background: var(--primary);
-    color: white;
-  }
-
-  /* Settlement */
-  .settlement-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem;
-    background: var(--bg);
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-  }
-
-  .settlement-from, .settlement-to {
-    font-size: 0.9rem;
-  }
-
-  .settlement-arrow {
-    color: var(--text-muted);
-  }
-
-  .settlement-amount {
-    font-weight: bold;
-    color: var(--success);
-  }
-
-  .summary-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .summary-row:last-child {
-    border-bottom: none;
-    font-size: 1.1rem;
-    font-weight: bold;
-  }
-
-  .positive { color: var(--success); }
-  .negative { color: var(--danger); }
-
-  .empty-state {
-    text-align: center;
-    color: var(--text-muted);
-    padding: 2rem;
-    font-size: 0.875rem;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--success);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  }
-
-  .toast.show { opacity: 1; }
-  .toast.error { background: var(--danger); }
+  body { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149; }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+  
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
+  
+  .input-group { margin-bottom: 1rem; }
+  label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+  input, select { width: 100%; padding: 0.6rem 0.8rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 1rem; box-sizing: border-box; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  
+  .row { display: flex; gap: 0.75rem; }
+  .row > * { flex: 1; }
+  
+  button { background: var(--accent); color: #fff; border: none; padding: 0.7rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: opacity 0.2s; }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: var(--border); }
+  button.danger { background: var(--red); }
+  button.small { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+  
+  .expense-list { margin-top: 1.5rem; }
+  .expense-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; background: var(--bg); border-radius: 6px; margin-bottom: 0.5rem; }
+  .expense-details { flex: 1; }
+  .expense-desc { font-weight: 500; }
+  .expense-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+  .expense-amount { font-size: 1.1rem; font-weight: 600; color: var(--green); margin-right: 1rem; }
+  
+  .settlement { background: var(--bg); border-radius: 6px; padding: 1rem; margin-top: 1.5rem; }
+  .settlement h3 { margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent); }
+  .settlement-item { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+  .settlement-item:last-child { border-bottom: none; }
+  .settlement-from { color: var(--red); }
+  .settlement-to { color: var(--green); }
+  
+  .empty { text-align: center; color: var(--muted); padding: 2rem; font-size: 0.9rem; }
+  
+  .totals { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .total-card { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+  .total-label { font-size: 0.8rem; color: var(--muted); }
+  .total-value { font-size: 1.5rem; font-weight: 600; margin-top: 0.3rem; }
+  
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>💸 Expense Splitter</h1>
-    <p class="subtitle">Fair is fair. Split expenses without the awkwardness.</p>
-
-    <!-- People -->
-    <div class="card">
-      <h3>Who's Involved?</h3>
-      <div class="people-tags" id="people-tags"></div>
-      <div class="add-person">
-        <input type="text" id="new-person" placeholder="Add person name...">
-        <button class="btn btn-primary" onclick="addPerson()">Add</button>
+<div class="container">
+  <h1>Expense Splitter</h1>
+  <div class="subtitle">Track group expenses and settle up with minimum transactions</div>
+  
+  <div class="card">
+    <div class="input-group">
+      <label>Add Person</label>
+      <div class="row">
+        <input type="text" id="personName" placeholder="Name (e.g., Alice)">
+        <button onclick="addPerson()">Add</button>
       </div>
     </div>
-
-    <!-- Add Expense -->
-    <div class="card">
-      <h3>Add Expense</h3>
-      <div class="form-row">
-        <div class="form-group" style="flex: 2;">
-          <label>Description</label>
-          <input type="text" id="expense-desc" placeholder="Dinner, Taxi, Hotel...">
-        </div>
-        <div class="form-group">
-          <label>Amount</label>
-          <input type="number" id="expense-amount" placeholder="0.00" step="0.01" min="0">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Paid by</label>
-          <select id="expense-payer">
-            <option value="">Select person...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Split</label>
-          <select id="expense-split" onchange="toggleCustomSplit()">
-            <option value="equal">Split equally</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-      </div>
-      <div id="participants-section">
-        <label style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">Split amongst</label>
-        <div class="participants-grid" id="participants-grid"></div>
-      </div>
-      <button class="btn btn-primary btn-full" style="margin-top: 1rem;" onclick="addExpense()">Add Expense</button>
-    </div>
-
-    <!-- Expenses List -->
-    <div class="card">
-      <h3>Expenses</h3>
-      <div id="expenses-list">
-        <div class="empty-state">No expenses yet. Add one above!</div>
+    <div id="peopleList"></div>
+  </div>
+  
+  <div class="card">
+    <div class="input-group">
+      <label>Add Expense</label>
+      <div class="row">
+        <select id="payerSelect"><option value="">Who paid?</option></select>
+        <input type="number" id="amount" placeholder="Amount" min="0" step="0.01">
       </div>
     </div>
-
-    <!-- Summary -->
-    <div class="card" id="summary-card" style="display: none;">
-      <h3>Who Owes What</h3>
-      <div id="summary"></div>
+    <div class="input-group">
+      <input type="text" id="description" placeholder="What for? (e.g., Dinner, Taxi)">
     </div>
-
-    <!-- Settlement -->
-    <div class="card" id="settlement-card" style="display: none;">
-      <h3>Simplified Settlements</h3>
-      <div id="settlements"></div>
-      <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem;">Tip: These are the minimum transactions needed to settle all debts.</p>
-    </div>
-
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+    <div class="row">
+      <select id="splitSelect"><option value="equal">Split equally</option></select>
+      <button onclick="addExpense()">Add Expense</button>
     </div>
   </div>
+  
+  <div class="totals">
+    <div class="total-card">
+      <div class="total-label">Total Spent</div>
+      <div class="total-value" id="totalSpent">$0.00</div>
+    </div>
+    <div class="total-card">
+      <div class="total-label">Per Person</div>
+      <div class="total-value" id="perPerson">$0.00</div>
+    </div>
+  </div>
+  
+  <div class="expense-list" id="expenseList">
+    <div class="empty">No expenses yet. Add people first, then add expenses.</div>
+  </div>
+  
+  <div class="settlement" id="settlement" style="display:none;">
+    <h3>💰 How to Settle</h3>
+    <div id="settlementList"></div>
+  </div>
+  
+  <div class="actions">
+    <button class="secondary" onclick="clearAll()">Clear All</button>
+  </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<script>
+let people = [];
+let expenses = [];
 
-  <script>
-    const STORAGE_KEY = 'expense_splitter_data';
-    let people = [];
-    let expenses = [];
+function load() {
+  const saved = localStorage.getItem('expenseSplitter');
+  if (saved) {
+    const data = JSON.parse(saved);
+    people = data.people || [];
+    expenses = data.expenses || [];
+  }
+  render();
+}
 
-    // Load from localStorage
-    function load() {
-      try {
-        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (data) {
-          people = data.people || [];
-          expenses = data.expenses || [];
-        }
-      } catch {}
+function save() {
+  localStorage.setItem('expenseSplitter', JSON.stringify({ people, expenses }));
+  render();
+}
+
+function addPerson() {
+  const name = document.getElementById('personName').value.trim();
+  if (!name) return;
+  if (people.includes(name)) {
+    alert('Person already exists');
+    return;
+  }
+  people.push(name);
+  document.getElementById('personName').value = '';
+  save();
+}
+
+function removePerson(name) {
+  if (expenses.some(e => e.payer === name)) {
+    alert('Cannot remove — has expenses');
+    return;
+  }
+  people = people.filter(p => p !== name);
+  save();
+}
+
+function addExpense() {
+  const payer = document.getElementById('payerSelect').value;
+  const amount = parseFloat(document.getElementById('amount').value);
+  const desc = document.getElementById('description').value.trim() || 'Expense';
+  
+  if (!payer || isNaN(amount) || amount <= 0) {
+    alert('Select payer and enter amount');
+    return;
+  }
+  
+  expenses.push({ payer, amount, desc, date: new Date().toISOString() });
+  document.getElementById('amount').value = '';
+  document.getElementById('description').value = '';
+  save();
+}
+
+function removeExpense(index) {
+  expenses.splice(index, 1);
+  save();
+}
+
+function clearAll() {
+  if (confirm('Clear all data?')) {
+    people = [];
+    expenses = [];
+    save();
+  }
+}
+
+function calculateSettlements() {
+  const totals = {};
+  people.forEach(p => totals[p] = 0);
+  
+  expenses.forEach(e => {
+    totals[e.payer] += e.amount;
+  });
+  
+  const equalShare = expenses.reduce((sum, e) => sum + e.amount, 0) / people.length;
+  
+  const balances = {};
+  people.forEach(p => {
+    balances[p] = totals[p] - equalShare;
+  });
+  
+  const settlements = [];
+  const debtors = [], creditors = [];
+  
+  people.forEach(p => {
+    if (balances[p] < -0.01) debtors.push(p);
+    if (balances[p] > 0.01) creditors.push(p);
+  });
+  
+  debtors.sort((a, b) => balances[a] - balances[b]);
+  creditors.sort((a, b) => balances[b] - balances[a]);
+  
+  let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    const debt = -balances[debtor];
+    const credit = balances[creditor];
+    const amount = Math.min(debt, credit);
+    
+    if (amount > 0.01) {
+      settlements.push({ from: debtor, to: creditor, amount });
     }
+    
+    balances[debtor] += amount;
+    balances[creditor] -= amount;
+    
+    if (Math.abs(balances[debtor]) < 0.01) i++;
+    if (Math.abs(balances[creditor]) < 0.01) j++;
+  }
+  
+  return { settlements, total: expenses.reduce((s, e) => s + e.amount, 0), perPerson: equalShare };
+}
 
-    function save() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ people, expenses }));
-    }
-
-    function render() {
-      renderPeople();
-      renderPayerSelect();
-      renderParticipants();
-      renderExpenses();
-      calculate();
-    }
-
-    function renderPeople() {
-      const container = document.getElementById('people-tags');
-      if (people.length === 0) {
-        container.innerHTML = '<span class="empty-state" style="padding: 0;">Add people above to get started</span>';
-        return;
-      }
-      container.innerHTML = people.map((p, i) => `
-        <span class="person-tag">
-          ${p}
-          <button onclick="removePerson(${i})" title="Remove">×</button>
-        </span>
-      `).join('');
-    }
-
-    function renderPayerSelect() {
-      const select = document.getElementById('expense-payer');
-      select.innerHTML = '<option value="">Select person...</option>' + 
-        people.map(p => `<option value="${p}">${p}</option>`).join('');
-    }
-
-    function renderParticipants() {
-      const grid = document.getElementById('participants-grid');
-      if (people.length === 0) {
-        grid.innerHTML = '<div class="empty-state" style="padding: 0.5rem;">Add people first</div>';
-        return;
-      }
-      grid.innerHTML = people.map(p => `
-        <label class="participant-check checked">
-          <input type="checkbox" value="${p}" checked onchange="this.parentElement.classList.toggle('checked')">
-          ${p}
-        </label>
-      `).join('');
-    }
-
-    function renderExpenses() {
-      const container = document.getElementById('expenses-list');
-      if (expenses.length === 0) {
-        container.innerHTML = '<div class="empty-state">No expenses yet. Add one above!</div>';
-        return;
-      }
-      container.innerHTML = expenses.map((e, i) => `
-        <div class="expense-item">
-          <div class="expense-info">
-            <div class="expense-desc">${e.desc}</div>
-            <div class="expense-meta">${e.payer} paid • ${e.participants.join(', ')}</div>
-          </div>
-          <div class="expense-amount">$${e.amount.toFixed(2)}</div>
-          <button class="expense-delete" onclick="removeExpense(${i})">×</button>
+function render() {
+  // People
+  const peopleList = document.getElementById('peopleList');
+  if (people.length === 0) {
+    peopleList.innerHTML = '<div class="empty" style="padding:1rem;">No people added yet</div>';
+  } else {
+    peopleList.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">' + 
+      people.map(p => `<span style="background:var(--bg);padding:0.3rem 0.7rem;border-radius:20px;font-size:0.85rem;display:inline-flex;align-items:center;gap:0.4rem;">${p}<button class="small danger" style="padding:0.1rem 0.4rem;" onclick="removePerson('${p}')">×</button></span>`).join('') + 
+      '</div>';
+  }
+  
+  // Payer select
+  const payerSelect = document.getElementById('payerSelect');
+  payerSelect.innerHTML = '<option value="">Who paid?</option>' + people.map(p => `<option value="${p}">${p}</option>`).join('');
+  
+  // Expenses
+  const expenseList = document.getElementById('expenseList');
+  if (expenses.length === 0) {
+    expenseList.innerHTML = '<div class="empty">No expenses yet. Add people first, then add expenses.</div>';
+  } else {
+    expenseList.innerHTML = expenses.slice().reverse().map((e, i) => {
+      const actualIndex = expenses.length - 1 - i;
+      return `<div class="expense-item">
+        <div class="expense-details">
+          <div class="expense-desc">${e.desc}</div>
+          <div class="expense-meta">${e.payer} • ${new Date(e.date).toLocaleDateString()}</div>
         </div>
-      `).join('');
-    }
+        <div class="expense-amount">$${e.amount.toFixed(2)}</div>
+        <button class="small danger" onclick="removeExpense(${actualIndex})">×</button>
+      </div>`;
+    }).join('');
+  }
+  
+  // Totals
+  const { settlements, total, perPerson } = calculateSettlements();
+  document.getElementById('totalSpent').textContent = '$' + (total || 0).toFixed(2);
+  document.getElementById('perPerson').textContent = '$' + (perPerson || 0).toFixed(2);
+  
+  // Settlement
+  const settlementDiv = document.getElementById('settlement');
+  if (settlements.length > 0) {
+    settlementDiv.style.display = 'block';
+    document.getElementById('settlementList').innerHTML = settlements.map(s => 
+      `<div class="settlement-item">
+        <span class="settlement-from">${s.from}</span>
+        <span>→</span>
+        <span class="settlement-to">${s.to}</span>
+        <span style="margin-left:auto;font-weight:600;">$${s.amount.toFixed(2)}</span>
+      </div>`
+    ).join('');
+  } else {
+    settlementDiv.style.display = 'none';
+  }
+}
 
-    function addPerson() {
-      const input = document.getElementById('new-person');
-      const name = input.value.trim();
-      if (!name) return;
-      if (people.includes(name)) {
-        showToast('Person already exists', true);
-        return;
-      }
-      people.push(name);
-      input.value = '';
-      save();
-      render();
-    }
-
-    function removePerson(i) {
-      const name = people[i];
-      // Remove from people list
-      people.splice(i, 1);
-      // Remove from expenses
-      expenses = expenses.filter(e => {
-        e.participants = e.participants.filter(p => p !== name);
-        return e.payer !== name && e.participants.length > 0;
-      });
-      save();
-      render();
-    }
-
-    function addExpense() {
-      const desc = document.getElementById('expense-desc').value.trim();
-      const amount = parseFloat(document.getElementById('expense-amount').value);
-      const payer = document.getElementById('expense-payer').value;
-      const splitType = document.getElementById('expense-split').value;
-      
-      const participants = Array.from(document.querySelectorAll('#participants-grid input:checked'))
-        .map(cb => cb.value);
-
-      if (!desc || isNaN(amount) || amount <= 0 || !payer || participants.length === 0) {
-        showToast('Please fill all fields', true);
-        return;
-      }
-
-      expenses.push({ desc, amount, payer, participants });
-      
-      // Clear form
-      document.getElementById('expense-desc').value = '';
-      document.getElementById('expense-amount').value = '';
-      document.getElementById('expense-payer').value = '';
-      
-      save();
-      render();
-      showToast('Expense added!');
-    }
-
-    function removeExpense(i) {
-      expenses.splice(i, 1);
-      save();
-      render();
-    }
-
-    function calculate() {
-      if (people.length === 0 || expenses.length === 0) {
-        document.getElementById('summary-card').style.display = 'none';
-        document.getElementById('settlement-card').style.display = 'none';
-        return;
-      }
-
-      // Calculate balance for each person
-      const balance = {};
-      people.forEach(p => balance[p] = 0);
-
-      expenses.forEach(e => {
-        const perPerson = e.amount / e.participants.length;
-        balance[e.payer] += e.amount;
-        e.participants.forEach(p => {
-          if (balance[p] !== undefined) {
-            balance[p] -= perPerson;
-          }
-        });
-      });
-
-      // Show summary
-      const summaryDiv = document.getElementById('summary');
-      summaryDiv.innerHTML = people.map(p => {
-        const b = balance[p];
-        const cls = b >= 0 ? 'positive' : 'negative';
-        const sign = b >= 0 ? '+' : '';
-        return `
-          <div class="summary-row">
-            <span>${p}</span>
-            <span class="${cls}">${sign}$${b.toFixed(2)}</span>
-          </div>
-        `;
-      }).join('');
-
-      const total = Object.values(balance).reduce((a, b) => a + Math.abs(b), 0);
-      summaryDiv.innerHTML += `
-        <div class="summary-row">
-          <span>Total</span>
-          <span>$${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}</span>
-        </div>
-      `;
-
-      document.getElementById('summary-card').style.display = 'block';
-
-      // Calculate minimum settlements (simplified debt simplification)
-      const debtors = [];
-      const creditors = [];
-
-      people.forEach(p => {
-        if (balance[p] < -0.01) debtors.push({ name: p, amount: -balance[p] });
-        if (balance[p] > 0.01) creditors.push({ name: p, amount: balance[p] });
-      });
-
-      debtors.sort((a, b) => b.amount - a.amount);
-      creditors.sort((a, b) => b.amount - a.amount);
-
-      const settlements = [];
-      let i = 0, j = 0;
-      while (i < debtors.length && j < creditors.length) {
-        const debtor = debtors[i];
-        const creditor = creditors[j];
-        const amount = Math.min(debtor.amount, creditor.amount);
-        
-        if (amount > 0.01) {
-          settlements.push({ from: debtor.name, to: creditor.name, amount });
-        }
-        
-        debtor.amount -= amount;
-        creditor.amount -= amount;
-        
-        if (debtor.amount < 0.01) i++;
-        if (creditor.amount < 0.01) j++;
-      }
-
-      if (settlements.length > 0) {
-        document.getElementById('settlements').innerHTML = settlements.map(s => `
-          <div class="settlement-item">
-            <span class="settlement-from">${s.from}</span>
-            <span class="settlement-arrow">→</span>
-            <span class="settlement-to">${s.to}</span>
-            <span class="settlement-amount">$${s.amount.toFixed(2)}</span>
-          </div>
-        `).join('');
-        document.getElementById('settlement-card').style.display = 'block';
-      } else {
-        document.getElementById('settlement-card').style.display = 'none';
-      }
-    }
-
-    function clearAll() {
-      if (confirm('Clear all expenses and people?')) {
-        people = [];
-        expenses = [];
-        save();
-        render();
-      }
-    }
-
-    function toggleCustomSplit() {
-      const split = document.getElementById('expense-split').value;
-      document.getElementById('participants-section').style.display = 
-        split === 'equal' ? 'block' : 'block'; // Always show for now
-    }
-
-    function showToast(msg, isError = false) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.className = 'toast show' + (isError ? ' error' : '');
-      setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-
-    // Handle Enter key
-    document.getElementById('new-person').addEventListener('keypress', e => {
-      if (e.key === 'Enter') addPerson();
-    });
-
-    // Init
-    load();
-    render();
-  </script>
+load();
+</script>
 </body>
 </html>
