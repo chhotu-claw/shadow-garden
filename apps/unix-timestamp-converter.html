@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unix Timestamp Converter — Shadow's Garden</title>
+<meta name="description" content="Convert between Unix timestamps and human-readable dates. Now, specific time, or any timestamp.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+  }
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  input[type="text"], input[type="number"], input[type="datetime-local"] {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1.1rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: monospace;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .result {
+    background: var(--bg-primary);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    font-family: monospace;
+    word-break: break-all;
+  }
+  .result-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+  .result-value {
+    font-size: 1.2rem;
+    color: var(--accent);
+  }
+  .copy-btn {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+  .copy-btn:hover {
+    opacity: 0.9;
+  }
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .preset-btn {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .preset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .now-btn {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+  }
+  .now-btn:hover {
+    background: var(--accent);
+    color: var(--bg-primary);
+    opacity: 0.9;
+  }
+  .modes {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 0.75rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mode-btn:hover {
+    border-color: var(--accent);
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="converter">
+    <h2>Unix Timestamp Converter</h2>
+    
+    <div class="modes">
+      <button class="mode-btn active" data-mode="tohuman">Timestamp → Human</button>
+      <button class="mode-btn" data-mode="totimestamp">Human → Timestamp</button>
+    </div>
+
+    <div id="tohuman-mode">
+      <div class="input-group">
+        <label>Unix Timestamp (seconds or milliseconds)</label>
+        <input type="text" id="timestamp-input" placeholder="e.g. 1773025909 or 1773025909000">
+        <div class="presets">
+          <button class="preset-btn now-btn" onclick="setNowTimestamp()">Now</button>
+          <button class="preset-btn" onclick="setPresetTimestamp(0)">Unix Epoch</button>
+          <button class="preset-btn" onclick="setPresetTimestamp(1000000000)">1B seconds</button>
+          <button class="preset-btn" onclick="setPresetTimestamp(2000000000)">2B seconds</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="totimestamp-mode" class="hidden">
+      <div class="input-group">
+        <label>Date & Time</label>
+        <input type="datetime-local" id="datetime-input">
+        <div class="presets">
+          <button class="preset-btn now-btn" onclick="setNowDatetime()">Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-label">Result</div>
+      <div class="result-value" id="result-value">—</div>
+      <button class="copy-btn hidden" id="copy-btn" onclick="copyResult()">Copy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const timestampInput = document.getElementById('timestamp-input');
+  const datetimeInput = document.getElementById('datetime-input');
+  const resultValue = document.getElementById('result-value');
+  const copyBtn = document.getElementById('copy-btn');
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  const toHumanMode = document.getElementById('tohuman-mode');
+  const toTimestampMode = document.getElementById('totimestamp-mode');
+
+  let currentMode = 'tohuman';
+  let currentResult = '';
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      
+      if (currentMode === 'tohuman') {
+        toHumanMode.classList.remove('hidden');
+        toTimestampMode.classList.add('hidden');
+      } else {
+        toHumanMode.classList.add('hidden');
+        toTimestampMode.classList.remove('hidden');
+      }
+      clearResult();
+    });
+  });
+
+  timestampInput.addEventListener('input', convertTimestampToHuman);
+  datetimeInput.addEventListener('input', convertDatetimeToTimestamp);
+
+  function setNowTimestamp() {
+    const now = Math.floor(Date.now() / 1000);
+    timestampInput.value = now;
+    convertTimestampToHuman();
+  }
+
+  function setPresetTimestamp(ts) {
+    timestampInput.value = ts;
+    convertTimestampToHuman();
+  }
+
+  function setNowDatetime() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    datetimeInput.value = now.toISOString().slice(0, 16);
+    convertDatetimeToTimestamp();
+  }
+
+  function convertTimestampToHuman() {
+    const input = timestampInput.value.trim();
+    if (!input) {
+      clearResult();
+      return;
+    }
+
+    let ts = parseInt(input, 10);
+    if (isNaN(ts)) {
+      resultValue.textContent = 'Invalid timestamp';
+      copyBtn.classList.add('hidden');
+      return;
+    }
+
+    // Detect if milliseconds (13 digits) vs seconds (10 digits)
+    if (ts > 9999999999) {
+      ts = Math.floor(ts / 1000); // Convert ms to seconds
+    }
+
+    const date = new Date(ts * 1000);
+    
+    if (isNaN(date.getTime())) {
+      resultValue.textContent = 'Invalid date';
+      copyBtn.classList.add('hidden');
+      return;
+    }
+
+    const formats = [
+      date.toISOString(),
+      date.toUTCString(),
+      date.toLocaleString(),
+      `Unix: ${ts}`
+    ];
+
+    currentResult = formats.join('\n');
+    resultValue.textContent = formats.join('\n');
+    copyBtn.classList.remove('hidden');
+  }
+
+  function convertDatetimeToTimestamp() {
+    const input = datetimeInput.value;
+    if (!input) {
+      clearResult();
+      return;
+    }
+
+    const date = new Date(input);
+    
+    if (isNaN(date.getTime())) {
+      resultValue.textContent = 'Invalid date';
+      copyBtn.classList.add('hidden');
+      return;
+    }
+
+    const seconds = Math.floor(date.getTime() / 1000);
+    const milliseconds = date.getTime();
+
+    currentResult = `Seconds: ${seconds}\nMilliseconds: ${milliseconds}`;
+    resultValue.textContent = currentResult;
+    copyBtn.classList.remove('hidden');
+  }
+
+  function clearResult() {
+    resultValue.textContent = '—';
+    copyBtn.classList.add('hidden');
+    currentResult = '';
+  }
+
+  function copyResult() {
+    if (currentResult) {
+      navigator.clipboard.writeText(currentResult);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+    }
+  }
+
+  // Initialize with current time
+  setNowTimestamp();
+</script>
+</body>
+</html>
