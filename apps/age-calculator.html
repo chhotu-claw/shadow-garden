@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate age in years, months, days from birthdate. Or find age on any specific date.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .mode-toggle button {
+    flex: 1; padding: 0.75rem; border: 2px solid var(--border);
+    background: var(--bg); color: var(--text); border-radius: 8px;
+    cursor: pointer; font-size: 1rem; transition: all 0.2s;
+  }
+  .mode-toggle button.active {
+    background: var(--accent); border-color: var(--accent); color: white;
+  }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+  input[type="date"] {
+    width: 100%; padding: 0.75rem; font-size: 1.1rem;
+    border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text);
+  }
+  input[type="date"]:focus { outline: none; border-color: var(--accent); }
+  .result {
+    background: var(--card); padding: 1.5rem; border-radius: 12px;
+    text-align: center; margin-top: 1.5rem;
+  }
+  .result-value { font-size: 2.5rem; font-weight: 700; color: var(--accent); }
+  .result-label { color: var(--muted); margin-top: 0.25rem; }
+  .result-detail { 
+    margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 0.9rem;
+  }
+  .copy-btn {
+    margin-top: 1rem; padding: 0.5rem 1rem;
+    background: var(--border); border: none; border-radius: 6px;
+    cursor: pointer; color: var(--text);
+  }
+  .copy-btn:hover { background: var(--accent); color: white; }
+  .hidden { display: none; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Age Calculator</h1>
+    <p style="color: var(--muted); margin-bottom: 1.5rem;">Calculate age in years, months, days</p>
+    
+    <div class="mode-toggle">
+      <button id="mode-current" class="active" onclick="setMode('current')">Age Today</button>
+      <button id="mode-specific" onclick="setMode('specific')">Age on Date</button>
+    </div>
+    
+    <div class="input-group">
+      <label for="birthdate">Date of Birth</label>
+      <input type="date" id="birthdate" onchange="calculate()">
+    </div>
+    
+    <div class="input-group hidden" id="specific-date-group">
+      <label for="specific-date">Calculate age on</label>
+      <input type="date" id="specific-date" onchange="calculate()">
+    </div>
+    
+    <div class="result hidden" id="result">
+      <div class="result-value" id="result-years">—</div>
+      <div class="result-label">years old</div>
+      <div class="result-detail" id="result-detail"></div>
+      <button class="copy-btn" onclick="copyResult()">Copy</button>
+    </div>
+    
+    <div class="result hidden" id="result-exact">
+      <div class="result-value" id="result-exact-value">—</div>
+      <div class="result-label">exact age</div>
+      <div class="result-detail" id="result-exact-detail"></div>
+    </div>
+  </div>
+
+  <script>
+    let mode = 'current';
+    
+    function setMode(m) {
+      mode = m;
+      document.getElementById('mode-current').classList.toggle('active', m === 'current');
+      document.getElementById('mode-specific').classList.toggle('active', m === 'specific');
+      document.getElementById('specific-date-group').classList.toggle('hidden', m !== 'specific');
+      calculate();
+    }
+    
+    function calculate() {
+      const birthStr = document.getElementById('birthdate').value;
+      if (!birthStr) return;
+      
+      const birth = new Date(birthStr);
+      const today = mode === 'current' ? new Date() : new Date(document.getElementById('specific-date').value);
+      
+      if (!today || isNaN(today.getTime())) return;
+      
+      if (birth > today) {
+        showError('Birth date is in the future');
+        return;
+      }
+      
+      let years = today.getFullYear() - birth.getFullYear();
+      let months = today.getMonth() - birth.getMonth();
+      let days = today.getDate() - birth.getDate();
+      
+      if (days < 0) {
+        months--;
+        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        days += prevMonth.getDate();
+      }
+      
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      
+      const totalDays = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
+      
+      document.getElementById('result').classList.remove('hidden');
+      document.getElementById('result-exact').classList.remove('hidden');
+      
+      if (years === 0 && months === 0) {
+        document.getElementById('result-years').textContent = totalDays;
+        document.getElementById('result-label').textContent = 'days old';
+      } else if (years === 0) {
+        document.getElementById('result-years').textContent = months;
+        document.getElementById('result-label').textContent = months === 1 ? 'month old' : 'months old';
+      } else {
+        document.getElementById('result-years').textContent = years;
+        document.getElementById('result-label').textContent = 'years old';
+      }
+      
+      let detail = [];
+      if (years > 0) detail.push(`${years} year${years !== 1 ? 's' : ''}`);
+      if (months > 0) detail.push(`${months} month${months !== 1 ? 's' : ''}`);
+      if (days > 0) detail.push(`${days} day${days !== 1 ? 's' : ''}`);
+      document.getElementById('result-detail').textContent = detail.join(', ');
+      
+      // Exact breakdown
+      const totalMonths = years * 12 + months;
+      document.getElementById('result-exact-value').textContent = `${totalMonths} months`;
+      document.getElementById('result-exact-detail').textContent = `or ${totalDays.toLocaleString()} total days`;
+    }
+    
+    function showError(msg) {
+      document.getElementById('result').classList.add('hidden');
+      document.getElementById('result-exact').classList.add('hidden');
+      alert(msg);
+    }
+    
+    function copyResult() {
+      const years = document.getElementById('result-years').textContent;
+      const detail = document.getElementById('result-detail').textContent;
+      const text = `${years} years old (${detail})`;
+      navigator.clipboard.writeText(text);
+      document.querySelector('.copy-btn').textContent = 'Copied!';
+      setTimeout(() => document.querySelector('.copy-btn').textContent = 'Copy', 2000);
+    }
+  </script>
+</body>
+</html>
