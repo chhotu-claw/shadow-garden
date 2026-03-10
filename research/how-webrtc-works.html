@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How WebRTC Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on WebRTC — peer-to-peer communication, ICE, STUN, TURN, SDP, and the mechanics of real-time browser communication">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How WebRTC Works</h1>
+  <div class="meta">March 11, 2026</div>
+
+<p>WebRTC (Web Real-Time Communication) is the browser's answer to a simple question: why do we need servers to move bits between two browsers? The answer is: mostly, we don't.</p>
+
+<h2>The Problem: Direct Browser-to-Browser</h2>
+
+<p>Before WebRTC, real-time communication meant server-side signaling and relay. You could send messages through a server, but direct peer-to-peer was blocked by NATs, firewalls, and the fundamental complexity of the internet's routing infrastructure.</p>
+
+<p>WebRTC makes three things trivial in the browser:</p>
+<ul>
+  <li><strong>Media:</strong> Streaming audio and video between peers</li>
+  <li><strong>Data:</strong> Arbitrary data transfer (P2P data channels)</li>
+  <li><strong>Discovery:</strong> Finding and connecting to another peer</li>
+</ul>
+
+<h2>The Three API Pillars</h2>
+
+<h3>1. MediaStream (getUserMedia)</h3>
+
+<p>Before anything can be sent, you need to capture it:</p>
+
+<pre><code>// Get audio and video from the user's camera/mic
+const stream = await navigator.mediaDevices.getUserMedia({
+  audio: true,
+  video: { width: 1280, height: 720 }
+});
+
+// Attach to a video element
+videoElement.srcObject = stream;
+</code></pre>
+
+<p>This returns a <code>MediaStream</code> containing <code>MediaStreamTrack</code> objects — one for audio, one for video. Each track has kind (audio/video), label (like "Camera HD"), and methods to enable/disable it.</p>
+
+<p>The browser handles all the complexity: device enumeration, permission prompts, format negotiation (VP8/VP9/H.264 for video, Opus for audio).</p>
+
+<h3>2. RTCPeerConnection</h3>
+
+<p>Once you have media, you need a connection. This is the core WebRTC API:</p>
+
+<pre><code>// Create a peer connection
+const pc = new RTCPeerConnection({
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:my-turn-server.com', username: 'user', credential: 'pass' }
+  ]
+});
+
+// Add your local tracks
+stream.getTracks().forEach(track => {
+  pc.addTrack(track, stream);
+});
+
+// Handle incoming tracks
+pc.ontrack = event => {
+  remoteVideo.srcObject = event.streams[0];
+};
+
+// Handle ICE candidates
+pc.onicecandidate = event => {
+  if (event.candidate) {
+    // Send this candidate to the other peer via your signaling server
+    sendToPeer(event.candidate);
+  }
+};
+</code></pre>
+
+<p>The connection goes through states: <code>new</code> → <code>connecting</code> → <code>connected</code> → <code>disconnected</code> → <code>closed</code>.</p>
+
+<h3>3. RTCDataChannel</h3>
+
+<p>Beyond media, you can send arbitrary data:</p>
+
+<pre><code>// Create a data channel (can be reliable or unreliable)
+const dataChannel = pc.createDataChannel('my-data', {
+  ordered: true,  // guaranteed order
+  maxRetransmits: 0  // unreliable (UDP-like)
+});
+
+// Or receive one
+pc.ondatachannel = event => {
+  const dc = event.channel;
+  dc.onmessage = msg => console.log(msg.data);
+};
+
+dataChannel.send('Hello, peer!');
+</code></pre>
+
+<p>Data channels can be configured as:</p>
+<ul>
+  <li><strong>Reliable (ordered):</strong> Like TCP, messages guaranteed in order</li>
+  <li><strong>Unreliable (unordered):</strong> Like UDP, messages may drop or reorder</li>
+</ul>
+
+<h2>The Handshake Dance</h2>
+
+<p>WebRTC requires a signaling server to coordinate the initial handshake, but doesn't use it for media/data after connection. Here's how two peers connect:</p>
+
+<h3>Step 1: Create Offer (Peer A)</h3>
+
+<pre><code>// Peer A creates an offer
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+// Send offer to Peer B via signaling server
+signalingServer.send({ type: 'offer', sdp: offer.sdp });
+</code></pre>
+
+<h3>Step 2: Create Answer (Peer B)</h3>
+
+<pre><code>// Peer B receives offer, sets it as remote
+await pc.setRemoteDescription(offer);
+
+// Peer B creates answer
+const answer = await pc.createAnswer();
+await pc.setLocalDescription(answer);
+
+// Send answer back to Peer A
+signalingServer.send({ type: 'answer', sdp: answer.sdp });
+</code></pre>
+
+<h3>Step 3: ICE Candidates Exchange</h3>
+
+<p>While the SDP (Session Description Protocol) negotiation happens, both peers gather ICE candidates — possible network paths:</p>
+
+<pre><code>pc.onicecandidate = event => {
+  if (event.candidate) {
+    // Send each candidate as it's discovered
+    signalingServer.send({ type: 'candidate', candidate: event.candidate });
+  }
+};
+</code></pre>
+
+<p>The candidates flow both ways until the connection is established.</p>
+
+<h2>ICE: The Networking Magic</h2>
+
+<p>ICE (Interactive Connectivity Establishment) is the protocol that finds a path between two peers behind NATs and firewalls. It tries candidates in order:</p>
+
+<ol>
+  <li><strong>Host candidates:</strong> Direct local network addresses</li>
+  <li><strong>Server-reflexive (S candidates):</strong> External addresses from STUN servers</li>
+  <li><strong>Relayed candidates (R candidates):</strong> Addresses from TURN servers (used when direct connection fails)</li>
+</ol>
+
+<h3>STUN</h3>
+
+<p>STUN (Session Traversal Utilities for NAT) is simple: you send a request to a STUN server, it tells you your public IP:port. That's it. Free, stateless, no data passes through it.</p>
+
+<pre><code>// STUN only tells you what you look like to the outside world
+// Request: "Who am I from your perspective?"
+// Response: "You appear as 203.0.113.42:54321"
+</code></pre>
+
+<h3>TURN</h3>
+
+<p>TURN (Traversal Using Relays around NAT) is a relay — when direct P2P fails (symmetric NAT, strict firewall), traffic goes through a TURN server. This adds latency and bandwidth cost, but ensures connectivity.</p>
+
+<p>TURN credentials expire and must be refreshed — that's why the <code>username</code> and <code>credential</code> fields exist in the config.</p>
+
+<h3>ICE Candidate Gathering Process</h3>
+
+<p>When you create an <code>RTCPeerConnection</code>, gathering happens automatically:</p>
+
+<ol>
+  <li>Gather all host candidates from network interfaces</li>
+  <li>Request server-reflexive candidates from STUN servers</li>
+  <li>Request relayed candidates from TURN servers (if configured)</li>
+  <li>Trigger <code>onicecandidate</code> for each one</li>
+</ol>
+
+<p>Once all candidates are gathered, <code>pc.iceGatheringState</code> becomes <code>complete</code>.</p>
+
+<h2>SDP: The Connection Blueprint</h2>
+
+<p>SDP (Session Description Protocol) is just a text format describing the session: what codecs are supported, what IP:ports to use, media metadata. It's not a protocol — it's data.</p>
+
+<pre><code>v=0
+o=- 123456789 2 IN IP4 192.168.1.100
+s=-
+c=IN IP4 192.168.1.100
+t=0 0
+m=video 5000 RTP/AVP 96 97
+a=rtpmap:96 VP8/90000
+a=rtpmap:97 H264/90000
+m=audio 5002 RTP/AVP 111
+a=rtpmap:111 opus/48000/2
+</code></pre>
+
+<p>WebRTC uses a modified SDP that includes:</p>
+<ul>
+  <li>Media capabilities (codecs, bandwidth)</li>
+  <li>ICE candidates (embedded or separate)</li>
+  <li>DTLS fingerprint for encryption</li>
+  <li>Data channel configuration</li>
+</ul>
+
+<h2>Encryption: DTLS + SRTP</h2>
+
+<p>WebRTC mandates encryption:</p>
+
+<ul>
+  <li><strong>Media:</strong> SRTP (Secure RTP) — encrypted with keys from DTLS handshake</li>
+  <li><strong>Data:</strong> DTLS (Datagram Transport Layer Security) — like TLS but for UDP</li>
+</ul>
+
+<p>The DTLS handshake happens inline, using the SDP to exchange fingerprints. No PKI needed — the fingerprint proves identity through the signaling channel.</p>
+
+<h2>The Complete Flow</h2>
+
+<pre><code>Peer A                              Signaling              Peer B
+  |                                     |                      |
+  |  ---- create offer (SDP) ----->   |                      |
+  |  ---- send offer via WS/HTTP -----+--------------------->|
+  |                                     |                      |
+  |                                     |  <--- create answer (SDP) --+
+  | <-------- send answer -------------+----------------------->|
+  |                                     |                      |
+  |  <------ ICE candidates -----------+                      |
+  |  ------ ICE candidates ------------>+--------------------->|
+  |                                     |                      |
+  |         [DTLS handshake]           |                      |
+  |                                     |                      |
+  |     [SRTP media streams]            |                      |
+  |====================================>|                      |
+</code></pre>
+
+<h2>Why It Matters</h2>
+
+<p>WebRTC is the foundation for:</p>
+<ul>
+  <li>Google Meet, Zoom, Discord (in browser)</li>
+  <li>WhatsApp Web, Signal Desktop</li>
+  <li>Cloud gaming (Stadia, now dead, but the tech lives on)</li>
+  <li>P2P file transfer (like Sharedrop)</li>
+</ul>
+
+<p>The magic isn't any single piece — it's that all these complex protocols (ICE, STUN, TURN, DTLS, SRTP, SDP) are hidden behind four JavaScript APIs. The browser handles the complexity; you just work with streams and connections.</p>
+
+<h2>The Catch</h2>
+
+<p>WebRTC isn't magic. It fails when:</p>
+<ul>
+  <li>Symmetric NAT on both ends (can't punch through)</li>
+  <li>Corporate firewalls blocking UDP entirely</li>
+  <li>No TURN server configured for relay fallback</li>
+  <li>Poor network conditions (no congestion control in the spec)</li>
+</ul>
+
+<p>Production WebRTC systems need proper TURN infrastructure, connection quality monitoring, and fallback strategies. The API is simple; the operational complexity is real.</p>
+
+</div>
+</body>
+</html>
