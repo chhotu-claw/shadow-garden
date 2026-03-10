@@ -4,184 +4,258 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Countdown Timer — Shadow's Garden</title>
-<meta name="description" content="Countdown to any date or event. Track countdowns for birthdays, deadlines, trips, anything.">
+<meta name="description" content="Track days to events, birthdays, deadlines. Simple, localStorage, live updates.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: var(--font-mono); }
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .input-group { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  input, button { 
-    padding: 0.75rem 1rem; 
-    font-size: 1rem; 
-    border: 2px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-bg);
-    color: var(--color-text);
+  :root {
+    --accent: #8b5cf6;
+    --accent-dark: #7c3aed;
+    --bg-dark: #1e1b4b;
   }
-  input[type="text"], input[type="date"], input[type="time"] { flex: 1; min-width: 150px; }
-  button { 
-    background: var(--color-accent); 
-    color: var(--color-bg); 
-    border: none; 
-    cursor: pointer;
-    font-weight: 600;
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    font-family: 'JetBrains Mono', monospace;
+    color: #fff;
+    padding: 2rem;
   }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: var(--color-border); }
-  
-  .countdowns { display: flex; flex-direction: column; gap: 1rem; }
-  .countdown-card {
-    background: var(--color-card);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 1.5rem;
+  }
+  .add-event {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .input-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus {
+    border-color: var(--accent);
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 150px;
+  }
+  input[type="date"] {
+    min-width: 140px;
+  }
+  button.add-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1rem; cursor: pointer;
+    transition: background rem;
+    cursor: 0.2s;
+  }
+  button.add-btn:hover {
+    background: var(--accent-dark);
+  }
+  .events {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .event-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1rem;
     padding: 1.25rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
     flex-wrap: wrap;
+    gap: 1rem;
   }
-  .countdown-info { flex: 1; min-width: 200px; }
-  .countdown-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; }
-  .countdown-date { font-size: 0.85rem; color: var(--color-muted); }
-  .countdown-time { 
-    font-size: 2rem; 
-    font-weight: 700; 
-    color: var(--color-accent);
-    font-variant-numeric: tabular-nums;
+  .event-info {
+    flex: 1;
+    min-width: 200px;
   }
-  .countdown-time.ended { color: var(--color-muted); font-size: 1.25rem; }
-  .countdown-actions { display: flex; gap: 0.5rem; }
-  .countdown-actions button { 
-    padding: 0.5rem 0.75rem; 
-    font-size: 0.85rem; 
+  .event-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
   }
-  .empty { 
-    text-align: center; 
-    color: var(--color-muted); 
-    padding: 3rem 1rem;
+  .event-date {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
   }
-  .presets { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .presets button { background: var(--color-border); font-size: 0.85rem; padding: 0.5rem 0.75rem; }
+  .event-countdown {
+    text-align: right;
+  }
+  .countdown-days {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .countdown-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+  }
+  .delete-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  .delete-btn:hover {
+    background: rgba(239,68,68,0.2);
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+  .presets button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .presets button:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  .empty {
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    padding: 3rem;
+  }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Countdown Timer</h1>
+  <h1>⏳ Countdown Timer</h1>
   
-  <div class="input-group">
-    <input type="text" id="eventName" placeholder="Event name (e.g., Birthday, Deadline)">
-    <input type="date" id="eventDate">
-    <input type="time" id="eventTime" value="00:00">
-    <button onclick="addCountdown()">Add</button>
+  <div class="add-event">
+    <div class="input-row">
+      <input type="text" id="eventName" placeholder="Event name...">
+      <input type="date" id="eventDate">
+      <button class="add-btn" onclick="addEvent()">Add</button>
+    </div>
+    <div class="presets">
+      <button onclick="addPreset(1)">+1 Day</button>
+      <button onclick="addPreset(7)">+1 Week</button>
+      <button onclick="addPreset(30)">+1 Month</button>
+      <button onclick="addPreset(365)">+1 Year</button>
+    </div>
   </div>
   
-  <div class="presets">
-    <button onclick="preset(1)">+1 Day</button>
-    <button onclick="preset(7)">+1 Week</button>
-    <button onclick="preset(30)">+1 Month</button>
-  </div>
-  
-  <div id="countdowns" class="countdowns"></div>
+  <div class="events" id="eventsList"></div>
 </div>
 
 <script>
-  let countdowns = JSON.parse(localStorage.getItem('countdowns') || '[]');
+let events = JSON.parse(localStorage.getItem('countdownEvents') || '[]');
 
-  function save() {
-    localStorage.setItem('countdowns', JSON.stringify(countdowns));
-    render();
-  }
-
-  function addCountdown() {
-    const name = document.getElementById('eventName').value.trim();
-    const date = document.getElementById('eventDate').value;
-    const time = document.getElementById('eventTime').value || '00:00';
-    
-    if (!name || !date) {
-      alert('Please enter event name and date');
-      return;
-    }
-    
-    const target = new Date(`${date}T${time}`);
-    if (isNaN(target.getTime())) {
-      alert('Invalid date');
-      return;
-    }
-    
-    countdowns.push({ id: Date.now(), name, target: target.toISOString() });
-    countdowns.sort((a, b) => new Date(a.target) - new Date(b.target));
-    
-    document.getElementById('eventName').value = '';
-    save();
-  }
-
-  function remove(id) {
-    countdowns = countdowns.filter(c => c.id !== id);
-    save();
-  }
-
-  function preset(days) {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    document.getElementById('eventDate').value = d.toISOString().split('T')[0];
-  }
-
-  function render() {
-    const container = document.getElementById('countdowns');
-    
-    if (countdowns.length === 0) {
-      container.innerHTML = '<div class="empty">No countdowns yet. Add one above!</div>';
-      return;
-    }
-    
-    container.innerHTML = countdowns.map(c => {
-      const now = new Date();
-      const target = new Date(c.target);
-      const diff = target - now;
-      
-      let timeStr;
-      if (diff <= 0) {
-        timeStr = 'ENDED';
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        if (days > 0) {
-          timeStr = `${days}d ${hours}h`;
-        } else if (hours > 0) {
-          timeStr = `${hours}h ${mins}m`;
-        } else {
-          timeStr = `${mins}m ${secs}s`;
-        }
-      }
-      
-      const dateStr = target.toLocaleDateString('en-US', { 
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-      
-      return `
-        <div class="countdown-card">
-          <div class="countdown-info">
-            <div class="countdown-title">${c.name}</div>
-            <div class="countdown-date">${dateStr}</div>
-          </div>
-          <div class="countdown-time ${diff <= 0 ? 'ended' : ''}">${timeStr}</div>
-          <div class="countdown-actions">
-            <button class="secondary" onclick="remove(${c.id})">✕</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  setInterval(render, 1000);
+function save() {
+  localStorage.setItem('countdownEvents', JSON.stringify(events));
   render();
+}
+
+function addEvent() {
+  const name = document.getElementById('eventName').value.trim();
+  const date = document.getElementById('eventDate').value;
+  
+  if (!name || !date) return;
+  
+  events.push({ name, date });
+  document.getElementById('eventName').value = '';
+  document.getElementById('eventDate').value = '';
+  save();
+}
+
+function addPreset(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const name = days === 1 ? 'Tomorrow' : 
+               days === 7 ? 'Next Week' : 
+               days === 30 ? 'Next Month' : 'Next Year';
+  events.push({ name, date: d.toISOString().split('T')[0] });
+  save();
+}
+
+function deleteEvent(index) {
+  events.splice(index, 1);
+  save();
+}
+
+function render() {
+  const list = document.getElementById('eventsList');
+  
+  if (events.length === 0) {
+    list.innerHTML = '<div class="empty">No events yet. Add one above!</div>';
+    return;
+  }
+  
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  events.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  list.innerHTML = events.map((e, i) => {
+    const eventDate = new Date(e.date);
+    eventDate.setHours(0,0,0,0);
+    const diff = Math.ceil((eventDate - today) / (1000*60*60*24));
+    const isPast = diff < 0;
+    const label = isPast ? 'ago' : 'days';
+    const days = Math.abs(diff);
+    
+    return `
+      <div class="event-card">
+        <div class="event-info">
+          <div class="event-name">${e.name}</div>
+          <div class="event-date">${eventDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+        </div>
+        <div class="event-countdown">
+          <div class="countdown-days" style="${isPast ? 'opacity:0.5' : ''}">${days}</div>
+          <div class="countdown-label">${label}</div>
+        </div>
+        <button class="delete-btn" onclick="deleteEvent(${i})" title="Delete">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// Update every minute
+setInterval(render, 60000);
+render();
 </script>
 </body>
 </html>
