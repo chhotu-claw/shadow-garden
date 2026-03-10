@@ -4,451 +4,325 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Date Calculator — Shadow's Garden</title>
-<meta name="description" content="Add or subtract days from any date. Calculate date differences, find past/future dates.">
+<meta name="description" content="Add/subtract days from dates, calculate differences between dates">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    --success: #22c55e;
+    --accent: #8b5cf6;
+    --accent-dark: #7c3aed;
   }
-
   body {
     font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
     min-height: 100vh;
-    padding: 2rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   }
-
-  .container {
-    max-width: 500px;
-    margin: 0 auto;
+  .calculator {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 420px;
   }
-
   h1 {
+    color: #fff;
     font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    color: var(--text);
+    margin-bottom: 1.5rem;
+    text-align: center;
   }
-
-  .description {
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-    font-size: 0.875rem;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
+  .mode-toggle {
+    display: flex;
+    gap: 0.5rem;
     margin-bottom: 1.5rem;
   }
-
+  .mode-toggle button {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.7);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .mode-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .mode-toggle button:hover:not(.active) {
+    background: rgba(255,255,255,0.1);
+  }
   .input-group {
     margin-bottom: 1.25rem;
   }
-
   label {
     display: block;
+    color: rgba(255,255,255,0.7);
     font-size: 0.75rem;
-    color: var(--text-muted);
     margin-bottom: 0.5rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
   }
-
-  input[type="date"],
-  input[type="number"],
-  select {
+  input[type="date"], input[type="number"] {
     width: 100%;
-    padding: 0.75rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #fff;
     font-size: 1rem;
-    box-sizing: border-box;
-  }
-
-  input:focus,
-  select:focus {
+    font-family: inherit;
     outline: none;
-    border-color: var(--primary);
+    transition: border-color 0.2s;
   }
-
-  .btn-row {
+  input[type="date"]:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+  .presets {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
   }
-
-  button {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 0.875rem;
+  .presets button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.75rem;
     cursor: pointer;
     transition: background 0.2s;
   }
-
-  button:hover {
-    background: var(--primary-hover);
+  .presets button:hover {
+    background: rgba(255,255,255,0.2);
   }
-
-  button.secondary {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-
-  button.secondary:hover {
-    background: var(--border);
-  }
-
   .result {
-    background: var(--bg);
-    border: 1px solid var(--success);
-    border-radius: 8px;
-    padding: 1.25rem;
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid var(--accent);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
     text-align: center;
-  }
-
-  .result-date {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--success);
-    margin-bottom: 0.5rem;
-  }
-
-  .result-details {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-
-  .result-error {
-    border-color: #ef4444;
-    color: #ef4444;
-  }
-
-  .presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .preset-btn {
-    padding: 0.375rem 0.75rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .preset-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .tab-group {
-    display: flex;
-    gap: 0;
-    margin-bottom: 1.25rem;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.75rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.875rem;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
-  }
-
-  .tab:first-child {
-    border-radius: 8px 0 0 8px;
-  }
-
-  .tab:last-child {
-    border-radius: 0 8px 8px 0;
-  }
-
-  .tab.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-  }
-
-  .mode-section {
-    display: none;
-  }
-
-  .mode-section.active {
-    display: block;
-  }
-
-  .history {
     margin-top: 1.5rem;
   }
-
-  .history h3 {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.75rem;
+  .result-value {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: #fff;
   }
-
+  .result-date {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+    margin-top: 0.5rem;
+  }
+  .history {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 1rem;
+  }
+  .history h3 {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+  }
   .history-item {
-    background: var(--bg);
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    padding: 0.5rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
   }
-
-  .history-item span {
-    color: var(--text-muted);
-  }
-
-  .history-item strong {
-    color: var(--success);
-  }
-
-  .clear-btn {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    background(--text-muted: none;
-    border: none;
-    padding: 0;
-  }
-
-  .clear-btn:hover {
+  .history-item .del {
     color: #ef4444;
+    cursor: pointer;
+    padding: 0 0.25rem;
   }
+  .hidden { display: none; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Date Calculator</h1>
-    <p class="description">Add or subtract days from any date. Calculate differences between dates.</p>
-
-    <div class="card">
-      <div class="tab-group">
-        <button class="tab active" data-mode="add">Add/Subtract</button>
-        <button class="tab" data-mode="diff">Difference</button>
-      </div>
-
-      <div class="mode-section active" id="add-mode">
-        <div class="input-group">
-          <label>Start Date</label>
-          <input type="date" id="startDate">
-        </div>
-
-        <div class="input-group">
-          <label>Operation</label>
-          <div class="btn-row">
-            <button class="secondary" id="addBtn" onclick="setOperation('add')">+ Add</button>
-            <button class="secondary" id="subBtn" onclick="setOperation('subtract')">− Subtract</button>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>Days</label>
-          <div class="presets">
-            <button class="preset-btn" onclick="setDays(1)">+1</button>
-            <button class="preset-btn" onclick="setDays(7)">+7</button>
-            <button class="preset-btn" onclick="setDays(30)">+30</button>
-            <button class="preset-btn" onclick="setDays(90)">+90</button>
-            <button class="preset-btn" onclick="setDays(365)">+365</button>
-          </div>
-          <input type="number" id="days" value="1" min="0">
-        </div>
-
-        <button onclick="calculate()">Calculate</button>
-      </div>
-
-      <div class="mode-section" id="diff-mode">
-        <div class="input-group">
-          <label>Start Date</label>
-          <input type="date" id="startDate2">
-        </div>
-
-        <div class="input-group">
-          <label>End Date</label>
-          <input type="date" id="endDate2">
-        </div>
-
-        <button onclick="calculateDiff()">Calculate Difference</button>
-      </div>
+<div class="calculator">
+  <h1>📅 Date Calculator</h1>
+  
+  <div class="mode-toggle">
+    <button id="modeAdd" class="active" onclick="setMode('add')">Add/Subtract</button>
+    <button id="modeDiff" onclick="setMode('diff')">Date Difference</button>
+  </div>
+  
+  <div id="addMode">
+    <div class="input-group">
+      <label>Start Date</label>
+      <input type="date" id="startDate">
     </div>
-
-    <div class="result" id="result" style="display: none;">
-      <div class="result-date" id="resultDate"></div>
-      <div class="result-details" id="resultDetails"></div>
-    </div>
-
-    <div class="history">
-      <h3>Recent <button class="clear-btn" onclick="clearHistory()">Clear</button></h3>
-      <div id="historyList"></div>
+    
+    <div class="input-group">
+      <label>Add or Subtract Days</label>
+      <input type="number" id="days" value="7" placeholder="Number of days">
+      <div class="presets">
+        <button onclick="setDays(-1)">-1 day</button>
+        <button onclick="setDays(-7)">-1 week</button>
+        <button onclick="setDays(-30)">-1 month</button>
+        <button onclick="setDays(-365)">-1 year</button>
+        <button onclick="setDays(1)">+1 day</button>
+        <button onclick="setDays(7)">+1 week</button>
+        <button onclick="setDays(30)">+1 month</button>
+        <button onclick="setDays(365)">+1 year</button>
+      </div>
     </div>
   </div>
+  
+  <div id="diffMode" class="hidden">
+    <div class="input-group">
+      <label>From Date</label>
+      <input type="date" id="dateFrom">
+    </div>
+    
+    <div class="input-group">
+      <label>To Date</label>
+      <input type="date" id="dateTo">
+    </div>
+  </div>
+  
+  <div class="result">
+    <div class="result-value" id="result">Select a mode</div>
+    <div class="result-date" id="resultDate"></div>
+  </div>
+  
+  <div class="history">
+    <h3>History</h3>
+    <div id="historyList"></div>
+  </div>
+</div>
 
-  <script>
-    let operation = 'add';
-    let history = JSON.parse(localStorage.getItem('dateCalcHistory') || '[]');
+<script>
+let mode = 'add';
+let history = JSON.parse(localStorage.getItem('dateCalcHistory') || '[]');
 
-    // Set default dates
-    document.getElementById('startDate').valueAsDate = new Date();
-    document.getElementById('startDate2').valueAsDate = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    document.getElementById('endDate2').valueAsDate = tomorrow;
+const startDate = document.getElementById('startDate');
+const daysInput = document.getElementById('days');
+const dateFrom = document.getElementById('dateFrom');
+const dateTo = document.getElementById('dateTo');
+const result = document.getElementById('result');
+const resultDate = document.getElementById('resultDate');
 
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.mode-section').forEach(s => s.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.mode + '-mode').classList.add('active');
-        hideResult();
-      });
+// Set default dates
+const today = new Date();
+startDate.value = today.toISOString().split('T')[0];
+dateFrom.value = today.toISOString().split('T')[0];
+dateTo.value = new Date(today.getTime() + 30*24*60*60*1000).toISOString().split('T')[0];
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeAdd').classList.toggle('active', m === 'add');
+  document.getElementById('modeDiff').classList.toggle('active', m === 'diff');
+  document.getElementById('addMode').classList.toggle('hidden', m !== 'add');
+  document.getElementById('diffMode').classList.toggle('hidden', m !== 'diff');
+  calculate();
+}
+
+function setDays(n) {
+  daysInput.value = n;
+  calculate();
+}
+
+function calculate() {
+  if (mode === 'add') {
+    const start = new Date(startDate.value);
+    const days = parseInt(daysInput.value) || 0;
+    const resultDateObj = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+    
+    result.textContent = resultDateObj.toLocaleDateString('en-US', { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
     });
+    
+    const diff = resultDateObj - today;
+    const diffDays = Math.ceil(diff / (24*60*60*1000));
+    resultDate.textContent = diffDays === 0 ? 'Today' : 
+      diffDays > 0 ? `In ${diffDays} days` : `${Math.abs(diffDays)} days ago`;
+    
+    addToHistory(`${days > 0 ? '+' : ''}${days} days from ${formatShort(start)}`, resultDateObj);
+  } else {
+    const from = new Date(dateFrom.value);
+    const to = new Date(dateTo.value);
+    const diffTime = Math.abs(to - from);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const years = Math.floor(diffDays / 365);
+    const months = Math.floor((diffDays % 365) / 30);
+    const days = diffDays % 30;
+    
+    let breakdown = [];
+    if (years) breakdown.push(`${years} year${years > 1 ? 's' : ''}`);
+    if (months) breakdown.push(`${months} month${months > 1 ? 's' : ''}`);
+    if (days) breakdown.push(`${days} day${days > 1 ? 's' : ''}`);
+    
+    result.textContent = diffDays + ' day' + (diffDays !== 1 ? 's' : '');
+    resultDate.textContent = breakdown.join(', ') || 'Same day';
+    
+    addToHistory(`${formatShort(from)} → ${formatShort(to)}`, null, diffDays);
+  }
+}
 
-    function setOperation(op) {
-      operation = op;
-      document.getElementById('addBtn').classList.toggle('secondary', op !== 'add');
-      document.getElementById('subBtn').classList.toggle('secondary', op !== 'subtract');
-      hideResult();
-    }
+function formatShort(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-    function setDays(val) {
-      document.getElementById('days').value = val;
-    }
+function addToHistory(label, dateObj, days) {
+  const entry = { label, days, time: Date.now() };
+  
+  // Avoid duplicates
+  if (history.some(h => h.label === label && Date.now() - h.time < 60000)) return;
+  
+  history.unshift(entry);
+  history = history.slice(0, 10);
+  localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+  renderHistory();
+}
 
-    function calculate() {
-      const startDate = new Date(document.getElementById('startDate').value);
-      const days = parseInt(document.getElementById('days').value) || 0;
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.75rem">No history yet</div>';
+    return;
+  }
+  list.innerHTML = history.map((h, i) => `
+    <div class="history-item">
+      <span>${h.label}${h.days !== undefined ? ` (${h.days}d)` : ''}</span>
+      <span class="del" onclick="deleteHistory(${i})">×</span>
+    </div>
+  `).join('');
+}
 
-      if (isNaN(startDate.getTime())) {
-        showError('Please select a valid start date');
-        return;
-      }
+function deleteHistory(i) {
+  history.splice(i, 1);
+  localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+  renderHistory();
+}
 
-      const resultDate = new Date(startDate);
-      resultDate.setDate(resultDate.getDate() + (operation === 'add' ? days : -days));
+startDate.addEventListener('change', calculate);
+daysInput.addEventListener('input', calculate);
+dateFrom.addEventListener('change', calculate);
+dateTo.addEventListener('change', calculate);
 
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      const formattedDate = resultDate.toLocaleDateString('en-US', options);
-
-      let details = `${operation === 'add' ? '+' : '-'}${days} day${days !== 1 ? 's' : ''} from ${startDate.toLocaleDateString()}`;
-
-      showResult(formattedDate, details);
-      addToHistory(`${operation === 'add' ? '+' : '-'}${days}d`, formattedDate);
-    }
-
-    function calculateDiff() {
-      const start = new Date(document.getElementById('startDate2').value);
-      const end = new Date(document.getElementById('endDate2').value);
-
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        showError('Please select valid dates');
-        return;
-      }
-
-      const diffTime = end - start;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      const diffWeeks = Math.floor(diffDays / 7);
-      const diffMonths = Math.floor(diffDays / 30);
-
-      let details = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`;
-      if (Math.abs(diffWeeks) > 0) details += ` (${Math.abs(diffWeeks)} weeks)`;
-      if (Math.abs(diffMonths) > 0) details += ` (${Math.abs(diffMonths)} months)`;
-
-      if (diffDays > 0) {
-        details += ' • Future';
-      } else if (diffDays < 0) {
-        details += ' • Past';
-      } else {
-        details += ' • Same day';
-      }
-
-      showResult(Math.abs(diffDays) + ' days', details);
-      addToHistory('diff', `${start.toLocaleDateString()} → ${end.toLocaleDateString()}: ${Math.abs(diffDays)}d`);
-    }
-
-    function showResult(date, details) {
-      const resultEl = document.getElementById('result');
-      resultEl.style.display = 'block';
-      resultEl.classList.remove('result-error');
-      document.getElementById('resultDate').textContent = date;
-      document.getElementById('resultDetails').textContent = details;
-    }
-
-    function showError(msg) {
-      const resultEl = document.getElementById('result');
-      resultEl.style.display = 'block';
-      resultEl.classList.add('result-error');
-      document.getElementById('resultDate').textContent = 'Error';
-      document.getElementById('resultDetails').textContent = msg;
-    }
-
-    function hideResult() {
-      document.getElementById('result').style.display = 'none';
-    }
-
-    function addToHistory(action, result) {
-      history.unshift({ action, result, time: Date.now() });
-      history = history.slice(0, 10);
-      localStorage.setItem('dateCalcHistory', JSON.stringify(history));
-      renderHistory();
-    }
-
-    function renderHistory() {
-      const list = document.getElementById('historyList');
-      if (history.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No recent calculations</p>';
-        return;
-      }
-      list.innerHTML = history.map(h => `
-        <div class="history-item">
-          <span>${h.action}</span>
-          <strong>${h.result}</strong>
-        </div>
-      `).join('');
-    }
-
-    function clearHistory() {
-      history = [];
-      localStorage.setItem('dateCalcHistory', JSON.stringify(history));
-      renderHistory();
-    }
-
-    renderHistory();
-  </script>
+renderHistory();
+calculate();
+</script>
 </body>
 </html>
