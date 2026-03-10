@@ -4,318 +4,236 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tip Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate tips quickly. Split bills, custom tip percentages, per-person cost.">
+<meta name="description" content="Calculate tips, split bills, figure out per-person amounts. No math required.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --success: #22c55e;
-    --border: #334155;
+    --accent: #f59e0b;
+    --accent-dark: #d97706;
   }
-
   body {
-    font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
     min-height: 100vh;
-    padding: 2rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #1f1f1f 0%, #2d2d2d 100%);
   }
-
-  .container {
-    max-width: 480px;
-    margin: 0 auto;
-  }
-
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-    font-size: 1.75rem;
-  }
-
-  .subtitle {
-    text-align: center;
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-    font-size: 0.875rem;
-  }
-
-  .card {
-    background: var(--card);
-    border-radius: 12px;
+  .calculator {
+    background: #fff;
+    border-radius: 1rem;
     padding: 1.5rem;
-    margin-bottom: 1rem;
-    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
   }
-
-  .form-group {
+  h1 {
+    color: #1f1f1f;
+    font-size: 1.25rem;
+    margin-bottom: 1.25rem;
+    text-align: center;
+  }
+  .input-group {
     margin-bottom: 1rem;
   }
-
   label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+    margin-bottom: 0.4rem;
   }
-
   input[type="number"] {
     width: 100%;
-    padding: 0.875rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
+    padding: 0.75rem;
     font-size: 1.25rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-family: inherit;
     box-sizing: border-box;
-    text-align: center;
+    transition: border-color 0.2s;
   }
-
-  input:focus {
+  input[type="number"]:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
-
-  .tip-presets {
+  .presets {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
-
-  .tip-preset {
+  .presets button {
     flex: 1;
-    padding: 0.75rem 0.5rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-muted);
+    padding: 0.6rem 0.5rem;
+    background: #f3f4f6;
+    border: 2px solid transparent;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
     cursor: pointer;
     font-family: inherit;
-    font-size: 0.875rem;
     transition: all 0.2s;
   }
-
-  .tip-preset:hover {
-    border-color: var(--primary);
+  .presets button:hover {
+    background: #e5e7eb;
   }
-
-  .tip-preset.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
+  .presets button.active {
+    border-color: var(--accent);
+    background: #fef3c7;
+    color: var(--accent-dark);
   }
-
-  .result {
+  .split-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .split-row input {
+    width: 70px;
     text-align: center;
-    padding: 1.5rem 0;
+    font-size: 1rem;
   }
-
-  .result-amount {
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: var(--success);
-    margin-bottom: 0.5rem;
+  .split-label {
+    color: #6b7280;
+    font-size: 0.9rem;
   }
-
-  .result-label {
-    color: var(--text-muted);
-    font-size: 0.875rem;
+  .results {
+    background: #f9fafb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-top: 1.25rem;
   }
-
-  .breakdown {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .breakdown-row {
+  .result-row {
     display: flex;
     justify-content: space-between;
     padding: 0.5rem 0;
-    font-size: 0.875rem;
+    font-size: 0.95rem;
   }
-
-  .breakdown-row.total {
-    border-top: 1px solid var(--border);
+  .result-row.total {
+    border-top: 2px solid #e5e7eb;
     margin-top: 0.5rem;
-    padding-top: 1rem;
+    padding-top: 0.75rem;
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 1.1rem;
   }
-
-  .per-person {
-    background: var(--primary);
-    border-radius: 8px;
-    padding: 1rem;
-    text-align: center;
-    margin-top: 1rem;
+  .result-row.per-person {
+    color: var(--accent-dark);
   }
-
-  .per-person-label {
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.7);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .per-person-amount {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: white;
-  }
-
-  .currency {
-    font-size: 1rem;
-    color: var(--text-muted);
-  }
-
-  .split-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .split-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 1.25rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .split-btn:hover {
-    border-color: var(--primary);
-    background: var(--primary);
-  }
-
-  .split-count {
-    font-size: 1.25rem;
-    min-width: 2rem;
-    text-align: center;
+  .result-value {
+    font-family: 'JetBrains Mono', monospace;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>💰 Tip Calculator</h1>
-    <p class="subtitle">Split bills, calculate tips, no math required.</p>
-
-    <div class="card">
-      <div class="form-group">
-        <label>Bill Amount</label>
-        <input type="number" id="bill" placeholder="0.00" step="0.01" oninput="calculate()">
-      </div>
-
-      <div class="form-group">
-        <label>Tip Percentage</label>
-        <div class="tip-presets">
-          <button class="tip-preset" onclick="setTip(10)">10%</button>
-          <button class="tip-preset active" onclick="setTip(15)">15%</button>
-          <button class="tip-preset" onclick="setTip(18)">18%</button>
-          <button class="tip-preset" onclick="setTip(20)">20%</button>
-          <button class="tip-preset" onclick="setTip(25)">25%</button>
-        </div>
-        <input type="number" id="tip-percent" value="15" min="0" max="100" step="1" oninput="calculate()" style="text-align: center;">
-      </div>
-
-      <div class="result">
-        <div class="result-amount">
-          $<span id="tip-amount">0.00</span>
-        </div>
-        <div class="result-label">tip amount</div>
-      </div>
-
-      <div class="breakdown">
-        <div class="breakdown-row">
-          <span>Bill</span>
-          <span>$<span id="bill-display">0.00</span></span>
-        </div>
-        <div class="breakdown-row">
-          <span>Tip (<span id="tip-percent-display">15</span>%)</span>
-          <span>$<span id="tip-display">0.00</span></span>
-        </div>
-        <div class="breakdown-row total">
-          <span>Total</span>
-          <span>$<span id="total-display">0.00</span></span>
-        </div>
-      </div>
-
-      <div class="per-person">
-        <div class="per-person-label">Per Person</div>
-        <div class="per-person-amount">$<span id="per-person">0.00</span></div>
-      </div>
-
-      <div class="split-controls">
-        <button class="split-btn" onclick="adjustSplit(-1)">−</button>
-        <span class="split-count" id="split-count">1</span>
-        <button class="split-btn" onclick="adjustSplit(1)">+</button>
-      </div>
-      <p style="text-align: center; color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem;">people</p>
+<div class="calculator">
+  <h1>💸 Tip Calculator</h1>
+  
+  <div class="input-group">
+    <label>Bill Amount</label>
+    <input type="number" id="bill" placeholder="0.00" step="0.01" min="0">
+  </div>
+  
+  <div class="input-group">
+    <label>Tip %</label>
+    <div class="presets">
+      <button onclick="setTip(10)">10%</button>
+      <button onclick="setTip(15)">15%</button>
+      <button onclick="setTip(18)">18%</button>
+      <button onclick="setTip(20)">20%</button>
+      <button onclick="setTip(25)">25%</button>
+    </div>
+    <input type="number" id="tipPercent" value="15" min="0" max="100" step="1">
+  </div>
+  
+  <div class="input-group">
+    <label>Split Between</label>
+    <div class="split-row">
+      <input type="number" id="split" value="1" min="1" max="20">
+      <span class="split-label">people</span>
     </div>
   </div>
+  
+  <div class="results">
+    <div class="result-row">
+      <span>Tip</span>
+      <span class="result-value" id="tipAmount">$0.00</span>
+    </div>
+    <div class="result-row total">
+      <span>Total</span>
+      <span class="result-value" id="totalAmount">$0.00</span>
+    </div>
+    <div class="result-row per-person">
+      <span>Per Person</span>
+      <span class="result-value" id="perPerson">$0.00</span>
+    </div>
+  </div>
+</div>
 
-  <script>
-    let tipPercent = 15;
-    let splitCount = 1;
+<script>
+const billInput = document.getElementById('bill');
+const tipInput = document.getElementById('tipPercent');
+const splitInput = document.getElementById('split');
+const tipDisplay = document.getElementById('tipAmount');
+const totalDisplay = document.getElementById('totalAmount');
+const perPersonDisplay = document.getElementById('perPerson');
+const presetBtns = document.querySelectorAll('.presets button');
 
-    function setTip(percent) {
-      tipPercent = percent;
-      document.getElementById('tip-percent').value = percent;
-      document.querySelectorAll('.tip-preset').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent === percent + '%') btn.classList.add('active');
-      });
-      calculate();
+function setTip(percent) {
+  tipInput.value = percent;
+  presetBtns.forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.textContent) === percent);
+  });
+  calculate();
+}
+
+function calculate() {
+  const bill = parseFloat(billInput.value) || 0;
+  const tipPercent = parseFloat(tipInput.value) || 0;
+  const split = parseInt(splitInput.value) || 1;
+  
+  const tipAmount = bill * (tipPercent / 100);
+  const total = bill + tipAmount;
+  const perPerson = total / split;
+  
+  tipDisplay.textContent = formatMoney(tipAmount);
+  totalDisplay.textContent = formatMoney(total);
+  perPersonDisplay.textContent = formatMoney(perPerson);
+  
+  // Save
+  localStorage.setItem('tipCalc', JSON.stringify({
+    lastTip: tipPercent,
+    lastSplit: split
+  }));
+}
+
+function formatMoney(amount) {
+  return '$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+// Load saved
+const saved = localStorage.getItem('tipCalc');
+if (saved) {
+  try {
+    const prefs = JSON.parse(saved);
+    if (prefs.lastTip) {
+      tipInput.value = prefs.lastTip;
+      setTip(prefs.lastTip);
     }
+    if (prefs.lastSplit) splitInput.value = prefs.lastSplit;
+  } catch(e) {}
+} else {
+  setTip(15);
+}
 
-    function adjustSplit(delta) {
-      splitCount = Math.max(1, splitCount + delta);
-      document.getElementById('split-count').textContent = splitCount;
-      calculate();
-    }
+billInput.addEventListener('input', calculate);
+tipInput.addEventListener('input', () => {
+  presetBtns.forEach(btn => btn.classList.remove('active'));
+  calculate();
+});
+splitInput.addEventListener('input', calculate);
 
-    function calculate() {
-      const bill = parseFloat(document.getElementById('bill').value) || 0;
-      tipPercent = parseFloat(document.getElementById('tip-percent').value) || 0;
-
-      const tip = bill * (tipPercent / 100);
-      const total = bill + tip;
-      const perPerson = splitCount > 0 ? total / splitCount : total;
-
-      document.getElementById('tip-amount').textContent = tip.toFixed(2);
-      document.getElementById('bill-display').textContent = bill.toFixed(2);
-      document.getElementById('tip-display').textContent = tip.toFixed(2);
-      document.getElementById('total-display').textContent = total.toFixed(2);
-      document.getElementById('per-person').textContent = perPerson.toFixed(2);
-      document.getElementById('tip-percent-display').textContent = tipPercent;
-    }
-
-    // Load saved bill if exists
-    const saved = localStorage.getItem('tipcalc_bill');
-    if (saved) {
-      document.getElementById('bill').value = saved;
-      calculate();
-    }
-
-    // Save bill on input
-    document.getElementById('bill').addEventListener('input', function() {
-      localStorage.setItem('tipcalc_bill', this.value);
-    });
-  </script>
+// Auto-focus bill
+billInput.focus();
+</script>
 </body>
 </html>
