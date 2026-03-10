@@ -4,421 +4,333 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Loan Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate loan payments, total interest, and view amortization schedule">
+<meta name="description" content="Calculate monthly payments, total interest, and view amortization schedule">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
   :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --success: #22c55e;
-    --danger: #ef4444;
-    --border: #334155;
+    --accent: #6366f1;
+    --accent-dark: #4f46e5;
   }
-
   body {
     font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
     min-height: 100vh;
-    padding: 2rem 1rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   }
-
   .container {
     max-width: 600px;
     margin: 0 auto;
   }
-
   h1 {
+    color: #fff;
     text-align: center;
-    margin-bottom: 0.5rem;
-    font-size: 1.75rem;
-  }
-
-  .subtitle {
-    text-align: center;
-    color: var(--text-muted);
     margin-bottom: 2rem;
-    font-size: 0.875rem;
   }
-
-  .card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    border: 1px solid var(--border);
+  .calculator {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1rem;
+    padding: 2rem;
   }
-
-  .form-group {
-    margin-bottom: 1rem;
+  .input-group {
+    margin-bottom: 1.25rem;
   }
-
   label {
     display: block;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.75rem;
     margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
   }
-
   input, select {
     width: 100%;
-    padding: 0.75rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #fff;
     font-size: 1rem;
+    font-family: inherit;
     box-sizing: border-box;
   }
-
   input:focus, select:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
-
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-hover);
-  }
-
-  .results-grid {
+  .input-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    margin-bottom: 1rem;
   }
-
-  .result-box {
-    background: var(--bg);
-    padding: 1rem;
-    border-radius: 8px;
-    text-align: center;
-  }
-
-  .result-box.full {
-    grid-column: span 2;
-  }
-
-  .result-label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-  }
-
-  .result-value {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--success);
-  }
-
-  .result-value.large {
-    font-size: 2rem;
-  }
-
-  .amortization {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-
-  .amortization table {
+  button {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .amortization th, .amortization td {
-    padding: 0.5rem;
-    text-align: right;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .amortization th {
-    background: var(--bg);
-    position: sticky;
-    top: 0;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .amortization td:first-child, .amortization th:first-child {
-    text-align: left;
-  }
-
-  .toggle-view {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .toggle-btn {
-    flex: 1;
-    padding: 0.5rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-muted);
-    cursor: pointer;
+    background: var(--accent);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    color: #fff;
+    font-size: 1rem;
     font-family: inherit;
-    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 1rem;
   }
-
-  .toggle-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
+  button:hover {
+    background: var(--accent-dark);
   }
-
-  .hidden {
+  .results {
+    margin-top: 2rem;
     display: none;
   }
-
-  @media (max-width: 480px) {
-    .results-grid {
-      grid-template-columns: 1fr;
-    }
-    .result-box.full {
-      grid-column: span 1;
-    }
+  .results.visible {
+    display: block;
+  }
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .result-box {
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+  }
+  .result-box .label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .result-box .value {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #fff;
+  }
+  .result-box.principal .value { color: #34d399; }
+  .result-box.interest .value { color: #f87171; }
+  .result-box.total .value { color: #fbbf24; }
+  
+  .schedule-toggle {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    margin-top: 1rem;
+  }
+  .schedule-toggle:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  .schedule {
+    margin-top: 1.5rem;
+    display: none;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .schedule.visible {
+    display: block;
+  }
+  .schedule table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  .schedule th, .schedule td {
+    padding: 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8);
+  }
+  .schedule th {
+    color: rgba(255,255,255,0.5);
+    font-weight: normal;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+  }
+  .schedule th:first-child, .schedule td:first-child {
+    text-align: left;
+  }
+  .schedule::-webkit-scrollbar {
+    width: 6px;
+  }
+  .schedule::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+  }
+  .schedule::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 3px;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>💰 Loan Calculator</h1>
-    <p class="subtitle">Calculate payments, interest, and amortization</p>
-
-    <div class="card">
-      <div class="form-group">
-        <label>Loan Amount</label>
-        <input type="number" id="amount" placeholder="250000" value="250000">
-      </div>
-
-      <div class="form-group">
-        <label>Interest Rate (% per year)</label>
-        <input type="number" id="rate" placeholder="6.5" value="6.5" step="0.01">
-      </div>
-
-      <div class="form-group">
-        <label>Loan Term</label>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="number" id="years" placeholder="30" value="30" style="flex: 1;">
-          <select id="term-type" style="width: auto;">
-            <option value="years">Years</option>
-            <option value="months">Months</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Down Payment (optional)</label>
-        <input type="number" id="down-payment" placeholder="0" value="0">
-      </div>
-
-      <button class="btn btn-primary" onclick="calculate()">Calculate</button>
+<div class="container">
+  <h1>💰 Loan Calculator</h1>
+  
+  <div class="calculator">
+    <div class="input-group">
+      <label>Loan Amount</label>
+      <input type="number" id="amount" value="10000" min="0" step="100">
     </div>
-
-    <div id="results" class="hidden">
-      <div class="card">
-        <div class="results-grid">
-          <div class="result-box">
-            <div class="result-label">Monthly Payment</div>
-            <div class="result-value large" id="monthly-payment">$0</div>
-          </div>
-          <div class="result-box">
-            <div class="result-label">Total Payment</div>
-            <div class="result-value" id="total-payment">$0</div>
-          </div>
-          <div class="result-box full">
-            <div class="result-label">Total Interest</div>
-            <div class="result-value" id="total-interest">$0</div>
-          </div>
+    
+    <div class="input-row">
+      <div class="input-group">
+        <label>Interest Rate (%)</label>
+        <input type="number" id="rate" value="5" min="0" max="100" step="0.1">
+      </div>
+      <div class="input-group">
+        <label>Loan Term</label>
+        <input type="number" id="years" value="5" min="1" max="50">
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label>Payment Frequency</label>
+      <select id="frequency">
+        <option value="12" selected>Monthly</option>
+        <option value="26">Bi-weekly</option>
+        <option value="52">Weekly</option>
+      </select>
+    </div>
+    
+    <button onclick="calculate()">Calculate</button>
+    
+    <div class="results" id="results">
+      <div class="result-grid">
+        <div class="result-box principal">
+          <div class="label">Principal</div>
+          <div class="value" id="principal">$0</div>
+        </div>
+        <div class="result-box interest">
+          <div class="label">Interest</div>
+          <div class="value" id="interest">$0</div>
+        </div>
+        <div class="result-box total">
+          <div class="label">Total</div>
+          <div class="value" id="total">$0</div>
         </div>
       </div>
-
-      <div class="card">
-        <div class="toggle-view">
-          <button class="toggle-btn active" onclick="showSchedule('yearly')">Yearly</button>
-          <button class="toggle-btn" onclick="showSchedule('monthly')">Monthly</button>
-        </div>
-        <div class="amortization" id="amortization"></div>
+      
+      <div class="result-box" style="margin-bottom: 1rem;">
+        <div class="label">Monthly Payment</div>
+        <div class="value" id="payment" style="font-size: 1.75rem;">$0</div>
+      </div>
+      
+      <button class="schedule-toggle" onclick="toggleSchedule()">View Amortization Schedule</button>
+      
+      <div class="schedule" id="schedule">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Payment</th>
+              <th>Principal</th>
+              <th>Interest</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
+</div>
 
-  <script>
-    let scheduleData = [];
+<script>
+function formatMoney(amount) {
+  return '$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
 
-    function calculate() {
-      const amount = parseFloat(document.getElementById('amount').value) || 0;
-      const rate = parseFloat(document.getElementById('rate').value) || 0;
-      const years = parseFloat(document.getElementById('years').value) || 0;
-      const termType = document.getElementById('term-type').value;
-      const downPayment = parseFloat(document.getElementById('down-payment').value) || 0;
+function calculate() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const annualRate = parseFloat(document.getElementById('rate').value) || 0;
+  const years = parseFloat(document.getElementById('years').value) || 1;
+  const frequency = parseInt(document.getElementById('frequency').value);
+  
+  if (amount <= 0 || years <= 0) {
+    alert('Please enter valid loan details');
+    return;
+  }
+  
+  const periods = years * frequency;
+  const periodicRate = (annualRate / 100) / frequency;
+  
+  let payment;
+  if (periodicRate === 0) {
+    payment = amount / periods;
+  } else {
+    payment = amount * (periodicRate * Math.pow(1 + periodicRate, periods)) / (Math.pow(1 + periodicRate, periods) - 1);
+  }
+  
+  const totalPaid = payment * periods;
+  const totalInterest = totalPaid - amount;
+  
+  document.getElementById('principal').textContent = formatMoney(amount);
+  document.getElementById('interest').textContent = formatMoney(totalInterest);
+  document.getElementById('total').textContent = formatMoney(totalPaid);
+  document.getElementById('payment').textContent = formatMoney(payment);
+  
+  // Generate schedule
+  generateSchedule(amount, payment, periodicRate, periods, frequency);
+  
+  document.getElementById('results').classList.add('visible');
+}
 
-      if (amount <= 0 || rate <= 0 || years <= 0) {
-        alert('Please enter valid values');
-        return;
+function generateSchedule(balance, payment, rate, periods, frequency) {
+  const tbody = document.getElementById('scheduleBody');
+  tbody.innerHTML = '';
+  
+  let remaining = balance;
+  const viewMode = frequency === 12 ? 'yearly' : 'monthly';
+  const displayPeriods = viewMode === 'yearly' ? Math.ceil(periods / 12) : periods;
+  
+  for (let i = 1; i <= displayPeriods; i++) {
+    let periodPayment = payment;
+    let periodPrincipal, periodInterest;
+    
+    if (viewMode === 'yearly') {
+      // Aggregate to yearly
+      periodPrincipal = 0;
+      periodInterest = 0;
+      const monthsInPeriod = Math.min(12, periods - (i - 1) * 12);
+      for (let m = 0; m < monthsInPeriod; m++) {
+        const interest = remaining * rate;
+        periodInterest += interest;
+        periodPrincipal += payment - interest;
+        remaining -= periodPrincipal / monthsInPeriod;
       }
-
-      const principal = amount - downPayment;
-      const months = termType === 'years' ? years * 12 : years;
-      const monthlyRate = rate / 100 / 12;
-
-      // Monthly payment formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]
-      const monthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
-      const totalPayment = monthlyPayment * months;
-      const totalInterest = totalPayment - principal;
-
-      document.getElementById('monthly-payment').textContent = formatCurrency(monthlyPayment);
-      document.getElementById('total-payment').textContent = formatCurrency(totalPayment);
-      document.getElementById('total-interest').textContent = formatCurrency(totalInterest);
-
-      // Generate amortization schedule
-      scheduleData = generateSchedule(principal, monthlyRate, months, monthlyPayment);
-      
-      document.getElementById('results').classList.remove('hidden');
-      showSchedule('yearly');
+    } else {
+      periodInterest = remaining * rate;
+      periodPrincipal = payment - periodInterest;
+      remaining -= periodPrincipal;
     }
+    
+    if (remaining < 0) remaining = 0;
+    
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${i}</td>
+      <td>${formatMoney(viewMode === 'yearly' ? payment * 12 : payment)}</td>
+      <td>${formatMoney(periodPrincipal)}</td>
+      <td>${formatMoney(periodInterest)}</td>
+      <td>${formatMoney(remaining)}</td>
+    `;
+    tbody.appendChild(row);
+  }
+}
 
-    function generateSchedule(principal, monthlyRate, months, monthlyPayment) {
-      const schedule = [];
-      let balance = principal;
-      let month = 1;
+function toggleSchedule() {
+  document.getElementById('schedule').classList.toggle('visible');
+}
 
-      while (balance > 0.01 && month <= months) {
-        const interestPayment = balance * monthlyRate;
-        const principalPayment = Math.min(monthlyPayment - interestPayment, balance);
-        balance -= principalPayment;
-
-        schedule.push({
-          month,
-          payment: monthlyPayment,
-          principal: principalPayment,
-          interest: interestPayment,
-          balance: Math.max(0, balance)
-        });
-
-        month++;
-      }
-
-      return schedule;
-    }
-
-    function showSchedule(type) {
-      document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-
-      const container = document.getElementById('amortization');
-      
-      if (type === 'yearly') {
-        // Aggregate by year
-        const yearly = [];
-        let yearData = { year: 0, principal: 0, interest: 0, payments: 0 };
-        
-        scheduleData.forEach((month, i) => {
-          const year = Math.floor(i / 12) + 1;
-          if (year !== yearData.year) {
-            if (yearData.year > 0) yearly.push(yearData);
-            yearData = { year, principal: 0, interest: 0, payments: 0 };
-          }
-          yearData.principal += month.principal;
-          yearData.interest += month.interest;
-          yearData.payments += month.payment;
-        });
-        if (yearData.year > 0) yearly.push(yearData);
-
-        const currentBalance = scheduleData[scheduleData.length - 1]?.balance || 0;
-        
-        container.innerHTML = `
-          <table>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Principal</th>
-                <th>Interest</th>
-                <th>Total</th>
-                <th>Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${yearly.map(y => `
-                <tr>
-                  <td>Year ${y.year}</td>
-                  <td>${formatCurrency(y.principal)}</td>
-                  <td>${formatCurrency(y.interest)}</td>
-                  <td>${formatCurrency(y.payments)}</td>
-                  <td>${formatCurrency(Math.max(0, scheduleData[Math.min(y.year * 12, scheduleData.length) - 1]?.balance || 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else {
-        container.innerHTML = `
-          <table>
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Principal</th>
-                <th>Interest</th>
-                <th>Total</th>
-                <th>Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${scheduleData.map(m => `
-                <tr>
-                  <td>${m.month}</td>
-                  <td>${formatCurrency(m.principal)}</td>
-                  <td>${formatCurrency(m.interest)}</td>
-                  <td>${formatCurrency(m.payment)}</td>
-                  <td>${formatCurrency(m.balance)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-    }
-
-    function formatCurrency(amount) {
-      return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    // Calculate on enter
-    document.querySelectorAll('input').forEach(input => {
-      input.addEventListener('keypress', e => {
-        if (e.key === 'Enter') calculate();
-      });
-    });
-
-    // Initial calculation
-    calculate();
-  </script>
+// Auto-calculate on Enter
+document.querySelectorAll('input').forEach(input => {
+  input.addEventListener('keypress', e => {
+    if (e.key === 'Enter') calculate();
+  });
+});
+</script>
 </body>
 </html>
