@@ -4,77 +4,102 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Compression Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into compression algorithms: lossless vs lossy, Huffman coding, LZ77, DEFLATE, and the tradeoffs.">
+<meta name="description" content="Deep dive into compression algorithms: entropy, Huffman coding, LZ77, DEFLATE, and the tradeoffs between ratio, speed, and quality</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Compression Works</h1>
-  <div class="meta">March 9, 2026</div>
+  <div class="meta">2026-03-10</div>
 
-  <p>Compression is the art of making things smaller without losing what matters. Every compressed file on your computer is a small miracle of mathematics — patterns found, redundancy eliminated, bits reclaimed. But how does a machine know what to keep and what to throw away?</p>
+  <p>Every file is wasteful. That's the starting premise of compression: exploit the redundancy. A text file doesn't need 8 bits per character — letters like 'e' appear far more often than 'z'. An image doesn't need every pixel to be unique when neighbors look similar. Compression is the art of finding and removing that waste.</p>
 
-  <h2>The Fundamental Insight</h2>
-  <p>All compression rests on one idea: <strong>redundancy</strong>. Data almost always contains patterns. The letter "e" appears more often than "z". Adjacent pixels in an image are often the same color. A video frame usually looks similar to the one before it.</p>
+  <h2>Entropy: The Theoretical Limit</h2>
   
-  <p>Compression algorithms find these patterns and encode them more efficiently. Instead of storing "00000000" (eight zeros), you store "0 × 8". The information is the same. The representation is shorter.</p>
+  <p>Claude Shannon gave us <strong>entropy</strong> — the minimum number of bits needed to represent information. If a symbol appears with probability p, it carries -log₂(p) bits of information. Common symbols = low bits. Rare symbols = high bits.</p>
 
-  <h2>Lossless vs Lossy</h2>
-  <p>Everything compresses, but not everything survives intact.</p>
-  
-  <p><strong>Lossless</strong> compression guarantees perfect reconstruction. The decompressed data is bit-for-bit identical to the original. PNG, ZIP, gzip, FLAC — all lossless. You need this for text, code, executables, and any data where a single wrong bit breaks everything.</p>
-  
-  <p><strong>Lossy</strong> compression sacrifices detail for size. JPEG throws away colors your eye can't distinguish. MP3 removes frequencies you probably can't hear. The decompressed data is <em>similar</strong> but not identical. Acceptable for photos, audio, video — where human perception fills in the gaps.</p>
+  <p>This is why compression works at all: most data isn't random. It has patterns. Entropy tells you the floor — you can't beat it without losing information (lossy compression).</p>
 
-  <h2>Entropy and Coding</h2>
-  <p>Claude Shannon defined <strong>entropy</strong> as the minimum number of bits needed to represent information. If a symbol appears 50% of the time, you can encode it in 1 bit. If it appears 1% of the time, you need about 7 bits.</p>
-  
-  <p><strong>Huffman coding</strong> builds optimal prefix codes. It assigns shorter codes to frequent symbols and longer codes to rare ones. The tree structure ensures no code is a prefix of another — decoding is unambiguous.</p>
-  
-  <blockquote>Optimal coding matches symbol frequency to code length. That's it. That's the whole trick.</blockquote>
+  <h2>Lossless Compression</h2>
 
-  <h2>Dictionary Methods: LZ77 and Friends</h2>
-  <p>Huffman treats each symbol independently. But real data has <em>repeated sequences</em>. LZ77 (Lempel-Ziv 1977) finds repeated patterns and replaces them with references to earlier occurrences.</p>
+  <h3>Huffman Coding</h3>
   
-  <p>Imagine a file containing "the quick brown fox jumps over the lazy dog". Instead of storing "the" twice, the second occurrence becomes a pointer: "back 40 bytes, length 3". The dictionary is the data itself.</p>
-  
-  <p><strong>DEFLATE</strong> — used in ZIP, gzip, PNG — combines LZ77 with Huffman coding. First, LZ77 finds repeated sequences. Then, Huffman compresses the resulting symbols and lengths. Two layers of compression, one file.</p>
+  <p>The classic approach. Build a binary tree where common symbols get short codes, rare symbols get long codes. 'e' might be "01", 'z' might be "11010111".</p>
 
-  <h2>How JPEG Works</h2>
-  <p>JPEG is lossy and complicated, but the core ideas are intuitive:</p>
-  <ol>
-    <li><strong>Convert to color space</strong> — Separate brightness (Y) from color (Cb, Cr). We perceive brightness sharply, color roughly.</li>
-    <li><strong>Divide into blocks</strong> — 8×8 pixel blocks. Each block is transformed mathematically.</li>
-    <li><strong>DCT (Discrete Cosine Transform)</strong> — Converts spatial pixels into frequency components. Low frequencies (gradual changes) vs high frequencies (edges, noise).</li>
-    <li><strong>Quantize</strong> — Divide each frequency by a quality-dependent number and round. This throws away high frequencies — details your eye misses.</li>
-    <li><strong>Huffman code</strong> — Compress the quantized result.</li>
-  </ol>
-  <p>More aggressive quantization = smaller file = more artifacts. The art is finding the cutoff where artifacts become visible.</p>
+  <p>The algorithm: count symbol frequencies, build a priority queue, combine the two smallest into a node, repeat until one tree remains. Then traverse to assign codes.</p>
+
+  <p>Problem: Huffman assigns whole bits. What if you need 2.3 bits? You can't. That's the constraint — it treats symbols as atomic.</p>
+
+  <h3>Arithmetic Coding</h3>
+  
+  <p>More elegant. Instead of codes per symbol, you output a single number in [0, 1). The more probable your sequence, the narrower the interval, the fewer bits needed.</p>
+
+  <p>Achieves the entropy limit much closer than Huffman. Used in modern standards (JPEG, H.264, AV1) but computationally heavier.</p>
+
+  <h3>LZ77 and LZ78</h3>
+  
+  <p>Dictionary-based. Instead of encoding symbols, encode repeated sequences as references to earlier data.</p>
+
+  <p><strong>LZ77</strong> uses a sliding window — if you saw "compression is" at position 1000, and it appears again at 2000, encode it as (back-reference, length). "(1000, 15)" means "go back 1000 bytes, copy 15 bytes."</p>
+
+  <p><strong>LZ78</strong> builds an explicit dictionary instead of using positions. Each new phrase gets added to the dictionary as a reference to a previous phrase plus one new character.</p>
+
+  <p>These are the ancestors of everything: ZIP, gzip, PNG, WebP all use LZ variants.</p>
+
+  <h3>DEFLATE</h3>
+  
+  <p>The workhorse. DEFLATE combines LZ77 (dictionary matching) with Huffman coding. First, find repeated sequences and replace them with back-references. Then, Huffman-encode the literals and match lengths.</p>
+
+  <p>Two Huffman trees: one for literals/lengths, one for distances. The combination is why DEFLATE hits that sweet spot of ratio and speed.</p>
+
+  <h2>Lossy Compression</h2>
+
+  <p>When you can throw away information, things get more interesting.</p>
+
+  <h3>JPEG</h3>
+  
+  <p>Break the image into 8×8 blocks. Apply DCT (Discrete Cosine Transform) to convert spatial data into frequency data. Most images have low-frequency energy (smooth areas) — high frequencies (sharp edges, noise) are less important to the eye.</p>
+
+  <p>Quantize those frequencies (divide by a quality matrix, round). Higher quality = less quantization = more bits. Then Huffman-encode the result.</p>
+
+  <p>The art is in the quantization matrix. That's what "quality 80%" actually changes.</p>
+
+  <h3>MP3 / AAC</h3>
+  
+  <p>Use psychoacoustic models. The ear has masking thresholds — a loud frequency makes nearby frequencies inaudible. Encode only what can be heard. Throw away the rest.</p>
+
+  <h3>Video: The Inter-Frame Trick</h3>
+  
+  <p>Video compression is mostly about not encoding frames. Most frames are similar to previous ones. Encode the difference, or better: describe how to move blocks from the previous frame (motion vectors).</p>
+
+  <p>H.264, HEVC, AV1 — all built on this principle. Keyframes (I-frames) are stored fully. P-frames reference past frames. B-frames reference both past and future.</p>
 
   <h2>The Tradeoffs</h2>
-  <p>Compression is always a tradeoff:</p>
-  <ul>
-    <li><strong>Compression ratio vs speed</strong> — Better compression usually means more CPU time. Brotli beats gzip but takes longer.</li>
-    <li><strong>Lossy vs lossless</strong> — You can't recover what you threw away. But sometimes "good enough" beats "perfect but too large".</li>
-    <li><strong>General vs specialized</strong> — gzip works on anything. Special-purpose codecs (WebP, AVIF, Opus) beat it on their target media but fail elsewhere.</li>
-  </ul>
 
-  <h2>What Matters in Practice</h2>
-  <p>For text and code: <strong>gzip or Brotli</strong>. Fast, effective, universal. Enable them on your web server — they're free performance.</p>
-  
-  <p>For images: <strong>WebP or AVIF</strong>. Both support lossy and lossless. AVIF has better compression; WebP has better compatibility.</p>
-  
-  <p>For video: <strong>H.264</strong> for compatibility, <strong>H.265/AV1</strong> for efficiency. The codec wars aren't over, but AV1 is the current best bet for minimum size.</p>
-  
-  <p>For archives: <strong>7z with LZMA2</strong>. Slow to compress, excellent ratio. <strong>ZIP</strong> for speed and compatibility.</p>
+  <table>
+    <tr><th>Algorithm</th><th>Ratio</th><th>Speed</th><th>Use Case</th></tr>
+    <tr><td>Huffman</td><td>★★☆</td><td>★★★★★</td><td>Base component</td></tr>
+    <tr><td>Arithmetic</td><td>★★★</td><td>★★☆☆</td><td>High-efficiency codecs</td></tr>
+    <tr><td>LZ77</td><td>★★★</td><td>★★★☆☆</td><td>gzip, ZIP, PNG</td></tr>
+    <tr><td>DEFLATE</td><td>★★★</td><td>★★★☆☆</td><td>Files (gzip, ZIP)</td></tr>
+    <tr><td>Zstd</td><td>★★★★</td><td>★★★★☆</td><td>Modern, fast</td></tr>
+    <tr><td>LZMA</td><td>★★★★★</td><td>★☆☆☆☆</td><td>7z, max compression</td></tr>
+  </table>
 
-  <h2>The Bigger Picture</h2>
-  <p>Compression isn't just about saving disk space. It's about moving bits faster, fitting more in bandwidth-constrained channels, reducing storage costs at scale. Every megabyte not sent over the network is a millisecond saved.</p>
+  <p><strong>Zstandard (zstd)</strong> is the new king — Facebook uses it everywhere. Better ratio than DEFLATE, faster than LZMA, with optional dictionaries for specific data types.</p>
+
+  <h2>What Actually Matters</h2>
+
+  <p>For text: LZ-family + Huffman (DEFLATE, Zstd). The redundancy is in repeated substrings.</p>
   
-  <p>But there's a floor. Information has entropy. You can't compress random data at all — there's no pattern to find. The ceiling is set by how well your algorithm matches the data's actual structure.</p>
+  <p>For images: DCT (JPEG) or Wavelet (JPEG2000) + quantization. The eye is forgiving.</p>
   
-  <p>The art is choosing the right tool for the job — and understanding what you're trading away.</p>
+  <p>For video: Motion compensation + inter-frame coding. Most bits are in the keyframes.</p>
+
+  <p>The insight across all: <strong>exploit structure</strong>. Random data compresses poorly by definition — if it looks random, it probably is. But real data has patterns at every scale: character frequencies, word frequencies, sentence structures, image gradients, video motion. Compression is pattern exploitation.</p>
+
+  <blockquote>Every compressed file is a proof that redundancy exists. The goal isn't to compress random data — it's to find the non-random parts and describe them more efficiently.</blockquote>
 </div>
 </body>
 </html>
