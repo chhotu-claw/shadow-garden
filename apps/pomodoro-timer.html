@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Focus — Shadow's Garden</title>
+<meta name="description" content="Simple Pomodoro timer with work/break cycles and session tracking">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --work: #ef4444;
+    --break: #22c55e;
+    --long-break: #3b82f6;
+  }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  }
+  .pomodoro {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  h1 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .timer-display {
+    font-size: 5rem;
+    font-weight: bold;
+    color: var(--work);
+    margin: 1.5rem 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-display.break { color: var(--break); }
+  .timer-display.long-break { color: var(--long-break); }
+  .mode-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.5);
+  }
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+  }
+  button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    color: #fff;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  button.primary {
+    background: var(--work);
+    border-color: var(--work);
+  }
+  button.primary:hover {
+    background: #dc2626;
+  }
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .presets button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+    background: transparent;
+    border-color: rgba(255,255,255,0.15);
+  }
+  .presets button.active {
+    border-color: var(--work);
+    color: var(--work);
+  }
+  .session-info {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.8rem;
+    margin-top: 1.5rem;
+  }
+  .session-info span {
+    color: var(--work);
+    font-weight: bold;
+  }
+  .stats {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .stat {
+    background: rgba(0,0,0,0.2);
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    color: #fff;
+    font-weight: bold;
+  }
+  .stat-label {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .history {
+    margin-top: 1rem;
+    text-align: left;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .history-item {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .history-item.work { color: var(--work); }
+  .history-item.break { color: var(--break); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="pomodoro">
+  <h1>🍅 Pomodoro Focus</h1>
+  
+  <div class="mode-label" id="modeLabel">Work Session</div>
+  <div class="timer-display" id="timerDisplay">25:00</div>
+  
+  <div class="presets">
+    <button onclick="setMode('work')" id="btnWork" class="active">Work 25</button>
+    <button onclick="setMode('break')" id="btnBreak">Break 5</button>
+    <button onclick="setMode('long-break')" id="btnLong">Long 15</button>
+  </div>
+  
+  <div class="controls">
+    <button class="primary" id="startBtn" onclick="toggleTimer()">Start</button>
+    <button onclick="resetTimer()">Reset</button>
+    <button onclick="skipSession()">Skip</button>
+  </div>
+  
+  <div class="session-info">
+    Session <span id="sessionCount">1</span> of 4
+  </div>
+  
+  <div class="stats">
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-value" id="totalSessions">0</div>
+        <div class="stat-label">Sessions Today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="totalMinutes">0</div>
+        <div class="stat-label">Minutes Focused</div>
+      </div>
+    </div>
+    <div class="history" id="history"></div>
+  </div>
+</div>
+
+<script>
+const modes = {
+  'work': { time: 25 * 60, label: 'Work Session', color: 'work' },
+  'break': { time: 5 * 60, label: 'Short Break', color: 'break' },
+  'long-break': { time: 15 * 60, label: 'Long Break', color: 'long-break' }
+};
+
+let currentMode = 'work';
+let timeLeft = modes.work.time;
+let timer = null;
+let isRunning = false;
+let sessionCount = 1;
+let sessionsCompleted = 0;
+
+// Load stats from localStorage
+const today = new Date().toDateString();
+let stats = JSON.parse(localStorage.getItem('pomodoroStats') || '{}');
+if (stats.date !== today) {
+  stats = { date: today, sessions: 0, minutes: 0, history: [] };
+}
+updateStatsDisplay();
+
+const timerDisplay = document.getElementById('timerDisplay');
+const modeLabel = document.getElementById('modeLabel');
+const startBtn = document.getElementById('startBtn');
+
+function updateDisplay() {
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  timerDisplay.className = 'timer-display ' + modes[currentMode].color;
+  modeLabel.textContent = modes[currentMode].label;
+}
+
+function toggleTimer() {
+  if (isRunning) {
+    clearInterval(timer);
+    isRunning = false;
+    startBtn.textContent = 'Start';
+  } else {
+    timer = setInterval(() => {
+      timeLeft--;
+      updateDisplay();
+      if (timeLeft <= 0) {
+        completeSession();
+      }
+    }, 1000);
+    isRunning = true;
+    startBtn.textContent = 'Pause';
+  }
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  isRunning = false;
+  timeLeft = modes[currentMode].time;
+  startBtn.textContent = 'Start';
+  updateDisplay();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  timeLeft = modes[mode].time;
+  clearInterval(timer);
+  isRunning = false;
+  startBtn.textContent = 'Start';
+  
+  document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1).replace('-', '')).classList.add('active');
+  
+  updateDisplay();
+}
+
+function completeSession() {
+  clearInterval(timer);
+  isRunning = false;
+  startBtn.textContent = 'Start';
+  
+  // Play notification sound
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 800;
+    gain.gain.value = 0.3;
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  } catch(e) {}
+  
+  if (currentMode === 'work') {
+    sessionsCompleted++;
+    stats.sessions++;
+    stats.minutes += 25;
+    stats.history.unshift({ type: 'work', time: new Date().toLocaleTimeString() });
+    
+    if (sessionsCompleted >= 4) {
+      sessionsCompleted = 0;
+      sessionCount = 1;
+      currentMode = 'long-break';
+      timeLeft = modes['long-break'].time;
+    } else {
+      sessionCount++;
+      currentMode = 'break';
+      timeLeft = modes['break'].time;
+    }
+  } else {
+    currentMode = 'work';
+    timeLeft = modes['work'].time;
+  }
+  
+  localStorage.setItem('pomodoroStats', JSON.stringify(stats));
+  updateStatsDisplay();
+  updateDisplay();
+}
+
+function skipSession() {
+  if (currentMode === 'work' && isRunning) {
+    // Skipping work doesn't count
+  } else if (currentMode !== 'work') {
+    currentMode = 'work';
+    timeLeft = modes['work'].time;
+  }
+  resetTimer();
+}
+
+function updateStatsDisplay() {
+  document.getElementById('totalSessions').textContent = stats.sessions;
+  document.getElementById('totalMinutes').textContent = stats.minutes;
+  document.getElementById('sessionCount').textContent = sessionCount;
+  
+  const historyEl = document.getElementById('history');
+  historyEl.innerHTML = stats.history.slice(0, 10).map(h => 
+    `<div class="history-item ${h.type}">${h.type === 'work' ? '🍅' : '☕'} ${h.time}</div>`
+  ).join('');
+}
+
+updateDisplay();
+</script>
+</body>
+</html>
