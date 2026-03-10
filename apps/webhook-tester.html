@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webhook Tester — Shadow's Garden</title>
+<meta name="description" content="Test webhooks with custom payloads, headers, and view responses in real-time">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --accent: #8b5cf6;
+    --accent-dark: #7c3aed;
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --border: #2d2d44;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --success: #10b981;
+    --error: #ef4444;
+  }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1rem;
+  }
+  .container {
+    max-width: 900px;
+    auto;
+  }
+ margin: 0  h1 {
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 768px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .panel-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+  }
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    box-sizing: border-box;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  textarea {
+    min-height: 150px;
+    resize: vertical;
+  }
+  .btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:hover {
+    background: var(--accent-dark);
+  }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  .headers-list {
+    margin-top: 0.5rem;
+  }
+  .header-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .header-row input {
+    flex: 1;
+  }
+  .header-row .btn-remove {
+    background: var(--error);
+    padding: 0.5rem;
+    width: 32px;
+  }
+  .response-panel {
+    grid-column: 1 / -1;
+  }
+  .response-meta {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+  }
+  .status-success { color: var(--success); }
+  .status-error { color: var(--error); }
+  .response-body {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .history-panel {
+    grid-column: 1 / -1;
+  }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .history-item {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .history-item:hover {
+    border-color: var(--accent);
+  }
+  .history-method {
+    font-weight: bold;
+    margin-right: 0.5rem;
+  }
+  .history-url {
+    color: var(--text-dim);
+    word-break: break-all;
+  }
+  .preset-btns {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .preset-btns button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+  .preset-btns button:hover {
+    background: rgba(255,255,255,0.15);
+  }
+  .info-box {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🔗 Webhook Tester</h1>
+  <p class="subtitle">Send HTTP requests and inspect responses. Great for testing webhooks, APIs, and endpoints.</p>
+  
+  <div class="info-box">
+    <strong>Note:</strong> CORS restrictions may apply. For testing endpoints that don't support CORS, use a proxy or test from a server.
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Request</span>
+      </div>
+      
+      <div class="preset-btns">
+        <button onclick="setPreset('GET')">GET</button>
+        <button onclick="setPreset('POST')">POST</button>
+        <button onclick="setPreset('PUT')">PUT</button>
+        <button onclick="setPreset('DELETE')">DELETE</button>
+        <button onclick="setPreset('PATCH')">PATCH</button>
+      </div>
+      
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <select id="method" style="width: 100px;">
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="DELETE">DELETE</option>
+          <option value="PATCH">PATCH</option>
+          <option value="HEAD">HEAD</option>
+          <option value="OPTIONS">OPTIONS</option>
+        </select>
+        <input type="text" id="url" placeholder="https://api.example.com/webhook" style="flex: 1;">
+      </div>
+      
+      <label>Headers</label>
+      <div class="headers-list" id="headersList"></div>
+      <button class="btn btn-secondary" onclick="addHeader()" style="margin-top: 0.5rem;">+ Add Header</button>
+      
+      <label style="margin-top: 1rem;">Body</label>
+      <textarea id="body" placeholder='{"event": "test", "data": {"message": "hello"}}'></textarea>
+      
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+        <button class="btn" onclick="sendRequest()">Send Request</button>
+        <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Options</span>
+      </div>
+      
+      <label>Content-Type</label>
+      <select id="contentType">
+        <option value="application/json">application/json</option>
+        <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+        <option value="text/plain">text/plain</option>
+        <option value="application/xml">application/xml</option>
+      </select>
+      
+      <label style="margin-top: 1rem;">Timeout (seconds)</label>
+      <input type="number" id="timeout" value="30" min="1" max="120">
+      
+      <label style="margin-top: 1rem;">Follow Redirects</label>
+      <select id="followRedirects">
+        <option value="no">No</option>
+        <option value="yes">Yes</option>
+      </select>
+      
+      <div style="margin-top: 1.5rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 0.25rem; font-size: 0.75rem;">
+        <strong>Quick Tips:</strong><br>
+        • Use JSON body for POST/PUT<br>
+        • Custom headers like Authorization<br>
+        • History saves last 10 requests
+      </div>
+    </div>
+    
+    <div class="panel response-panel">
+      <div class="panel-header">
+        <span class="panel-title">Response</span>
+      </div>
+      <div class="response-meta" id="responseMeta">
+        <span>Status: <span id="statusCode">—</span></span>
+        <span>Time: <span id="responseTime">—</span></span>
+        <span>Size: <span id="responseSize">—</span></span>
+      </div>
+      <pre class="response-body" id="responseBody">Response will appear here...</pre>
+    </div>
+    
+    <div class="panel history-panel">
+      <div class="panel-header">
+        <span class="panel-title">History</span>
+        <button class="btn btn-secondary" onclick="clearHistory()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem;">Clear</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div style="color: var(--text-dim); font-size: 0.75rem;">No requests yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const headersList = document.getElementById('headersList');
+const historyList = document.getElementById('historyList');
+let history = JSON.parse(localStorage.getItem('webhookHistory') || '[]');
+
+function addHeader(key = '', value = '') {
+  const row = document.createElement('div');
+  row.className = 'header-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Header name" value="${key}" class="header-key">
+    <input type="text" placeholder="Value" value="${value}" class="header-value">
+    <button class="btn btn-remove" onclick="this.parentElement.remove()">×</button>
+  `;
+  headersList.appendChild(row);
+}
+
+function setPreset(method) {
+  document.getElementById('method').value = method;
+}
+
+function clearAll() {
+  document.getElementById('url').value = '';
+  document.getElementById('body').value = '';
+  headersList.innerHTML = '';
+  addHeader('Content-Type', 'application/json');
+  document.getElementById('statusCode').textContent = '—';
+  document.getElementById('responseTime').textContent = '—';
+  document.getElementById('responseSize').textContent = '—';
+  document.getElementById('responseBody').textContent = 'Response will appear here...';
+}
+
+async function sendRequest() {
+  const method = document.getElementById('method').value;
+  const url = document.getElementById('url').value.trim();
+  const body = document.getElementById('body').value;
+  const contentType = document.getElementById('contentType').value;
+  const timeout = parseInt(document.getElementById('timeout').value) * 1000;
+  
+  if (!url) {
+    alert('Please enter a URL');
+    return;
+  }
+  
+  const statusEl = document.getElementById('statusCode');
+  const timeEl = document.getElementById('responseTime');
+  const sizeEl = document.getElementById('responseSize');
+  const bodyEl = document.getElementById('responseBody');
+  
+  statusEl.textContent = '...';
+  bodyEl.textContent = 'Sending request...';
+  
+  const startTime = performance.now();
+  
+  try {
+    const headers = {};
+    document.querySelectorAll('.header-row').forEach(row => {
+      const key = row.querySelector('.header-key').value.trim();
+      const value = row.querySelector('.header-value').value.trim();
+      if (key) headers[key] = value;
+    });
+    
+    // Set Content-Type if not already set
+    if (!headers['Content-Type'] && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      headers['Content-Type'] = contentType;
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const fetchOptions = {
+      method,
+      headers,
+      signal: controller.signal
+    };
+    
+    if (body && !['GET', 'HEAD'].includes(method)) {
+      fetchOptions.body = body;
+    }
+    
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+    
+    const endTime = performance.now();
+    const time = Math.round(endTime - startTime);
+    
+    const text = await response.text();
+    const size = new Blob([text]).size;
+    
+    statusEl.textContent = `${response.status} ${response.statusText}`;
+    statusEl.className = response.ok ? 'status-success' : 'status-error';
+    timeEl.textContent = `${time}ms`;
+    sizeEl.textContent = formatSize(size);
+    
+    // Try to format JSON
+    try {
+      const json = JSON.parse(text);
+      bodyEl.textContent = JSON.stringify(json, null, 2);
+    } catch {
+      bodyEl.textContent = text;
+    }
+    
+    // Add to history
+    addToHistory(method, url, response.status, time);
+    
+  } catch (error) {
+    statusEl.textContent = 'Error';
+    statusEl.className = 'status-error';
+    bodyEl.textContent = `Error: ${error.message}\n\nThis may be due to CORS, network issues, or the server not responding.`;
+    timeEl.textContent = '—';
+    sizeEl.textContent = '—';
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function addToHistory(method, url, status, time) {
+  const item = { method, url, status, time, timestamp: Date.now() };
+  history.unshift(item);
+  history = history.slice(0, 10);
+  localStorage.setItem('webhookHistory', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  if (history.length === 0) {
+    historyList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.75rem;">No requests yet</div>';
+    return;
+  }
+  
+  historyList.innerHTML = history.map((item, i) => `
+    <div class="history-item" onclick="loadHistory(${i})">
+      <span class="history-method">${item.method}</span>
+      <span class="history-url">${item.url}</span>
+      <span style="float: right; color: ${item.status < 400 ? 'var(--success)' : 'var(--error)'}">${item.status}</span>
+    </div>
+  `).join('');
+}
+
+function loadHistory(index) {
+  const item = history[index];
+  document.getElementById('method').value = item.method;
+  document.getElementById('url').value = item.url;
+}
+
+function clearHistory() {
+  history = [];
+  localStorage.removeItem('webhookHistory');
+  renderHistory();
+}
+
+// Initialize
+addHeader('Content-Type', 'application/json');
+renderHistory();
+
+// Load last URL if saved
+const lastUrl = localStorage.getItem('lastWebhookUrl');
+if (lastUrl) document.getElementById('url').value = lastUrl;
+
+document.getElementById('url').addEventListener('change', (e) => {
+  localStorage.setItem('lastWebhookUrl', e.target.value);
+});
+</script>
+</body>
+</html>
