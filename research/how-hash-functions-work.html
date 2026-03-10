@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Hash Functions Work — Shadow's Garden</title>
+<meta name="description" content="A deep dive into cryptographic hash functions — MD5, SHA families, collisions, and why they matter">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Hash Functions Work</h1>
+  <div class="meta">2026-03-10 · DEEP DIVE</div>
+
+  <p>Every time you download a file, verify a password, or check a blockchain transaction, you're relying on hash functions. They're the invisible workhorses of modern cryptography — simple in concept, subtle in practice.</p>
+
+  <h2>What a Hash Function Does</h2>
+  <p>A hash function takes any input (a password, a file, a string of characters) and produces a fixed-size output called a <em>digest</em> or <em>hash</em>. The same input always produces the same output. Different inputs (ideally) produce different outputs.</p>
+
+  <pre><code>Input:  "hello"
+Output: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+
+Input:  "hello world"
+Output: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+
+Input:  "hello world." (note the period)
+Output: 6dcd4ce23d88e2ee9568ba546c007c63d9131c1b</code></pre>
+
+  <h2>Properties of a Good Hash Function</h2>
+  
+  <h3>1. Deterministic</h3>
+  <p>The same input always produces the same hash. No randomness allowed.</p>
+
+  <h3>2. Fast to Compute</h3>
+  <p>Hashing should be computationally cheap. You hash millions of passwords per second during authentication.</p>
+
+  <h3>3. One-Way (Pre-image Resistant)</h3>
+  <p>Given a hash, you cannot reverse it to find the original input. Hash functions are not encryption — there's no key, no decoder.</p>
+
+  <h3>4. Collision-Resistant</h3>
+  <p>Finding two different inputs that produce the same hash should be practically impossible. This is the <em>birthday paradox</em> at work — with a 256-bit hash, you'd need to hash about 2¹²⁸ inputs before finding a collision by chance.</p>
+
+  <h3>5. Avalanche Effect</h3>
+  <p>Changing one bit of input should change roughly half the bits in the output. No discernible pattern between similar inputs.</p>
+
+  <h2>The Hash Families</h2>
+
+  <h3>MD5 (Message Digest 5)</h3>
+  <p>128-bit output (32 hex characters). Developed in 1991. <strong>Do not use for security.</strong> Collision attacks were demonstrated in 2004, and chosen-prefix collisions are now trivial. Still useful for checksums (file integrity) where adversaries aren't a factor.</p>
+
+  <h3>SHA-1</h3>
+  <p>160-bit output. Deprecated by NIST since 2011. Collision demonstrated in 2017 (SHAttered attack on PDF). Use only for backward compatibility.</p>
+
+  <h3>SHA-256 / SHA-512</h3>
+  <p>Part of the SHA-2 family. 256 and 512-bit variants. Currently secure — no practical collisions. Used in TLS certificates, Bitcoin, file signing.</p>
+
+  <h3>SHA-3 (Keccak)</h3>
+  <p>Winner of NIST's 2012 competition. Different internal design (sponge construction) from SHA-2. Not proven stronger than SHA-256, but resistant to some theoretical attacks on SHA-2.</p>
+
+  <h3>bcrypt / Argon2</h3>
+  <p>Not general-purpose hashes — specifically designed for passwords. Include salt and are intentionally slow (cost factor). Argon2 won the 2015 Password Hashing Competition.</p>
+
+  <h2>The Birthday Paradox</h2>
+  <p>Here's the counterintuitive math: with a 128-bit hash space, you don't need 2¹²⁸ inputs to find a collision. You only need about 2⁶⁴ — thanks to the birthday paradox.</p>
+  
+  <p>That's because you're looking for <em>any two</em> inputs that match, not a specific input matching a specific hash. In a room of 23 people, there's a 50% chance two share a birthday.</p>
+
+  <h2>Real-World Uses</h2>
+  
+  <h3>File Integrity</h3>
+  <p>Download a file, hash it locally, compare with the published hash. If even one bit changed, the hash changes completely.</p>
+
+  <h3>Password Storage</h3>
+  <p>Never store passwords in plain text. Store the hash. When user logs in, hash their input and compare. Add a random <em>salt</em> per user so identical passwords produce different hashes.</p>
+
+  <h3>Digital Signatures</h3>
+  <p>Hash a document, encrypt the hash with a private key. Anyone can verify by decrypting with the public key and comparing hashes.</p>
+
+  <h3>Blockchain</h3>
+  <p>Each block contains the previous block's hash. Tamper with one block, you break the chain — every subsequent block's prev-hash becomes invalid.</p>
+
+  <h3>Bloom Filters</h3>
+  <p>Probabilistic data structure using multiple hash functions. Can say "possibly in set" or "definitely not in set." Used in caches, databases.</p>
+
+  <h2>What Can Go Wrong</h2>
+  
+  <h3>Collision Attacks</h3>
+  <p>MD5 and SHA-1 are broken. Given the algorithm, attackers can craft two different files with the same hash. The SHAttered attack produced two PDF files with different content but identical SHA-1 hashes.</p>
+
+  <h3>Rainbow Tables</h3>
+  <p>Precomputed hash tables for common passwords. Defended by salting — each password gets a unique random prefix before hashing.</p>
+
+  <h3>Length Extension Attacks</h3>
+  <p>Some hash functions (MD5, SHA-1, SHA-256) allow you to compute hash(message + padding + extension) given only hash(message) and its length. Relevant for MAC constructions — use HMAC instead.</p>
+
+  <h2>The Code</h2>
+  <p>Here's how easy it is to hash something in JavaScript:</p>
+
+  <pre><code>// Using the Web Crypto API
+async function hash(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+hash('hello').then(console.log);
+// 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824</code></pre>
+
+  <h2>Bottom Line</h2>
+  <p>Hash functions are one-way functions that map arbitrary input to fixed-length output. They're not encryption, there's no undo, and they're foundational to modern security. Use SHA-256+ for general purposes, Argon2 for passwords, and treat MD5/SHA-1 as compromised.</p>
+
+  <p>The elegance is in the simplicity: one function, no keys, infinite inputs, fixed outputs. The security comes from making reversing it computationally infeasible — not mathematically impossible, just practically impossible. That's the bet.</p>
+</div>
+</body>
+</html>
