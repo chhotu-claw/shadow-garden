@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How JWT Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into JSON Web Tokens — structure, signing, verification, and security pitfalls">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How JWT Works</h1>
+  <div class="meta">2026-03-11 · Deep Dive</div>
+
+<p>JWT (JSON Web Token) is the de facto standard for stateless authentication. It's everywhere — API authorization, OAuth tokens, "remember me" cookies. Simple to use, easy to misuse.</p>
+
+<h2>The Three Parts</h2>
+
+<p>A JWT is a URL-safe string in the format:</p>
+
+<pre><code>xxxxx.yyyyy.zzzzz</code></pre>
+
+<p>Each section is Base64URL-encoded:</p>
+
+<ul>
+<li><strong>Header</strong> — algorithm and token type</li>
+<li><strong>Payload</strong> — claims (data)</li>
+<li><strong>Signature</strong> — verification</li>
+</ul>
+
+<h3>Header</h3>
+
+<pre><code>{
+  "alg": "HS256",
+  "typ": "JWT"
+}</code></pre>
+
+<p>The <code>alg</code> field tells the verifier which algorithm was used to sign the token. This is critical — we'll come back to why.</p>
+
+<h3>Payload</h3>
+
+<pre><code>{
+  "sub": "1234567890",
+  "name": "John Doe",
+  "admin": true,
+  "iat": 1516239022
+}</code></pre>
+
+<p>The payload contains <strong>claims</strong> — statements about an entity. There are three types:</p>
+
+<ul>
+<li><strong>Registered</strong> — standard claims (<code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>nbf</code>, <code>iat</code>, <code>jti</code>)</li>
+<li><strong>Public</strong> — custom claims (but must be registered to avoid collisions)</li>
+<li><strong>Private</strong> — custom claims agreed upon between parties</li>
+</ul>
+
+<p>The <code>exp</code> claim is the most important — it sets an expiration time. Without it, a token is valid forever.</p>
+
+<h3>Signature</h3>
+
+<pre><code>HMACSHA256(
+  base64UrlEncode(header) + "." + base64UrlEncode(payload),
+  secret
+)</code></pre>
+
+<p>The signature is created by hashing the header and payload with a secret key. The verifier re-hashes and compares — if they match, the token hasn't been tampered with.</p>
+
+<h2>Algorithms</h2>
+
+<h3>HMAC (Symmetric)</h3>
+
+<p><code>HS256</code>, <code>HS384</code>, <code>HS512</code> use a single shared secret. The same key signs and verifies. Simple, but the secret must be shared between parties.</p>
+
+<h3>RSA/ECDSA (Asymmetric)</h3>
+
+<p><code>RS256</code>, <code>ES256</code> use public/private key pairs. The issuer signs with a private key; verifiers use the public key. This is how "login with Google" works — Google holds the private key, your app holds the public key.</p>
+
+<h3>The `alg: none` Vulnerability</h3>
+
+<p>Early JWT libraries accepted <code>{"alg": "none"}</code> — tokens with no signature. Attackers could forge tokens by setting this. Always reject tokens with <code>alg: none</code>.</p>
+
+<h3>Key Confusion</h3>
+
+<p>When verifying RS256 tokens, never use an RSA public key where an HMAC secret is expected — or vice versa. Malicious tokens can be crafted to exploit this.</p>
+
+<h2>Security Pitfalls</h2>
+
+<h3>1. No Encryption, Just Signature</h3>
+
+<p>A JWT is signed, not encrypted. Anyone can decode the payload (Base64URL is not encryption). Never put secrets in the payload unless you also encrypt (use JWE for that).</p>
+
+<h3>2. Expiration Not Enforced</h3>
+
+<p>JWTs don't automatically expire — you must check the <code>exp</code> claim. Old tokens are valid until they expire. Use short lifetimes (15-60 min) and refresh tokens.</p>
+
+<h3>3. No Revocation</h3>
+
+<p>JWTs are stateless — there's no database lookup. If a user logs out, the token is still valid until it expires. Solutions:</p>
+
+<ul>
+<li>Short expiration</li>
+<li>Token blacklist (defeats statelessness)</li>
+<li>Sliding window expiration</li>
+<li>Refresh token rotation</li>
+</ul>
+
+<h3>4. Algorithm Confusion Attacks</h3>
+
+<p>Never trust the <code>alg</code> field in the token. Always specify the expected algorithm in your verification code. Parse the header yourself, then use the corresponding algorithm.</p>
+
+<h3>5. Sensitive Data in Payload</h3>
+
+<p>Don't put passwords, PII, or secrets in JWT payloads. The payload is readable by anyone.</p>
+
+<h2>Best Practices</h2>
+
+<ul>
+<li>Always specify the algorithm explicitly — never infer from token header</li>
+<li>Use RS256/ES256 for cross-party auth</li>
+<li>Keep tokens short-lived (15-60 minutes)</li>
+<li>Store tokens securely (httpOnly cookies, not localStorage for sensitive apps)</li>
+<li>Implement refresh token rotation</li>
+<li>Reject <code>alg: none</code></li>
+<li>Validate all claims (<code>iss</code>, <code>aud</code>, <code>exp</code>)</li>
+<li>Don't put sensitive data in the payload</li>
+</ul>
+
+<h2>Refresh Tokens</h2>
+
+<p>Because JWTs expire quickly, apps use <strong>refresh tokens</strong> — long-lived tokens (days/weeks) stored in a database. When the short-lived JWT expires, the refresh token is exchanged for a new JWT. This gives you revocation capability — just delete the refresh token from the database.</p>
+
+<h2>JWE: Encrypted JWT</h2>
+
+<p>For sensitive data, use JWE (JSON Web Encryption) which encrypts the payload, not just signs it. But for most auth use cases, signed JWT + HTTPS is sufficient.</p>
+
+<h2>The Verdict</h2>
+
+<p>JWTs are elegant for stateless auth between trusted parties. They're not magic — they're just signed JSON with some conventions. The security comes from correct implementation, not from the format itself.</p>
+
+<p>The most common vulnerabilities aren't in JWT itself — they're in how developers implement verification. Always, always specify the algorithm explicitly.</p>
+
+</div>
+</body>
+</html>
