@@ -4,96 +4,75 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Load Balancers Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on load balancing algorithms, health checks, sticky sessions, and the art of distributing traffic across servers.">
+<meta name="description" content="Deep dive on load balancing algorithms, health checks, sticky sessions, and fault tolerance">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Load Balancers Work</h1>
-  <div class="meta">2026-03-09</div>
+  <div class="meta">March 10, 2026</div>
 
-<p>Load balancers are the traffic cops of the internet. They sit between clients and a pool of servers, deciding which request goes where. The goal is simple: distribute load evenly, maximize throughput, minimize latency, and keep things running when a server dies.</p>
+<p>Load balancers are the traffic cops of the internet. They sit in front of a fleet of servers and decide which request goes where. Sounds simple. It gets complicated fast.</p>
 
-<h2>The Core Problem</h2>
-<p>Imagine you run a popular service. One server handles 100 requests/second comfortably. At 1000 requests/second, it crumbles. You add nine more servers. Now you need something to split traffic across them. That's the load balancer's job.</p>
-
-<h2>Types of Load Balancing</h2>
-
-<h3>DNS Load Balancing</h3>
-<p>The simplest approach. Your DNS resolver returns different IP addresses for the same domain, rotating through them (round-robin). No special hardware needed. Problem: it has no idea which servers are healthy or how loaded they are. A dead server still gets traffic.</p>
-
-<h3>Layer 4 (TCP/UDP) Balancing</h3>
-<p>The load balancer routes packets based on IP addresses and ports. It doesn't inspect the request content. Fast, simple, but dumb — it can't make smart decisions about which server is best.</p>
-
-<h3>Layer 7 (HTTP/HTTPS) Balancing</h3>
-<p>The balancer inspects the actual request — headers, URLs, cookies, paths. This enables smart routing: send /api/* to one pool, /static/* to another. More expensive computationally, but far more flexible.</p>
+<h2>The Problem</h2>
+<p>You have one website. Thousands of users. One server can't handle it. So you add more. Now you have a new problem: how do you distribute traffic across them without creating hotspots? That's the load balancer's job.</p>
 
 <h2>Algorithms</h2>
+<p><strong>Round Robin</strong> — The simplest. Request 1 goes to server A, request 2 to B, request 3 to C, repeat. Works when all servers are equal. They rarely are.</p>
 
-<h3>Round Robin</h3>
-<p>Requests cycle through servers in order. Server A gets request 1, Server B gets request 2, and so on. Simple, fair if all servers are equal. Problem: if Server A is a beast and Server B is a toaster, you're wasting resources.</p>
+<p><strong>Least Connections</strong> — Send the request to the server with the fewest active connections. Better for varying request durations. A request that takes 10 seconds shouldn't block new arrivals.</p>
 
-<h3>Least Connections</h3>
-<p>Send new requests to the server with the fewest active connections. Better for variable request durations. A quick request finishing frees up Server A, so send the next one there.</p>
+<p><strong>Weighted</strong> — Server A is twice as powerful as B? Give it double the traffic. Requires manual configuration but optimizes resource use.</p>
 
-<h3>Weighted Algorithms</h3>
-<p>Assign weights to servers based on capacity. Server A (beast) gets weight 10, Server B (toaster) gets weight 2. It now gets 5x the traffic. Requires manual configuration and updates when hardware changes.</p>
+<p><strong>IP Hash</strong> — Hash the client IP and map to a server. Useful when you need session consistency. Same user, same server, every time.</p>
 
-<h3>IP Hash</h3>
-<p>Hash the client's IP address to determine which server handles their requests. Ensures a client always hits the same server (useful for session data). Problem: uneven distribution if clients cluster geographically.</p>
-
-<h3>Least Response Time</h3>
-<p>Send traffic to the server with the lowest average response time. Requires the load balancer to measure latency for each server. Best for real-time applications where speed matters.</p>
+<p><strong>Least Response Time</strong> — Send to the server with the fastest response time. Requires the load balancer to actively measure latency.</p>
 
 <h2>Health Checks</h2>
-<p>A load balancer is useless if it keeps sending traffic to a dead server. Health checks periodically probe each server:</p>
-
+<p>A load balancer is only as good as its health checks. If a server is down but still in the rotation, users get errors. Good health checks:</p>
 <ul>
-<li><strong>TCP checks:</strong> Can I open a connection?</li>
-<li><strong>HTTP/HTTPS checks:</strong> Does the server respond to a specific URL with 200 OK?</li>
-<li><strong>Deep checks:</strong> Does the /health endpoint return a healthy status from the application?</li>
+<li><strong>TCP checks</strong> — Can we open a connection?</li>
+<li><strong>HTTP checks</strong> — Does the server return 200?</li>
+<li><strong>Deep checks</strong> — Does the /health endpoint return healthy?</li>
+<li><strong>Periodic</strong> — Check every few seconds, not just on request time</li>
 </ul>
 
-<p>When a server fails N consecutive checks, it's marked unhealthy and removed from the pool. When it recovers, it's added back. This is how you achieve zero-downtime deployments and fault tolerance.</p>
+<p>Mark a server unhealthy → stop sending traffic → mark healthy → gradually reintroduce. This is called <em>drain</em> and <em>warmup</em>.</p>
 
 <h2>Sticky Sessions</h2>
-<p>Sometimes you need a client to hit the same server repeatedly. Reasons: session state stored locally, WebSocket connections, caching benefits. Methods:</p>
+<p>Sometimes you need the same user to hit the same server. Why? Session data lives in server memory. No shared cache.</p>
+<p>The tradeoff: you lose the均匀 distribution benefits. One user hammering one server creates imbalance.</p>
+<p>Modern approach: stickiness for initial auth, then session ID maps to shared storage (Redis, Memcached). The load balancer stays dumb; the app stays stateless.</p>
 
+<h2>Fault Tolerance</h2>
+<p>Load balancers are single points of failure. Solutions:</p>
 <ul>
-<li><strong>Cookie-based:</strong> Load balancer sets a cookie indicating which server to use</li>
-<li><strong>Source IP:</strong> Always hash the same client IP to the same server</li>
+<li><strong>Active-passive</strong> — Two load balancers. One active, one standby. Heartbeat between them.</li>
+<li><strong>Anycast</strong> — Multiple load balancers announce the same IP. Traffic routes to the nearest one. DNS-based but works.</li>
+<li><strong>Geographic DNS</strong> — Route users to the closest datacenter's load balancer.</li>
 </ul>
 
-<p>Downside: breaks horizontal scalability. If that server dies, the client loses session. Modern architecture prefers stateless design with shared session stores (Redis, etc).</p>
+<h2>Layer 4 vs Layer 7</h2>
+<p><strong>L4 (Transport)</strong> — Makes decisions on IP/TCP/UDP. Fast. Can't inspect content. Good for raw throughput.</p>
+<p><strong>L7 (Application)</strong> — Can inspect HTTP headers, paths, cookies. Can route /api to one backend and /static to another. More flexible, slightly more latency.</p>
 
-<h2>High Availability</h2>
-<p>A single load balancer is a single point of failure. Solutions:</p>
+<h2>The Algorithm Matters Less Than Health Monitoring</h2>
+<p>Here's what actually breaks in production: a server that looks healthy but is slow. Requests queue up. Users wait. The algorithm doesn't know.</p>
+<p>Good health monitoring + decent algorithm beats fancy algorithm + mediocre monitoring every time.</p>
 
+<h2>What Happens Without One</h2>
+<p>Without a load balancer, you either:</p>
 <ul>
-<li><strong>Active-passive:</strong> Two load balancers, one active, one standby. Heartbeat keeps them in sync. Failover takes seconds.</li>
-<li><strong>Anycast:</strong> Multiple load balancers announce the same IP. Traffic routes to the nearest one. DNS-based geo-routing.</li>
+<li>Use DNS round robin (no health checking, no sticky sessions)</li>
+<li>Route everything through one server (bottleneck)</li>
+<li>Let clients figure it out (they can't)</li>
 </ul>
 
-<h2>The Full Picture</h2>
-<p>Here's how modern infrastructure typically works:</p>
+<h2>Real World</h2>
+<p>AWS ALB = Layer 7, HTTP-aware. NGINX = can do both L4 and L7. HAProxy = L4/L7, the old reliable. Kubernetes Service = L4, simple round robin. Ingress = L7 routing into Kubernetes.</p>
 
-<ol>
-<li>User hits your domain → DNS resolves to load balancer IP</li>
-<li>Load balancer (L7) examines the request, picks a backend server based on least connections + health</li>
-<li>Request goes to Server 3. Server 3 processes it, talks to database, returns response</li>
-<li>Load balancer returns response to client</li>
-<li>Server 3 goes down → health check fails → removed from pool automatically</li>
-<li>New server spins up → health check passes → added to pool</li>
-</ol>
-
-<h2>Why It Matters</h2>
-<p>Load balancers are the unsung heroes of availability. Without them, you'd have single points of failure, no fault tolerance, and no way to scale. They abstract away the infrastructure, letting you treat a cluster of servers as a single endpoint.</p>
-
-<p>The algorithm you choose matters less than proper health checks and HA setup. A dumb round-robin with good health monitoring beats a sophisticated algorithm sending traffic to dead servers.</p>
-
-<p>Load balancers are also where TLS termination often happens — decrypting once at the load balancer, sending plain traffic to backends. Reduces computational load on application servers, centralizes security.</p>
-
+<p>The pattern is consistent: start simple (round robin), add complexity as you need it (stickiness, weighted, geographic). The algorithm is the last thing that matters.</p>
 </div>
 </body>
 </html>
