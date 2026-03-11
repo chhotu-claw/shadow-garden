@@ -4,154 +4,297 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Markdown Table Generator — Shadow's Garden</title>
-<meta name="description" content="Generate Markdown tables quickly — rows, columns, alignment, and export to clipboard.">
+<meta name="description" content="Generate Markdown tables with live preview, row/column controls, and alignment options">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 20px; max-width: 900px; margin: 0 auto; }
-  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-  .controls input, .controls select, .controls button { padding: 8px 12px; border: 1px solid #444; border-radius: 4px; background: #1a1a1a; color: #e0e0e0; font-size: 14px; }
-  .controls button { cursor: pointer; background: #2d5a2d; border-color: #3d7a3d; }
-  .controls button:hover { background: #3d7a3d; }
-  .controls button.secondary { background: #444; }
-  .controls button.secondary:hover { background: #555; }
-  table { border-collapse: collapse; margin: 20px 0; width: 100%; }
-  th, td { border: 1px solid #444; padding: 8px 12px; text-align: left; }
-  th { background: #252525; }
-  td { background: #1a1a1a; }
-  td input { width: 100%; background: transparent; border: none; color: #e0e0e0; font-family: inherit; font-size: inherit; padding: 4px; }
-  td input:focus { outline: none; background: #333; }
-  .output { margin-top: 20px; }
-  .output textarea { width: 100%; height: 200px; background: #1a1a1a; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; padding: 12px; font-family: monospace; font-size: 13px; resize: vertical; }
-  .output .actions { margin-top: 10px; display: flex; gap: 10px; }
-  .align-btns { display: flex; gap: 5px; }
-  .align-btns button { padding: 4px 8px; font-size: 12px; }
-  .align-btns button.active { background: #2d5a2d; }
+  :root { --accent: #7c3aed; }
+  body { --bg: #0f172a; --fg: #e2e8f0; --border: #334155; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .control-group { display: flex; align-items: center; gap: 0.5rem; }
+  .control-group label { margin: 0; font-size: 0.8rem; text-transform: none; font-weight: normal; color: #94a3b8; }
+  
+  input[type="number"] { width: 60px; padding: 0.5rem; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-family: monospace; }
+  input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  
+  button { padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: #475569; }
+  
+  .table-input { display: grid; gap: 2px; margin-bottom: 1.5rem; background: var(--border); border-radius: 8px; overflow: hidden; }
+  .table-row { display: contents; }
+  .table-cell { background: #1e293b; }
+  .table-cell input { width: 100%; padding: 0.75rem; background: transparent; border: none; color: var(--fg); font-family: monospace; font-size: 0.9rem; }
+  .table-cell input:focus { outline: none; background: #334155; }
+  .table-cell.header { background: #334155; }
+  .table-cell.header input { font-weight: 600; }
+  
+  .alignment-row { display: flex; gap: 2px; margin-bottom: 1.5rem; background: var(--border); border-radius: 8px; overflow: hidden; }
+  .align-cell { flex: 1; background: #1e293b; padding: 0.5rem; display: flex; justify-content: center; gap: 0.5rem; }
+  .align-btn { padding: 0.25rem 0.5rem; background: #475569; border: none; border-radius: 4px; color: #94a3b8; font-size: 0.75rem; cursor: pointer; }
+  .align-btn.active { background: var(--accent); color: white; }
+  
+  .output-section { margin-top: 1.5rem; }
+  .output-section label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .output { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; color: #cbd5e1; min-height: 100px; }
+  
+  .preview-section { margin-top: 1.5rem; }
+  .preview-section label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .preview { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
+  .preview table { border-collapse: collapse; width: 100%; }
+  .preview th, .preview td { padding: 0.75rem; border: 1px solid var(--border); text-align: left; }
+  .preview th { background: #334155; font-weight: 600; }
+  .preview td { background: #1e293b; }
+  .preview .align-left { text-align: left; }
+  .preview .align-center { text-align: center; }
+  .preview .align-right { text-align: right; }
+  
+  .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+  .copy-btn { padding: 0.5rem 1rem; background: #10b981; border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; }
+  .copy-btn.copied { background: #059669; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { padding: 0.35rem 0.7rem; background: #334155; border: 1px solid var(--border); border-radius: 4px; color: #94a3b8; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { background: #475569; color: var(--fg); }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Markdown Table Generator</h1>
-  <p style="color: #888; margin-top: -15px;">Generate Markdown tables quickly</p>
-  
-  <div class="controls">
-    <label>Rows: <input type="number" id="rows" value="3" min="1" max="20" style="width: 60px;"></label>
-    <label>Columns: <input type="number" id="cols" value="3" min="1" max="10" style="width: 60px;"></label>
-    <button onclick="generateTable()">Generate</button>
-    <button class="secondary" onclick="updateOutput()">Update</button>
-  </div>
-
-  <div class="controls">
-    <span>Header Alignment:</span>
-    <div class="align-btns" id="alignBtns"></div>
-  </div>
-
-  <table id="table">
-    <thead id="thead"></thead>
-    <tbody id="tbody"></tbody>
-  </table>
-
-  <div class="output">
-    <h3>Markdown Output</h3>
-    <textarea id="output" readonly></textarea>
-    <div class="actions">
-      <button onclick="copyOutput()">Copy to Clipboard</button>
-      <button class="secondary" onclick="clearTable()">Clear</button>
+  <div class="container">
+    <h1>Markdown Table Generator</h1>
+    <p class="subtitle">Generate Markdown tables with live preview</p>
+    
+    <div class="controls">
+      <div class="control-group">
+        <label>Rows:</label>
+        <input type="number" id="rows" value="3" min="1" max="20">
+      </div>
+      <div class="control-group">
+        <label>Columns:</label>
+        <input type="number" id="cols" value="3" min="1" max="10">
+      </div>
+      <button id="generate">Generate Table</button>
+    </div>
+    
+    <div class="presets">
+      <button class="preset-btn" data-r="2" data-c="2">2×2</button>
+      <button class="preset-btn" data-r="3" data-c="3">3×3</button>
+      <button class="preset-btn" data-r="4" data-c="2">4×2</button>
+      <button class="preset-btn" data-r="3" data-c="4">3×4</button>
+    </div>
+    
+    <div class="table-input" id="tableInput"></div>
+    
+    <div class="alignment-row" id="alignmentRow"></div>
+    
+    <div class="output-section">
+      <label>Markdown Output</label>
+      <div class="output" id="output"></div>
+      <div class="actions">
+        <button class="copy-btn" id="copyBtn">Copy to Clipboard</button>
+      </div>
+    </div>
+    
+    <div class="preview-section">
+      <label>Live Preview</label>
+      <div class="preview" id="preview"></div>
     </div>
   </div>
-
+  
   <script>
+    const rowsInput = document.getElementById('rows');
+    const colsInput = document.getElementById('cols');
+    const generateBtn = document.getElementById('generate');
+    const tableInput = document.getElementById('tableInput');
+    const alignmentRow = document.getElementById('alignmentRow');
+    const output = document.getElementById('output');
+    const preview = document.getElementById('preview');
+    const copyBtn = document.getElementById('copyBtn');
+    
     let alignments = [];
+    let cellValues = [];
     
     function generateTable() {
-      const rows = parseInt(document.getElementById('rows').value);
-      const cols = parseInt(document.getElementById('cols').value);
+      const rows = parseInt(rowsInput.value);
+      const cols = parseInt(colsInput.value);
       
       alignments = Array(cols).fill('left');
-      updateAlignButtons();
-      
-      const thead = document.getElementById('thead');
-      const tbody = document.getElementById('tbody');
-      
-      let theadHTML = '<tr>';
-      let tbodyHTML = '';
-      
-      for (let c = 0; c < cols; c++) {
-        theadHTML += `<th><input type="text" placeholder="Header ${c + 1}" oninput="updateOutput()"></th>`;
+      cellValues = [];
+      for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+          row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c + 1}`);
+        }
+        cellValues.push(row);
       }
-      theadHTML += '</tr>';
+      
+      renderTable();
+      updateOutput();
+      updatePreview();
+    }
+    
+    function renderTable() {
+      const rows = cellValues.length;
+      const cols = cellValues[0] ? cellValues[0].length : 0;
+      
+      tableInput.innerHTML = '';
+      tableInput.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       
       for (let r = 0; r < rows; r++) {
-        tbodyHTML += '<tr>';
         for (let c = 0; c < cols; c++) {
-          tbodyHTML += `<td><input type="text" placeholder="Cell ${r + 1},${c + 1}" oninput="updateOutput()"></td>`;
+          const cell = document.createElement('div');
+          cell.className = 'table-cell' + (r === 0 ? ' header' : '');
+          
+          const input = document.createElement('input');
+          input.value = cellValues[r][c];
+          input.dataset.row = r;
+          input.dataset.col = c;
+          input.addEventListener('input', (e) => {
+            cellValues[r][c] = e.target.value;
+            updateOutput();
+            updatePreview();
+          });
+          
+          cell.appendChild(input);
+          tableInput.appendChild(cell);
         }
-        tbodyHTML += '</tr>';
       }
       
-      thead.innerHTML = theadHTML;
-      tbody.innerHTML = tbodyHTML;
-      
-      updateOutput();
+      // Alignment row
+      alignmentRow.innerHTML = '';
+      for (let c = 0; c < cols; c++) {
+        const alignCell = document.createElement('div');
+        alignCell.className = 'align-cell';
+        
+        const leftBtn = document.createElement('button');
+        leftBtn.className = 'align-btn' + (alignments[c] === 'left' ? ' active' : '');
+        leftBtn.textContent = '←';
+        leftBtn.addEventListener('click', () => setAlignment(c, 'left'));
+        
+        const centerBtn = document.createElement('button');
+        centerBtn.className = 'align-btn' + (alignments[c] === 'center' ? ' active' : '');
+        centerBtn.textContent = '↔';
+        centerBtn.addEventListener('click', () => setAlignment(c, 'center'));
+        
+        const rightBtn = document.createElement('button');
+        rightBtn.className = 'align-btn' + (alignments[c] === 'right' ? ' active' : '');
+        rightBtn.textContent = '→';
+        rightBtn.addEventListener('click', () => setAlignment(c, 'right'));
+        
+        alignCell.appendChild(leftBtn);
+        alignCell.appendChild(centerBtn);
+        alignCell.appendChild(rightBtn);
+        alignmentRow.appendChild(alignCell);
+      }
     }
     
-    function updateAlignButtons() {
-      const container = document.getElementById('alignBtns');
-      container.innerHTML = alignments.map((align, i) => `
-        <button class="${align === 'left' ? 'active' : ''}" onclick="setAlign(${i}, 'left')">←</button>
-        <button class="${align === 'center' ? 'active' : ''}" onclick="setAlign(${i}, 'center')">↔</button>
-        <button class="${align === 'right' ? 'active' : ''}" onclick="setAlign(${i}, 'right')">→</button>
-      `).join('');
-    }
-    
-    function setAlign(col, align) {
+    function setAlignment(col, align) {
       alignments[col] = align;
-      updateAlignButtons();
+      renderTable();
       updateOutput();
-    }
-    
-    function getAlignChar(align) {
-      if (align === 'center') return ':---:';
-      if (align === 'right') return '----:';
-      return ':----';
+      updatePreview();
     }
     
     function updateOutput() {
-      const thead = document.getElementById('thead');
-      const tbody = document.getElementById('tbody');
+      const rows = cellValues.length;
+      const cols = cellValues[0] ? cellValues[0].length : 0;
+      if (cols === 0) return;
       
-      const headers = [...thead.querySelectorAll('input')].map(i => i.value || '');
-      const bodyRows = [...tbody.querySelectorAll('tr')].map(tr => 
-        [...tr.querySelectorAll('input')].map(i => i.value || '')
-      );
+      let md = '';
       
-      if (headers.length === 0) return;
+      // Header row
+      md += '|';
+      for (let c = 0; c < cols; c++) {
+        md += ' ' + cellValues[0][c] + ' |';
+      }
+      md += '\n';
       
-      const colWidths = headers.map((h, i) => Math.max(h.length, ...bodyRows.map(r => (r[i] || '').length), 3));
+      // Alignment row
+      md += '|';
+      for (let c = 0; c < cols; c++) {
+        const align = alignments[c];
+        if (align === 'left') md += ' --- |';
+        else if (align === 'center') md += ' :---: |';
+        else md += ' ---: |';
+      }
+      md += '\n';
       
-      const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+      // Data rows
+      for (let r = 1; r < rows; r++) {
+        md += '|';
+        for (let c = 0; c < cols; c++) {
+          md += ' ' + cellValues[r][c] + ' |';
+        }
+        md += '\n';
+      }
       
-      let md = '| ' + headers.map((h, i) => pad(h, colWidths[i])).join(' | ') + ' |\n';
-      md += '| ' + alignments.map((a, i) => pad(getAlignChar(a), colWidths[i])).join(' | ') + ' |\n';
+      output.textContent = md;
+    }
+    
+    function updatePreview() {
+      const rows = cellValues.length;
+      const cols = cellValues[0] ? cellValues[0].length : 0;
+      if (cols === 0) {
+        preview.innerHTML = '';
+        return;
+      }
       
-      bodyRows.forEach(row => {
-        md += '| ' + row.map((cell, i) => pad(cell, colWidths[i])).join(' | ') + ' |\n';
+      let html = '<table>';
+      
+      // Header
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        html += `<th class="align-${alignments[c]}">${escapeHtml(cellValues[0][c])}</th>`;
+      }
+      html += '</tr>';
+      
+      // Data rows
+      for (let r = 1; r < rows; r++) {
+        html += '<tr>';
+        for (let c = 0; c < cols; c++) {
+          html += `<td class="align-${alignments[c]}">${escapeHtml(cellValues[r][c])}</td>`;
+        }
+        html += '</tr>';
+      }
+      
+      html += '</table>';
+      preview.innerHTML = html;
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    
+    generateBtn.addEventListener('click', generateTable);
+    
+    rowsInput.addEventListener('change', generateTable);
+    colsInput.addEventListener('change', generateTable);
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        rowsInput.value = btn.dataset.r;
+        colsInput.value = btn.dataset.c;
+        generateTable();
       });
-      
-      document.getElementById('output').value = md;
-    }
+    });
     
-    function copyOutput() {
-      const textarea = document.getElementById('output');
-      textarea.select();
-      document.execCommand('copy');
-      alert('Copied to clipboard!');
-    }
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(output.textContent).then(() => {
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy to Clipboard';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
+    });
     
-    function clearTable() {
-      document.querySelectorAll('#table input').forEach(input => input.value = '');
-      updateOutput();
-    }
-    
+    // Initialize
     generateTable();
   </script>
 </body>
