@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Zone Converter — Shadow's Garden</title>
+<meta name="description" content="Convert times between time zones instantly">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --card-bg: #161b22; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .converter-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+  
+  .input-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .input-group { flex: 1; min-width: 200px; }
+  .input-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  input, select { width: 100%; padding: 0.75rem 1rem; background: #21262d; border: 1px solid var(--border); border-radius: 8px; color: var(--fg); font-size: 1rem; box-sizing: border-box; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  
+  .time-display { font-size: 2.5rem; font-weight: 700; color: var(--accent); text-align: center; padding: 1rem 0; font-variant-numeric: tabular-nums; }
+  .time-display span { font-size: 1rem; color: #8b949e; font-weight: 400; }
+  
+  .results { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+  .result-row:last-child { border-bottom: none; }
+  .result-zone { font-weight: 600; }
+  .result-time { font-size: 1.25rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .result-date { font-size: 0.85rem; color: #8b949e; }
+  .result-now { color: #3fb950; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .preset-btn { padding: 0.4rem 0.8rem; background: #21262d; border: 1px solid var(--border); border-radius: 6px; color: #8b949e; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { background: #30363d; color: var(--fg); }
+  
+  .swap-btn { display: block; margin: 1rem auto; padding: 0.5rem 1rem; background: #21262d; border: 1px solid var(--border); border-radius: 6px; color: #8b949e; cursor: pointer; font-size: 1.2rem; transition: all 0.15s; }
+  .swap-btn:hover { background: #30363d; color: var(--fg); }
+  
+  .quick-times { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+  .quick-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; }
+  .quick-btn:hover { background: #30363d; color: var(--fg); }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Time Zone Converter</h1>
+    <p class="subtitle">Convert times between time zones instantly</p>
+    
+    <div class="converter-card">
+      <div class="presets">
+        <button class="preset-btn" data-tz="UTC">UTC</button>
+        <button class="preset-btn" data-tz="America/New_York">New York</button>
+        <button class="preset-btn" data-tz="America/Los_Angeles">Los Angeles</button>
+        <button class="preset-btn" data-tz="Europe/London">London</button>
+        <button class="preset-btn" data-tz="Europe/Paris">Paris</button>
+        <button class="preset-btn" data-tz="Asia/Dubai">Dubai</button>
+        <button class="preset-btn" data-tz="Asia/Tokyo">Tokyo</button>
+        <button class="preset-btn" data-tz="Asia/Singapore">Singapore</button>
+        <button class="preset-btn" data-tz="Australia/Sydney">Sydney</button>
+        <button class="preset-btn" data-tz="Asia/Kolkata">Mumbai</button>
+      </div>
+      
+      <div class="input-row">
+        <div class="input-group">
+          <label>Date</label>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="input-group">
+          <label>Time</label>
+          <input type="time" id="timeInput">
+        </div>
+        <div class="input-group">
+          <label>From Time Zone</label>
+          <select id="fromTz"></select>
+        </div>
+      </div>
+      
+      <button class="swap-btn" id="swapBtn">⇄</button>
+      
+      <div class="input-row">
+        <div class="input-group">
+          <label>To Time Zone</label>
+          <select id="toTz"></select>
+        </div>
+      </div>
+      
+      <div class="time-display" id="resultDisplay">--:-- <span>--</span></div>
+      
+      <div class="quick-times">
+        <button class="quick-btn" data-offset="0">Now</button>
+        <button class="quick-btn" data-offset="1">+1 hour</button>
+        <button class="quick-btn" data-offset="3">+3 hours</button>
+        <button class="quick-btn" data-offset="6">+6 hours</button>
+        <button class="quick-btn" data-offset="12">+12 hours</button>
+        <button class="quick-btn" data-offset="-1">-1 hour</button>
+        <button class="quick-btn" data-offset="-3">-3 hours</button>
+      </div>
+    </div>
+    
+    <div class="converter-card" style="margin-top: 1.5rem;">
+      <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px;">Common Conversions</h3>
+      <div id="commonResults"></div>
+    </div>
+  </div>
+  
+  <script>
+    const timeZones = [
+      { value: 'UTC', label: 'UTC' },
+      { value: 'America/New_York', label: 'New York (EST/EDT)' },
+      { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
+      { value: 'America/Denver', label: 'Denver (MST/MDT)' },
+      { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
+      { value: 'America/Toronto', label: 'Toronto' },
+      { value: 'America/Vancouver', label: 'Vancouver' },
+      { value: 'America/Sao_Paulo', label: 'São Paulo' },
+      { value: 'America/Mexico_City', label: 'Mexico City' },
+      { value: 'Europe/London', label: 'London (GMT/BST)' },
+      { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
+      { value: 'Europe/Berlin', label: 'Berlin' },
+      { value: 'Europe/Amsterdam', label: 'Amsterdam' },
+      { value: 'Europe/Madrid', label: 'Madrid' },
+      { value: 'Europe/Rome', label: 'Rome' },
+      { value: 'Europe/Stockholm', label: 'Stockholm' },
+      { value: 'Europe/Moscow', label: 'Moscow' },
+      { value: 'Asia/Dubai', label: 'Dubai' },
+      { value: 'Asia/Kolkata', label: 'Mumbai/Delhi' },
+      { value: 'Asia/Bangkok', label: 'Bangkok' },
+      { value: 'Asia/Singapore', label: 'Singapore' },
+      { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+      { value: 'Asia/Shanghai', label: 'Shanghai' },
+      { value: 'Asia/Tokyo', label: 'Tokyo' },
+      { value: 'Asia/Seoul', label: 'Seoul' },
+      { value: 'Australia/Sydney', label: 'Sydney' },
+      { value: 'Australia/Melbourne', label: 'Melbourne' },
+      { value: 'Pacific/Auckland', label: 'Auckland' },
+      { value: 'Pacific/Honolulu', label: 'Honolulu' },
+      { value: 'Africa/Cairo', label: 'Cairo' },
+      { value: 'Africa/Johannesburg', label: 'Johannesburg' },
+      { value: 'Africa/Lagos', label: 'Lagos' }
+    ];
+    
+    const fromSelect = document.getElementById('fromTz');
+    const toSelect = document.getElementById('toTz');
+    const dateInput = document.getElementById('dateInput');
+    const timeInput = document.getElementById('timeInput');
+    const resultDisplay = document.getElementById('resultDisplay');
+    const swapBtn = document.getElementById('swapBtn');
+    const commonResults = document.getElementById('commonResults');
+    
+    // Populate selects
+    timeZones.forEach(tz => {
+      const opt1 = new Option(tz.label, tz.value);
+      const opt2 = new Option(tz.label, tz.value);
+      fromSelect.add(opt1);
+      toSelect.add(opt2);
+    });
+    
+    // Set defaults
+    const now = new Date();
+    dateInput.value = now.toISOString().split('T')[0];
+    timeInput.value = now.toTimeString().slice(0, 5);
+    
+    // Detect user's timezone
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fromSelect.value = userTz || 'UTC';
+    toSelect.value = 'UTC';
+    
+    function convert() {
+      const dateStr = dateInput.value;
+      const timeStr = timeInput.value;
+      const fromTz = fromSelect.value;
+      const toTz = toSelect.value;
+      
+      if (!dateStr || !timeStr) return;
+      
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      
+      // Create date in source timezone
+      const sourceDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+      
+      // Get offset for source timezone
+      const fromOffset = getTimezoneOffset(fromTz, sourceDate);
+      const toOffset = getTimezoneOffset(toTz, sourceDate);
+      
+      // Convert
+      const utcTime = sourceDate.getTime() - fromOffset * 60000;
+      const targetTime = new Date(utcTime + toOffset * 60000);
+      
+      // Format result
+      const targetHours = targetTime.getUTCHours().toString().padStart(2, '0');
+      const targetMinutes = targetTime.getUTCMinutes().toString().padStart(2, '0');
+      const targetDate = targetTime.toISOString().split('T')[0];
+      
+      resultDisplay.innerHTML = `${targetHours}:${targetMinutes} <span>${targetDate}</span>`;
+      
+      // Update common conversions
+      updateCommonConversions(utcTime);
+    }
+    
+    function getTimezoneOffset(tz, date) {
+      const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzDate = new Date(date.toLocaleString('en-US', { timeZone: tz }));
+      return (tzDate - utcDate) / 60000;
+    }
+    
+    function updateCommonConversions(utcTime) {
+      const targets = ['America/New_York', 'Europe/London', 'Asia/Dubai', 'Asia/Tokyo', 'Asia/Kolkata', 'Australia/Sydney'];
+      let html = '';
+      
+      targets.forEach(tz => {
+        if (tz === fromSelect.value) return;
+        const offset = getTimezoneOffset(tz, new Date(utcTime));
+        const targetTime = new Date(utcTime + offset * 60000);
+        const hours = targetTime.getUTCHours().toString().padStart(2, '0');
+        const minutes = targetTime.getUTCMinutes().toString().padStart(2, '0');
+        const date = targetTime.toISOString().split('T')[0];
+        const tzLabel = timeZones.find(t => t.value === tz)?.label || tz;
+        
+        html += `<div class="result-row">
+          <div>
+            <div class="result-zone">${tzLabel}</div>
+            <div class="result-date">${date}</div>
+          </div>
+          <div class="result-time">${hours}:${minutes}</div>
+        </div>`;
+      });
+      
+      commonResults.innerHTML = html;
+    }
+    
+    // Event listeners
+    dateInput.addEventListener('change', convert);
+    timeInput.addEventListener('change', convert);
+    fromSelect.addEventListener('change', convert);
+    toSelect.addEventListener('change', convert);
+    
+    swapBtn.addEventListener('click', () => {
+      const temp = fromSelect.value;
+      fromSelect.value = toSelect.value;
+      toSelect.value = temp;
+      convert();
+    });
+    
+    // Preset buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toSelect.value = btn.dataset.tz;
+        convert();
+      });
+    });
+    
+    // Quick time buttons
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const offset = parseInt(btn.dataset.offset);
+        const current = new Date();
+        current.setHours(current.getHours() + offset);
+        dateInput.value = current.toISOString().split('T')[0];
+        timeInput.value = current.toTimeString().slice(0, 5);
+        convert();
+      });
+    });
+    
+    // Initial convert
+    convert();
+  </script>
+</body>
+</html>
