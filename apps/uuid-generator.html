@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UUID Generator — Shadow's Garden</title>
+<meta name="description" content="Generate UUIDs v4, v7, and NIL — copy to clipboard, history,批量生成">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --success: #3fb950; }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .controls { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  select, button { padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+  select { background: #21262d; border: 1px solid var(--border); color: var(--fg); cursor: pointer; }
+  button { background: var(--accent); color: #0d1117; border: none; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: #21262d; color: var(--fg); border: 1px solid var(--border); }
+  button.secondary:hover { background: #30363d; }
+  
+  .uuid-display { background: #161b22; border: 2px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; position: relative; }
+  .uuid-text { font-family: 'Fira Code', monospace; font-size: 1.1rem; color: var(--success); word-break: break-all; user-select: all; }
+  .copy-btn { position: absolute; top: 0.75rem; right: 0.75rem; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .copy-btn.copied { background: var(--success); }
+  
+  .history { margin-top: 2rem; }
+  .history h3 { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem; }
+  .history-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-family: monospace; font-size: 0.85rem; }
+  .history-item:last-child { border-bottom: none; }
+  .history-uuid { color: var(--fg); flex: 1; word-break: break-all; }
+  .history-type { color: #8b949e; font-size: 0.75rem; background: #21262d; padding: 0.15rem 0.4rem; border-radius: 3px; }
+  .history-copy { padding: 0.2rem 0.5rem; font-size: 0.75rem; background: transparent; border: 1px solid var(--border); color: #8b949e; }
+  
+  .batch-controls { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+  .batch-controls input { width: 60px; padding: 0.5rem; background: #161b22; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); text-align: center; }
+  .batch-output { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; color: var(--fg); }
+  .batch-output code { display: block; padding: 0.3rem 0; }
+  
+  .info { margin-top: 2rem; padding: 1rem; background: #161b22; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; color: #8b949e; }
+  .info code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 3px; color: var(--accent); }
+}
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>UUID Generator</h1>
+    <p class="subtitle">Generate UUID v4 (random), v7 (timestamp-based), or NIL</p>
+    
+    <div class="controls">
+      <select id="version">
+        <option value="v4">UUID v4 (random)</option>
+        <option value="v7">UUID v7 (timestamp)</option>
+        <option value="nil">NIL (all zeros)</option>
+      </select>
+      <button id="generate">Generate</button>
+      <button id="copy" class="secondary">Copy</button>
+    </div>
+    
+    <div class="uuid-display">
+      <div class="uuid-text" id="uuid">—</div>
+      <button class="copy-btn secondary" id="copyOne">Copy</button>
+    </div>
+    
+    <div class="batch-controls">
+      <label>批量生成 (batch):</label>
+      <input type="number" id="batchCount" value="5" min="1" max="100">
+      <button id="batchGen" class="secondary">生成</button>
+      <button id="copyBatch" class="secondary">复制全部</button>
+    </div>
+    <div class="batch-output" id="batchOutput"></div>
+    
+    <div class="history">
+      <h3>History</h3>
+      <div id="historyList"></div>
+      <button class="secondary" id="clearHistory" style="margin-top: 0.5rem;">Clear</button>
+    </div>
+    
+    <div class="info">
+      <strong>UUID v4:</strong> 122 bits of randomness. The standard for most use cases.<br>
+      <strong>UUID v7:</strong> Timestamp + randomness. Sortable, good for databases.<br>
+      <strong>NIL:</strong> <code>00000000-0000-0000-0000-000000000000</code> — the null UUID.
+    </div>
+  </div>
+  
+  <script>
+    const uuidDisplay = document.getElementById('uuid');
+    const versionSelect = document.getElementById('version');
+    const historyList = document.getElementById('historyList');
+    const batchOutput = document.getElementById('batchOutput');
+    
+    let history = JSON.parse(localStorage.getItem('uuid-history') || '[]');
+    let currentUuid = '';
+    
+    // UUID v4 generator
+    function uuidv4() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+    
+    // UUID v7 generator (timestamp + randomness)
+    function uuidv7() {
+      const now = Date.now();
+      const timestamp = Math.floor(now).toString(16).padStart(12, '0');
+      const random = 'xxxxxxxxxxxx'.replace(/x/g, () => 
+        (Math.random() * 16 | 0).toString(16)
+      );
+      // Set version (7) and variant (8, 9, A, B)
+      const ver = '7' + random[0];
+      const var8 = (parseInt(random[1], 16) & 0x3 | 0x8).toString(16);
+      return `${timestamp.slice(0,8)}-${timestamp.slice(8,12)}-${ver}${random.slice(2,6)}-${var8}${random.slice(7,12)}${random.slice(12)}`;
+    }
+    
+    function generateUUID(type) {
+      switch(type) {
+        case 'v4': return uuidv4();
+        case 'v7': return uuidv7();
+        case 'nil': return '00000000-0000-0000-0000-000000000000';
+        default: return uuidv4();
+      }
+    }
+    
+    function addToHistory(uuid, type) {
+      history.unshift({ uuid, type, time: Date.now() });
+      if (history.length > 50) history.pop();
+      localStorage.setItem('uuid-history', JSON.stringify(history));
+      renderHistory();
+    }
+    
+    function renderHistory() {
+      historyList.innerHTML = history.map((h, i) => `
+        <div class="history-item">
+          <span class="history-type">${h.type}</span>
+          <span class="history-uuid">${h.uuid}</span>
+          <button class="history-copy" data-uuid="${h.uuid}">Copy</button>
+        </div>
+      `).join('');
+      
+      document.querySelectorAll('.history-copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+          navigator.clipboard.writeText(btn.dataset.uuid);
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 1500);
+        });
+      });
+    }
+    
+    document.getElementById('generate').addEventListener('click', () => {
+      const uuid = generateUUID(versionSelect.value);
+      currentUuid = uuid;
+      uuidDisplay.textContent = uuid;
+      addToHistory(uuid, versionSelect.value);
+    });
+    
+    versionSelect.addEventListener('change', () => {
+      const uuid = generateUUID(versionSelect.value);
+      currentUuid = uuid;
+      uuidDisplay.textContent = uuid;
+    });
+    
+    document.getElementById('copy').addEventListener('click', () => {
+      if (currentUuid) {
+        navigator.clipboard.writeText(currentUuid);
+        const btn = document.getElementById('copy');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+    });
+    
+    document.getElementById('copyOne').addEventListener('click', () => {
+      if (currentUuid) {
+        navigator.clipboard.writeText(currentUuid);
+        const btn = document.getElementById('copyOne');
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      }
+    });
+    
+    document.getElementById('batchGen').addEventListener('click', () => {
+      const count = Math.min(Math.max(parseInt(document.getElementById('batchCount').value) || 5, 1), 100);
+      const type = versionSelect.value;
+      const uuids = [];
+      for (let i = 0; i < count; i++) {
+        const u = generateUUID(type);
+        uuids.push(u);
+        addToHistory(u, type);
+      }
+      batchOutput.innerHTML = uuids.map(u => `<code>${u}</code>`).join('');
+    });
+    
+    document.getElementById('copyBatch').addEventListener('click', () => {
+      const uuids = batchOutput.querySelectorAll('code');
+      if (uuids.length) {
+        const text = Array.from(uuids).map(c => c.textContent).join('\n');
+        navigator.clipboard.writeText(text);
+        document.getElementById('copyBatch').textContent = 'Copied!';
+        setTimeout(() => document.getElementById('copyBatch').textContent = 'Copy All', 1500);
+      }
+    });
+    
+    document.getElementById('clearHistory').addEventListener('click', () => {
+      history = [];
+      localStorage.removeItem('uuid-history');
+      renderHistory();
+    });
+    
+    // Init
+    const initUuid = generateUUID(versionSelect.value);
+    currentUuid = initUuid;
+    uuidDisplay.textContent = initUuid;
+    renderHistory();
+  </script>
+</body>
+</html>
