@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How QR Codes Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive into QR code structure, error correction, encoding modes, and the math that makes them work">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; }
+  .container { max-width: 750px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .meta { color: #8b949e; font-size: 0.9rem; margin-bottom: 2rem; }
+  
+  h2 { margin-top: 2.5rem; margin-bottom: 1rem; color: var(--accent); font-size: 1.3rem; }
+  p { line-height: 1.75; margin-bottom: 1rem; color: var(--fg); }
+  
+  .diagram { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; text-align: center; }
+  .qr-visual { display: inline-block; position: relative; }
+  .finder-pattern { position: absolute; width: 60px; height: 60px; border: 3px solid #58a6ff; border-radius: 4px; }
+  .finder-pattern.fp1 { top: 0; left: 0; }
+  .finder-pattern.fp2 { top: 0; right: 0; }
+  .finder-pattern.fp3 { bottom: 0; left: 0; }
+  
+  .highlight { background: #1f6feb22; border-left: 3px solid var(--accent); padding: 0.5rem 1rem; margin: 1rem 0; }
+  .warning { background: #f8514922; border-left: 3px solid #f85149; padding: 0.5rem 1rem; margin: 1rem 0; }
+  
+  code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #7ee787; }
+  pre { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  pre code { background: none; padding: 0; }
+  
+  ul, ol { margin: 1rem 0; padding-left: 1.5rem; line-height: 1.8; }
+  li { margin-bottom: 0.5rem; color: var(--fg); }
+  
+  .comparison { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.5rem 0; }
+  .comp-level { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+  .comp-level h4 { margin: 0 0 0.5rem 0; color: var(--accent); }
+  .comp-level .percent { font-size: 1.5rem; font-weight: 700; }
+  .comp-level .data { font-size: 0.8rem; color: #8b949e; margin-top: 0.5rem; }
+  
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; }
+  td code { font-size: 0.85em; }
+  
+  .math { font-family: 'Times New Roman', serif; font-size: 1.1em; color: #a371f7; }
+</style>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How QR Codes Work</h1>
+  <div class="meta">March 11, 2026 · Deep Dive</div>
+  
+  <p>You scan them every day. But what's actually happening when your phone decodes those pixelated squares? QR codes are remarkably elegant engineering — combining data encoding, error correction, and spatial positioning into something you can print on a business card or display on a screen.</p>
+  
+  <h2>The Three Finder Patterns</h2>
+  <p>Every QR code has three distinctive squares in the corners. These aren't decorative — they're the anchor points that let the decoder orient the code regardless of rotation or perspective.</p>
+  
+  <div class="diagram">
+    <div class="qr-visual" style="width: 120px; height: 120px; background: #fff; position: relative; margin: 0 auto;">
+      <div class="finder-pattern fp1" style="top: 5px; left: 5px;"></div>
+      <div class="finder-pattern fp2" style="top: 5px; right: 5px;"></div>
+      <div class="finder-pattern fp3" style="bottom: 5px; left: 5px;"></div>
+      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #333; font-size: 10px;">Timing patterns</div>
+    </div>
+  </div>
+  
+  <p>Each finder pattern has a 7×7 core of black modules surrounded by a white border, then another black ring. This distinctive 1-1-3-1-1 ratio (white-black-white-black-white, radially) is easy for cameras to spot even at odd angles.</p>
+  
+  <h2>Data Encoding Modes</h2>
+  <p>QR codes don't just store raw bytes — they use different encoding modes optimized for different data types:</p>
+  
+  <table>
+    <tr><th>Mode</th><th>What it encodes</th><th>When it's used</th></tr>
+    <tr><td>Numeric</td><td>0-9</td><td>Phone numbers, IDs</td></tr>
+    <tr><td>Alphanumeric</td><td>0-9, A-Z, space, $%*+-./:</td><td>URLs, inventory codes</td></tr>
+    <tr><td>Byte</td><td>ISO-8859-1 or UTF-8</td><td>Plain text, binary</td></tr>
+    <tr><td>Kanji</td><td>Shift JIS</td><td>Japanese characters</td></tr>
+  </table>
+  
+  <p>The encoder chooses the most compact mode. "HELLO123" would use Alphanumeric mode, getting 11 bits per 2 characters. Switch to raw bytes and you'd need 8 bits per character — less efficient.</p>
+  
+  <h2>Error Correction: The Magic</h2>
+  <p>Here's what makes QR codes practical: you can damage up to 30% of the code and it still works. This is because QR codes use <strong>Reed-Solomon error correction</strong> — the same technology that keeps your CDs and DVDs readable.</p>
+  
+  <p>The encoder splits your data into blocks, then calculates redundant "parity" symbols for each block. Even if some modules are smudged, torn, or covered, the math can reconstruct the missing data.</p>
+  
+  <div class="comparison">
+    <div class="comp-level">
+      <h4>Level L</h4>
+      <div class="percent" style="color: #7ee787;">~7%</div>
+      <div class="data">Recovery</div>
+    </div>
+    <div class="comp-level">
+      <h4>Level M</h4>
+      <div class="percent" style="color: #7ee787;">~15%</div>
+      <div class="data">Recovery</div>
+    </div>
+    <div class="comp-level">
+      <h4>Level Q</h4>
+      <div class="percent" style="color: #ffa657;">~25%</div>
+      <div class="data">Recovery</div>
+    </div>
+    <div class="comp-level">
+      <h4>Level H</h4>
+      <div class="percent" style="color: #f85149;">~30%</div>
+      <div class="data">Recovery</div>
+    </div>
+  </div>
+  
+  <div class="highlight">
+    <strong>Why does this matter?</strong> It means you can put logos in the middle of QR codes, or print them on textured surfaces, and they still scan. The tradeoff: higher error correction means fewer data modules available for your actual content.
+  </div>
+  
+  <h2>The Encoding Process</h2>
+  <p>Let's walk through encoding "HELLO" (alphanumeric mode):</p>
+  
+  <ol>
+    <li><strong>Mode indicator</strong> — 4 bits telling the decoder which mode (Alphanumeric = 0010)</li>
+    <li><strong>Character count</strong> — 9 bits for length (5 = 000000101)</li>
+    <li><strong>Data encoding</strong> — split pairs: HE(185), LL(195), O → 185×45 + 24 = 8,349 → binary 10 00001 11101</li>
+    <li><strong>Terminator</strong> — add 0000 to signal end</li>
+    <li><strong>Pad to byte boundaries</strong> — pad with 11101100 then 00010001</li>
+  </ol>
+  
+  <p>Then the real magic: calculate error correction codes using Galois field arithmetic, interleave the data and error correction blocks, place everything into the matrix following the serpentine pattern, add timing patterns, format info, and version info.</p>
+  
+  <h2>Version and Capacity</h2>
+  <p>QR codes come in 40 versions (sizes), from 21×21 modules (Version 1) to 177×177 modules (Version 40). Larger versions store more data:</p>
+  
+  <table>
+    <tr><th>Version</th><th>Modules</th><th>Max Alphanumeric</th><th>Max Bytes</th></tr>
+    <tr><td>1</td><td>21×21</td><td>25 chars</td><td>17 bytes</td></tr>
+    <tr><td>10</td><td>49×49</td><td>224 chars</td><td>156 bytes</td></tr>
+    <tr><td>25</td><td>101×101</td><td>1,002 chars</td><td>714 bytes</td></tr>
+    <tr><td>40</td><td>177×177</td><td>4,296 chars</td><td>2,953 bytes</td></tr>
+  </table>
+  
+  <h2>What's Not in a QR Code</h2>
+  <p>One thing to understand: QR codes don't contain any security. They're just data encoding. A QR code containing "https://evil.com" looks exactly the same as one containing "https://google.com" to your camera. This is why phishing QR codes are effective — there's no way to verify the destination by looking at the code.</p>
+  
+  <div class="warning">
+    <strong>Security note:</strong> Never scan a QR code from an untrusted source, and always preview the URL before visiting. Malicious QR codes can direct to phishing sites, malicious downloads, or trigger payments via QR payment schemes.
+  </div>
+  
+  <h2>The Bigger Picture</h2>
+  <p>QR codes are a neat intersection of information theory and practical engineering. Reed-Solomon codes came from deep space communications — NASA used them to recover images from Voyager. Now they're in your wallet, on restaurant tables, and embedded in product packaging.</p>
+  
+  <p>The next time you scan one, appreciate the 30+ years of math packed into those tiny squares — finder patterns for orientation, Reed-Solomon for resilience, mode optimization for density, and a serpentine data placement that somehow all fits in a square you can hold in your hand.</p>
+</div>
+</body>
+</html>
