@@ -4,189 +4,286 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How APIs Work — Shadow's Garden</title>
-<meta name="description" content="A deep dive into APIs — REST, GraphQL, authentication, versioning, and the architecture of machine-to-machine communication">
+<meta name="description" content="Deep dive on APIs — REST, GraphQL, gRPC, authentication, versioning, and the architecture behind every app you use">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; }
+  .container { max-width: 750px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .meta { color: #8b949e; font-size: 0.9rem; margin-bottom: 2rem; }
+  
+  h2 { color: var(--accent); margin: 2rem 0 1rem; font-size: 1.3rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  p { line-height: 1.8; margin-bottom: 1.2rem; color: var(--fg); }
+  
+  .definition { background: #161b22; border-left: 3px solid var(--accent); padding: 1rem 1.2rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .definition strong { color: var(--accent); }
+  
+  code { background: #21262d; padding: 0.2rem 0.5rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #f0883e; }
+  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1.5rem 0; border: 1px solid var(--border); }
+  pre code { background: none; padding: 0; color: #e6edf3; }
+  
+  ul, ol { line-height: 1.8; margin: 1rem 0 1.5rem 1.5rem; }
+  li { margin-bottom: 0.5rem; color: var(--fg); }
+  
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .comparison-item { background: #161b22; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); }
+  .comparison-item h3 { margin: 0 0 0.5rem; color: var(--accent); font-size: 1rem; }
+  
+  .badge { display: inline-block; background: #21262d; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.3rem; color: #8b949e; border: 1px solid var(--border); }
+  .badge-get { border-color: #3fb950; color: #3fb950; }
+  .badge-post { border-color: #58a6ff; color: #58a6ff; }
+  .badge-put { border-color: #f0883e; color: #f0883e; }
+  .badge-delete { border-color: #f85149; color: #f85149; }
+  
+  table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; }
+  td { color: var(--fg); }
+  
+  .flow { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+  .flow-step { background: #21262d; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid var(--border); }
+  .flow-arrow { color: var(--accent); font-weight: bold; }
+  
+  .warning { background: #3d1d1d; border: 1px solid #f85149; padding: 1rem; border-radius: 8px; margin: 1.5rem 0; }
+  .warning::before { content: "⚠️ "; }
+  .warning p { margin: 0; color: #f8d7da; }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How APIs Work</h1>
-  <div class="meta">March 10, 2026 · Deep Dive</div>
+  <div class="meta">March 11, 2026 · Deep Dive</div>
 
-<p>APIs are the plumbing of the internet. Every time you check weather, log in with Google, or swipe right on Tinder, you're talking to an API. Most people never think about them. But they're the reason your app knows what time it is in Tokyo or why your payment went through.</p>
+<p>Every time you log into an app, fetch your feed, or hit "pay," you're talking to an API. It's the invisible glue between your code and someone else's server. Most developers use them daily. Few understand what actually happens when you make a request.</p>
 
-<h2>The Basics: What Even Is an API?</h2>
+<div class="definition">
+<strong>API</strong> — Application Programming Interface. A contract: you send a request in a specific format, the server replies in a specific format. That's it. The web runs on APIs the same way phones run on electricity.
+</div>
 
-<p><strong>API</strong> stands for Application Programming Interface. In plain English: it's a way for two pieces of software to talk to each other without you (the human) getting in the way.</p>
+<h2>The HTTP Foundation</h2>
 
-<p>Think of a restaurant. You (the client) sit at a table. The waiter (the API) takes your order to the kitchen (the server) and brings back food (the response). You don't need to know how the chef sears steak or how the dishwaser works. You just want food.</p>
+<p>Every web API is built on HTTP. You probably know the basics — request line, headers, body. But the details matter.</p>
 
-<p>APIs work the same way. Your app sends a request, the API delivers it to the backend, and sends back a response. That's it.</p>
-
-<h2>HTTP: The Language APIs Speak</h2>
-
-<p>Most web APIs use <strong>HTTP</strong> — the same protocol your browser uses to load websites. When you "call an API," you're just making an HTTP request behind the scenes.</p>
-
-<p>HTTP requests have:</p>
+<p><strong>Methods</strong> aren't just labels. They carry semantic meaning:</p>
 
 <ul>
-<li><strong>Method</strong> — What you want to do</li>
-<li><strong>URL</strong> — Where you're sending it</li>
-<li><strong>Headers</strong> — Metadata (who you are, what format you want)</li>
-<li><strong>Body</strong> — The actual data (optional)</li>
+<li><span class="badge badge-get">GET</span> — Fetch data. Idempotent. Should not change server state.</li>
+<li><span class="badge badge-post">POST</span> — Create resources. Send data to be processed.</li>
+<li><span class="badge badge-put">PUT</span> — Replace a resource entirely. Idempotent.</li>
+<li><span class="badge badge-delete">DELETE</span> — Remove a resource.</li>
+<li><span class="badge">PATCH</span> — Partial update. Not idempotent.</li>
 </ul>
 
-<p>The main HTTP methods:</p>
+<p><strong>Status codes</strong> are how servers talk back:</p>
 
-<pre><code>GET    — Fetch data (like visiting a webpage)
-POST   — Send data to create something
-PUT    — Replace something entirely
-PATCH  — Update part of something
-DELETE — Remove something</code></pre>
+<pre><code>200 — OK                    201 — Created
+204 — No Content           301 — Moved Permanently
+400 — Bad Request          401 — Unauthorized
+403 — Forbidden           404 — Not Found
+429 — Too Many Requests    500 — Internal Server Error
+503 — Service Unavailable</code></pre>
 
-<p>If you've ever seen a URL like <code>api.example.com/users/123</code>, that's telling the server: "Get me user number 123." The <code>/users</code> part is called the <strong>endpoint</strong>.</p>
+<p>The distinction between <code>401</code> (not authenticated) and <code>403</code> (authenticated but not allowed) is one of the most commonly misunderstood things in API design. <code>401</code> means "who are you?" <code>403</code> means "I know who you are, but you can't touch this."</p>
 
-<h2>REST: The Most Common API Style</h2>
+<h2>REST — The Default</h2>
 
-<p><strong>REST</strong> (Representational State Transfer) is the dominant API style. It's not a standard — it's more like a set of conventions that became standard through popularity.</p>
+<p>REST (Representational State Transfer) isn't a protocol. It's an architectural style — a set of constraints Roy Fielding laid out in his 2000 dissertation. Most "REST APIs" barely follow them.</p>
 
-<p>RESTful APIs organize around <strong>resources</strong> (nouns, not verbs):</p>
+<p>A true REST API:</p>
 
-<pre><code>GET    /users        — List all users
-GET    /users/123    — Get specific user
-POST   /users        — Create new user
-PUT    /users/123    — Update user
-DELETE /users/123    — Delete user</code></pre>
+<ul>
+<li>Uses nouns for resources: <code>/users</code>, <code>/orders/123</code>, not <code>/getUser</code></li>
+<li>Uses HTTP methods as intended</li>
+<li>Returns hypermedia links (HATEOAS) — responses include URLs to related resources</li>
+<li>Is stateless — each request contains everything needed to process it</li>
+</ul>
 
-<p>See the pattern? The URL describes the resource. The method describes the action. Simple, predictable, everywhere.</p>
+<p>Most APIs called "REST" today are really "HTTP APIs with JSON." That's fine. But it's worth knowing what the original concept was.</p>
 
-<h3>Status Codes: The API's Mood</h3>
+<pre><code>GET    /api/users          # List users
+POST   /api/users          # Create user
+GET    /api/users/123      # Get user 123
+PUT    /api/users/123      # Replace user 123
+PATCH  /api/users/123      # Update user 123
+DELETE /api/users/123      # Delete user 123</code></pre>
 
-<p>Every response includes a <strong>status code</strong> — a three-digit number that tells you what happened:</p>
+<h2>GraphQL — One Endpoint, Infinite Flexibility</h2>
 
-<pre><code>200 OK           — Success
-201 Created      — Something new was made
-204 No Content   — Success, but nothing to return
+<p>Facebook built GraphQL in 2012, open-sourced in 2015. The pitch: over-fetching and under-fetching are solved. Instead of dozens of endpoints, you get one.</p>
 
-400 Bad Request  — You sent something wrong
-401 Unauthorized — Who are you?
-403 Forbidden    — I know who you are, but no
-404 Not Found    — That thing doesn't exist
-429 Too Many     — Slow down
-
-500 Server Error — Their problem, not yours</code></pre>
-
-<p>If you've ever seen "404" on a webpage, you already know this. APIs use the same codes.</p>
-
-<h2>GraphQL: The Alternative</h2>
-
-<p><strong>GraphQL</strong> (created by Facebook) is an alternative to REST. Instead of multiple endpoints, you send one query and get exactly what you ask for.</p>
-
-<p>REST example — three requests to get user, posts, and comments:</p>
+<p>Instead of:</p>
 
 <pre><code>GET /users/123
 GET /users/123/posts
-GET /users/123/comments</code></pre>
+GET /users/123/followers</code></pre>
 
-<p>GraphQL example — one request, exact fields:</p>
+<p>You send one query:</p>
 
-<pre><code>query {
-  user(id: 123) {
+<pre><code>POST /graphql
+{
+  user(id: "123") {
     name
-    posts { title }
-    comments { text }
+    posts(first: 5) { title }
+    followers { name }
   }
 }</code></pre>
 
-<p>GraphQL gives you flexibility, but adds complexity. You need to learn its query language, and caching is harder. REST is simpler and works fine for most cases.</p>
+<p>The client specifies exactly what it needs. No more downloading unused fields.</p>
 
-<h2>Authentication: Who Are You?</h2>
+<div class="comparison">
+  <div class="comparison-item">
+    <h3>REST</h3>
+    <ul>
+      <li>Many endpoints</li>
+      <li>Fixed response shape</li>
+      <li>Caching trivial (HTTP)</li>
+      <li>Simple to reason about</li>
+    </ul>
+  </div>
+  <div class="comparison-item">
+    <h3>GraphQL</h3>
+    <ul>
+      <li>One endpoint</li>
+      <li>Client selects fields</li>
+      <li>Caching harder</li>
+      <li>Flexible but complex</li>
+    </ul>
+  </div>
+</div>
 
-<p>APIs need to know who is making a request. Common methods:</p>
+<p>GraphQL's flexibility comes with cost: N+1 query problems, complex caching, harder rate limiting. It's great for complex frontends. It's overkill for simple CRUD apps.</p>
+
+<h2>gRPC — The Performance Path</h2>
+
+<p>gRPC (Google RPC) uses HTTP/2 and Protocol Buffers instead of JSON. That's the key difference — binary serialization instead of text.</p>
+
+<p>You define your API in <code>.proto</code> files:</p>
+
+<pre><code>service UserService {
+  rpc GetUser (UserRequest) returns (User);
+  rpc ListUsers (ListRequest) returns (UserList);
+}
+
+message UserRequest {
+  string id = 1;
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}</code></pre>
+
+<p>Then generate code in any language. The serialization is tiny (binary) and fast. Browser support exists but requires gRPC-Web proxies.</p>
+
+<p>Use gRPC when:</p>
+
+<ul>
+<li>Microservices talking to each other</li>
+<li>Extremely low latency matters</li>
+<li>You're in a polyglot environment</li>
+</ul>
+
+<p>Don't use gRPC for public APIs. JSON over HTTP is fine for 99% of use cases.</p>
+
+<h2>Authentication</h2>
+
+<p>APIs need to know who is making requests. Here's how that works:</p>
 
 <h3>API Keys</h3>
 
-<p>The simplest method. You get a secret string when you sign up, include it in every request:</p>
+<p>The simplest method. A long random string passed in a header:</p>
 
-<pre><code>GET /data?api_key=sk_live_123456789</code></pre>
+<pre><code>Authorization: ApiKey your_secret_key_here</code></pre>
 
-<p>Pros: Easy. Cons: If leaked, attacker has full access. Good for server-to-server, bad for user-facing apps.</p>
+<p>Pros: Simple. Cons: No expiration, no granular permissions, no way to revoke without changing the key.</p>
 
-<h3>OAuth 2.0</h3>
+<h3>Bearer Tokens (OAuth 2.0)</h3>
 
-<p>The standard for "Login with Google/Twitter/etc." Instead of sharing your password, you get a temporary <strong>access token</strong>. The API checks the token, not your credentials.</p>
+<p>The standard for modern APIs. You get a token (often JWT) after authenticating. Send it with each request:</p>
 
-<p>Flow:</p>
+<pre><code>Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</code></pre>
 
-<ol>
-<li>Your app redirects user to Google</li>
-<li>User logs in, approves</li>
-<li>Google redirects back with a code</li>
-<li>Your app exchanges code for access token</li>
-<li>Use token for API calls</li>
-</ol>
+<p>Tokens can expire, can be scoped to specific permissions, can be revoked individually. This is why OAuth tokens are short-lived (minutes to hours) — refresh tokens handle the rest.</p>
 
-<p>OAuth is complex but worth it. It separates authentication (who you are) from authorization (what you can do).</p>
+<h3>Signed Requests</h3>
 
-<h3>JSON Web Tokens (JWT)</h3>
-
-<p>A <strong>JWT</strong> is a signed token that contains user info. The server verifies the signature (no database lookup needed) and trusts the payload.</p>
-
-<pre><code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</code></pre>
-
-<p>Great for scalability (no session store needed). The catch: you can't revoke a JWT until it expires. That's why refresh tokens exist.</p>
-
-<h2>Versioning: When Things Change</h2>
-
-<p>APIs evolve. You add fields, change formats, deprecate endpoints. But existing clients break if you change things out from under them.</p>
-
-<p>Common versioning strategies:</p>
-
-<pre><code>URL path:      api.example.com/v1/users
-Query param:   api.example.com/users?version=1
-Header:        Accept: application/vnd.api+json;version=1</code></pre>
-
-<p>Most people use URL versioning. It's visible, easy to understand, and lets you run old and new versions in parallel.</p>
-
-<h2>Rate Limiting: Don't Break the Server</h2>
-
-<p>APIs limit how many requests you can make in a time window. Common limits: 60 requests/minute, 1000 requests/day.</p>
-
-<p>When you hit the limit:</p>
-
-<pre><code>429 Too Many Requests
-Retry-After: 60</code></code></pre>
-
-<p>The <code>Retry-After</code> header tells you how many seconds to wait. Respect it. Ignore rate limits and you'll get banned.</p>
-
-<h2>Webhooks: When the Server Calls You</h2>
-
-<p>Normal APIs are <strong>pull</strong> — you ask, they answer. <strong>Webhooks</strong> are <strong>push</strong> — the server calls you when something happens.</p>
-
-<p>Example: Stripe calls your server when someone pays:</p>
-
-<pre><code>POST https://yoursite.com/webhook
-{
-  "event": "payment.succeeded",
-  "data": { "amount": 5000, "currency": "usd" }
-}</code></pre>
-
-<p>Webhooks need to be secure. Anyone can POST to your endpoint and fake a payment. Always verify the signature.</p>
-
-<h2>Real-World Examples</h2>
+<p>For APIs without authentication servers, you sign requests with a secret key using HMAC. AWS S3 uses this. Each request includes:</p>
 
 <ul>
-<li><strong>Weather:</strong> OpenWeatherMap API — send coordinates, get temperature, humidity, forecast.</li>
-<li><strong>Payments:</strong> Stripe API — create payments, manage subscriptions, handle webhooks for events.</li>
-<li><strong>Maps:</strong> Google Maps API — geocoding, directions, places search.</li>
-<li><strong>Social:</strong> Twitter/X API — post tweets, search, get user data.</li>
+<li>Timestamp</li>
+<li>Signature (HMAC-SHA256 of request + timestamp)</li>
+<li>Access key ID (identifies who you are)</li>
 </ul>
 
-<h2>Why This Matters</h2>
+<p>The server verifies the signature matches the secret it knows.</p>
 
-<p>APIs are invisible infrastructure. You use dozens of them every day without knowing. Understanding how they work — the request/response cycle, authentication, error handling — makes you a better developer and a smarter user of technology.</p>
+<h2>Rate Limiting</h2>
 
-<p>Next time your app "calls the server," you'll know exactly what's happening under the hood.</p>
+<p>APIs limit requests to prevent abuse. The standard way to communicate limits:</p>
+
+<pre><code>X-RateLimit-Limit: 1000      # requests allowed per window
+X-RateLimit-Remaining: 423   # requests left in current window
+X-RateLimit-Reset: 1646947200 # Unix timestamp when window resets</code></pre>
+
+<p>When exceeded: <code>429 Too Many Requests</code>.</p>
+
+<p>Rate limiting strategies:</p>
+
+<ul>
+<li><strong>Fixed window</strong> — Reset every minute/hour. Easy but allows bursts at boundaries.</li>
+<li><strong>Sliding window</strong> — More accurate, tracks individual request timestamps. Harder to implement.</li>
+<li><strong>Token bucket</strong> — Tokens added at a rate, spent per request. Smooths traffic.</li>
+</ul>
+
+<h2>Versioning</h2>
+
+<p>APIs change. You need to tell clients when you break things. Common strategies:</p>
+
+<table>
+<tr><th>Method</th><th>Example</th><th>Pros</th><th>Cons</th></tr>
+<tr><td>URL path</td><td><code>/v1/users</code></td><td>Clear, easy</td><td>Duplicated endpoints</td></tr>
+<tr><td>Query param</td><td><code>/users?version=1</code></td><td>Single endpoint</td><td>Caching issues</td></tr>
+<tr><td>Header</td><td><code>Accept: application/vnd.api.v1+json</td><td>Clean URLs</td><td>Harder to test</td></tr>
+</table>
+
+<p>Most APIs use URL path versioning. It's simple, works with HTTP caching, and is easy to understand.</p>
+
+<h2>Error Handling</h2>
+
+<p>JSON APIs should return consistent error formats:</p>
+
+<pre><code>{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Email is required",
+    "details": [
+      { "field": "email", "message": "This field is required" }
+    ]
+  }
+}</code></pre>
+
+<p>Don't return raw strings. Don't return HTML on errors (looking at you, Express default). Return structured errors the client can parse and display.</p>
+
+<div class="warning">
+<p><strong>The API Paradox:</strong> The better your API, the less anyone thinks about it. The worst APIs are the ones that are "fine" — they work just well enough that no one complains, but they friction every single integration. Good APIs are invisible. Bad ones are remembered.</p>
+</div>
+
+<h2>What Actually Matters</h2>
+
+<p>If you're building an API:</p>
+
+<ul>
+<li><strong>Use REST for CRUD</strong> — it's the lingua franca, everyone's familiar</li>
+<li><strong>Use GraphQL when frontend flexibility is critical</strong> — complex dashboards, mobile apps with varying needs</li>
+<li><strong>Use gRPC internally</strong> — microservices, high-performance systems</li>
+<li><strong>Version from day one</strong> — /v1/ is your friend</li>
+<li><strong>Document with examples</strong> — curl commands anyone can run</li>
+<li><strong>Return consistent error formats</strong> — your integrators will thank you</li>
+</ul>
+
+<p>The "best" API is the one that gets out of the way. Everything else is religious debate.</p>
 
 </div>
 </body>
