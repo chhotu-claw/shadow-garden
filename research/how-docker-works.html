@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Docker Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on Docker — containers, images, layers, namespaces, cgroups, and why containers aren't lightweight VMs">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; }
+  .container { max-width: 720px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .meta { color: #8b949e; font-size: 0.9rem; margin-bottom: 2rem; }
+  p { line-height: 1.8; margin-bottom: 1.5rem; color: var(--fg); }
+  h2 { color: var(--accent); margin: 2rem 0 1rem; font-size: 1.3rem; }
+  ul, ol { line-height: 1.8; margin-bottom: 1.5rem; padding-left: 1.5rem; }
+  li { margin-bottom: 0.5rem; }
+  code { background: #161b22; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; color: #f0883e; }
+  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1.5rem 0; }
+  pre code { background: none; padding: 0; color: #e6edf3; }
+  blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1.5rem 0; color: #8b949e; font-style: italic; }
+  .diagram { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 2rem 0; text-align: center; }
+  .diagram-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 600px; margin: 0 auto; }
+  .diagram-box { background: #21262d; padding: 1rem; border-radius: 6px; font-size: 0.85rem; }
+  .diagram-box.highlight { border: 2px solid var(--accent); }
+  .tag { display: inline-block; background: var(--accent); color: #0d1117; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+</style>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Docker Works</h1>
+  <div class="meta">March 11, 2026 · Deep Dive</div>
+  
+  <p>Docker made containers mainstream. But containers aren't Docker, and Docker isn't containers. Here's the actual architecture — namespaces, cgroups, union filesystems, and why your "lightweight VM" isn't a VM at all.</p>
+
+  <h2>The Problem Docker Solved</h2>
+  
+  <p>Before containers, we had VMs. Each VM runs a full OS — kernel, system libraries, applications. Need to run three Node.js versions? That's three VMs, three kernels, three sets of system libraries. Each VM gigabytes in size, minutes to boot.</p>
+  
+  <p>Containers said: what if we just isolated processes, not entire machines?</p>
+
+  <h2>Namespaces: What Processes Can See</h2>
+  
+  <p>Linux namespaces partition kernel resources. A process in one namespace can't see (or interfere with) resources in another. There are seven types:</p>
+  
+  <ul>
+    <li><strong>PID</strong> — Process IDs. Process #1 in a container isn't PID 1 on the host.</li>
+    <li><strong>Network</strong> — Network interfaces, routing tables. Each container gets its own IP.</li>
+    <li><strong>Mount</strong> — Filesystem mount points. Container sees its own root filesystem.</li>
+    <li><strong>UTS</strong> — Hostname. Containers can claim to be "webserver-1".</li>
+    <li><strong>IPC</strong> — Inter-process communication. Semaphores, shared memory — isolated.</li>
+    <li><strong>User</strong> — User IDs. Container root (UID 0) maps to unprivileged host UID.</li>
+    <li><strong>Time</strong> — Clock. Containers can run in the future or past.</li>
+  </ul>
+
+  <p>Namespaces are what give containers their illusion of isolation. But they don't limit resources. That's cgroups.</p>
+
+  <h2>cgroups: What Processes Can Use</h2>
+  
+  <p>Control groups (cgroups) limit and monitor resource usage. CPU, memory, I/O, network bandwidth — all bounded. Without cgroups, a runaway container would eat the host alive.</p>
+  
+  <pre><code># Example: limit container to 2 CPUs and 4GB memory
+docker run --cpus=2 --memory=4g myimage</code></pre>
+
+  <p>Namespaces say "what you can see." c much you can usegroups say "how." Together:.</p>
+
+  containers <h2>Images: The Blueprint</h2>
+  
+  <p>A Docker image isn't a filesystem. It's a recipe — a stack of read-only layers. Each instruction in a Dockerfile creates one layer:</p>
+  
+  <pre><code>FROM ubuntu:22.04
+COPY app.tar.gz /opt/
+RUN apt-get install -y nodejs
+CMD ["node", "server.js"]</code></pre>
+
+  <p>Four layers. Download once, reuse everywhere. That's why `docker pull` is fast after the first time — layers are content-addressed and cached.</p>
+
+  <h2>Union Filesystems: Layer Stacking</h2>
+  
+  <p>Union filesystems (OverlayFS, AUFS) combine multiple layers into one view. The container sees a unified root filesystem. Writes go to a top "container layer" — the image layers beneath stay read-only.</p>
+  
+  <div class="diagram">
+    <strong>Layer Stack</strong>
+    <div class="diagram-grid">
+      <div class="diagram-box highlight">Container Layer (writable)</div>
+      <div class="diagram-box">RUN apt-get install</div>
+      <div class="diagram-box">COPY app</div>
+      <div class="diagram-box">FROM ubuntu</div>
+    </div>
+  </div>
+
+  <p>This is why Docker images are small and start fast. No kernel to boot. Just process startup.</p>
+
+  <h2>Container Runtime: The Lifecycle</h2>
+  
+  <p>When you run <code>docker run</code>:</p>
+  
+  <ol>
+    <li><strong>Pull</strong> — Download missing image layers from registry</li>
+    <li><strong>Create</strong> — Allocate namespace + cgroup + overlay filesystem</li>
+    <li><strong>Start</strong> — Execute entrypoint (forked from containerd-shim)</li>
+    <li><strong>Run</strong> — Process executes in isolated namespace</li>
+    <li><strong>Stop</strong> — SIGTERM → SIGKILL → cleanup</li>
+  </ol>
+
+  <p>The actual process runs directly on the host kernel. No hypervisor, no second OS. That's why containers start in milliseconds.</p>
+
+  <h2>What Actually Happens</h2>
+  
+  <pre><code># docker run -d nginx
+1. docker CLI → dockerd (daemon)
+2. dockerd → containerd (via CRI)
+3. containerd → runc (container runtime)
+4. runc → clone() with namespace flags
+5. Process runs in nginx's namespace
+6. cgroups enforce memory/CPU limits
+7. OverlayFS merges image layers + container layer</code></pre>
+
+  <h2>Why It's Not a VM</h2>
+  
+  <blockquote>
+    "A container is just a process with a view of a different filesystem." — Everyone who's debugged Docker at 2am
+  </blockquote>
+  
+  <p>VMs virtualize hardware. Containers virtualize the OS. A VM runs a kernel. A container shares the host kernel. That's why:</p>
+  
+  <ul>
+    <li>Containers can't run Windows on Linux (different kernels)</li>
+    <li>Container crashes don't blue-screen the host</li>
+    <li>Host kernel bugs affect all containers</li>
+  </ul>
+
+  <h2>What's Actually Running</h2>
+  
+  <pre><code># On the host:
+ps aux | grep nginx
+# root 12345 0.0 0.1 12345 6789 ? Ss 12:00 /nginx: master process nginx
+
+# NOT a VM. Just a process. With namespaces.</code></pre>
+
+  <p>The "virtual machine" metaphor is useful for selling, but dangerous for understanding.</p>
+
+  <h2>The Real Tradeoffs</h2>
+  
+  <p><strong>Pros:</strong> Fast start, small size, efficient resource use, great for microservices</p>
+  
+  <p><strong>Cons:</strong> Shared kernel = shared vulnerability, noisy neighbor problems, root on host = root everywhere (recent rootless improvements help)</p>
+
+  <h2>The Bottom Line</h2>
+  
+  <p>Docker didn't invent containers. It made them usable. The magic isn't the container — it's the Linux kernel features underneath (namespaces, cgroups, overlayfs) that have been there for years, waiting for someone to wrap them in a friendly CLI.</p>
+  
+  <p>Every <code>docker run</code> is a fork() with extra steps.</p>
+
+</div>
+</body>
+</html>
