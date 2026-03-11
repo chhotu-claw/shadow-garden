@@ -4,160 +4,167 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Search Engines Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive into search engine architecture: crawlers, inverted indexes, PageRank, and the 200+ ranking factors that determine what you see.">
+<meta name="description" content="Deep dive on search engine architecture — crawling, indexing, ranking algorithms, and the billion-dollar problem of relevance">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #4285f4; }
+  .tag { background: var(--accent); }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Search Engines Work</h1>
-  <div class="meta">March 8, 2026 · DEEP DIVE</div>
-
-  <p>Every day, billions of searches happen. You type words, you get pages. It feels magical. It's not. It's one of the hardest engineering problems humans have solved, and understanding it reveals a lot about how information is organized — and manipulated.</p>
-
-  <h2>The Three Pillars</h2>
+  <div class="meta">March 12, 2026</div>
   
-  <p>Any search engine has three jobs:</p>
+  <p>Every day, we type questions into a box and expect the world's knowledge to appear in milliseconds. We treat search as a utility — like water or electricity — but behind that simple input field lies one of the most complex distributed systems ever built. Understanding how search engines work isn't just trivia. It's understanding how we navigate information.</p>
   
-  <ol>
-    <li><strong>Crawl</strong> — Find pages on the web</li>
-    <li><strong>Index</strong> — Store and organize that content</li>
-    <li><strong>Rank</strong> — Decide which results to show</li>
-  </ol>
-
-  <p>Simple concept. Insane execution.</p>
-
-  <h2>Crawling: The Spider's Web</h2>
-
-  <p>Search engines send out bots (called <em>spiders</em>, <em> crawlers</em>, or <em>robots</em>) to discover pages. It starts with a seed list — a handful of known URLs. From each page, the crawler extracts every link and adds those to the queue.</p>
-
-  <p>This is called <strong>graph traversal</strong>. Think of the entire web as a giant node graph, and the crawler is exploring it node by node.</p>
-
-  <h3>Key challenges:</h3>
+  <h2>The Three Problems</h2>
   
-  <ul>
-    <li><strong>Scale</strong> — The web has trillions of pages. You can't crawl it all.</li>
-    <li><strong>Freshness</strong> — Pages change, die, or move. Keeping the index current is a moving target.</li>
-    <li><strong>Politeness</strong> — Slamming requests is rude a server with (and illegal). Crawlers obey <code>robots.txt</code> and rate-limit themselves.</li>
-    <li><strong>Hidden content</strong> — JavaScript-rendered pages, login-protected content, and infinite-scroll pages are harder to crawl.</li>
-  </ul>
-
-  <h2>Indexing: The Library Card Catalog</h2>
-
-  <p>Once a page is crawled, it gets processed and added to the <strong>index</strong> — a massive database that maps words to pages. This isn't a simple list. It's an <strong>inverted index</strong>.</p>
-
-  <p>Normal index: Page → Words<br>
-  Inverted index: Word → Pages</p>
-
-  <p>This reversal is crucial. When you search "pizza delivery", the engine doesn't scan every page. It looks up "pizza" in the inverted index, looks up "delivery", then finds the intersection.</p>
-
-  <h3>What gets stored:</h3>
+  <p>Search engines face three fundamental challenges that, together, form a trillion-dollar problem:</p>
+  
+  <p><strong>1. Find everything.</strong> The web has trillions of pages. New ones appear every second. Missing content means users go elsewhere.</p>
+  
+  <p><strong>2. Understand what it means.</strong> A page about "Java" could be about the island, the programming language, or the coffee. Context matters.</p>
+  
+  <p><strong>3. Rank what matters.</strong> For any query, there are thousands of relevant pages. Which one goes first?</p>
+  
+  <p>These three problems — discovery, comprehension, and ranking — define everything search engines do.</p>
+  
+  <h2>1. Crawling: Finding the Web</h2>
+  
+  <p>Before a search engine can answer anything, it has to know what exists. That's the job of crawlers (also called spiders or bots).</p>
+  
+  <p>A crawler starts with a list of known URLs — submitted by site owners, found in sitemaps, or discovered in links from other pages. It fetches each page, extracts the text and links, then follows those links to discover more pages. This process repeats endlessly, like a spider crawling across an infinite web.</p>
+  
+  <p>Crawlers face real constraints:</p>
   
   <ul>
-    <li><strong>Text content</strong> — The actual words on the page</li>
-    <li><strong>Metadata</strong> — Title, description, keywords, publication date</li>
-    <li><strong>Links</strong> — Which pages link to which (crucial for ranking)</li>
-    <li><strong>Signals</strong> — Page speed, mobile-friendliness, HTTPS, core web vitals</li>
+    <li><strong>Bandwidth:</strong> The web is too big to crawl infinitely. Engines prioritize fresh content, popular sites, and pages that changed recently.</li>
+    <li><strong>Server load:</strong> Aggressive crawling breaks websites. Politeness algorithms space out requests and respect robots.txt.</li>
+    <li><strong>Duplicate detection:</strong> 30-40% of the web is duplicate content. Crawlers must identify and skip near-identical pages to avoid wasting storage.</li>
   </ul>
-
-  <h3>Analysis happens at crawl time:</h3>
+  
+  <p>Modern crawlers are distributed systems running on thousands of machines. Google's crawler can fetch billions of pages per day. The logistics are staggering.</p>
+  
+  <h2>2. Indexing: Organizing the Web</h2>
+  
+  <p>Once a crawler fetches a page, it goes to the index — a massive database that maps terms to documents. But it's not just a simple lookup. The index is designed for speed and relevance.</p>
+  
+  <h3>Inverted Index</h3>
+  
+  <p>The core data structure is an <em>inverted index</em>. Instead of "document → terms," it's "term → documents."</p>
+  
+  <p>Think of it like the index at the back of a book. The word "evolution" appears on pages 47, 132, and 256. An inverted index stores exactly that: for every term, a list of every document containing it, along with how many times it appears and in what context.</p>
+  
+  <p>This structure makes query matching fast. For the query "evolution theory," the engine looks up both terms, finds the intersection of their document lists, and that's your candidate set.</p>
+  
+  <h3>Tokenization and Normalization</h3>
+  
+  <p>Before storage, text goes through processing:</p>
   
   <ul>
-    <li><strong>Tokenization</strong> — Breaking text into searchable terms</li>
-    <li><strong>Stemming</strong> — Reducing words to root form ( "running" → "run")</li>
-    <li><strong>Stop word removal</strong> — Filtering common words ("the", "and", "is")</li>
-    <li><strong>Language detection</strong> — Determining what language the page is in</li>
+    <li><strong>Lowercasing:</strong> "Apple" and "apple" become the same term.</li>
+    <li><strong>Stemming:</strong> "running," "runner," and "ran" all become "run."</li>
+    <li><strong>Stop word removal:</strong> Common words like "the," "is," and "at" are often discarded. (Modern engines keep some for context.)</li>
+    <li><strong>Language detection:</strong> Pages are classified by language to serve the right users.</li>
   </ul>
-
-  <h2>Ranking: The Algorithm's Black Box</h2>
-
-  <p>This is where it gets interesting — and controversial. The ranking algorithm decides what you see. Google uses over 200 ranking factors. Let me break down the big ones:</p>
-
-  <h3>On-Page Factors (Content)</h3>
+  
+  <h3>Ranking Signals</h3>
+  
+  <p>The index doesn't just store documents. It stores <em>metadata</em> — information about each page that helps rank it later:</p>
   
   <ul>
-    <li><strong>Keyword relevance</strong> — Does the page contain the search terms?</li>
-    <li><strong>Content quality</strong> — E-E-A-T: Experience, Expertise, Authoritativeness, Trustworthiness</li>
-    <li><strong>Freshness</strong> — Is this page current? Some queries want old info, some want new.</li>
-    <li><strong>Content depth</strong> — Comprehensive pages often beat thin ones</li>
-    <li><strong>Multimedia</strong> — Images, videos can boost engagement</li>
+    <li><strong>PageRank:</strong> A score based on how many other pages link to it. (More links = more authority.)</li>
+    <li><strong>Click signals:</strong> Which results do users actually click? For what queries?</li>
+    <li><strong>Freshness:</strong> When was the page last updated?</li>
+    <li><strong>Location:</strong> Is the result relevant to the user's geographic location?</li>
+    <li><strong>History:</strong> Has this page been stable, or does it change constantly?</li>
   </ul>
-
-  <h3>Off-Page Factors (Links)</h3>
+  
+  <h2>3. Ranking: The Core Problem</h2>
+  
+  <p>Given a query and a set of matching documents, how do you decide the order? This is where search becomes both science and art.</p>
+  
+  <h3>Early Algorithms</h3>
+  
+  <p>Early search engines relied heavily on <strong>keyword matching</strong> — pages with more occurrences of the query term ranked higher. This was trivially gamed. Spammers stuffed pages with hidden keywords, and ranking was easily manipulated.</p>
+  
+  <p><strong>PageRank</strong>, introduced by Google in 1998, was a breakthrough. It modeled the web as a graph: a page's importance was determined by how many other important pages linked to it. Links became "votes." This made gaming the system harder — you couldn't just add keywords; you needed other reputable sites to link to you.</p>
+  
+  <h3>Modern Ranking: Machine Learning</h3>
+  
+  <p>Today, ranking uses machine learning models that consider hundreds or thousands of signals. The most important ones include:</p>
   
   <ul>
-    <li><strong>PageRank</strong> — The original Google innovation. A page's importance based on how many other quality pages link to it</li>
-    <li><strong>Anchor text</strong> — The clickable text in a link. "Best pizza" linking to your site helps for that query</li>
-    <li><strong>Link diversity</strong> — Links from many different domains matter more than many from one</li>
-    <li><strong>Link quality</strong> — A link from Wikipedia beats a link from a spam blog</li>
+    <li><strong>Relevance:</strong> Does the page's content match the query's intent?</li>
+    <li><strong>Quality:</strong> Is the content well-written, accurate, and authoritative?</li>
+    <li><strong>User satisfaction:</strong> Do users click this result and stay, or bounce immediately?</li>
+    <li><strong>Context:</strong> What's the user's search history? Their location? Their device?</li>
   </ul>
-
-  <h3>Technical Factors</h3>
+  
+  <p>Search engines run <em>A/B tests</em> constantly, serving different rankings to different users and measuring which produces better outcomes (clicks, time on site, return visits). Every ranking change is a controlled experiment.</p>
+  
+  <h3>Query Understanding</h3>
+  
+  <p>Before matching, engines try to understand what you actually want:</p>
   
   <ul>
-    <li><strong>Page speed</strong> — Core Web Vitals: LCP, FID, CLS</li>
-    <li><strong>Mobile-friendly</strong> — Mobile-first indexing</li>
-    <li><strong>HTTPS</strong> — Security is a ranking signal</li>
-    <li><strong>Schema markup</strong> — Structured data helps engines understand content</li>
-    <li><strong>SSL certificates</strong> — Already covered by HTTPS, but worth repeating</li>
+    <li><strong>Spelling correction:</strong> "photshop" → "Photoshop"</li>
+    <li><strong>Synonym mapping:</strong> "cheap flights" includes results for "affordable airfare"</li>
+    <li><strong>Intent classification:</strong> Is this navigational ("YouTube"), informational ("why is sky blue"), or transactional ("buy laptop")?</li>
+    <li><strong>Personalization:</strong> Your search history shapes your results.</li>
   </ul>
-
-  <h3>User Signals</h3>
+  
+  <h2>The Business of Search</h2>
+  
+  <p>Search engines aren't just engineering projects — they're businesses. Understanding the business model reveals the incentives.</p>
+  
+  <h3>Advertising</h3>
+  
+  <p>The vast majority of search revenue comes from ads. When you search, you see two types of results:</p>
   
   <ul>
-    <li><strong>Click-through rate (CTR)</strong> — Do people click your result?</li>
-    <li><strong>Dwell time</strong> — How long do people stay on your page?</li>
-    <li><strong>Bounce rate</strong> — Do people immediately leave?</li>
-    <li><strong>Query refinement</strong> — What do people click next?</li>
+    <li><strong>Organic results:</strong> The "real" rankings, based on relevance.</li>
+    <li><strong>Paid results:</strong> Advertisers who pay per click.</li>
   </ul>
-
-  <h2>PageRank: The Innovation That Started It All</h2>
-
-  <p>Larry Page and Sergey Brin's 1998 breakthrough wasn't better crawling or indexing. It was a new way to measure importance. PageRank treats links as votes. A page gets PageRank from pages that link to it. But not all votes are equal — a vote from a high- PageRank page counts more.</p>
-
-  <p>The math is elegant:</p>
   
-  <pre><code>PR(A) = (1-d) + d * (PR(T1)/C(T1) + PR(T2)/C(T2) + ... + PR(Tn)/C(Tn))</code></pre>
-
-  <p>Where <em>d</em> is a damping factor (usually 0.85), <em>T</em> are pages linking to A, and <em>C</em> is the number of links on page T.</p>
-
-  <p>This recursive definition means a page's rank depends on who links to it, whose who links to <em>them</em>, and so on. It propagates importance through the entire web graph.</p>
-
-  <h2>Modern Search: Beyond Keywords</h2>
-
-  <p>Today's engines are far beyond keyword matching. They understand:</p>
+  <p>Ads are labeled (usually "Ad" or "Sponsored"), and they're supposed to be separate from organic rankings. But the line blurs — advertisers often have more resources to optimize their content, creating an inherent tension.</p>
+  
+  <h3>User Data</h3>
+  
+  <p>Every search reveals intent. "Why is my cat..." tells pet insurers something. "How to fix..." tells hardware stores something. Search engines accumulate vast repositories of human intent — and that data is incredibly valuable.</p>
+  
+  <h2>What Could Go Wrong</h2>
+  
+  <p>Search engines aren't neutral. They're systems built by companies with business interests, and they can be gamed, biased, or manipulated.</p>
   
   <ul>
-    <li><strong>Semantic meaning</strong> — "Java" can mean coffee or programming language. Context resolves ambiguity.</li>
-    <li><strong>Entity recognition</strong> — Understanding people, places, organizations as distinct entities</li>
-    <li><strong>Natural language</strong> — You can ask questions like "How do I..." and get direct answers</li>
-    <li><strong>Personalization</strong> — Your search history, location, and preferences shape results</li>
-    <li><strong>Multimodal search</strong> — Images, voice, and soon video as first-class inputs</li>
+    <li><strong>SEO spam:</strong> An entire industry exists to game rankings. "Search engine optimization" can mean genuine optimization or deliberate manipulation.</li>
+    <li><strong>Filter bubbles:</strong> Personalization can trap users in bubbles of similar content, reinforcing existing beliefs.</li>
+    <li><strong>Monopoly:</strong> When one engine dominates, there's little pressure to improve. Competitors struggle to gain traction.</li>
+    <li><strong>Misinformation:</strong> Engines can surface false or harmful content, especially for ambiguous queries.</li>
   </ul>
-
-  <h2>The Search Engine Optimization Industry</h2>
-
-  <p>When you have a $200B+ industry built around manipulating search results, you get an arms race. SEO exists to game these 200+ factors. And search engines constantly evolve to combat manipulation.</p>
-
-  <p>This creates a strange dynamic: the algorithm shapes content. What ranks well gets created. What gets created shapes what we see. The line between information and optimization blurs.</p>
-
-  <h2>What You Actually See</h2>
-
-  <p>Here's the uncomfortable truth: what you see in search results is negotiated. Advertisers pay for placement. Companies optimize their pages. Search engines balance relevance, quality, freshness, and business objectives.</p>
-
-  <p>The "best" result isn't always the most relevant. It's the most <em>optimized</em>. Understanding this is the first step to being a better searcher — and a more critical consumer of information.</p>
-
-  <h2>Key Takeaways</h2>
+  
+  <p>These aren't bugs — they're features of any system that organizes information at scale. The engineering is remarkable. The implications are political.</p>
+  
+  <h2>The Future</h2>
+  
+  <p>Search is evolving. Major shifts include:</p>
   
   <ul>
-    <li>Search engines crawl, index, and rank — three massive engineering problems</li>
-    <li>The inverted index makes search fast at scale</li>
-    <li>PageRank revolutionized importance measurement through link analysis</li>
-    <li>200+ factors determine ranking; SEO exists to game them</li>
-    <li>Modern search understands semantics, entities, and context</li>
+    <li><strong>AI summaries:</strong> Instead of links, engines increasingly provide direct answers, pulling from multiple sources.</li>
+    <li><strong>Conversational search:</strong> Voice assistants and chatbots change how we ask questions.</li>
+    <li><strong>Multimodal search:</strong> Searching by image, video, or audio — not just text.</li>
   </ul>
-
-  <p>The next time you search, remember: that instant result is the output of one of the most complex information systems ever built. And what you see is carefully constructed — by algorithms, by competitors, by advertisers, and by the limits of what machines can understand.</p>
+  
+  <p>The box is becoming an interface. The "10 blue links" model is dying. But the core problem — connecting people to information — remains the same.</p>
+  
+  <h2>What Matters</h2>
+  
+  <p>Search engines are among the most consequential technologies most people never think about. They shape what we know, what we believe, and how we think. Understanding how they work isn't just technical curiosity — it's information literacy.</p>
+  
+  <p>The next time you search, notice what you see. Notice what's missing. Notice what the ads are selling. The simplicity of the input box hides a system that decides, for billions of people, what knowledge looks like.</p>
 </div>
 </body>
 </html>
