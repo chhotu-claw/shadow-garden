@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JWT Decoder — Shadow's Garden</title>
+<meta name="description" content="Decode and inspect JWT tokens in real-time">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --header-bg: #f85149; --payload-bg: #a371f7; --sig-bg: #3fb950; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  textarea { width: 100%; min-height: 100px; padding: 0.75rem 1rem; background: #161b22; border: 2px solid var(--border); border-radius: 8px; color: var(--fg); font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; resize: vertical; box-sizing: border-box; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: #484f58; }
+  
+  .token-parts { display: none; margin-top: 1.5rem; }
+  .token-parts.visible { display: block; }
+  
+  .part { background: #161b22; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+  .part-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+  .part-label { font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .part-header.header-part { background: rgba(248, 81, 73, 0.1); }
+  .part-header.header-part .part-label { color: var(--header-bg); }
+  .part-header.payload-part { background: rgba(163, 113, 247, 0.1); }
+  .part-header.payload-part .part-label { color: var(--payload-bg); }
+  .part-header.sig-part { background: rgba(63, 185, 80, 0.1); }
+  .part-header.sig-part .part-label { color: var(--sig-bg); }
+  
+  .copy-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { background: #30363d; color: var(--fg); }
+  .copy-btn.copied { background: var(--sig-bg); color: #0d1117; border-color: var(--sig-bg); }
+  
+  .part-content { padding: 1rem; }
+  .part-content pre { margin: 0; font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: var(--fg); }
+  
+  .claims { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .claims-title { font-weight: 600; font-size: 0.8rem; color: #8b949e; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .claim-row { display: flex; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-family: monospace; font-size: 0.85rem; }
+  .claim-row:last-child { border-bottom: none; }
+  .claim-key { color: var(--accent); min-width: 140px; }
+  .claim-value { color: var(--fg); word-break: break-all; }
+  .claim-value.expired { color: var(--header-bg); }
+  .claim-value.active { color: var(--sig-bg); }
+  .claim-value.timestamp { color: #ffa657; }
+  
+  .error-box { display: none; background: rgba(248, 81, 73, 0.1); border: 1px solid var(--header-bg); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; color: var(--header-bg); }
+  .error-box.visible { display: block; }
+  
+  .sample-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; margin-left: 0.5rem; }
+  .sample-btn:hover { background: #30363d; color: var(--fg); }
+  
+  .header-buttons { display: flex; align-items: center; }
+  
+  .info-box { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-top: 1.5rem; }
+  .info-box h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--accent); }
+  .info-box p { margin: 0; font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+  .info-box code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 3px; font-family: monospace; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>JWT Decoder</h1>
+    <p class="subtitle">Decode and inspect JSON Web Tokens in real-time</p>
+    
+    <div class="input-group">
+      <label>
+        JWT Token
+        <button class="sample-btn" id="sampleBtn">Load Sample</button>
+      </label>
+      <textarea id="jwtInput" placeholder="Paste your JWT token here (eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"></textarea>
+    </div>
+    
+    <div class="error-box" id="errorBox"></div>
+    
+    <div class="token-parts" id="tokenParts">
+      <div class="part">
+        <div class="part-header header-part">
+          <span class="part-label">Header</span>
+          <div class="header-buttons">
+            <button class="copy-btn" data-part="header">Copy</button>
+          </div>
+        </div>
+        <div class="part-content">
+          <pre id="headerContent"></pre>
+        </div>
+      </div>
+      
+      <div class="part">
+        <div class="part-header payload-part">
+          <span class="part-label">Payload</span>
+          <div class="header-buttons">
+            <button class="copy-btn" data-part="payload">Copy</button>
+          </div>
+        </div>
+        <div class="part-content">
+          <pre id="payloadContent"></pre>
+          <div class="claims" id="claimsSection">
+            <div class="claims-title">Standard Claims</div>
+            <div id="claimsList"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="part">
+        <div class="part-header sig-part">
+          <span class="part-label">Signature</span>
+          <div class="header-buttons">
+            <button class="copy-btn" data-part="signature">Copy</button>
+          </div>
+        </div>
+        <div class="part-content">
+          <pre id="sigContent"></pre>
+        </div>
+      </div>
+    </div>
+    
+    <div class="info-box">
+      <h3>What is a JWT?</h3>
+      <p>A JSON Web Token is a compact, URL-safe means of representing claims to be transferred between two parties. It's commonly used for <strong>authentication</strong> and <strong>information exchange</strong>. A JWT consists of three parts: <code>header.payload.signature</code>, each base64-encoded.</p>
+    </div>
+  </div>
+  
+  <script>
+    const jwtInput = document.getElementById('jwtInput');
+    const tokenParts = document.getElementById('tokenParts');
+    const errorBox = document.getElementById('errorBox');
+    const headerContent = document.getElementById('headerContent');
+    const payloadContent = document.getElementById('payloadContent');
+    const sigContent = document.getElementById('sigContent');
+    const claimsList = document.getElementById('claimsList');
+    const claimsSection = document.getElementById('claimsSection');
+    const sampleBtn = document.getElementById('sampleBtn');
+    
+    const standardClaims = ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti'];
+    
+    const sampleJWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE5MTYyMzkwMjIsImlzcyI6ImV4YW1wbGUuY29tIiwiYXVkIjoiYXBwMSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    
+    sampleBtn.addEventListener('click', () => {
+      jwtInput.value = sampleJWT;
+      decodeJWT();
+    });
+    
+    jwtInput.addEventListener('input', decodeJWT);
+    
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const part = btn.dataset.part;
+        let text = '';
+        if (part === 'header') text = headerContent.textContent;
+        else if (part === 'payload') text = payloadContent.textContent;
+        else if (part === 'signature') text = sigContent.textContent;
+        
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      });
+    });
+    
+    function base64UrlDecode(str) {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = str.length % 4;
+      if (pad) str += '='.repeat(4 - pad);
+      try {
+        return decodeURIComponent(atob(str).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+      } catch (e) {
+        return atob(str);
+      }
+    }
+    
+    function formatJSON(str) {
+      try {
+        const obj = JSON.parse(str);
+        return JSON.stringify(obj, null, 2);
+      } catch {
+        return str;
+      }
+    }
+    
+    function decodeJWT() {
+      const token = jwtInput.value.trim();
+      
+      if (!token) {
+        tokenParts.classList.remove('visible');
+        errorBox.classList.remove('visible');
+        return;
+      }
+      
+      const parts = token.split('.');
+      
+      if (parts.length !== 3) {
+        errorBox.textContent = 'Invalid JWT format. Expected 3 parts separated by dots (header.payload.signature)';
+        errorBox.classList.add('visible');
+        tokenParts.classList.remove('visible');
+        return;
+      }
+      
+      try {
+        const header = base64UrlDecode(parts[0]);
+        const payload = base64UrlDecode(parts[1]);
+        const signature = parts[2];
+        
+        headerContent.textContent = formatJSON(header);
+        payloadContent.textContent = formatJSON(payload);
+        sigContent.textContent = signature;
+        
+        // Parse claims
+        const payloadObj = JSON.parse(payload);
+        let claimsHtml = '';
+        
+        standardClaims.forEach(claim => {
+          if (payloadObj.hasOwnProperty(claim)) {
+            let value = payloadObj[claim];
+            let valueClass = '';
+            let displayValue = value;
+            
+            if (claim === 'exp' || claim === 'nbf' || claim === 'iat') {
+              const date = new Date(value * 1000);
+              displayValue = `${value} (${date.toLocaleString()})`;
+              valueClass = 'timestamp';
+              
+              if (claim === 'exp') {
+                valueClass = value * 1000 < Date.now() ? 'expired' : 'active';
+              } else if (claim === 'nbf') {
+                valueClass = value * 1000 > Date.now() ? 'expired' : 'active';
+              }
+            }
+            
+            claimsHtml += `<div class="claim-row">
+              <span class="claim-key">${claim}</span>
+              <span class="claim-value ${valueClass}">${displayValue}</span>
+            </div>`;
+          }
+        });
+        
+        if (claimsHtml) {
+          claimsList.innerHTML = claimsHtml;
+          claimsSection.style.display = 'block';
+        } else {
+          claimsSection.style.display = 'none';
+        }
+        
+        errorBox.classList.remove('visible');
+        tokenParts.classList.add('visible');
+        
+      } catch (e) {
+        errorBox.textContent = 'Failed to decode JWT: ' + e.message;
+        errorBox.classList.add('visible');
+        tokenParts.classList.remove('visible');
+      }
+    }
+  </script>
+</body>
+</html>
