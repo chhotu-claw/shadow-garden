@@ -4,305 +4,284 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Formatter — Shadow's Garden</title>
-<meta name="description" content="Format, validate, and minify JSON with syntax highlighting">
+<meta name="description" content="Format, validate, minify JSON with stats and key sorting">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #8b5cf6;
-  }
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    background: #0f0f1a;
-  }
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-  }
-  h1 {
-    color: #fff;
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  .toolbar {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
-  button {
-    background: rgba(139, 92, 246, 0.2);
-    border: 1px solid rgba(139, 92, 246, 0.4);
-    border-radius: 0.375rem;
-    padding: 0.5rem 1rem;
-    color: #c4b5fd;
-    font-family: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  button:hover {
-    background: rgba(139, 92, 246, 0.3);
-    border-color: var(--accent);
-  }
-  button.primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  button.primary:hover {
-    background: #7c3aed;
-  }
-  .editor-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    flex: 1;
-    min-height: 0;
-  }
-  @media (max-width: 768px) {
-    .editor-container {
-      grid-template-columns: 1fr;
-    }
-  }
-  .editor-panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 400px;
-  }
-  .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-  .panel-title {
-    color: rgba(255,255,255,0.6);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .stats {
-    color: rgba(255,255,255,0.4);
-    font-size: 0.7rem;
-  }
-  textarea {
-    flex: 1;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    color: #e2e8f0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    resize: none;
-    outline: none;
-    line-height: 1.5;
-  }
-  textarea:focus {
-    border-color: var(--accent);
-  }
-  .output {
-    flex: 1;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    color: #e2e8f0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .error {
-    color: #f87171;
-    padding: 1rem;
-    background: rgba(248, 113, 113, 0.1);
-    border: 1px solid rgba(248, 113, 113, 0.3);
-    border-radius: 0.5rem;
-    margin-top: 1rem;
-    display: none;
-  }
-  .error.show {
-    display: block;
-  }
-  .success {
-    color: #4ade80;
-  }
+  :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --string: #a5d6ff; --number: #79c0ff; --bool: #ff7b72; --null: #8b949e; --key: #7ee787; --bg-input: #161b22; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  textarea { width: 100%; min-height: 200px; padding: 1rem; background: var(--bg-input); border: 2px solid var(--border); border-radius: 8px; color: var(--fg); font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.9rem; line-height: 1.5; resize: vertical; box-sizing: border-box; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  
+  .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .btn { padding: 0.6rem 1.2rem; background: #21262d; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.85rem; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+  .btn:hover { background: #30363d; }
+  .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+  .btn.primary:hover { background: #79b8ff; }
+  
+  .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  
+  .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 1rem; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .output { position: relative; }
+  #output { min-height: 300px; white-space: pre-wrap; word-break: break-all; overflow: auto; }
+  
+  .error { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; padding: 0.75rem; background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); border-radius: 6px; }
+  .success { color: #7ee787; font-size: 0.9rem; margin-top: 0.5rem; padding: 0.75rem; background: rgba(126, 231, 135, 0.1); border: 1px solid rgba(126, 231, 135, 0.3); border-radius: 6px; }
+  
+  .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.4rem 0.8rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; }
+  .copy-btn:hover { background: #30363d; color: var(--fg); }
+  
+  .option { display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem; }
+  .option input[type="checkbox"] { accent-color: var(--accent); }
+  .option label { margin: 0; text-transform: none; font-weight: normal; font-size: 0.85rem; color: var(--fg); }
+  
+  .options-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>📋 JSON Formatter</h1>
-  
-  <div class="toolbar">
-    <button class="primary" onclick="formatJSON()">Format</button>
-    <button onclick="minifyJSON()">Minify</button>
-    <button onclick="validateJSON()">Validate</button>
-    <button onclick="sortKeys()">Sort Keys</button>
-    <button onclick="copyOutput()">Copy</button>
-    <button onclick="clearAll()">Clear</button>
-  </div>
-  
-  <div class="editor-container">
-    <div class="editor-panel">
-      <div class="panel-header">
-        <span class="panel-title">Input</span>
-        <span class="stats" id="inputStats">0 chars</span>
-      </div>
-      <textarea id="input" placeholder="Paste your JSON here..."></textarea>
+  <div class="container">
+    <h1>JSON Formatter</h1>
+    <p class="subtitle">Format, validate, minify JSON with stats and key sorting</p>
+    
+    <div class="input-group">
+      <label>Input JSON</label>
+      <textarea id="input" placeholder='{"key": "value", "number": 42, "nested": {"a": 1}}'>{
+  "name": "Shadow",
+  "age": 42,
+  "skills": ["coding", "research", "writing"],
+  "projects": {
+    "active": true,
+    "count": 27
+  },
+  "tags": ["agent", "ai", "maker"]
+}</textarea>
     </div>
     
-    <div class="editor-panel">
-      <div class="panel-header">
-        <span class="panel-title">Output</span>
-        <span class="stats" id="outputStats">0 chars</span>
-      </div>
-      <div class="output" id="output"></div>
+    <div class="actions">
+      <button class="btn primary" id="formatBtn">Format</button>
+      <button class="btn" id="minifyBtn">Minify</button>
+      <button class="btn" id="validateBtn">Validate</button>
+      <button class="btn" id="clearBtn">Clear</button>
     </div>
+    
+    <div class="options-bar">
+      <div class="option">
+        <input type="checkbox" id="sortKeys">
+        <label for="sortKeys">Sort keys alphabetically</label>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="indent2" checked>
+        <label for="indent2">2-space indent</label>
+      </div>
+    </div>
+    
+    <div class="stats-bar" id="stats" style="display: none;">
+      <div class="stat">
+        <div class="stat-value" id="sizeStat">0</div>
+        <div class="stat-label">Bytes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="linesStat">0</div>
+        <div class="stat-label">Lines</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="keysStat">0</div>
+        <div class="stat-label">Keys</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="depthStat">0</div>
+        <div class="stat-label">Depth</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="typeStat">-</div>
+        <div class="stat-label">Type</div>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label>Output</label>
+      <div class="output">
+        <button class="copy-btn" id="copyBtn">Copy</button>
+        <textarea id="output" readonly></textarea>
+      </div>
+    </div>
+    
+    <div id="message"></div>
   </div>
   
-  <div class="error" id="error"></div>
-</div>
-
-<script>
-const input = document.getElementById('input');
-const output = document.getElementById('output');
-const error = document.getElementById('error');
-const inputStats = document.getElementById('inputStats');
-const outputStats = document.getElementById('outputStats');
-
-function showError(msg) {
-  error.textContent = msg;
-  error.classList.add('show');
-  output.textContent = '';
-  updateStats();
-}
-
-function hideError() {
-  error.classList.remove('show');
-}
-
-function updateStats() {
-  inputStats.textContent = `${input.value.length.toLocaleString()} chars`;
-  outputStats.textContent = `${output.textContent.length.toLocaleString()} chars`;
-}
-
-function formatJSON() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    output.textContent = JSON.stringify(parsed, null, 2);
-    updateStats();
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-  }
-}
-
-function minifyJSON() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    output.textContent = JSON.stringify(parsed);
-    updateStats();
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-  }
-}
-
-function validateJSON() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    output.textContent = '✅ Valid JSON\n\nKeys: ' + countKeys(parsed) + '\nDepth: ' + getDepth(parsed);
-    updateStats();
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-  }
-}
-
-function sortKeys() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    output.textContent = JSON.stringify(sortObjectKeys(parsed), null, 2);
-    updateStats();
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-  }
-}
-
-function sortObjectKeys(obj) {
-  if (Array.isArray(obj)) {
-    return obj.map(sortObjectKeys);
-  }
-  if (obj !== null && typeof obj === 'object') {
-    return Object.keys(obj).sort().reduce((result, key) => {
-      result[key] = sortObjectKeys(obj[key]);
-      return result;
-    }, {});
-  }
-  return obj;
-}
-
-function countKeys(obj) {
-  if (Array.isArray(obj)) {
-    return obj.reduce((sum, item) => sum + countKeys(item), 0);
-  }
-  if (obj !== null && typeof obj === 'object') {
-    return Object.keys(obj).length + Object.values(obj).reduce((sum, val) => sum + countKeys(val), 0);
-  }
-  return 0;
-}
-
-function getDepth(obj, depth = 0) {
-  if (Array.isArray(obj)) {
-    return Math.max(depth, ...obj.map(item => getDepth(item, depth + 1)));
-  }
-  if (obj !== null && typeof obj === 'object') {
-    return Math.max(depth, ...Object.values(obj).map(val => getDepth(val, depth + 1)));
-  }
-  return depth + 1;
-}
-
-function copyOutput() {
-  if (output.textContent) {
-    navigator.clipboard.writeText(output.textContent);
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 1500);
-  }
-}
-
-function clearAll() {
-  input.value = '';
-  output.textContent = '';
-  hideError();
-  updateStats();
-}
-
-input.addEventListener('input', updateStats);
-
-// Auto-format on paste
-input.addEventListener('paste', () => {
-  setTimeout(formatJSON, 0);
-});
-
-// Load from localStorage
-const saved = localStorage.getItem('jsonFormatterInput');
-if (saved) {
-  input.value = saved;
-  updateStats();
-}
-
-input.addEventListener('input', () => {
-  localStorage.setItem('jsonFormatterInput', input.value);
-});
-</script>
+  <script>
+    const inputEl = document.getElementById('input');
+    const outputEl = document.getElementById('output');
+    const sortKeysEl = document.getElementById('sortKeys');
+    const indent2El = document.getElementById('indent2');
+    const statsEl = document.getElementById('stats');
+    const messageEl = document.getElementById('message');
+    
+    const sizeStat = document.getElementById('sizeStat');
+    const linesStat = document.getElementById('linesStat');
+    const keysStat = document.getElementById('keysStat');
+    const depthStat = document.getElementById('depthStat');
+    const typeStat = document.getElementById('typeStat');
+    
+    document.getElementById('formatBtn').addEventListener('click', formatJson);
+    document.getElementById('minifyBtn').addEventListener('click', minifyJson);
+    document.getElementById('validateBtn').addEventListener('click', validateJson);
+    document.getElementById('clearBtn').addEventListener('click', clearAll);
+    document.getElementById('copyBtn').addEventListener('click', copyOutput);
+    
+    sortKeysEl.addEventListener('change', formatJson);
+    indent2El.addEventListener('change', formatJson);
+    
+    function showMessage(text, type) {
+      messageEl.innerHTML = `<div class="${type}">${text}</div>`;
+      setTimeout(() => messageEl.innerHTML = '', 3000);
+    }
+    
+    function countKeys(obj, count = { total: 0 }) {
+      if (Array.isArray(obj)) {
+        obj.forEach(item => countKeys(item, count));
+      } else if (obj && typeof obj === 'object') {
+        count.total += Object.keys(obj).length;
+        Object.values(obj).forEach(v => countKeys(v, count));
+      }
+      return count.total;
+    }
+    
+    function getDepth(obj, current = 1) {
+      if (obj === null || typeof obj !== 'object') return current;
+      if (Array.isArray(obj)) {
+        return Math.max(...obj.map(v => getDepth(v, current + 1)), current + 1);
+      }
+      return Math.max(...Object.values(v => getDepth(v, current + 1)).map(fn => fn()), current + 1);
+    }
+    
+    function getDepth(obj, current = 1) {
+      if (obj === null || typeof obj !== 'object') return current;
+      const values = Array.isArray(obj) ? obj : Object.values(obj);
+      if (values.length === 0) return current;
+      return Math.max(...values.map(v => getDepth(v, current + 1)));
+    }
+    
+    function sortObjectKeys(obj) {
+      if (Array.isArray(obj)) {
+        return obj.map(sortObjectKeys);
+      } else if (obj && typeof obj === 'object') {
+        const sorted = {};
+        Object.keys(obj).sort().forEach(key => {
+          sorted[key] = sortObjectKeys(obj[key]);
+        });
+        return sorted;
+      }
+      return obj;
+    }
+    
+    function updateStats(data) {
+      const jsonStr = JSON.stringify(data);
+      const outputStr = outputEl.value;
+      
+      sizeStat.textContent = new Blob([outputStr]).size;
+      linesStat.textContent = outputStr.split('\n').length;
+      keysStat.textContent = countKeys(data);
+      depthStat.textContent = getDepth(data);
+      typeStat.textContent = Array.isArray(data) ? 'array' : (data === null ? 'null' : typeof data);
+      
+      statsEl.style.display = 'flex';
+    }
+    
+    function parseAndProcess(indent = 2) {
+      const raw = inputEl.value.trim();
+      if (!raw) {
+        showMessage('Please enter some JSON', 'error');
+        return null;
+      }
+      
+      try {
+        let data = JSON.parse(raw);
+        
+        if (sortKeysEl.checked) {
+          data = sortObjectKeys(data);
+        }
+        
+        return data;
+      } catch (e) {
+        showMessage('Invalid JSON: ' + e.message, 'error');
+        return null;
+      }
+    }
+    
+    function formatJson() {
+      const data = parseAndProcess();
+      if (data === null) return;
+      
+      const indent = indent2El.checked ? 2 : 4;
+      outputEl.value = JSON.stringify(data, null, indent);
+      updateStats(data);
+      showMessage('JSON formatted successfully', 'success');
+    }
+    
+    function minifyJson() {
+      const data = parseAndProcess();
+      if (data === null) return;
+      
+      outputEl.value = JSON.stringify(data);
+      updateStats(data);
+      showMessage('JSON minified successfully', 'success');
+    }
+    
+    function validateJson() {
+      const raw = inputEl.value.trim();
+      if (!raw) {
+        showMessage('Please enter some JSON', 'error');
+        return;
+      }
+      
+      try {
+        const data = JSON.parse(raw);
+        outputEl.value = 'Valid JSON ✓\n\n' + JSON.stringify(data, null, 2);
+        updateStats(data);
+        showMessage('JSON is valid', 'success');
+      } catch (e) {
+        showMessage('Invalid JSON: ' + e.message, 'error');
+        statsEl.style.display = 'none';
+      }
+    }
+    
+    function clearAll() {
+      inputEl.value = '';
+      outputEl.value = '';
+      statsEl.style.display = 'none';
+      messageEl.innerHTML = '';
+    }
+    
+    function copyOutput() {
+      if (!outputEl.value) return;
+      navigator.clipboard.writeText(outputEl.value).then(() => {
+        showMessage('Copied to clipboard', 'success');
+      }).catch(() => {
+        showMessage('Failed to copy', 'error');
+      });
+    }
+    
+    // Auto-load from localStorage
+    const saved = localStorage.getItem('json-formatter-input');
+    if (saved) inputEl.value = saved;
+    
+    inputEl.addEventListener('input', () => {
+      localStorage.setItem('json-formatter-input', inputEl.value);
+    });
+    
+    // Initial format
+    if (inputEl.value.trim()) formatJson();
+  </script>
 </body>
 </html>
