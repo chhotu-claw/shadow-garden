@@ -4,229 +4,242 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Garden — Shadow's Garden</title>
-<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time">
+<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time"></meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --text: #e8e6e3;
-    --accent: #7c3aed;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Courier New', monospace;
+  body { 
+    --bg: #0a0a0f; 
+    --fg: #e8e6e3;
+    --accent: #c8b8a8;
     background: var(--bg);
-    color: var(--text);
     min-height: 100vh;
     overflow: hidden;
   }
-  canvas {
-    display: block;
-    position: fixed;
+  .container { 
+    position: relative; 
+    width: 100vw; 
+    height: 100vh;
+    overflow: hidden;
+  }
+  #garden {
+    position: absolute;
     top: 0;
     left: 0;
+    width: 100%;
+    height: 100%;
   }
-  .input-area {
+  .word {
+    position: absolute;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.2rem;
+    color: var(--fg);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 2s cubic-bezier(0.23, 1, 0.32, 1);
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+  }
+  .word.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .word.rise {
+    animation: rise 8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  @keyframes rise {
+    0% { opacity: 0; transform: translateY(30px) scale(0.8); }
+    20% { opacity: 1; transform: translateY(0) scale(1); }
+    80% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+  }
+  .word.bloom {
+    animation: bloom 12s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  @keyframes bloom {
+    0% { opacity: 0; transform: scale(0.5); filter: hue-rotate(0deg); }
+    15% { opacity: 1; transform: scale(1.2); filter: hue-rotate(0deg); }
+    85% { opacity: 0.7; transform: scale(1); filter: hue-rotate(180deg); }
+    100% { opacity: 0; transform: scale(0.8); filter: hue-rotate(360deg); }
+  }
+  .word.drift {
+    animation: drift 15s linear forwards;
+  }
+  @keyframes drift {
+    0% { opacity: 0; transform: translateX(0) translateY(0); }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.5; }
+    100% { opacity: 0; transform: translateX(var(--dx, 100px)) translateY(var(--dy, -200px)); }
+  }
+  .word.fade {
+    animation: fade 6s ease-out forwards;
+  }
+  @keyframes fade {
+    0% { opacity: 0; letter-spacing: 0; }
+    30% { opacity: 1; letter-spacing: 0.1em; }
+    100% { opacity: 0; letter-spacing: 0.3em; }
+  }
+  #input-area {
     position: fixed;
     bottom: 2rem;
     left: 50%;
     transform: translateX(-50%);
-    width: 90%;
-    max-width: 600px;
-    z-index: 10;
+    z-index: 100;
+    display: flex;
+    gap: 0.5rem;
   }
-  input {
-    width: 100%;
+  #word-input {
+    width: 300px;
+    padding: 0.8rem 1.2rem;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 2rem;
-    padding: 1rem 1.5rem;
-    color: var(--text);
-    font-size: 1rem;
-    font-family: inherit;
+    color: var(--fg);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.1rem;
     outline: none;
-    transition: border-color 0.3s, background 0.3s;
+    transition: all 0.3s;
   }
-  input:focus {
-    border-color: var(--accent);
+  #word-input:focus {
     background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
   }
-  input::placeholder {
+  #word-input::placeholder {
     color: rgba(255,255,255,0.3);
   }
   .hint {
     position: fixed;
-    top: 1rem;
+    bottom: 5rem;
     left: 50%;
     transform: translateX(-50%);
+    color: rgba(255,255,255,0.2);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+  .mode-hint {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
     color: rgba(255,255,255,0.3);
-    font-size: 0.75rem;
-    text-align: center;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="hint">type words to plant them • watch them grow and bloom</div>
-<canvas id="garden"></canvas>
-<div class="input-area">
-  <input type="text" id="seed" placeholder="plant a seed..." autofocus>
-</div>
-
-<script>
-const canvas = document.getElementById('garden');
-const ctx = canvas.getContext('2d');
-const input = document.getElementById('seed');
-
-let width, height;
-let words = [];
-
-function resize() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
-
-// Word particle class
-class Word {
-  constructor(text, x, y) {
-    this.text = text;
-    this.x = x || width/2;
-    this.y = y || height - 100;
-    this.vx = (Math.random() - 0.5) * 2;
-    this.vy = -Math.random() * 3 - 2;
-    this.gravity = 0.05;
-    this.life = 1;
-    this.decay = 0.002;
-    this.size = Math.random() * 20 + 20;
-    this.hue = Math.random() * 60 + 240; // purple-blue range
-    this.saturation = 70;
-    this.lightness = 60;
-    this.grounded = false;
-    this.groundY = height - 100 - Math.random() * 50;
-    this.bounce = 0.6;
-    this.rotation = (Math.random() - 0.5) * 0.1;
-    this.opacity = 1;
-    this.mutation = '';
-  }
+  <div class="container">
+    <div id="garden"></div>
+    <div class="hint">type a word and press enter</div>
+    <div class="mode-hint" id="mode-display">mode: rise</div>
+    <div id="input-area">
+      <input type="text" id="word-input" placeholder="plant a seed..." autocomplete="off" maxlength="30">
+    </div>
+  </div>
   
-  update() {
-    if (this.grounded) {
-      // Slowly drift on ground
-      this.x += this.vx * 0.1;
-      this.rotation += (Math.random() - 0.5) * 0.01;
-      this.opacity -= 0.001;
-      // Occasional mutation
-      if (Math.random() < 0.005 && this.text.length > 2) {
-        const chars = this.text.split('');
-        const idx = Math.floor(Math.random() * chars.length);
-        chars[idx] = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-        this.mutation = chars.join('');
+  <script>
+    const garden = document.getElementById('garden');
+    const input = document.getElementById('word-input');
+    const modeDisplay = document.getElementById('mode-display');
+    
+    const modes = ['rise', 'bloom', 'drift', 'fade'];
+    let currentMode = 0;
+    
+    const colors = [
+      '#e8e6e3', '#c8b8a8', '#a89888', '#d4a574', 
+      '#b8956e', '#9c7a5a', '#c9b896', '#a89b8c'
+    ];
+    
+    const quotes = [
+      'words become worlds',
+      'seeds of thought',
+      'echoes remain',
+      'nothing disappears',
+      'everything changes',
+      'nothing stays',
+      'the garden remembers',
+      'time grows here'
+    ];
+    
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        plantWord(input.value.trim());
+        input.value = '';
       }
-      return this.opacity > 0;
-    }
-    
-    this.vy += this.gravity;
-    this.x += this.vx;
-    this.y += this.vy;
-    
-    // Bounce off walls
-    if (this.x < 50 || this.x > width - 50) {
-      this.vx *= -0.8;
-      this.x = Math.max(50, Math.min(width - 50, this.x));
-    }
-    
-    // Ground collision
-    if (this.y > this.groundY) {
-      this.y = this.groundY;
-      this.vy *= -this.bounce;
-      this.vx *= 0.9;
-      if (Math.abs(this.vy) < 0.5) {
-        this.grounded = true;
+      if (e.key === ' ') {
+        e.preventDefault();
+        cycleMode();
       }
+    });
+    
+    function cycleMode() {
+      currentMode = (currentMode + 1) % modes.length;
+      modeDisplay.textContent = `mode: ${modes[currentMode]}`;
     }
     
-    this.life -= this.decay;
-    return this.life > 0;
-  }
-  
-  draw() {
-    const displayText = this.mutation || this.text;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation);
-    ctx.globalAlpha = this.opacity;
+    function plantWord(word) {
+      const el = document.createElement('div');
+      el.className = 'word';
+      el.textContent = word;
+      
+      const x = Math.random() * (window.innerWidth - 200) + 50;
+      const y = Math.random() * (window.innerHeight - 200) + 50;
+      
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.color = colors[Math.floor(Math.random() * colors.length)];
+      el.style.fontSize = (1 + Math.random() * 0.8) + 'rem';
+      
+      const mode = modes[currentMode];
+      
+      if (mode === 'drift') {
+        const dx = (Math.random() - 0.5) * 300;
+        const dy = -Math.random() * 200 - 50;
+        el.style.setProperty('--dx', dx + 'px');
+        el.style.setProperty('--dy', dy + 'px');
+      }
+      
+      garden.appendChild(el);
+      
+      requestAnimationFrame(() => {
+        el.classList.add(mode);
+      });
+      
+      setTimeout(() => {
+        el.remove();
+      }, mode === 'bloom' ? 12000 : mode === 'drift' ? 15000 : mode === 'fade' ? 6000 : 8000);
+    }
     
-    // Glow
-    ctx.shadowColor = `hsl(${this.hue}, ${this.saturation}%, ${this.lightness}%)`;
-    ctx.shadowBlur = 20;
+    // Auto-quotes
+    setInterval(() => {
+      if (garden.childElementCount < 15) {
+        const quote = quotes[Math.floor(Math.random() * quotes.length)];
+        plantWord(quote);
+      }
+    }, 4000);
     
-    // Gradient text
-    const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
-    gradient.addColorStop(0, `hsl(${this.hue}, ${this.saturation}%, ${this.lightness + 20}%)`);
-    gradient.addColorStop(1, `hsl(${this.hue}, ${this.saturation}%, ${this.lightness - 10}%)`);
+    // Ambient background words
+    setInterval(() => {
+      if (garden.childElementCount < 8) {
+        const ambient = ['whisper', 'drift', 'bloom', 'grow', 'fade', 'echo', 'seed', 'root'];
+        const word = ambient[Math.floor(Math.random() * ambient.length)];
+        const el = document.createElement('div');
+        el.className = 'word';
+        el.textContent = word;
+        el.style.left = Math.random() * window.innerWidth + 'px';
+        el.style.top = Math.random() * window.innerHeight + 'px';
+        el.style.opacity = '0.1';
+        el.style.fontSize = '2rem';
+        garden.appendChild(el);
+        setTimeout(() => {
+          el.style.transition = 'opacity 10s';
+          el.style.opacity = '0';
+        }, 1000);
+        setTimeout(() => el.remove(), 11000);
+      }
+    }, 2000);
     
-    ctx.font = `${this.size}px "Courier New", monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = gradient;
-    ctx.fillText(displayText, 0, 0);
-    
-    ctx.restore();
-  }
-}
-
-// Plant word on enter
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && input.value.trim()) {
-    const word = new Word(input.value.trim());
-    words.push(word);
-    input.value = '';
-  }
-});
-
-// Also plant on space for quick words
-input.addEventListener('keydown', (e) => {
-  if (e.key === ' ' && input.value.trim()) {
-    e.preventDefault();
-    const word = new Word(input.value.trim());
-    words.push(word);
-    input.value = '';
-  }
-});
-
-// Click to plant
-canvas.addEventListener('click', (e) => {
-  const word = new Word(input.placeholder.replace('plant a seed...', 'bloom'), e.clientX, e.clientY);
-  words.push(word);
-});
-
-// Animation loop
-function animate() {
-  ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
-  ctx.fillRect(0, 0, width, height);
-  
-  // Draw ground hint
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.beginPath();
-  ctx.moveTo(0, height - 80);
-  ctx.lineTo(width, height - 80);
-  ctx.stroke();
-  
-  words = words.filter(w => w.update());
-  words.forEach(w => w.draw());
-  
-  requestAnimationFrame(animate);
-}
-animate();
-
-// Auto-plant demo words
-const demos = ['dream', 'bloom', 'grow', 'flow', 'light', 'echo'];
-let demoIdx = 0;
-setTimeout(() => {
-  input.focus();
-}, 500);
-</script>
+    input.focus();
+  </script>
 </body>
 </html>
