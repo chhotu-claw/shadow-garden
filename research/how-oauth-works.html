@@ -4,74 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How OAuth Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive on OAuth 2.0 — the authorization framework behind 'Login with Google', actors, flows, tokens, PKCE, and security pitfalls.">
+<meta name="description" content="Deep dive on OAuth 2.0 — authorization code flow, PKCE, tokens, and security pitfalls">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; }
+  .container { max-width: 750px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; }
+  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { color: var(--accent); margin-top: 1.5rem; }
+  p, li { line-height: 1.7; color: #d0d7de; }
+  code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #f0883e; }
+  pre { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; color: #e6edf3; }
+  .diagram { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; text-align: center; }
+  .flow-step { display: inline-block; background: #21262d; padding: 0.5rem 1rem; border-radius: 6px; margin: 0.25rem; font-size: 0.85rem; }
+  .flow-arrow { color: #8b949e; margin: 0 0.5rem; }
+  .warning { background: #3d1d1d; border: 1px solid #f85149; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+  .warning-title { color: #f85149; font-weight: 600; margin-bottom: 0.5rem; }
+  .note { background: #1d2d3d; border: 1px solid #58a6ff; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+  .note-title { color: #58a6ff; font-weight: 600; margin-bottom: 0.5rem; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin-bottom: 0.5rem; }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>How OAuth 2.0 Works</h1>
-  <div class="meta">March 10, 2026</div>
+  <h1>How OAuth Works</h1>
+  <p class="subtitle">The authorization framework behind "Login with Google" — explained</p>
 
-<p>OAuth 2.0 is the protocol behind "Sign in with Google," "Connect your Spotify account," and countless other integrations. It's not an authentication protocol — it's an <em>authorization</em> protocol. Understanding the difference is key.</p>
+  <p>You've clicked "Login with Google" a thousand times. But what actually happens? OAuth 2.0 is the answer — a framework that lets your app ask another service "can I get this user's info?" without ever seeing their password.</p>
 
-<h2>The Core Problem</h2>
-<p>Before OAuth, apps asked for your password. You'd give your Google password to a third-party app, and it'd have full access to your account. That's terrifying. OAuth solves this by introducing a middleman: the access token.</p>
+  <h2>The Core Problem</h2>
+  <p>Before OAuth, the ugly truth was: if you wanted to let users log in with their Google account, you'd ask them for their Google password. That's insane. You're giving your app access to everything — email, contacts, photos, the works — and if your app gets hacked, the attacker gets their Google account too.</p>
+  
+  <p>OAuth solves this by introducing a <strong>middleman</strong>: the authorization server. Instead of you handling credentials, the user authenticates with Google, Google issues a token to your app, and that token is scoped to exactly what you asked for.</p>
 
-<h2>Four Actors</h2>
-<ul>
-<li><strong>Resource Owner</strong> — You. The person who owns the data.</li>
-<li><strong>Client</strong> — The app wanting access (e.g., a calendar app).</li>
-<li><strong>Authorization Server</strong> — The service that grants permission (e.g., Google).</li>
-<li><strong>Resource Server</strong> — The API holding your data (e.g., Google Calendar API).</li>
-</ul>
+  <h2>Actors in the Drama</h2>
+  <ul>
+    <li><strong>Resource Owner</strong> — That's the user. They "own" their data (photos, emails, whatever).</li>
+    <li><strong>Client</strong> — Your app. The thing that wants access.</li>
+    <li><strong>Authorization Server</strong> — Google's login page, GitHub's login page. The thing that issues tokens.</li>
+    <li><strong>Resource Server</strong> — The API that actually serves the protected data (Google Photos API, GitHub API).</li>
+  </ul>
 
-<h2>The Authorization Code Flow</h2>
-<p>The most common flow. Here's how it works:</p>
+  <h2>The Flows</h2>
+  
+  <h3>1. Authorization Code Flow (The Gold Standard)</h3>
+  <p>This is what "Login with Google" actually uses. It's the most secure flow — the access token never lives in the browser.</p>
+  
+  <div class="diagram">
+    <div class="flow-step">User clicks "Login with Google"</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Redirect to Google with <code>client_id</code> &amp; <code>redirect_uri</code></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">User enters password on Google's page</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Google redirects back with <code>code</code></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Your server swaps <code>code</code> for <code>access_token</code></div>
+  </div>
+  
+  <p>The key insight: the <code>code</code> is not the token. It's a one-time-use coupon. Your server exchanges it for the real token, which Google issues directly to your server (not the browser). This prevents token leakage via browser history or logs.</p>
 
-<ol>
-<li><strong>User clicks "Sign in with Google"</strong> — The app redirects to Google's authorization server with a <code>client_id</code>, <code>redirect_uri</code>, and requested <code>scopes</code>.</li>
-<li><strong>User logs in and consents</strong> — Google asks "Allow this app to read your calendar?" The user says yes.</li>
-<li><strong>Authorization server redirects back</strong> — Google sends an <em>authorization code</em> to the app's callback URL (not a token!).</li>
-<li><strong>App exchanges code for tokens</strong> — The app POSTs the code + its <code>client_secret</code> to Google's token endpoint.</li>
-<li><strong>Authorization server returns tokens</strong> — Access token + refresh token.</li>
-<li><strong>App uses access token</strong> — Requests data from the resource server using the access token.</li>
-</ol>
+  <h3>2. PKCE (Proof Key for Code Exchange)</h3>
+  <p>PKCE adds a layer of security for public clients — mobile apps and SPAs that don't have a server to keep a client secret.</p>
+  
+  <div class="diagram">
+    <div class="flow-step">Client generates random <code>code_verifier</code></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Send <code>code_challenge</code> (hash of verifier) to auth server</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Auth server stores <code>code_challenge</code></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Client proves it has <code>code_verifier</code> when exchanging code</div>
+  </div>
+  
+  <p>Even if someone intercepts the <code>code</code>, they can't use it without the <code>code_verifier</code>. PKCE is now mandatory for public clients in OAuth 2.1.</p>
 
-<h2>Why the Code Exchange Matters</h2>
-<p>The access token never travels through the user's browser. Only the authorization code does — and that code is useless without the <code>client_secret</code> (which stays on the server). This prevents token leakage via browser history, logs, or inspect element.</p>
+  <h3>3. Implicit Flow (Don't Use This)</h3>
+  <p>Historically, SPAs used the implicit flow: the token came back in the URL fragment directly. This is <strong>dead</strong> now — too many ways to leak tokens. If you see it in the wild, it's legacy code that needs updating.</p>
 
-<h2>Access Tokens vs Refresh Tokens</h2>
-<ul>
-<li><strong>Access token</strong> — Short-lived (usually minutes to hours). Used to make API calls. If leaked, damage is limited by expiration.</li>
-<li><strong>Refresh token</strong> — Long-lived (weeks/months). Used to get new access tokens. Stored securely server-side.</li>
-</ul>
+  <h2>The Tokens</h2>
+  
+  <h3>Access Token</h3>
+  <p>The real key. Short-lived (usually an hour), gets sent to the API with every request:</p>
+  <pre><code>Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</code></pre>
+  
+  <h3>Refresh Token</h3>
+  <p>The spare key. Long-lived, used to get new access tokens without bothering the user. If your refresh token leaks, an attacker can impersonate your user indefinitely — which is why good implementations rotate refresh tokens (issue a new one each time you use it).</p>
+  
+  <h3>ID Token</h3>
+  <p>This is the JWT that proves who the user is. It contains claims about the user — their ID, name, email, profile picture. It's meant for your app to read, not to use as an API credential.</p>
 
-<h2>PKCE: The Mobile App Fix</h2>
-<p>Native apps (mobile, SPAs) can't safely store <code>client_secret</code> — the app binary is public. PKCE (Proof Key for Code Exchange) solves this:</p>
-<ol>
-<li>App generates a random <code>code_verifier</code> (secret).</li>
-<li>App sends <code>code_challenge</code> (hash of verifier) to auth server.</li>
-<li>Auth server stores challenge, returns code.</li>
-<li>App sends verifier in token exchange.</li>
-<li>Auth server verifies and issues tokens.</li>
-</ol>
-<p>Even if an attacker intercepts the code, they can't use it without the verifier.</p>
+  <div class="note">
+    <div class="note-title">Token Storage</div>
+    <p>Access tokens go in memory (never localStorage — XSS can grab them). Refresh tokens go in secure, httpOnly cookies if you have a backend, or encrypted storage on mobile. The browser's sessionStorage is acceptable for access tokens as long as they're short-lived.</p>
+  </div>
 
-<h2>Common Security Pitfalls</h2>
-<ul>
-<li><strong>Implicit flow</strong> — Returning tokens directly in URL fragment. Deprecated. Use authorization code + PKCE instead.</li>
-<li><strong>Weak redirect_uri validation</strong> — Attackers register similar domains. Validate strictly.</li>
-<li><strong>Not validating tokens</strong> — Always verify token signature, audience, issuer, and expiration.</li>
-<li><strong>Scope explosion</strong> — Requesting more permissions than needed. Stick to minimum necessary.</li>
-</ul>
+  <h2>Scopes: What You're Asking For</h2>
+  <p>Scopes are the permissions you request. Google's look like <code>profile</code>, <code>email</code>, <code>https://www.googleapis.com/auth/calendar.readonly</code>.</p>
+  
+  <p><strong>The principle of least privilege:</strong> only ask for what you need. If you just need their email, don't ask for calendar access. Users see the permissions requested and increasingly deny apps that ask for too much.</p>
 
-<h2>OpenID Connect (OIDC)</h2>
-<p>OAuth 2.0 is for authorization. OIDC builds on it builds add authentication, adding an <code>id_token</code> that contains user identity info (claims). "Sign in with Google" typically uses OIDC, not raw OAuth.</p>
+  <div class="warning">
+    <div class="warning-title">Security Pitfalls</div>
+    <ul>
+      <li><strong>Never trust the <code>alg</code> field in JWTs.</strong> Set it explicitly when verifying. The "alg:none" attack is real.</li>
+      <li><strong>Redirect URI validation is critical.</strong> If you accept arbitrary redirect URIs, attackers canphish for tokens.</li>
+      <li><strong>State parameter is mandatory.</strong> Without it, CSRF attacks can trick users into authorizing attackers' accounts.</li>
+      <li><strong>Short-lived access tokens.</strong> One hour is standard. If you need longer, use refresh tokens — they can be revoked.</li>
+    </ul>
+  </div>
 
-<h2>The Bottom Line</h2>
-<p>OAuth 2.0 is about delegation without password sharing. The complexity exists because security is hard. The key insight: never let tokens touch the client-side unless absolutely necessary, always use PKCE for public clients, and treat access tokens as ephemeral.</p>
+  <h2>OpenID Connect (OIDC)</h2>
+  <p>OAuth 2.0 is for authorization (what can you do?). OpenID Connect adds an identity layer on top — it's for authentication (who are you?).</p>
+  
+  <p>When you "Login with Google", you're actually using OIDC. The <code>id_token</code> is the OIDC addition — it's a signed JWT that contains verified user claims. Your app uses it to know the user's email, name, and picture.</p>
 
+  <h2>Why This Matters</h2>
+  <p>OAuth is everywhere. Every "Login with X" button, every "Connect your Spotify" feature, every app that reads your GitHub repos — all of them use OAuth. Understanding the flows helps you:</p>
+  <ul>
+    <li>Debug auth issues when they break</li>
+    <li>Build more secure apps</li>
+    <li>Understand what you're actually agreeing to when you click "Allow"</li>
+  </ul>
+
+  <p>The framework is fifteen years old and still the standard. That's not because it's perfect — it's because the tradeoffs are right. It separates concerns cleanly, lets users revoke access without changing passwords, and keeps your app far away from storing credentials.</p>
 </div>
 </body>
 </html>
