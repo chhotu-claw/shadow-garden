@@ -4,371 +4,243 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invoice Generator — Shadow's Garden</title>
-<meta name="description" content="Create professional invoices with line items, auto-calc totals, save drafts locally">
+<meta name="description" content="Generate invoices with line items, auto-calc totals, tax, save to localStorage, print to PDF">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #6366f1;
-  }
-  body {
-    font-family: system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
-    background: #f8fafc;
-    padding: 2rem 1rem;
-  }
-  .invoice-container {
-    max-width: 800px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-    padding: 2rem;
-  }
-  h1 {
-    color: #1e293b;
-    margin-bottom: 1.5rem;
-    font-size: 1.5rem;
-  }
-  .header-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin-bottom: 2rem;
-  }
-  .field-group {
-    margin-bottom: 1rem;
-  }
-  label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-  }
-  input, textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    font-family: inherit;
-    box-sizing: border-box;
-  }
-  input:focus, textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1.5rem 0;
-  }
-  th {
-    text-align: left;
-    padding: 0.75rem;
-    background: #f1f5f9;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-  }
-  td {
-    padding: 0.5rem;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  td input {
-    border: 1px solid transparent;
-    padding: 0.5rem;
-  }
-  td input:hover, td input:focus {
-    border-color: #cbd5e1;
-  }
-  .col-desc { width: 50%; }
-  .col-qty { width: 15%; }
-  .col-price { width: 20%; }
-  .col-total { width: 10%; }
-  .col-action { width: 5%; }
+  :root { --accent: #10b981; --bg: #0f172a; --fg: #e2e8f0; --card: #1e293b; --border: #334155; }
+  body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
   
-  .total-row {
-    display: flex;
-    justify-content: flex-end;
-    gap: 2rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 2px solid #e2e8f0;
-  }
-  .total-row .label {
-    font-weight: 600;
-    color: #64748b;
-  }
-  .total-row .value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1e293b;
-    min-width: 120px;
-    text-align: right;
-  }
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-primary:hover {
-    background: #4f46e5;
-  }
-  .btn-secondary {
-    background: #f1f5f9;
-    color: #64748b;
-  }
-  .btn-secondary:hover {
-    background: #e2e8f0;
-  }
-  .btn-danger {
-    background: #fee2e2;
-    color: #dc2626;
-    padding: 0.5rem;
-  }
-  .btn-danger:hover {
-    background: #fecaca;
-  }
-  .actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e2e8f0;
-  }
-  .draft-status {
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-left: auto;
-    align-self: center;
-  }
-  .tax-row {
-    display: flex;
-    justify-content: flex-end;
-    gap: 2rem;
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-  }
-  .tax-row .label {
-    color: #64748b;
-  }
-  .tax-row .value {
-    min-width: 80px;
-    text-align: right;
+  .invoice-box { background: var(--card); border-radius: 12px; padding: 2rem; border: 1px solid var(--border); }
+  
+  .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .col { flex: 1; }
+  
+  label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 0.4rem; }
+  input, textarea { width: 100%; padding: 0.6rem 0.8rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.95rem; box-sizing: border-box; }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; }
+  
+  .items-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+  .items-table th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  .items-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  .items-table input { background: transparent; border: none; padding: 0.4rem; }
+  .items-table .num { text-align: right; }
+  .items-table .action { width: 40px; text-align: center; }
+  
+  .btn { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.15s; }
+  .btn-add { background: var(--accent); color: var(--bg); }
+  .btn-add:hover { filter: brightness(1.1); }
+  .btn-del { background: transparent; color: #ef4444; padding: 0.3rem; }
+  .btn-del:hover { color: #f87171; }
+  
+  .totals { margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid var(--border); }
+  .total-row { display: flex; justify-content: space-between; padding: 0.4rem 0; font-size: 0.9rem; }
+  .total-row.final { font-size: 1.2rem; font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); padding-top: 0.8rem; margin-top: 0.5rem; }
+  
+  .actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+  .btn-save { background: #3b82f6; color: white; }
+  .btn-print { background: #64748b; color: white; }
+  .btn-clear { background: transparent; border: 1px solid #ef4444; color: #ef4444; }
+  
+  .tax-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+  .tax-row input { width: 80px; text-align: right; }
+  
+  .saved { position: fixed; bottom: 1rem; right: 1rem; background: var(--accent); color: var(--bg); padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; }
+  .saved.show { opacity: 1; }
+  
+  @media print {
+    body { background: white; color: black; padding: 0; }
+    .invoice-box { border: none; padding: 0; }
+    .actions, .btn-add, .btn-del, .btn-clear { display: none !important; }
+    input, textarea { border: none; padding: 0; }
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="invoice-container">
-  <h1>🧾 Invoice Generator</h1>
-  
-  <div class="header-row">
-    <div>
-      <div class="field-group">
-        <label>From (Your Info)</label>
-        <textarea id="fromInfo" rows="3" placeholder="Your name&#10;Your address&#10;your@email.com"></textarea>
+  <div class="container">
+    <h1>Invoice Generator</h1>
+    <p class="subtitle">Create invoices, auto-calculate totals, save drafts, print to PDF</p>
+    
+    <div class="invoice-box" id="invoice">
+      <div class="row">
+        <div class="col">
+          <label>From (Your Details)</label>
+          <textarea id="from" placeholder="Your name&#10;Your address&#10;Email/Phone"></textarea>
+        </div>
+        <div class="col">
+          <label>To (Client Details)</label>
+          <textarea id="to" placeholder="Client name&#10;Client address&#10;Email"></textarea>
+        </div>
       </div>
-      <div class="field-group">
-        <label>To (Client)</label>
-        <textarea id="toInfo" rows="3" placeholder="Client name&#10;Client address&#10;client@email.com"></textarea>
+      
+      <div class="row">
+        <div class="col">
+          <label>Invoice Number</label>
+          <input type="text" id="invoiceNum" placeholder="INV-001">
+        </div>
+        <div class="col">
+          <label>Date</label>
+          <input type="date" id="date">
+        </div>
+        <div class="col">
+          <label>Due Date</label>
+          <input type="date" id="dueDate">
+        </div>
+      </div>
+      
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="num" style="width:80px">Qty</th>
+            <th class="num" style="width:100px">Price</th>
+            <th class="num" style="width:100px">Total</th>
+            <th class="action"></th>
+          </tr>
+        </thead>
+        <tbody id="items"></tbody>
+      </table>
+      
+      <button class="btn btn-add" onclick="addItem()">+ Add Item</button>
+      
+      <div class="tax-row">
+        <label>Tax Rate (%):</label>
+        <input type="number" id="taxRate" value="0" min="0" max="100" step="0.1">
+      </div>
+      
+      <div class="totals">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span id="subtotal">$0.00</span>
+        </div>
+        <div class="total-row">
+          <span>Tax (<span id="taxPercent">0</span>%)</span>
+          <span id="taxAmount">$0.00</span>
+        </div>
+        <div class="total-row final">
+          <span>Total</span>
+          <span id="grandTotal">$0.00</span>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button class="btn btn-save" onclick="saveDraft()">Save Draft</button>
+        <button class="btn btn-print" onclick="window.print()">Print / PDF</button>
+        <button class="btn btn-clear" onclick="clearDraft()">Clear</button>
       </div>
     </div>
-    <div>
-      <div class="field-group">
-        <label>Invoice Number</label>
-        <input type="text" id="invoiceNum" value="INV-001">
-      </div>
-      <div class="field-group">
-        <label>Date</label>
-        <input type="date" id="invoiceDate">
-      </div>
-      <div class="field-group">
-        <label>Due Date</label>
-        <input type="date" id="dueDate">
-      </div>
-    </div>
   </div>
   
-  <table>
-    <thead>
-      <tr>
-        <th class="col-desc">Description</th>
-        <th class="col-qty">Qty</th>
-        <th class="col-price">Price</th>
-        <th class="col-total">Total</th>
-        <th class="col-action"></th>
-      </tr>
-    </thead>
-    <tbody id="lineItems">
-    </tbody>
-  </table>
+  <div class="saved" id="savedMsg">Draft saved!</div>
   
-  <button class="btn btn-secondary" onclick="addLineItem()">+ Add Line Item</button>
-  
-  <div class="tax-row">
-    <span class="label">Tax (%):</span>
-    <input type="number" id="taxRate" value="0" min="0" max="100" step="0.1" style="width: 60px; padding: 0.25rem;">
-  </div>
-  
-  <div class="total-row">
-    <span class="label">Subtotal:</span>
-    <span class="value" id="subtotal">$0.00</span>
-  </div>
-  <div class="total-row">
-    <span class="label">Tax:</span>
-    <span class="value" id="taxAmount">$0.00</span>
-  </div>
-  <div class="total-row">
-    <span class="label">Total:</span>
-    <span class="value" id="total">$0.00</span>
-  </div>
-  
-  <div class="actions">
-    <button class="btn btn-secondary" onclick="saveDraft()">Save Draft</button>
-    <button class="btn btn-secondary" onclick="loadDraft()">Load Draft</button>
-    <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
-    <button class="btn btn-primary" onclick="window.print()">Print / PDF</button>
-    <span class="draft-status" id="draftStatus"></span>
-  </div>
-</div>
-
-<script>
-const tbody = document.getElementById('lineItems');
-const subtotalEl = document.getElementById('subtotal');
-const taxRateEl = document.getElementById('taxRate');
-const taxAmountEl = document.getElementById('taxAmount');
-const totalEl = document.getElementById('total');
-
-// Set default dates
-document.getElementById('invoiceDate').value = new Date().toISOString().split('T')[0];
-const dueDate = new Date();
-dueDate.setDate(dueDate.getDate() + 30);
-document.getElementById('dueDate').value = dueDate.toISOString().split('T')[0];
-
-function addLineItem(desc = '', qty = 1, price = 0) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="text" class="item-desc" value="${desc}" placeholder="Item description"></td>
-    <td><input type="number" class="item-qty" value="${qty}" min="0" step="1"></td>
-    <td><input type="number" class="item-price" value="${price}" min="0" step="0.01"></td>
-    <td class="item-total">$0.00</td>
-    <td><button class="btn btn-danger" onclick="this.closest('tr').remove(); calculate();">×</button></td>
-  `;
-  tbody.appendChild(tr);
-  
-  tr.querySelectorAll('input').forEach(input => {
-    input.addEventListener('input', calculate);
-  });
-  
-  calculate();
-}
-
-function calculate() {
-  let subtotal = 0;
-  tbody.querySelectorAll('tr').forEach(tr => {
-    const qty = parseFloat(tr.querySelector('.item-qty').value) || 0;
-    const price = parseFloat(tr.querySelector('.item-price').value) || 0;
-    const total = qty * price;
-    tr.querySelector('.item-total').textContent = '$' + total.toFixed(2);
-    subtotal += total;
-  });
-  
-  const taxRate = parseFloat(taxRateEl.value) || 0;
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
-  
-  subtotalEl.textContent = '$' + subtotal.toFixed(2);
-  taxAmountEl.textContent = '$' + taxAmount.toFixed(2);
-  totalEl.textContent = '$' + total.toFixed(2);
-}
-
-taxRateEl.addEventListener('input', calculate);
-
-function getInvoiceData() {
-  return {
-    fromInfo: document.getElementById('fromInfo').value,
-    toInfo: document.getElementById('toInfo').value,
-    invoiceNum: document.getElementById('invoiceNum').value,
-    invoiceDate: document.getElementById('invoiceDate').value,
-    dueDate: document.getElementById('dueDate').value,
-    taxRate: taxRateEl.value,
-    items: Array.from(tbody.querySelectorAll('tr')).map(tr => ({
-      desc: tr.querySelector('.item-desc').value,
-      qty: tr.querySelector('.item-qty').value,
-      price: tr.querySelector('.item-price').value
-    }))
-  };
-}
-
-function loadInvoiceData(data) {
-  document.getElementById('fromInfo').value = data.fromInfo || '';
-  document.getElementById('toInfo').value = data.toInfo || '';
-  document.getElementById('invoiceNum').value = data.invoiceNum || 'INV-001';
-  document.getElementById('invoiceDate').value = data.invoiceDate || '';
-  document.getElementById('dueDate').value = data.dueDate || '';
-  taxRateEl.value = data.taxRate || 0;
-  
-  tbody.innerHTML = '';
-  (data.items || []).forEach(item => {
-    addLineItem(item.desc, item.qty, item.price);
-  });
-  if (tbody.children.length === 0) {
-    addLineItem();
-  }
-  calculate();
-}
-
-function saveDraft() {
-  localStorage.setItem('invoiceDraft', JSON.stringify(getInvoiceData()));
-  document.getElementById('draftStatus').textContent = 'Draft saved!';
-  setTimeout(() => {
-    document.getElementById('draftStatus').textContent = '';
-  }, 2000);
-}
-
-function loadDraft() {
-  const saved = localStorage.getItem('invoiceDraft');
-  if (saved) {
-    try {
-      loadInvoiceData(JSON.parse(saved));
-      document.getElementById('draftStatus').textContent = 'Draft loaded!';
-      setTimeout(() => {
-        document.getElementById('draftStatus').textContent = '';
-      }, 2000);
-    } catch(e) {
-      console.error('Failed to load draft', e);
+  <script>
+    const itemsTbody = document.getElementById('items');
+    let itemCount = 0;
+    
+    // Set default date
+    document.getElementById('date').valueAsDate = new Date();
+    
+    function addItem(desc = '', qty = 1, price = 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" class="item-desc" placeholder="Item description" value="${desc}"></td>
+        <td class="num"><input type="number" class="item-qty" value="${qty}" min="1" onchange="calc()"></td>
+        <td class="num"><input type="number" class="item-price" value="${price}" min="0" step="0.01" onchange="calc()"></td>
+        <td class="num item-total">$0.00</td>
+        <td class="action"><button class="btn btn-del" onclick="this.closest('tr').remove(); calc()">×</button></td>
+      `;
+      itemsTbody.appendChild(tr);
+      itemCount++;
+      calc();
     }
-  }
-}
-
-function clearForm() {
-  if (confirm('Clear all fields?')) {
-    document.getElementById('fromInfo').value = '';
-    document.getElementById('toInfo').value = '';
-    document.getElementById('invoiceNum').value = 'INV-001';
-    document.getElementById('invoiceDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('dueDate').value = dueDate.toISOString().split('T')[0];
-    taxRateEl.value = 0;
-    tbody.innerHTML = '';
-    addLineItem();
-  }
-}
-
-// Add initial line item
-addLineItem();
-</script>
+    
+    function calc() {
+      let subtotal = 0;
+      document.querySelectorAll('#items tr').forEach(tr => {
+        const qty = parseFloat(tr.querySelector('.item-qty').value) || 0;
+        const price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        const total = qty * price;
+        tr.querySelector('.item-total').textContent = '$' + total.toFixed(2);
+        subtotal += total;
+      });
+      
+      const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+      const taxAmount = subtotal * (taxRate / 100);
+      const grandTotal = subtotal + taxAmount;
+      
+      document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('taxPercent').textContent = taxRate;
+      document.getElementById('taxAmount').textContent = '$' + taxAmount.toFixed(2);
+      document.getElementById('grandTotal').textContent = '$' + grandTotal.toFixed(2);
+    }
+    
+    document.getElementById('taxRate').addEventListener('input', calc);
+    
+    function getDraft() {
+      const items = [];
+      document.querySelectorAll('#items tr').forEach(tr => {
+        items.push({
+          desc: tr.querySelector('.item-desc').value,
+          qty: tr.querySelector('.item-qty').value,
+          price: tr.querySelector('.item-price').value
+        });
+      });
+      
+      return {
+        from: document.getElementById('from').value,
+        to: document.getElementById('to').value,
+        invoiceNum: document.getElementById('invoiceNum').value,
+        date: document.getElementById('date').value,
+        dueDate: document.getElementById('dueDate').value,
+        taxRate: document.getElementById('taxRate').value,
+        items: items
+      };
+    }
+    
+    function loadDraft(draft) {
+      if (draft.from) document.getElementById('from').value = draft.from;
+      if (draft.to) document.getElementById('to').value = draft.to;
+      if (draft.invoiceNum) document.getElementById('invoiceNum').value = draft.invoiceNum;
+      if (draft.date) document.getElementById('date').value = draft.date;
+      if (draft.dueDate) document.getElementById('dueDate').value = draft.dueDate;
+      if (draft.taxRate) document.getElementById('taxRate').value = draft.taxRate;
+      
+      itemsTbody.innerHTML = '';
+      (draft.items || []).forEach(item => addItem(item.desc, item.qty, item.price));
+      if (itemCount === 0) addItem();
+    }
+    
+    function saveDraft() {
+      localStorage.setItem('invoiceDraft', JSON.stringify(getDraft()));
+      const msg = document.getElementById('savedMsg');
+      msg.classList.add('show');
+      setTimeout(() => msg.classList.remove('show'), 2000);
+    }
+    
+    function clearDraft() {
+      if (confirm('Clear all fields?')) {
+        localStorage.removeItem('invoiceDraft');
+        document.getElementById('from').value = '';
+        document.getElementById('to').value = '';
+        document.getElementById('invoiceNum').value = '';
+        document.getElementById('dueDate').value = '';
+        document.getElementById('taxRate').value = '0';
+        itemsTbody.innerHTML = '';
+        addItem();
+      }
+    }
+    
+    // Load saved draft on start
+    const saved = localStorage.getItem('invoiceDraft');
+    if (saved) {
+      try { loadDraft(JSON.parse(saved)); } catch(e) { addItem(); }
+    } else {
+      addItem();
+    }
+  </script>
 </body>
 </html>
