@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSV to JSON — Shadow's Garden</title>
+<meta name="description" content="Convert CSV data to JSON with options for flattening, headers, and indentation">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --success: #3fb950; --error: #f85149; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .options { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .option { display: flex; align-items: center; gap: 0.5rem; }
+  .option input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .option label { margin: 0; font-size: 0.85rem; color: var(--fg); text-transform: none; font-weight: normal; }
+  
+  select { padding: 0.5rem 0.75rem; background: #21262d; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.9rem; }
+  select:focus { outline: none; border-color: var(--accent); }
+  
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+  
+  textarea { width: 100%; min-height: 300px; padding: 0.75rem 1rem; background: #161b22; border: 2px solid var(--border); border-radius: 8px; color: var(--fg); font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.5; resize: vertical; box-sizing: border-box; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: #484f58; }
+  
+  .output-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .output-actions { display: flex; gap: 0.5rem; }
+  
+  button { padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: #0d1117; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: #21262d; color: var(--fg); border: 1px solid var(--border); }
+  button.secondary:hover { background: #30363d; }
+  
+  .error { color: var(--error); font-size: 0.85rem; margin-top: 0.5rem; }
+  .success { color: var(--success); font-size: 0.85rem; margin-top: 0.5rem; }
+  
+  .stats { display: flex; gap: 1.5rem; margin-top: 1rem; padding: 1rem; background: #161b22; border-radius: 8px; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { background: #30363d; color: var(--fg); }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>CSV to JSON</h1>
+    <p class="subtitle">Convert CSV data to JSON with options for flattening, headers, and formatting</p>
+    
+    <div class="input-group">
+      <label>Input CSV</label>
+      <div class="presets">
+        <button class="preset-btn" data-preset="simple">Simple</button>
+        <button class="preset-btn" data-preset="nested">Nested</button>
+        <button class="preset-btn" data-preset="numbers">With Numbers</button>
+      </div>
+      <textarea id="csvInput" placeholder="Paste CSV data here...&#10;name,age,city&#10;John,30,NYC&#10;Jane,25,LA"></textarea>
+    </div>
+    
+    <div class="options">
+      <div class="option">
+        <input type="checkbox" id="hasHeader" checked>
+        <label for="hasHeader">First row is header</label>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="flatten" checked>
+        <label for="flatten">Flatten nested</label>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="trim">
+        <label for="trim">Trim whitespace</label>
+      </div>
+      <div class="option">
+        <select id="delimiter">
+          <option value=",">Comma delimiter</option>
+          <option value="	">Tab delimiter</option>
+          <option value=";">Semicolon</option>
+          <option value="|">Pipe</option>
+        </select>
+      </div>
+      <div class="option">
+        <select id="indent">
+          <option value="2">2 space indent</option>
+          <option value="4">4 space indent</option>
+          <option value="tab">Tab indent</option>
+          <option value="none">No indent</option>
+        </select>
+      </div>
+    </div>
+    
+    <button id="convertBtn">Convert to JSON</button>
+    <div class="error" id="error"></div>
+    
+    <div class="input-group" style="margin-top: 1.5rem;">
+      <div class="output-label">
+        <label>Output JSON</label>
+        <div class="output-actions">
+          <button class="secondary" id="copyBtn">Copy</button>
+          <button class="secondary" id="downloadBtn">Download</button>
+        </div>
+      </div>
+      <textarea id="jsonOutput" readonly placeholder="JSON output will appear here..."></textarea>
+    </div>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat">
+        <div class="stat-value" id="rowCount">0</div>
+        <div class="stat-label">Rows</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="colCount">0</div>
+        <div class="stat-label">Columns</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="sizeInput">0B</div>
+        <div class="stat-label">Input Size</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="sizeOutput">0B</div>
+        <div class="stat-label">Output Size</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const csvInput = document.getElementById('csvInput');
+    const jsonOutput = document.getElementById('jsonOutput');
+    const convertBtn = document.getElementById('convertBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const error = document.getElementById('error');
+    const stats = document.getElementById('stats');
+    const hasHeader = document.getElementById('hasHeader');
+    const flatten = document.getElementById('flatten');
+    const trim = document.getElementById('trim');
+    const delimiter = document.getElementById('delimiter');
+    const indent = document.getElementById('indent');
+    
+    const presets = {
+      simple: `name,age,city,email
+John,30,New York,john@email.com
+Jane,25,Los Angeles,jane@email.com
+Bob,35,Chicago,bob@email.com
+Alice,28,Houston,alice@email.com`,
+      nested: `name,address.city,address.zip,score
+John,"NYC, NY",10001,95
+Jane,"LA, CA",90001,87
+Bob,"Chicago, IL",60601,92`,
+      numbers: `product,price,quantity,rating
+Laptop,999.99,5,4.5
+Mouse,29.99,50,4.8
+Keyboard,79.99,25,4.2
+Monitor,299.99,15,4.6`
+    };
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        csvInput.value = presets[btn.dataset.preset];
+        convert();
+      });
+    });
+    
+    convertBtn.addEventListener('click', convert);
+    
+    function convert() {
+      error.textContent = '';
+      const csv = csvInput.value.trim();
+      
+      if (!csv) {
+        error.textContent = 'Please enter CSV data';
+        return;
+      }
+      
+      try {
+        const delim = delimiter.value;
+        const lines = csv.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          error.textContent = 'No data found';
+          return;
+        }
+        
+        let headers = [];
+        let startIndex = 0;
+        
+        if (hasHeader.checked) {
+          headers = parseLine(lines[0], delim);
+          startIndex = 1;
+        } else {
+          const firstLine = parseLine(lines[0], delim);
+          headers = firstLine.map((_, i) => `column${i + 1}`);
+        }
+        
+        const result = [];
+        
+        for (let i = startIndex; i < lines.length; i++) {
+          const values = parseLine(lines[i], delim);
+          const row = {};
+          
+          headers.forEach((header, j) => {
+            let value = values[j] !== undefined ? values[j] : '';
+            
+            if (trim.checked && typeof value === 'string') {
+              value = value.trim();
+            }
+            
+            // Auto-detect types
+            if (flatten.checked) {
+              value = parseValue(value);
+            }
+            
+            row[header] = value;
+          });
+          
+          result.push(row);
+        }
+        
+        // Format output
+        let indentVal = indent.value;
+        let jsonStr;
+        
+        if (indentVal === 'none') {
+          jsonStr = JSON.stringify(result);
+        } else if (indentVal === 'tab') {
+          jsonStr = JSON.stringify(result, null, '\t');
+        } else {
+          jsonStr = JSON.stringify(result, null, parseInt(indentVal));
+        }
+        
+        jsonOutput.value = jsonStr;
+        
+        // Update stats
+        stats.style.display = 'flex';
+        document.getElementById('rowCount').textContent = result.length;
+        document.getElementById('colCount').textContent = headers.length;
+        document.getElementById('sizeInput').textContent = formatSize(csv.length);
+        document.getElementById('sizeOutput').textContent = formatSize(new Blob([jsonStr]).size);
+        
+      } catch (e) {
+        error.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    function parseLine(line, delim) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delim && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      result.push(current);
+      return result;
+    }
+    
+    function parseValue(value) {
+      if (!value || value === '') return null;
+      
+      // Try number
+      if (!isNaN(value) && value.trim() !== '') {
+        const num = parseFloat(value);
+        if (!isNaN(num)) return num;
+      }
+      
+      // Try boolean
+      const lower = value.toLowerCase().trim();
+      if (lower === 'true') return true;
+      if (lower === 'false') return false;
+      
+      // Try null
+      if (lower === 'null' || lower === 'undefined') return null;
+      
+      return value;
+    }
+    
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + 'B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+    }
+    
+    copyBtn.addEventListener('click', () => {
+      jsonOutput.select();
+      document.execCommand('copy');
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+    });
+    
+    downloadBtn.addEventListener('click', () => {
+      const blob = new Blob([jsonOutput.value], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    
+    // Auto-convert on option change
+    [hasHeader, flatten, trim, delimiter, indent].forEach(el => {
+      el.addEventListener('change', () => {
+        if (csvInput.value.trim()) convert();
+      });
+    });
+  </script>
+</body>
+</html>
