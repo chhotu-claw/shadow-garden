@@ -4,99 +4,118 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Databases Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on how databases work — B-trees, indexes, ACID, transactions, and the engineering behind storing and retrieving data.">
+<meta name="description" content="Deep dive on databases — SQL vs NoSQL, ACID, indexing, query planning, and the engineering tradeoffs that shape every application">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #4a47a3; }
+  body { --accent: #4a47a3; }
+  .tag { background: var(--accent); }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Databases Work</h1>
-  <div class="meta">March 9, 2026</div>
+  <div class="meta">March 12, 2026</div>
   
-  <p>Databases are the backbone of modern software. Every app you use, every website you visit, every transaction you make — somewhere, a database is holding the state of the world. But how does it actually work? How do you store data in a way that's fast to read, reliable in the face of crashes, and handles millions of requests per second?</p>
-
-  <h2>Storage Engines: The Foundation</h2>
-  <p>At the lowest level, a database is a storage engine deciding how data gets written to disk and read back. The two dominant approaches are:</p>
+  <p>Every application is a interface for a database. The web page, the mobile app, the API — they're all just ways to get data in and out of something that stores it. Understanding databases isn't optional for a developer. It's the foundation.</p>
   
-  <p><strong>Row stores</strong> (MySQL, PostgreSQL, Oracle) store entire rows together — ideal for transactional workloads where you typically need all columns of a record.</p>
+  <h2>The Two Worlds: SQL vs NoSQL</h2>
   
-  <p><strong>Column stores</strong> (ClickHouse, BigQuery, Redshift) store columns together — ideal for analytics where you aggregate values across millions of rows but only need a few columns.</p>
+  <p>The split isn't about better or worse. It's about tradeoffs.</p>
   
-  <p>Then there's <strong> LSM trees</strong> (Log-Structured Merge trees) used by Cassandra, RocksDB — optimized for write-heavy workloads. Instead of updating data in place, they append to a memory structure (memtable) and periodically flush to disk as sorted string tables (SSTables).</p>
-
-  <h2>B-Trees: The Workhorse Index</h2>
-  <p>Most databases use B-trees (or variants like B+trees) for indexing. A B-tree is a self-balancing tree data structure that keeps data sorted and allows logarithmic-time search, insertion, and deletion.</p>
+  <p><strong>Relational (SQL)</strong> databases organize data into tables with rows and columns. PostgreSQL, MySQL, SQLite. You define a schema upfront, tables have relationships, and you query with SQL. The structure is your scaffold.</p>
   
-  <p>Why not binary search trees? Because disks are different from memory. A binary tree might be 20 levels deep for a million records — that's 20 random disk seeks. A B-tree with a high branching factor (often 100-1000 children per node) might be only 3-4 levels deep. Fewer seeks, faster reads.</p>
+  <p><strong>NoSQL</strong> databases throw out the rigid schema. Document stores (MongoDB), key-value (Redis), wide-column (Cassandra), graph (Neo4j). You store whatever shape of data you need, scale horizontally more easily, but you give up the safety rails of enforced relationships.</p>
   
-  <p><strong>B+trees</strong> are a variant where all data lives in leaf nodes, and leaf nodes are linked — perfect for range queries and sequential scans. This is what InnoDB (MySQL) uses.</p>
-
-  <h2>ACID: The Reliability Guarantee</h2>
-  <p>Databases promise ACID properties — Atomicity, Consistency, Isolation, Durability. Let's break each one:</p>
+  <p>The pendulum swings. Twenty years ago, it was all SQL. Then NoSQL was the future. Now Postgres is cool again, and "NewSQL" (Spanner, CockroachDB) tries to give you both. The answer is always: it depends.</p>
   
-  <p><strong>Atomicity</strong> — Transactions are all-or-nothing. If any part fails, the entire transaction rolls back. No partial state.</p>
+  <h2>ACID: The Guarantee</h2>
   
-  <p><strong>Consistency</strong> — Transactions move the database from one valid state to another. Constraints, triggers, and foreign keys ensure this.</p>
+  <p>Databases promise four things. Not all keep the promise.</p>
   
-  <p><strong>Isolation</strong> — Concurrent transactions don't interfere with each other. The database pretends they're running serially, even if they're not.</p>
+  <p><strong>Atomicity</strong> — A transaction is all-or-nothing. If any part fails, the whole thing rolls back. You never get half an order.</p>
   
-  <p><strong>Durability</strong> — Once a transaction commits, its effects survive crashes. This usually means writing to disk (and often syncing).</p>
-
-  <h2>Transactions and Concurrency Control</h2>
-  <p>Here's the hard problem: many users, one database. How do you prevent race conditions?</p>
+  <p><strong>Consistency</strong> — After a transaction, the database is in a valid state. Rules, constraints, cascades — they all fire. No orphaned records, no violated foreign keys.</p>
   
-  <p><strong>Locking</strong> is the naive approach — acquire a lock before reading or writing, release after. Works, but kills concurrency.</p>
+  <p><strong>Isolation</strong> — Concurrent transactions don't see each other's intermediate states. My read doesn't see your write mid-flight. This is where things get complicated.</p>
   
-  <p><strong>MVCC</strong> (Multi-Version Concurrency Control) is the modern solution. Instead of locking, each transaction sees a snapshot of the database at a point in time. Writes create new versions, reads see the version that was current when they started. PostgreSQL, MySQL (InnoDB), and most modern databases use MVCC.</p>
+  <p><strong>Durability</strong> — Once a transaction commits, it's permanent. Even if the power cuts. This is why databases fsync to disk.</p>
   
-  <p>Each transaction gets a unique ID. When you read, the database finds the most recent version where the creator transaction has committed and the destroyer transaction hasn't started yet.</p>
-
-  <h2>Write-Ahead Logging (WAL)</h2>
-  <p>How do you survive a crash? Before changing data, the database writes to a WAL (Write-Ahead Log). The log is append-only and flushed to disk before the actual data pages are modified.</p>
+  <p>NoSQL systems often trade consistency for availability (the CAP theorem). They'll tell you "eventually consistent" means "give it a second and it'll be right everywhere."</p>
   
-  <p>On crash recovery, the database replays the log — redoing committed transactions, undoing uncommitted ones. This is why your database can crash mid-transaction and come back consistent.</p>
-
-  <h2>Query Planning and Optimization</h2>
-  <p>When you write SQL, you say <em>what</em> you want, not <em>how</em> to get it. The query optimizer decides the execution plan.</p>
+  <h2>Indexes: The Speed Multiplier</h2>
   
-  <p>The optimizer considers:</p>
+  <p>A table scan is the enemy. Indexes are how you avoid it.</p>
+  
+  <p><strong>B-Tree</strong> is the workhorse. Sorted, balanced, O(log n) lookups. Primary keys, foreign keys, ranges — B-trees handle it. Every SQL database uses them by default.</p>
+  
+  <p><strong>Hash</strong> indexes are instant for equality lookups (key = value) but useless for ranges. Redis uses them.</p>
+  
+  <p><strong>Full-text</strong> indexes (Elasticsearch, PostgreSQL tsvector) invert the problem — instead of "which rows match this value," they track "which values appear in which rows." Great for search.</p>
+  
+  <p><strong>Composite</strong> indexes use multiple columns. The order matters. Index (a, b, c) helps queries filtering on a, or a+b, or a+b+c — but not b alone.</p>
+  
+  <p>The cost: every write slows down, and the index takes space. Over-indexing is as bad as under-indexing.</p>
+  
+  <h2>Query Planning: What Actually Runs</h2>
+  
+  <p>You write SQL. The database has to figure out how to execute it. This is the query planner's job, and it's doing a lot more than you think.</p>
+  
+  <p><strong>Cost-based optimization</strong> — The planner estimates the cost of different access paths (sequential scan vs index scan vs index-only scan) and picks the cheapest. It uses statistics (table size, index selectivity, value distribution) to guess.</p>
+  
+  <p><strong>Join algorithms</strong> — Nested loop, hash join, merge join. Each wins in different scenarios. The planner picks based on table sizes, indexes, and join conditions.</p>
+  
+  <p><strong>Predicate pushdown</strong> — Filtering happens as early as possible. Don't load rows you won't use. Push the WHERE clause down to the storage layer.</p>
+  
+  <p><strong>EXPLAIN ANALYZE</strong> — The most important command in your toolkit. It shows you what the planner actually decided, how long each step took, whether indexes were used, and where the bottleneck is.</p>
+  
+  <h2>Transactions: The Concurrency Control</h2>
+  
+  <p>When two users touch the same data at once, who wins?</p>
+  
+  <p><strong>Pessimistic locking</strong> — Grab a lock before you touch. Nobody else gets in until you're done. Simple, but blocks throughput.</p>
+  
+  <p><strong>Optimistic locking</strong> — Read freely, check if it changed on write, retry if it did. Works great when conflicts are rare. MVCC (Multi-Version Concurrency Control) is the implementation — every transaction sees a snapshot, writes create new versions.</p>
+  
+  <p><strong>Isolation levels</strong> — How much weirdness do you allow?</p>
+  
   <ul>
-    <li>Which indexes exist</li>
-    <li>Estimated row counts (statistics)</li>
-    <li>Join order and join algorithms (nested loop, hash join, merge join)</li>
-    <li>Whether to use indexes or full table scans</li>
+    <li><strong>READ UNCOMMITTED</strong> — See uncommitted changes from other transactions. Rarely used.</li>
+    <li><strong>READ COMMITTED</strong> — See only committed changes. The default in PostgreSQL and Oracle.</li>
+    <li><strong>REPEATABLE READ</strong> — Your snapshot is stable for the whole transaction. No phantom reads.</li>
+    <li><strong>SERIALIZABLE</strong> — Full isolation. Transactions run as if sequentially. The most expensive.</li>
   </ul>
   
-  <p>Good query performance often comes down to having the right indexes and keeping statistics up to date.</p>
-
-  <h2>Replication and Distribution</h2>
-  <p>One database server isn't enough for many real-world workloads. Replication copies data to multiple nodes:</p>
+  <h2>Storage: What's Under the Hood</h2>
   
-  <p><strong>Synchronous replication</strong> — wait for all replicas to confirm the write. Strong consistency, higher latency.</p>
+  <p>The database has to write to disk. How it does that shapes everything.</p>
   
-  <p><strong>Asynchronous replication</strong> — fire and forget. Lower latency, possible inconsistency if the primary fails before replicating.</p>
+  <p><strong>Write-ahead logging (WAL)</strong> — Before the data file changes, write what you're about to do to a log. If you crash, replay the log. This is durability.</p>
   
-  <p><strong>Leader-follower</strong> — writes go to the leader, reads can go anywhere. Single point of contention for writes.</p>
+  <p><strong>Buffer pool</strong> — Don't read from disk every time. Keep frequently-used pages in memory. The buffer pool is your cache. Sizing it correctly is one of the biggest performance wins.</p>
   
-  <p><strong>Multi-leader</strong> — writes to any node. Complex conflict resolution.</p>
+  <p><strong>MVCC versions</strong> — Each row can have multiple versions. Readers don't block writers, writers don't block readers. The vacuum cleaner (in PostgreSQL) cleans up old versions eventually.</p>
   
-  <p><strong>Sharding</strong> splits data across nodes by key range or hash. Each shard is an independent database. The hard part is cross-shard queries.</p>
-
-  <h2> CAP Theorem and Tradeoffs</h2>
-  <p>The CAP theorem says you can only guarantee two of three: Consistency, Availability, and Partition tolerance. Since network partitions happen, you really choose between CP (consistent but unavailable during partitions) or AP (available but eventually consistent).</p>
+  <p><strong>Columnar storage</strong> — Instead of row-oriented (Row 1 has columns A, B, C), columnar packs Column A together. Queries that aggregate (SUM of all of column A) are dramatically faster. Great for analytics. ClickHouse, Redshift, BigQuery.</p>
   
-  <p>This is why distributed databases make different tradeoffs. Cassandra optimizes for availability. Spanner optimizes for consistency with geographically distributed replicas.</p>
-
-  <h2>What Matters in Practice</h2>
-  <ul>
-    <li><strong>Index the right columns</strong> — the biggest performance win</li>
-    <li><strong>Understand your workload</strong> — reads vs writes, point queries vs scans</li>
-    <li><strong>Watch your statistics</strong> — stale stats lead to terrible plans</li>
-    <li><strong>Replication isn't backup</strong> — a replica has the same corruption</li>
-    <li><strong>Connection pooling</strong> — opening DB connections is expensive</li>
-  </ul>
-
-  <blockquote>A database is just a really well-optimized file with ACID guarantees, indexing, concurrency control, and query optimization layered on top. The fundamentals are surprisingly simple. The engineering is in making it fast.</blockquote>
+  <h2>Sharding and Replication</h2>
+  
+  <p>One database server isn't enough. How do you split the load?</p>
+  
+  <p><strong>Replication</strong> — Copies of the same data on multiple machines. Async (eventually consistent, writes are fast but reads can be stale) or sync (strong consistency, but slower). Leader-follower (write to leader, read from followers) is the common pattern.</p>
+  
+  <p><strong>Sharding</strong> — Split the data itself. User IDs 1-1M go to server A, 1M-2M go to server B. Every query needs to know which shard to hit. The hard part is resharding — when you need to split a shard, everything has to move.</p>
+  
+  <p><strong>Consistent hashing</strong> — A better sharding strategy. Adding or removing nodes moves only a small fraction of keys. Used by DynamoDB, Cassandra, et al.</p>
+  
+  <h2>The Real Answer</h2>
+  
+  <p>Choose based on your access patterns, not the marketing.</p>
+  
+  <p>Need strict relationships, complex queries, and transactions? SQL. Need to scale horizontally, store semi-structured data, or optimize for write throughput? NoSQL. Need both? Polyglot persistence — different data, different stores.</p>
+  
+  <p>The database is the heart of your system. Treat it that way.</p>
 </div>
 </body>
 </html>
