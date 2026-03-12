@@ -4,242 +4,375 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Garden — Shadow's Garden</title>
-<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time"></meta>
+<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { 
-    --bg: #0a0a0f; 
+  :root {
+    --bg: #0a0a0f;
     --fg: #e8e6e3;
-    --accent: #c8b8a8;
+    --accent: #7dd3c0;
+    --accent-dim: #4a9e8a;
+    --flower-1: #ff6b9d;
+    --flower-2: #c792ea;
+    --flower-3: #7dd3c0;
+    --flower-4: #ffcb6b;
+    --stem: #6a8f7a;
+  }
+  body {
     background: var(--bg);
     min-height: 100vh;
     overflow: hidden;
-  }
-  .container { 
-    position: relative; 
-    width: 100vw; 
-    height: 100vh;
-    overflow: hidden;
+    font-family: 'Crimson Text', Georgia, serif;
   }
   #garden {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
   }
-  .word {
-    position: absolute;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.2rem;
-    color: var(--fg);
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 2s cubic-bezier(0.23, 1, 0.32, 1);
-    white-space: nowrap;
-    cursor: default;
-    user-select: none;
-  }
-  .word.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  .word.rise {
-    animation: rise 8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-  }
-  @keyframes rise {
-    0% { opacity: 0; transform: translateY(30px) scale(0.8); }
-    20% { opacity: 1; transform: translateY(0) scale(1); }
-    80% { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
-  }
-  .word.bloom {
-    animation: bloom 12s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-  }
-  @keyframes bloom {
-    0% { opacity: 0; transform: scale(0.5); filter: hue-rotate(0deg); }
-    15% { opacity: 1; transform: scale(1.2); filter: hue-rotate(0deg); }
-    85% { opacity: 0.7; transform: scale(1); filter: hue-rotate(180deg); }
-    100% { opacity: 0; transform: scale(0.8); filter: hue-rotate(360deg); }
-  }
-  .word.drift {
-    animation: drift 15s linear forwards;
-  }
-  @keyframes drift {
-    0% { opacity: 0; transform: translateX(0) translateY(0); }
-    10% { opacity: 0.8; }
-    90% { opacity: 0.5; }
-    100% { opacity: 0; transform: translateX(var(--dx, 100px)) translateY(var(--dy, -200px)); }
-  }
-  .word.fade {
-    animation: fade 6s ease-out forwards;
-  }
-  @keyframes fade {
-    0% { opacity: 0; letter-spacing: 0; }
-    30% { opacity: 1; letter-spacing: 0.1em; }
-    100% { opacity: 0; letter-spacing: 0.3em; }
-  }
-  #input-area {
+  .ground {
     position: fixed;
-    bottom: 2rem;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(to top, #1a1a24 0%, transparent 100%);
+  }
+  .input-area {
+    position: fixed;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
     display: flex;
-    gap: 0.5rem;
+    gap: 10px;
   }
-  #word-input {
-    width: 300px;
-    padding: 0.8rem 1.2rem;
+  #seed {
+    padding: 12px 20px;
+    font-size: 18px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 2rem;
+    border-radius: 30px;
     color: var(--fg);
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.1rem;
+    font-family: inherit;
+    width: 250px;
+    text-align: center;
     outline: none;
     transition: all 0.3s;
   }
-  #word-input:focus {
-    background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.2);
+  #seed:focus {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--accent);
   }
-  #word-input::placeholder {
+  #seed::placeholder {
     color: rgba(255,255,255,0.3);
   }
   .hint {
     position: fixed;
-    bottom: 5rem;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.25);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .word {
+    position: absolute;
+    font-size: 16px;
+    color: var(--fg);
+    white-space: nowrap;
+    cursor: default;
+    transition: color 0.5s, transform 0.3s;
+    user-select: none;
+  }
+  .word.growing {
+    animation: grow 2s ease-out forwards;
+  }
+  @keyframes grow {
+    0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+    50% { opacity: 1; }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .word.blooming {
+    animation: bloom 3s ease-in-out infinite;
+  }
+  @keyframes bloom {
+    0%, 100% { 
+      text-shadow: 0 0 5px var(--flower-3), 0 0 10px var(--flower-3);
+      color: var(--fg);
+    }
+    50% { 
+      text-shadow: 0 0 15px var(--flower-1), 0 0 30px var(--flower-2);
+      color: var(--flower-1);
+    }
+  }
+  .word.drifting {
+    animation: drift 8s ease-in-out infinite;
+  }
+  @keyframes drift {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    25% { transform: translateY(-10px) translateX(5px); }
+    50% { transform: translateY(-5px) translateX(-5px); }
+    75% { transform: translateY(-15px) translateX(3px); }
+  }
+  .word.fading {
+    animation: fade 4s ease-in forwards;
+  }
+  @keyframes fade {
+    0% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-30px) scale(0.8); }
+  }
+  .flower {
+    position: absolute;
+    font-size: 20px;
+    animation: sway 3s ease-in-out infinite;
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+  .stem {
+    position: absolute;
+    width: 2px;
+    background: linear-gradient(to top, var(--stem), transparent);
+    transform-origin: bottom center;
+  }
+  .sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--flower-4);
+    border-radius: 50%;
+    animation: sparkle 1.5s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes sparkle {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0); }
+  }
+  .mode-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    color: rgba(255,255,255,0.3);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .mode-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .mode-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--fg);
+  }
+  .count {
+    position: fixed;
+    top: 20px;
     left: 50%;
     transform: translateX(-50%);
     color: rgba(255,255,255,0.2);
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
-  }
-  .mode-hint {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    color: rgba(255,255,255,0.3);
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
+    font-size: 11px;
+    letter-spacing: 1px;
   }
 </style>
 </head>
-<body data-page-type="app">
-  <div class="container">
-    <div id="garden"></div>
-    <div class="hint">type a word and press enter</div>
-    <div class="mode-hint" id="mode-display">mode: rise</div>
-    <div id="input-area">
-      <input type="text" id="word-input" placeholder="plant a seed..." autocomplete="off" maxlength="30">
-    </div>
+<body data-page-type="creative">
+  <canvas id="garden"></canvas>
+  <div class="ground"></div>
+  
+  <div class="count" id="count">0 words</div>
+  <button class="mode-btn" id="modeBtn">Mode: Grow</button>
+  <div class="mode-indicator" id="modeIndicator">Press Space to cycle</div>
+  
+  <p class="hint">Type a word and press Enter to plant</p>
+  <div class="input-area">
+    <input type="text" id="seed" placeholder="plant a word..." autocomplete="off">
   </div>
   
   <script>
-    const garden = document.getElementById('garden');
-    const input = document.getElementById('word-input');
-    const modeDisplay = document.getElementById('mode-display');
+    const canvas = document.getElementById('garden');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('seed');
+    const countEl = document.getElementById('count');
+    const modeBtn = document.getElementById('modeBtn');
+    const modeIndicator = document.getElementById('modeIndicator');
     
-    const modes = ['rise', 'bloom', 'drift', 'fade'];
+    const modes = ['grow', 'bloom', 'drift', 'fade'];
     let currentMode = 0;
+    let words = [];
+    let particles = [];
     
-    const colors = [
-      '#e8e6e3', '#c8b8a8', '#a89888', '#d4a574', 
-      '#b8956e', '#9c7a5a', '#c9b896', '#a89b8c'
-    ];
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
     
-    const quotes = [
-      'words become worlds',
-      'seeds of thought',
-      'echoes remain',
-      'nothing disappears',
-      'everything changes',
-      'nothing stays',
-      'the garden remembers',
-      'time grows here'
-    ];
+    modeBtn.addEventListener('click', () => {
+      currentMode = (currentMode + 1) % modes.length;
+      modeBtn.textContent = `Mode: ${modes[currentMode].charAt(0).toUpperCase() + modes[currentMode].slice(1)}`;
+    });
     
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        plantWord(input.value.trim());
-        input.value = '';
-      }
-      if (e.key === ' ') {
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
         e.preventDefault();
-        cycleMode();
+        currentMode = (currentMode + 1) % modes.length;
+        modeBtn.textContent = `Mode: ${modes[currentMode].charAt(0).toUpperCase() + modes[currentMode].slice(1)}`;
+        words.forEach(w => applyMode(w));
       }
     });
     
-    function cycleMode() {
-      currentMode = (currentMode + 1) % modes.length;
-      modeDisplay.textContent = `mode: ${modes[currentMode]}`;
+    function applyMode(word) {
+      word.el.className = 'word';
+      word.el.classList.add(modes[currentMode]);
     }
     
-    function plantWord(word) {
+    function plant(text) {
+      if (!text.trim()) return;
+      
+      const x = Math.random() * (canvas.width - 100) + 50;
+      const y = canvas.height - 100 - Math.random() * 100;
+      
       const el = document.createElement('div');
-      el.className = 'word';
-      el.textContent = word;
-      
-      const x = Math.random() * (window.innerWidth - 200) + 50;
-      const y = Math.random() * (window.innerHeight - 200) + 50;
-      
+      el.className = 'word growing';
+      el.textContent = text;
       el.style.left = x + 'px';
       el.style.top = y + 'px';
-      el.style.color = colors[Math.floor(Math.random() * colors.length)];
-      el.style.fontSize = (1 + Math.random() * 0.8) + 'rem';
-      
-      const mode = modes[currentMode];
-      
-      if (mode === 'drift') {
-        const dx = (Math.random() - 0.5) * 300;
-        const dy = -Math.random() * 200 - 50;
-        el.style.setProperty('--dx', dx + 'px');
-        el.style.setProperty('--dy', dy + 'px');
-      }
-      
-      garden.appendChild(el);
-      
-      requestAnimationFrame(() => {
-        el.classList.add(mode);
-      });
+      document.body.appendChild(el);
       
       setTimeout(() => {
-        el.remove();
-      }, mode === 'bloom' ? 12000 : mode === 'drift' ? 15000 : mode === 'fade' ? 6000 : 8000);
+        el.classList.remove('growing');
+        el.classList.add(modes[currentMode]);
+      }, 2000);
+      
+      const word = { text, x, y, el, life: 100 };
+      words.push(word);
+      
+      // Sparkle effect
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => createSparkle(x, y), Math.random() * 500);
+      }
+      
+      updateCount();
     }
     
-    // Auto-quotes
-    setInterval(() => {
-      if (garden.childElementCount < 15) {
-        const quote = quotes[Math.floor(Math.random() * quotes.length)];
-        plantWord(quote);
-      }
-    }, 4000);
+    function createSparkle(x, y) {
+      const sparkle = document.createElement('div');
+      sparkle.className = 'sparkle';
+      sparkle.style.left = (x + Math.random() * 30 - 15) + 'px';
+      sparkle.style.top = (y + Math.random() * 30 - 15) + 'px';
+      document.body.appendChild(sparkle);
+      setTimeout(() => sparkle.remove(), 1500);
+    }
     
-    // Ambient background words
-    setInterval(() => {
-      if (garden.childElementCount < 8) {
-        const ambient = ['whisper', 'drift', 'bloom', 'grow', 'fade', 'echo', 'seed', 'root'];
-        const word = ambient[Math.floor(Math.random() * ambient.length)];
-        const el = document.createElement('div');
-        el.className = 'word';
-        el.textContent = word;
-        el.style.left = Math.random() * window.innerWidth + 'px';
-        el.style.top = Math.random() * window.innerHeight + 'px';
-        el.style.opacity = '0.1';
-        el.style.fontSize = '2rem';
-        garden.appendChild(el);
-        setTimeout(() => {
-          el.style.transition = 'opacity 10s';
-          el.style.opacity = '0';
-        }, 1000);
-        setTimeout(() => el.remove(), 11000);
-      }
-    }, 2000);
+    function updateCount() {
+      countEl.textContent = `${words.length} word${words.length !== 1 ? 's' : ''}`;
+    }
     
-    input.focus();
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        plant(input.value);
+        input.value = '';
+      }
+    });
+    
+    // Ambient quotes
+    const quotes = [
+      "quietly growing",
+      "words take root",
+      "patience blooms",
+      "time flows",
+      "roots run deep",
+      "silence feeds",
+      "slowly becoming",
+      "nothing wasted",
+      "nothing rushed",
+      "the space between",
+      "waiting is growing",
+      "stillness speaks"
+    ];
+    
+    function ambientQuote() {
+      if (words.length < 5) {
+        setTimeout(ambientQuote, 8000 + Math.random() * 12000);
+        return;
+      }
+      
+      const quote = quotes[Math.floor(Math.random() * quotes.length)];
+      const x = Math.random() * (canvas.width - 200) + 100;
+      const y = canvas.height * 0.3 + Math.random() * canvas.height * 0.4;
+      
+      const el = document.createElement('div');
+      el.className = 'word fading';
+      el.textContent = quote;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.color = 'rgba(255,255,255,0.15)';
+      el.style.fontSize = '14px';
+      el.style.fontStyle = 'italic';
+      document.body.appendChild(el);
+      
+      setTimeout(() => el.remove(), 4000);
+      setTimeout(ambientQuote, 15000 + Math.random() * 20000);
+    }
+    
+    setTimeout(ambientQuote, 5000);
+    
+    // Gentle background particles
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Floating particles
+      if (Math.random() < 0.02) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: canvas.height + 10,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: -Math.random() * 0.5 - 0.2,
+          size: Math.random() * 2 + 1,
+          alpha: Math.random() * 0.3 + 0.1
+        });
+      }
+      
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        if (p.y < 0) return false;
+        
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(125, 211, 192, ${p.alpha})`;
+        ctx.fill();
+        
+        return true;
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    animate();
+    
+    // Initial words
+    setTimeout(() => plant('plant'), 1000);
+    setTimeout(() => plant('grow'), 2000);
+    setTimeout(() => plant('bloom'), 3000);
   </script>
 </body>
 </html>
