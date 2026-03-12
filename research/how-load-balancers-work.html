@@ -4,75 +4,131 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Load Balancers Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on load balancing algorithms, health checks, sticky sessions, and fault tolerance">
+<meta name="description" content="Deep dive on load balancing — algorithms, health checks, sticky sessions, and the art of distributing traffic">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #f97316; }
+  body { --accent: #f97316; }
+  .tag { background: var(--accent); }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Load Balancers Work</h1>
-  <div class="meta">March 10, 2026</div>
+  <div class="meta">March 13, 2026</div>
+  
+  <p>Every large-scale system faces the same problem: one server isn't enough. But how do you split traffic across many servers without users noticing? That's the load balancer's job — and it's deceptively complex.</p>
 
-<p>Load balancers are the traffic cops of the internet. They sit in front of a fleet of servers and decide which request goes where. Sounds simple. It gets complicated fast.</p>
+  <h2>The Problem</h2>
+  <p>Imagine you have 10,000 requests per second and one server that can handle 1,000. You need 10 servers. But which request goes to which server? And what happens when one server dies?</p>
+  <p>A load balancer sits between the client and your servers, distributing requests intelligently. It's the traffic cop of your infrastructure.</p>
 
-<h2>The Problem</h2>
-<p>You have one website. Thousands of users. One server can't handle it. So you add more. Now you have a new problem: how do you distribute traffic across them without creating hotspots? That's the load balancer's job.</p>
+  <h2>Layer 4 vs Layer 7</h2>
+  <p>Load balancers operate at different layers of the OSI model:</p>
+  
+  <h3>Layer 4 (Transport)</h3>
+  <p>The load balancer looks at IP and TCP/UDP ports only. It doesn't know what the request says — just where it's going. Fast, simple, harder to optimize. Nginx, HAProxy in TCP mode.</p>
+  
+  <h3>Layer 7 (Application)</h3>
+  <p>The load balancer actually reads the HTTP request. It can route based on URL path, headers, cookies, or anything in the request. Smarter but more CPU-intensive. AWS ALB, Nginx in HTTP mode.</p>
+  <p>Layer 7 can do things Layer 4 can't: route /api to one group of servers, /images to another, terminate SSL, inject headers.</p>
 
-<h2>Algorithms</h2>
-<p><strong>Round Robin</strong> — The simplest. Request 1 goes to server A, request 2 to B, request 3 to C, repeat. Works when all servers are equal. They rarely are.</p>
+  <h2>Load Balancing Algorithms</h2>
+  <p>How do you decide which server gets the next request?</p>
 
-<p><strong>Least Connections</strong> — Send the request to the server with the fewest active connections. Better for varying request durations. A request that takes 10 seconds shouldn't block new arrivals.</p>
+  <h3>Round Robin</h3>
+  <p>Request 1 → Server A, Request 2 → Server B, Request 3 → Server C, repeat. Simple, fair if all servers are equal. Problem: what if one server is a 64-core monster and another is a toaster?</p>
 
-<p><strong>Weighted</strong> — Server A is twice as powerful as B? Give it double the traffic. Requires manual configuration but optimizes resource use.</p>
+  <h3>Least Connections</h3>
+  <p>Send to the server with the fewest active connections. Better for requests that take varying amounts of time. If one request takes 30 seconds and another takes 1ms, least connections balances better than round robin.</p>
 
-<p><strong>IP Hash</strong> — Hash the client IP and map to a server. Useful when you need session consistency. Same user, same server, every time.</p>
+  <h3>IP Hash</h3>
+  <p>Hash the client IP and map to a server. Guarantees the same client hits the same server (useful for sessions). Problem: servers go offline and the hash mapping breaks.</p>
 
-<p><strong>Least Response Time</strong> — Send to the server with the fastest response time. Requires the load balancer to actively measure latency.</p>
+  <h3>Weighted</h3>
+  <p>Assign weights to servers. A monster server gets weight 10, toaster gets weight 1. Handles heterogeneous infrastructure.</p>
 
-<h2>Health Checks</h2>
-<p>A load balancer is only as good as its health checks. If a server is down but still in the rotation, users get errors. Good health checks:</p>
-<ul>
-<li><strong>TCP checks</strong> — Can we open a connection?</li>
-<li><strong>HTTP checks</strong> — Does the server return 200?</li>
-<li><strong>Deep checks</strong> — Does the /health endpoint return healthy?</li>
-<li><strong>Periodic</strong> — Check every few seconds, not just on request time</li>
-</ul>
+  <h3>Least Request / Least Time</h3>
+  <p>Pick the server with the fewest pending requests, or the one with the lowest average response time. More sophisticated, requires tracking metrics.</p>
 
-<p>Mark a server unhealthy → stop sending traffic → mark healthy → gradually reintroduce. This is called <em>drain</em> and <em>warmup</em>.</p>
+  <h3>Random</h3>
+  <p>Surprisingly effective. With enough traffic, random distribution converges to fair. Less overhead than tracking connections.</p>
 
-<h2>Sticky Sessions</h2>
-<p>Sometimes you need the same user to hit the same server. Why? Session data lives in server memory. No shared cache.</p>
-<p>The tradeoff: you lose the均匀 distribution benefits. One user hammering one server creates imbalance.</p>
-<p>Modern approach: stickiness for initial auth, then session ID maps to shared storage (Redis, Memcached). The load balancer stays dumb; the app stays stateless.</p>
+  <h2>Health Checks</h2>
+  <p>Load balancers must know when a server is dead. Health checks periodically ping each server — TCP connections, HTTP endpoints, or custom scripts.</p>
+  <p><strong>Active checks:</strong> Load balancer initiates the check periodically.</p>
+  <p><strong>Passive checks:</strong> Observe actual request failures.</p>
+  <p><strong>Graceful degradation:</strong> If 3 out of 10 servers die, distribute to the 7 remaining. Don't route to dead servers.</p>
 
-<h2>Fault Tolerance</h2>
-<p>Load balancers are single points of failure. Solutions:</p>
-<ul>
-<li><strong>Active-passive</strong> — Two load balancers. One active, one standby. Heartbeat between them.</li>
-<li><strong>Anycast</strong> — Multiple load balancers announce the same IP. Traffic routes to the nearest one. DNS-based but works.</li>
-<li><strong>Geographic DNS</strong> — Route users to the closest datacenter's load balancer.</li>
-</ul>
+  <h2>Sticky Sessions</h2>
+  <p>Sometimes you need the same user to hit the same server. Reasons: server-side sessions, caching, long-running processes.</p>
+  <p>Mechanisms:</p>
+  <ul>
+    <li><strong>Cookies:</strong> Set a cookie identifying the server. Simple but requires Layer 7.</li>
+    <li><strong>Source IP:</strong> Hash the IP. Simple but IP can change (mobile networks, NAT).</li>
+    <li><strong>Headers:</strong> Application sets a header, load balancer reads it.</li>
+  </ul>
+  <p>Sticky sessions are a tradeoff: better for stateful apps, but defeats some load balancing benefits and makes rolling updates harder.</p>
 
-<h2>Layer 4 vs Layer 7</h2>
-<p><strong>L4 (Transport)</strong> — Makes decisions on IP/TCP/UDP. Fast. Can't inspect content. Good for raw throughput.</p>
-<p><strong>L7 (Application)</strong> — Can inspect HTTP headers, paths, cookies. Can route /api to one backend and /static to another. More flexible, slightly more latency.</p>
+  <h2>SSL Termination</h2>
+  <p>The load balancer can handle the SSL/TLS decryption. Benefits:</p>
+  <ul>
+    <li>Back-end servers don't need SSL libraries</li>
+    <li>One place to manage certificates</li>
+    <li>CPU-intensive crypto happens once</li>
+  </ul>
+  <p>Tradeoff: the load balancer becomes the SSL bottleneck. Modern Layer 7 load balancers handle this well, but it's worth knowing.</p>
 
-<h2>The Algorithm Matters Less Than Health Monitoring</h2>
-<p>Here's what actually breaks in production: a server that looks healthy but is slow. Requests queue up. Users wait. The algorithm doesn't know.</p>
-<p>Good health monitoring + decent algorithm beats fancy algorithm + mediocre monitoring every time.</p>
+  <h2>High Availability</h2>
+  <p>A load balancer is a single point of failure if there's only one. Solutions:</p>
+  
+  <h3>Active-Passive</h3>
+  <p>Two load balancers. One active, one standby. Heartbeat between them. When active dies, standby takes over.</p>
+  
+  <h3>Anycast</h3>
+  <p>Multiple load balancers announce the same IP via BGP. Traffic routes to the nearest one. DNS-based, not typically used for L7 load balancers but common for DDoS protection.</p>
 
-<h2>What Happens Without One</h2>
-<p>Without a load balancer, you either:</p>
-<ul>
-<li>Use DNS round robin (no health checking, no sticky sessions)</li>
-<li>Route everything through one server (bottleneck)</li>
-<li>Let clients figure it out (they can't)</li>
-</ul>
+  <h2>Geographic Routing</h2>
+  <p>For global apps, route users to the nearest data center:</p>
+  <ul>
+    <li><strong>DNS-based:</strong> Return different IPs based on client location</li>
+    <li><strong>Geo-DNS:</strong> Route53, CloudFlare DNS</li>
+    <li><strong>Anycast:</strong> Same IP, network routes to closest node</li>
+  </ul>
+  <p>The user hits a load balancer in their region, which routes to regional backends.</p>
 
-<h2>Real World</h2>
-<p>AWS ALB = Layer 7, HTTP-aware. NGINX = can do both L4 and L7. HAProxy = L4/L7, the old reliable. Kubernetes Service = L4, simple round robin. Ingress = L7 routing into Kubernetes.</p>
+  <h2>The Real World</h2>
+  <p>In practice, load balancers are often combined with other functions:</p>
+  <ul>
+    <li><strong>Reverse proxy:</strong> Also handles caching, compression</li>
+    <li><strong>API gateway:</strong> Adds rate limiting, authentication</li>
+    <li><strong>Service mesh:</strong> Sidecar proxies handle load balancing between services</li>
+  </ul>
 
-<p>The pattern is consistent: start simple (round robin), add complexity as you need it (stickiness, weighted, geographic). The algorithm is the last thing that matters.</p>
+  <h2>Common Tools</h2>
+  <ul>
+    <li><strong>HAProxy:</strong> The old reliable. Layer 4 and 7, incredibly fast, text config</li>
+    <li><strong>Nginx:</strong> Web server that happens to load balance. Great for Layer 7</li>
+    <li><strong>AWS ALB/ELB:</strong> Managed, scales automatically</li>
+    <li><strong>Traefik:</strong> Cloud-native, automatic service discovery</li>
+    <li><strong>Envoy:</strong> Built for microservices, used in service meshes</li>
+    <li><strong>CloudFlare:</strong> DNS + CDN + DDoS + load balancing</li>
+  </ul>
+
+  <h2>What Can Go Wrong</h2>
+  <ul>
+    <li><strong>Thundering herd:</strong> All clients retry at once after a server recovers</li>
+    <li><strong>Sticky session drift:</strong> Server marked healthy but still struggling</li>
+    <li><strong>SSL handshake bottleneck:</strong> Too many concurrent SSL connections</li>
+    <li><strong>Health check too aggressive:</strong> Flapping between healthy/unhealthy</li>
+    <li><strong>Health check too lenient:</strong> Dead servers stay in rotation</li>
+    <li><strong>Single point of failure:</strong> Forgot to HA the load balancer itself</li>
+  </ul>
+
+  <h2>The Takeaway</h2>
+  <p>Load balancers are deceptively simple: distribute requests across servers. But the nuances — Layer 4 vs 7, algorithm choice, health checks, sticky sessions, SSL termination, HA — make them one of the most critical pieces of infrastructure.</p>
+  <p>Get this wrong and users get 500s, timeouts, or session loss. Get it right and your system scales invisibly.</p>
 </div>
 </body>
 </html>
