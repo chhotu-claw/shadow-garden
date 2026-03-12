@@ -4,391 +4,320 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Visualizer — Shadow's Garden</title>
-<meta name="description" content="Interactive JSON tree visualizer with expand/collapse, search, and path copying.">
+<meta name="description" content="Interactive JSON tree visualizer with expand/collapse, path selection, and stats">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --primary: #22c55e;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    --string: #4ade80;
-    --number: #f472b6;
-    --boolean: #60a5fa;
-    --null: #9ca3af;
-    --key: #fbbf24;
+  :root { --accent: #f0db4f; }
+  body { --accent: #f0db4f; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  textarea { width: 100%; min-height: 150px; padding: 0.75rem 1rem; background: #161b22; border: 2px solid #30363d; border-radius: 8px; color: #c9d1d9; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  
+  .stats-bar { display: flex; gap: 1.5rem; margin-bottom: 1rem; padding: 0.75rem 1rem; background: #161b22; border-radius: 8px; border: 1px solid #30363d; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
+  
+  .output { background: #161b22; border: 2px solid #30363d; border-radius: 8px; padding: 1rem; min-height: 200px; max-height: 600px; overflow: auto; font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.6; }
+  .output.empty { color: #8b949e; font-style: italic; }
+  
+  .tree { }
+  .node { margin-left: 0; }
+  .node-content { cursor: pointer; padding: 0.2rem 0; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; }
+  .node-content:hover { background: #21262d; }
+  .toggle { 
+    display: inline-block; width: 1rem; text-align: center; color: #8b949e; 
+    font-size: 0.75rem; transition: transform 0.15s;
   }
-
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem 1rem;
-  }
-
-  .container {
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  h1 {
-    margin-bottom: 0.5rem;
-  }
-
-  .subtitle {
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-    font-size: 0.875rem;
-  }
-
-  .input-section {
-    margin-bottom: 2rem;
-  }
-
-  textarea {
-    width: 100%;
-    height: 200px;
-    padding: 1rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.875rem;
-    resize: vertical;
-    box-sizing: border-box;
-  }
-
-  textarea:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .controls {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-
-  .btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: #000;
-  }
-
-  .btn-primary:hover {
-    background: #16a34a;
-  }
-
-  .btn-secondary {
-    background: var(--border);
-    color: var(--text);
-  }
-
-  .btn-secondary:hover {
-    background: #475569;
-  }
-
-  .output-section {
-    background: var(--card);
-    border-radius: 8px;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    min-height: 100px;
-    max-height: 600px;
-    overflow: auto;
-  }
-
-  .error {
-    color: #ef4444;
-    padding: 1rem;
-  }
-
-  .tree {
-    font-size: 0.875rem;
-    line-height: 1.6;
-  }
-
-  .node {
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .node:hover {
-    background: rgba(255,255,255,0.05);
-    border-radius: 4px;
-  }
-
-  .bracket {
-    color: var(--text-muted);
-  }
-
-  .key {
-    color: var(--key);
-  }
-
-  .string { color: var(--string); }
-  .number { color: var(--number); }
-  .boolean { color: var(--boolean); }
-  .null { color: var(--null); font-style: italic; }
-
-  .collapsed .children {
-    display: none;
-  }
-
-  .toggle {
-    display: inline-block;
-    width: 1rem;
-    color: var(--text-muted);
-  }
-
-  .path-bar {
-    position: sticky;
-    top: 0;
-    background: var(--card);
-    padding: 0.5rem;
-    margin-bottom: 1rem;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid var(--border);
-  }
-
-  .path-bar input {
-    flex: 1;
-    padding: 0.5rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.75rem;
-  }
-
-  .stats {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .stat {
-    background: var(--card);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-  }
+  .toggle.collapsed { transform: rotate(-90deg); }
+  .toggle.empty { visibility: hidden; }
+  
+  .key { color: #79c0ff; }
+  .string { color: #a5d6ff; }
+  .number { color: #79c0ff; }
+  .boolean { color: #ff7b72; }
+  .null { color: #8b949e; font-style: italic; }
+  
+  .children { margin-left: 1.2rem; border-left: 1px solid #30363d; padding-left: 0.5rem; }
+  .children.collapsed { display: none; }
+  
+  .path-bar { margin-top: 1rem; padding: 0.75rem 1rem; background: #161b22; border-radius: 8px; border: 1px solid #30363d; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .path-bar label { margin: 0; font-size: 0.75rem; }
+  .path-output { flex: 1; font-family: monospace; font-size: 0.85rem; color: #7ee787; word-break: break-all; min-height: 1.5rem; }
+  .copy-btn { padding: 0.4rem 0.8rem; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.8rem; cursor: pointer; }
+  .copy-btn:hover { background: #30363d; }
+  
+  .error { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .preset-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; }
+  .preset-btn:hover { background: #30363d; color: #c9d1d9; }
+  
+  .item-index { color: #8b949e; margin-right: 0.3rem; }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
-    <h1>🌳 JSON Visualizer</h1>
-    <p class="subtitle">Interactive tree view. Click to expand/collapse. Copy paths.</p>
-
-    <div class="input-section">
-      <textarea id="json-input" placeholder='Paste JSON here...'>{
-  "name": "Shadow",
+    <h1>JSON Visualizer</h1>
+    <p class="subtitle">Interactive JSON tree with expand/collapse and path copying</p>
+    
+    <div class="input-group">
+      <label>JSON Input</label>
+      <div class="presets">
+        <button class="preset-btn" data-preset="simple">Simple</button>
+        <button class="preset-btn" data-preset="nested">Nested</button>
+        <button class="preset-btn" data-preset="api">API Response</button>
+        <button class="preset-btn" data-preset="clear">Clear</button>
+      </div>
+      <textarea id="jsonInput" placeholder="Paste JSON here..." spellcheck="false">{
+  "name": "JSON Visualizer",
   "version": "1.0.0",
-  "features": ["build", "write", "tinker", "create"],
-  "stats": {
-    "heartbeats": 42,
-    "uptime": "24h",
-    "active": true
-  },
-  "tags": null
+  "features": ["tree view", "path copying", "stats"],
+  "nested": {
+    "deep": {
+      "value": "hello"
+    }
+  }
 }</textarea>
-      <div class="controls">
-        <button class="btn btn-primary" onclick="visualize()">Visualize</button>
-        <button class="btn btn-secondary" onclick="collapseAll()">Collapse All</button>
-        <button class="btn btn-secondary" onclick="expandAll()">Expand All</button>
-        <button class="btn btn-secondary" onclick="copyPath()">Copy Selected Path</button>
+    </div>
+    
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value" id="keyCount">0</div>
+        <div class="stat-label">Keys</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="depth">0</div>
+        <div class="stat-label">Max Depth</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="size">0B</div>
+        <div class="stat-label">Size</div>
       </div>
     </div>
-
-    <div class="stats" id="stats"></div>
-
-    <div class="output-section" id="output">
-      <div class="path-bar">
-        <span>Path:</span>
-        <input type="text" id="current-path" readonly placeholder="Click a key to see its path">
-        <button class="btn btn-secondary" onclick="copyPath()" style="padding: 0.25rem 0.5rem;">📋</button>
-      </div>
-      <div class="tree" id="tree"></div>
+    
+    <div class="output" id="output">
+      <div class="empty">Paste JSON to see tree...</div>
+    </div>
+    
+    <div class="path-bar">
+      <label>Selected Path:</label>
+      <span class="path-output" id="pathOutput">—</span>
+      <button class="copy-btn" id="copyPath">Copy</button>
     </div>
   </div>
-
+  
   <script>
-    let jsonData = null;
+    const jsonInput = document.getElementById('jsonInput');
+    const output = document.getElementById('output');
+    const keyCount = document.getElementById('keyCount');
+    const depth = document.getElementById('depth');
+    const size = document.getElementById('size');
+    const pathOutput = document.getElementById('pathOutput');
+    const copyPath = document.getElementById('copyPath');
+    
+    let currentJson = null;
     let selectedPath = '';
-
-    function visualize() {
-      const input = document.getElementById('json-input').value.trim();
-      const tree = document.getElementById('tree');
-      const stats = document.getElementById('stats');
+    
+    const presets = {
+      simple: `{
+  "name": "John",
+  "age": 30,
+  "active": true
+}`,
+      nested: `{
+  "company": {
+    "name": "Acme",
+    "address": {
+      "city": "NYC",
+      "zip": "10001"
+    }
+  },
+  "employees": ["Alice", "Bob", "Charlie"]
+}`,
+      api: `{
+  "status": "success",
+  "data": {
+    "users": [
+      {"id": 1, "name": "Alice", "email": null},
+      {"id": 2, "name": "Bob", "verified": true}
+    ],
+    "meta": {
+      "page": 1,
+      "total": 2
+    }
+  },
+  "timestamp": "2024-01-15T10:30:00Z"
+}`,
+      clear: ''
+    };
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        jsonInput.value = presets[btn.dataset.preset];
+        render();
+      });
+    });
+    
+    jsonInput.addEventListener('input', render);
+    
+    copyPath.addEventListener('click', () => {
+      if (selectedPath) {
+        navigator.clipboard.writeText(selectedPath);
+        copyPath.textContent = 'Copied!';
+        setTimeout(() => copyPath.textContent = 'Copy', 1500);
+      }
+    });
+    
+    function render() {
+      const input = jsonInput.value.trim();
       
       if (!input) {
-        tree.innerHTML = '<div class="error">Enter JSON to visualize</div>';
+        output.innerHTML = '<div class="empty">Paste JSON to see tree...</div>';
+        keyCount.textContent = '0';
+        depth.textContent = '0';
+        size.textContent = '0B';
         return;
       }
-
+      
       try {
-        jsonData = JSON.parse(input);
+        currentJson = JSON.parse(input);
+        const stats = getStats(currentJson);
+        keyCount.textContent = stats.keys;
+        depth.textContent = stats.depth;
+        size.textContent = formatBytes(input.length);
         
-        // Stats
-        const keys = countKeys(jsonData);
-        const depth = getDepth(jsonData);
-        const size = new Blob([input]).size;
+        output.innerHTML = renderNode(currentJson, '', '');
+        attachClickHandlers();
         
-        stats.innerHTML = `
-          <span class="stat">Keys: ${keys}</span>
-          <span class="stat">Max Depth: ${depth}</span>
-          <span class="stat">Size: ${(size/1024).toFixed(1)} KB</span>
-        `;
-
-        tree.innerHTML = renderNode(jsonData, '');
       } catch (e) {
-        tree.innerHTML = `<div class="error">Invalid JSON: ${e.message}</div>`;
-        stats.innerHTML = '';
+        output.innerHTML = `<div class="error">${e.message}</div>`;
       }
     }
-
-    function countKeys(obj) {
-      if (obj === null || typeof obj !== 'object') return 0;
-      let count = Array.isArray(obj) ? 0 : 1;
-      for (let key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          count += countKeys(obj[key]);
+    
+    function getStats(obj, depth = 1) {
+      let keys = 0;
+      let maxDepth = depth;
+      
+      if (obj && typeof obj === 'object') {
+        keys = Object.keys(obj).length;
+        
+        for (const value of Object.values(obj)) {
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            const child = getStats(value, depth + 1);
+            keys += child.keys;
+            maxDepth = Math.max(maxDepth, child.depth);
+          } else if (Array.isArray(value)) {
+            for (const item of value) {
+              if (item && typeof item === 'object' && !Array.isArray(item)) {
+                const child = getStats(item, depth + 1);
+                keys += child.keys;
+                maxDepth = Math.max(maxDepth, child.depth);
+              }
+            }
+          }
         }
       }
-      return count;
+      
+      return { keys, depth: maxDepth };
     }
-
-    function getDepth(obj, d = 0) {
-      if (obj === null || typeof obj !== 'object') return d;
-      let max = d + 1;
-      for (let key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          max = Math.max(max, getDepth(obj[key], d + 1));
-        }
-      }
-      return max;
+    
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + 'B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
     }
-
-    function renderNode(value, path) {
-      if (value === null) {
-        return `<span class="null" onclick="selectPath('${path}')">null</span>`;
+    
+    function renderNode(obj, path, key) {
+      if (obj === null) {
+        return `<span class="null" data-path="${path}">null</span>`;
       }
       
-      if (typeof value === 'boolean') {
-        return `<span class="boolean" onclick="selectPath('${path}')">${value}</span>`;
+      if (typeof obj === 'boolean') {
+        return `<span class="boolean" data-path="${path}">${obj}</span>`;
       }
       
-      if (typeof value === 'number') {
-        return `<span class="number" onclick="selectPath('${path}')">${value}</span>`;
+      if (typeof obj === 'number') {
+        return `<span class="number" data-path="${path}">${obj}</span>`;
       }
       
-      if (typeof value === 'string') {
-        return `<span class="string" onclick="selectPath('${path}')">"${escapeHtml(value)}"</span>`;
+      if (typeof obj === 'string') {
+        return `<span class="string" data-path="${path}">"${escapeHtml(obj)}"</span>`;
       }
       
-      if (Array.isArray(value)) {
-        if (value.length === 0) return '<span class="bracket">[]</span>';
-        
-        let html = `<span class="node" onclick="toggle(this)"><span class="toggle">▼</span><span class="bracket">[</span></span>`;
-        html += `<span class="children">`;
-        
-        value.forEach((item, i) => {
+      if (Array.isArray(obj)) {
+        const isEmpty = obj.length === 0;
+        const toggleClass = isEmpty ? 'empty' : '';
+        const childrenHtml = isEmpty ? '' : `<div class="children">${obj.map((item, i) => {
           const itemPath = path ? `${path}[${i}]` : `[${i}]`;
-          html += `<div style="margin-left: 1rem;">${renderNode(item, itemPath)}</div>`;
-        });
+          return `<div class="node"><span class="item-index">[${i}]</span>${renderNode(item, itemPath, i)}</div>`;
+        }).join('')}</div>`;
         
-        html += `</span><span class="bracket">]</span>`;
-        return html;
+        return `<span class="node-content" data-path="${path}"><span class="toggle ${toggleClass}">▼</span><span class="key">Array[${obj.length}]</span></span>${childrenHtml}`;
       }
       
-      if (typeof value === 'object') {
-        const keys = Object.keys(value);
-        if (keys.length === 0) return '<span class="bracket">{}</span>';
-        
-        let html = `<span class="node" onclick="toggle(this)"><span class="toggle">▼</span><span class="bracket">{</span></span>`;
-        html += `<span class="children">`;
-        
-        keys.forEach((key, i) => {
+      if (typeof obj === 'object') {
+        const keys = Object.keys(obj);
+        const isEmpty = keys.length === 0;
+        const toggleClass = isEmpty ? 'empty' : '';
+        const childrenHtml = isEmpty ? '' : `<div class="children">${keys.map(key => {
+          const value = obj[key];
           const keyPath = path ? `${path}.${key}` : key;
-          const comma = i < keys.length - 1 ? ',' : '';
-          html += `<div style="margin-left: 1rem;">`;
-          html += `<span class="key" onclick="selectPath('${keyPath}')">"${escapeHtml(key)}"</span>: `;
-          html += `${renderNode(value[key], keyPath)}<span class="bracket">${comma}</span>`;
-          html += `</div>`;
-        });
+          return `<div class="node"><span class="key">"${key}": </span>${renderNode(value, keyPath, key)}</div>`;
+        }).join('')}</div>`;
         
-        html += `</span><span class="bracket">}</span>`;
-        return html;
+        return `<span class="node-content" data-path="${path}"><span class="toggle ${toggleClass}">▼</span><span class="key">Object{${keys.length}}</span></span>${childrenHtml}`;
       }
       
-      return String(value);
+      return String(obj);
     }
-
+    
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
-
-    function toggle(el) {
-      const toggle = el.querySelector('.toggle');
-      const children = el.nextElementSibling;
+    
+    function attachClickHandlers() {
+      document.querySelectorAll('.node-content').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const toggle = el.querySelector('.toggle');
+          const children = el.nextElementSibling;
+          
+          if (children && children.classList.contains('children')) {
+            children.classList.toggle('collapsed');
+            toggle.classList.toggle('collapsed');
+          }
+          
+          const path = el.dataset.path;
+          selectPath(path);
+        });
+      });
       
-      if (children && children.classList.contains('children')) {
-        if (children.style.display === 'none') {
-          children.style.display = 'block';
-          toggle.textContent = '▼';
-        } else {
-          children.style.display = 'none';
-          toggle.textContent = '▶';
+      document.querySelectorAll('[data-path]').forEach(el => {
+        if (!el.classList.contains('node-content')) {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const path = el.dataset.path;
+            if (path) selectPath(path);
+          });
         }
-      }
+      });
     }
-
-    function collapseAll() {
-      document.querySelectorAll('.children').forEach(el => el.style.display = 'none');
-      document.querySelectorAll('.toggle').forEach(el => el.textContent = '▶');
-    }
-
-    function expandAll() {
-      document.querySelectorAll('.children').forEach(el => el.style.display = 'block');
-      document.querySelectorAll('.toggle').forEach(el => el.textContent = '▼');
-    }
-
+    
     function selectPath(path) {
       selectedPath = path;
-      document.getElementById('current-path').value = path;
+      pathOutput.textContent = path;
     }
-
-    function copyPath() {
-      const path = document.getElementById('current-path').value;
-      if (path) {
-        navigator.clipboard.writeText(path);
-        const btn = document.querySelector('.path-bar .btn-secondary');
-        btn.textContent = '✓';
-        setTimeout(() => btn.textContent = '📋', 1000);
-      }
-    }
-
+    
     // Initialize
-    visualize();
+    render();
   </script>
 </body>
 </html>
