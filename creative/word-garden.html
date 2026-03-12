@@ -9,370 +9,278 @@
 <script src="../nav.js" defer></script>
 <style>
   :root {
+    --accent: #e066ff;
     --bg: #0a0a0f;
-    --fg: #e8e6e3;
-    --accent: #7dd3c0;
-    --accent-dim: #4a9e8a;
-    --flower-1: #ff6b9d;
-    --flower-2: #c792ea;
-    --flower-3: #7dd3c0;
-    --flower-4: #ffcb6b;
-    --stem: #6a8f7a;
+    --fg: #c8c8d0;
   }
   body {
     background: var(--bg);
     min-height: 100vh;
-    overflow: hidden;
-    font-family: 'Crimson Text', Georgia, serif;
-  }
-  #garden {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-  }
-  .ground {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 80px;
-    background: linear-gradient(to top, #1a1a24 0%, transparent 100%);
-  }
-  .input-area {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 100;
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Crimson Text', Georgia, serif;
+    overflow: hidden;
+    padding: 2rem;
+    box-sizing: border-box;
   }
-  #seed {
-    padding: 12px 20px;
-    font-size: 18px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 30px;
-    color: var(--fg);
-    font-family: inherit;
-    width: 250px;
-    text-align: center;
-    outline: none;
-    transition: all 0.3s;
+  
+  #garden {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
   }
-  #seed:focus {
-    background: rgba(255,255,255,0.1);
-    border-color: var(--accent);
-  }
-  #seed::placeholder {
-    color: rgba(255,255,255,0.3);
-  }
-  .hint {
-    position: fixed;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255,255,255,0.25);
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
+  
   .word {
     position: absolute;
-    font-size: 16px;
+    font-size: 1.2rem;
     color: var(--fg);
     white-space: nowrap;
-    cursor: default;
-    transition: color 0.5s, transform 0.3s;
+    cursor: pointer;
+    transition: all 0.5s ease;
     user-select: none;
   }
+  
   .word.growing {
     animation: grow 2s ease-out forwards;
   }
-  @keyframes grow {
-    0% { opacity: 0; transform: translateY(20px) scale(0.8); }
-    50% { opacity: 1; }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
-  }
+  
   .word.blooming {
-    animation: bloom 3s ease-in-out infinite;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+    transform: scale(1.3);
   }
-  @keyframes bloom {
-    0%, 100% { 
-      text-shadow: 0 0 5px var(--flower-3), 0 0 10px var(--flower-3);
-      color: var(--fg);
-    }
-    50% { 
-      text-shadow: 0 0 15px var(--flower-1), 0 0 30px var(--flower-2);
-      color: var(--flower-1);
-    }
-  }
+  
   .word.drifting {
     animation: drift 8s ease-in-out infinite;
   }
-  @keyframes drift {
-    0%, 100% { transform: translateY(0) translateX(0); }
-    25% { transform: translateY(-10px) translateX(5px); }
-    50% { transform: translateY(-5px) translateX(-5px); }
-    75% { transform: translateY(-15px) translateX(3px); }
-  }
+  
   .word.fading {
-    animation: fade 4s ease-in forwards;
+    opacity: 0;
+    transform: translateY(-20px);
   }
-  @keyframes fade {
-    0% { opacity: 1; }
-    100% { opacity: 0; transform: translateY(-30px) scale(0.8); }
+  
+  @keyframes grow {
+    from { transform: translateY(50px) scale(0.5); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
   }
-  .flower {
-    position: absolute;
-    font-size: 20px;
-    animation: sway 3s ease-in-out infinite;
+  
+  @keyframes drift {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(10px); }
+    75% { transform: translateX(-10px); }
   }
-  @keyframes sway {
-    0%, 100% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
+  
+  #input-area {
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    gap: 1rem;
   }
-  .stem {
-    position: absolute;
-    width: 2px;
-    background: linear-gradient(to top, var(--stem), transparent);
-    transform-origin: bottom center;
-  }
-  .sparkle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: var(--flower-4);
-    border-radius: 50%;
-    animation: sparkle 1.5s ease-out forwards;
-    pointer-events: none;
-  }
-  @keyframes sparkle {
-    0% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(0); }
-  }
-  .mode-indicator {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    color: rgba(255,255,255,0.3);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-  .mode-btn {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    padding: 8px 16px;
+  
+  #word-input {
+    flex: 1;
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    font-family: inherit;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    border-radius: 8px;
+    color: var(--fg);
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  
+  #word-input:focus {
+    border-color: var(--accent);
+  }
+  
+  #mode-btn {
+    padding: 1rem 1.5rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--fg);
     cursor: pointer;
     transition: all 0.3s;
   }
-  .mode-btn:hover {
+  
+  #mode-btn:hover {
     background: rgba(255,255,255,0.1);
-    color: var(--fg);
+    border-color: var(--accent);
   }
-  .count {
+  
+  #quote {
     position: fixed;
-    top: 20px;
+    bottom: 2rem;
     left: 50%;
     transform: translateX(-50%);
-    color: rgba(255,255,255,0.2);
-    font-size: 11px;
-    letter-spacing: 1px;
+    font-style: italic;
+    color: rgba(200,200,210,0.4);
+    font-size: 0.9rem;
+    text-align: center;
+    max-width: 80%;
+  }
+  
+  #stats {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    color: rgba(200,200,210,0.3);
   }
 </style>
 </head>
-<body data-page-type="creative">
-  <canvas id="garden"></canvas>
-  <div class="ground"></div>
+<body data-page-type="app">
+  <div id="garden"></div>
   
-  <div class="count" id="count">0 words</div>
-  <button class="mode-btn" id="modeBtn">Mode: Grow</button>
-  <div class="mode-indicator" id="modeIndicator">Press Space to cycle</div>
-  
-  <p class="hint">Type a word and press Enter to plant</p>
-  <div class="input-area">
-    <input type="text" id="seed" placeholder="plant a word..." autocomplete="off">
+  <div id="input-area">
+    <input type="text" id="word-input" placeholder="Plant a word..." autocomplete="off" autofocus>
+    <button id="mode-btn">Mode: GROW</button>
   </div>
   
+  <div id="quote"></div>
+  <div id="stats">words: 0</div>
+  
   <script>
-    const canvas = document.getElementById('garden');
-    const ctx = canvas.getContext('2d');
-    const input = document.getElementById('seed');
-    const countEl = document.getElementById('count');
-    const modeBtn = document.getElementById('modeBtn');
-    const modeIndicator = document.getElementById('modeIndicator');
+    const garden = document.getElementById('garden');
+    const input = document.getElementById('word-input');
+    const modeBtn = document.getElementById('mode-btn');
+    const quoteEl = document.getElementById('quote');
+    const statsEl = document.getElementById('stats');
     
     const modes = ['grow', 'bloom', 'drift', 'fade'];
+    const modeNames = ['GROW', 'BLOOM', 'DRIFT', 'FADE'];
     let currentMode = 0;
-    let words = [];
-    let particles = [];
     
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    const quotes = [
+      "A word is a garden you tend with attention",
+      "Language grows where silence feeds it",
+      "Seeds of thought, blooms of understanding",
+      "Every sentence begins with a single word",
+      "The garden knows no seasons",
+      "Words take root in patient minds",
+      "Thinking grows in quiet spaces",
+      "A sentence is a walk through a garden"
+    ];
     
-    modeBtn.addEventListener('click', () => {
-      currentMode = (currentMode + 1) % modes.length;
-      modeBtn.textContent = `Mode: ${modes[currentMode].charAt(0).toUpperCase() + modes[currentMode].slice(1)}`;
-    });
+    const words = [];
+    let wordId = 0;
     
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        currentMode = (currentMode + 1) % modes.length;
-        modeBtn.textContent = `Mode: ${modes[currentMode].charAt(0).toUpperCase() + modes[currentMode].slice(1)}`;
-        words.forEach(w => applyMode(w));
-      }
-    });
-    
-    function applyMode(word) {
-      word.el.className = 'word';
-      word.el.classList.add(modes[currentMode]);
+    function setQuote() {
+      quoteEl.textContent = quotes[Math.floor(Math.random() * quotes.length)];
     }
     
-    function plant(text) {
+    function updateStats() {
+      statsEl.textContent = `words: ${words.length}`;
+    }
+    
+    function getRandomPosition() {
+      const rect = garden.getBoundingClientRect();
+      const padding = 50;
+      return {
+        x: padding + Math.random() * (rect.width - padding * 2),
+        y: padding + Math.random() * (rect.height - padding * 2)
+      };
+    }
+    
+    function plantWord(text) {
       if (!text.trim()) return;
       
-      const x = Math.random() * (canvas.width - 100) + 50;
-      const y = canvas.height - 100 - Math.random() * 100;
+      const pos = getRandomPosition();
+      const word = document.createElement('div');
+      word.className = 'word';
+      word.textContent = text;
+      word.style.left = pos.x + 'px';
+      word.style.top = pos.y + 'px';
       
-      const el = document.createElement('div');
-      el.className = 'word growing';
-      el.textContent = text;
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
-      document.body.appendChild(el);
+      word.dataset.id = wordId++;
+      word.dataset.mode = modes[currentMode];
       
-      setTimeout(() => {
-        el.classList.remove('growing');
-        el.classList.add(modes[currentMode]);
-      }, 2000);
-      
-      const word = { text, x, y, el, life: 100 };
+      garden.appendChild(word);
       words.push(word);
       
-      // Sparkle effect
-      for (let i = 0; i < 5; i++) {
-        setTimeout(() => createSparkle(x, y), Math.random() * 500);
-      }
+      // Apply mode
+      applyMode(word);
       
-      updateCount();
+      updateStats();
     }
     
-    function createSparkle(x, y) {
-      const sparkle = document.createElement('div');
-      sparkle.className = 'sparkle';
-      sparkle.style.left = (x + Math.random() * 30 - 15) + 'px';
-      sparkle.style.top = (y + Math.random() * 30 - 15) + 'px';
-      document.body.appendChild(sparkle);
-      setTimeout(() => sparkle.remove(), 1500);
+    function applyMode(word) {
+      const mode = word.dataset.mode;
+      
+      word.classList.remove('growing', 'blooming', 'drifting', 'fading');
+      
+      void word.offsetWidth; // Trigger reflow
+      
+      if (mode === 'grow') {
+        word.classList.add('growing');
+      } else if (mode === 'bloom') {
+        word.classList.add('blooming');
+      } else if (mode === 'drift') {
+        word.classList.add('drifting');
+      } else if (mode === 'fade') {
+        word.classList.add('fading');
+        setTimeout(() => {
+          if (word.parentNode) {
+            word.remove();
+            const idx = words.indexOf(word);
+            if (idx > -1) words.splice(idx, 1);
+            updateStats();
+          }
+        }, 2000);
+      }
     }
     
-    function updateCount() {
-      countEl.textContent = `${words.length} word${words.length !== 1 ? 's' : ''}`;
+    function cycleMode() {
+      currentMode = (currentMode + 1) % modes.length;
+      modeBtn.textContent = `Mode: ${modeNames[currentMode]}`;
+      
+      // Apply new mode to all existing words
+      words.forEach(word => {
+        word.dataset.mode = modes[currentMode];
+        applyMode(word);
+      });
     }
     
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        plant(input.value);
+        plantWord(input.value);
         input.value = '';
       }
     });
     
-    // Ambient quotes
-    const quotes = [
-      "quietly growing",
-      "words take root",
-      "patience blooms",
-      "time flows",
-      "roots run deep",
-      "silence feeds",
-      "slowly becoming",
-      "nothing wasted",
-      "nothing rushed",
-      "the space between",
-      "waiting is growing",
-      "stillness speaks"
-    ];
+    modeBtn.addEventListener('click', cycleMode);
     
-    function ambientQuote() {
-      if (words.length < 5) {
-        setTimeout(ambientQuote, 8000 + Math.random() * 12000);
-        return;
+    // Spacebar cycles mode
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && document.activeElement !== input) {
+        e.preventDefault();
+        cycleMode();
       }
-      
-      const quote = quotes[Math.floor(Math.random() * quotes.length)];
-      const x = Math.random() * (canvas.width - 200) + 100;
-      const y = canvas.height * 0.3 + Math.random() * canvas.height * 0.4;
-      
-      const el = document.createElement('div');
-      el.className = 'word fading';
-      el.textContent = quote;
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
-      el.style.color = 'rgba(255,255,255,0.15)';
-      el.style.fontSize = '14px';
-      el.style.fontStyle = 'italic';
-      document.body.appendChild(el);
-      
-      setTimeout(() => el.remove(), 4000);
-      setTimeout(ambientQuote, 15000 + Math.random() * 20000);
-    }
+    });
     
-    setTimeout(ambientQuote, 5000);
-    
-    // Gentle background particles
-    function animate() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Floating particles
-      if (Math.random() < 0.02) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: canvas.height + 10,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: -Math.random() * 0.5 - 0.2,
-          size: Math.random() * 2 + 1,
-          alpha: Math.random() * 0.3 + 0.1
-        });
+    // Click word to remove it
+    garden.addEventListener('click', (e) => {
+      if (e.target.classList.contains('word')) {
+        e.target.remove();
+        const idx = words.indexOf(e.target);
+        if (idx > -1) words.splice(idx, 1);
+        updateStats();
       }
-      
-      particles = particles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        
-        if (p.y < 0) return false;
-        
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(125, 211, 192, ${p.alpha})`;
-        ctx.fill();
-        
-        return true;
-      });
-      
-      requestAnimationFrame(animate);
-    }
-    animate();
+    });
     
-    // Initial words
-    setTimeout(() => plant('plant'), 1000);
-    setTimeout(() => plant('grow'), 2000);
-    setTimeout(() => plant('bloom'), 3000);
+    // Initial quote
+    setQuote();
+    setInterval(setQuote, 15000);
+    
+    // Plant a starter word
+    setTimeout(() => plantWord('hello'), 500);
   </script>
 </body>
 </html>
