@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Minifier/Formatter — Shadow's Garden</title>
+<meta name="description" content="Format, minify, and validate JSON in the browser. No ads, no tracking, no fluff.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #f7df1e; }
+  body { --bg: #1e1e1e; --fg: #d4d4d4; --border: #3c3c3c; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .editor-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  @media (max-width: 700px) { .editor-wrap { grid-template-columns: 1fr; } }
+  
+  .editor-col { display: flex; flex-direction: column; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  textarea { flex: 1; min-height: 300px; padding: 1rem; background: #252526; border: 2px solid var(--border); border-radius: 8px; color: var(--fg); font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: #666; }
+  
+  .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  button { padding: 0.6rem 1.2rem; background: #2d2d2d; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
+  button:hover { background: #3c3c3c; border-color: #555; }
+  button.primary { background: var(--accent); color: #1e1e1e; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: #e6c91e; }
+  
+  .stats { display: flex; gap: 2rem; margin-bottom: 1.5rem; padding: 1rem; background: #252526; border-radius: 8px; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .error { padding: 1rem; background: #3c1f1f; border: 1px solid #f85149; border-radius: 8px; color: #f85149; margin-bottom: 1rem; display: none; }
+  .error.show { display: block; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { padding: 0.3rem 0.6rem; background: #2d2d2d; border: 1px solid var(--border); border-radius: 4px; color: #888; font-size: 0.75rem; cursor: pointer; }
+  .preset-btn:hover { background: #3c3c3c; color: var(--fg); }
+  
+  .status { display: flex; align-items: center; gap: 0.5rem; color: #4ec9b0; font-size: 0.85rem; }
+  .status.error { color: #f85149; }
+  .status-icon { font-size: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>JSON Minifier/Formatter</h1>
+    <p class="subtitle">Format, minify, and validate JSON. No ads, no tracking, no fluff.</p>
+    
+    <div class="presets">
+      <button class="preset-btn" data-preset="api">Sample API Response</button>
+      <button class="preset-btn" data-preset="config">Config File</button>
+      <button class="preset-btn" data-preset="array">Data Array</button>
+      <button class="preset-btn" data-preset="nested">Nested Object</button>
+    </div>
+    
+    <div class="error" id="error"></div>
+    
+    <div class="editor-wrap">
+      <div class="editor-col">
+        <label>Input</label>
+        <textarea id="input" placeholder="Paste your JSON here..."></textarea>
+      </div>
+      <div class="editor-col">
+        <label>Output</label>
+        <textarea id="output" placeholder="Result will appear here..." readonly></textarea>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button class="primary" id="format">Format</button>
+      <button id="minify">Minify</button>
+      <button id="validate">Validate</button>
+      <button id="clear">Clear</button>
+      <button id="copy">Copy Output</button>
+      <button id="swap">Swap ↔</button>
+    </div>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="lines">0</div>
+        <div class="stat-label">Lines</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="chars">0</div>
+        <div class="stat-label">Chars</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="size">0 B</div>
+        <div class="stat-label">Size</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="keys">0</div>
+        <div class="stat-label">Keys</div>
+      </div>
+    </div>
+    
+    <div class="status" id="status">
+      <span class="status-icon">✓</span>
+      <span>Ready</span>
+    </div>
+  </div>
+  
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const error = document.getElementById('error');
+    const status = document.getElementById('status');
+    const linesEl = document.getElementById('lines');
+    const charsEl = document.getElementById('chars');
+    const sizeEl = document.getElementById('size');
+    const keysEl = document.getElementById('keys');
+    
+    const presets = {
+      api: '{"status":"success","code":200,"data":{"user":{"id":42,"name":"Alice","email":"alice@example.com","verified":true},"posts":[{"id":1,"title":"Hello World","likes":42},{"id":2,"title":"JSON Tips","likes":128}]},"timestamp":"2026-03-12T12:00:00Z"}',
+      config: '{"app":{"name":"MyApp","version":"1.0.0","debug":false},"server":{"port":3000,"host":"localhost","ssl":true},"database":{"type":"postgres","pool":10},"features":{"analytics":true,"logging":false}}',
+      array: '["apple","banana","cherry",{"id":1,"name":"Date"},{"id":2,"name":"Elderberry"},["nested","array"],true,null,42,3.14159]',
+      nested: '{"company":{"name":"Acme Corp","founded":1999,"departments":[{"name":"Engineering","employees":150,"lead":{"name":"Bob","title":"CTO"}},{"name":"Sales","employees":75,"lead":{"name":"Carol","title":"VP Sales"}}],"locations":["NY","LA","London"]}}}'
+    };
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        input.value = presets[btn.dataset.preset];
+        format();
+      });
+    });
+    
+    document.getElementById('format').addEventListener('click', format);
+    document.getElementById('minify').addEventListener('click', minify);
+    document.getElementById('validate').addEventListener('click', validate);
+    document.getElementById('clear').addEventListener('click', () => { input.value = ''; output.value = ''; updateStats(''); setStatus('Ready', false); });
+    document.getElementById('copy').addEventListener('click', copyOutput);
+    document.getElementById('swap').addEventListener('click', () => { input.value = output.value; output.value = ''; updateStats(input.value); });
+    
+    function showError(msg) {
+      error.textContent = msg;
+      error.classList.add('show');
+      setStatus(msg, true);
+    }
+    
+    function clearError() {
+      error.classList.remove('show');
+    }
+    
+    function setStatus(msg, isError = false) {
+      status.innerHTML = `<span class="status-icon">${isError ? '✗' : '✓'}</span><span>${msg}</span>`;
+      status.classList.toggle('error', isError);
+    }
+    
+    function parseJSON(str) {
+      try {
+        return [null, JSON.parse(str)];
+      } catch (e) {
+        return [e.message, null];
+      }
+    }
+    
+    function countKeys(obj, count = 0) {
+      if (obj && typeof obj === 'object') {
+        if (Array.isArray(obj)) {
+          obj.forEach(item => count = countKeys(item, count));
+        } else {
+          count += Object.keys(obj).length;
+          Object.values(obj).forEach(v => count = countKeys(v, count));
+        }
+      }
+      return count;
+    }
+    
+    function updateStats(str) {
+      const lines = str ? str.split('\n').length : 0;
+      const chars = str.length;
+      const bytes = new Blob([str]).size;
+      let size = bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
+      
+      linesEl.textContent = lines;
+      charsEl.textContent = chars;
+      sizeEl.textContent = size;
+      
+      const [err, parsed] = parseJSON(str);
+      if (parsed) {
+        keysEl.textContent = countKeys(parsed);
+      } else {
+        keysEl.textContent = '—';
+      }
+    }
+    
+    function format() {
+      clearError();
+      const str = input.value.trim();
+      if (!str) { setStatus('Enter JSON to format', true); return; }
+      
+      const [err, parsed] = parseJSON(str);
+      if (err) { showError(err); return; }
+      
+      output.value = JSON.stringify(parsed, null, 2);
+      updateStats(output.value);
+      setStatus('Formatted successfully');
+    }
+    
+    function minify() {
+      clearError();
+      const str = input.value.trim();
+      if (!str) { setStatus('Enter JSON to minify', true); return; }
+      
+      const [err, parsed] = parseJSON(str);
+      if (err) { showError(err); return; }
+      
+      output.value = JSON.stringify(parsed);
+      updateStats(output.value);
+      setStatus('Minified successfully');
+    }
+    
+    function validate() {
+      clearError();
+      const str = input.value.trim();
+      if (!str) { setStatus('Enter JSON to validate', true); return; }
+      
+      const [err, parsed] = parseJSON(str);
+      if (err) { showError(err); return; }
+      
+      output.value = JSON.stringify(parsed, null, 2);
+      updateStats(output.value);
+      setStatus('Valid JSON');
+    }
+    
+    function copyOutput() {
+      if (!output.value) return;
+      navigator.clipboard.writeText(output.value).then(() => {
+        const prev = setStatus.textContent;
+        setStatus('Copied!');
+        setTimeout(() => setStatus(prev), 1500);
+      });
+    }
+    
+    input.addEventListener('input', () => updateStats(input.value));
+  </script>
+</body>
+</html>
