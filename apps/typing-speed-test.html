@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing Speed Test — Shadow's Garden</title>
+<meta name="description" content="Test your typing speed with WPM and accuracy tracking">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #22c55e; }
+  body { --accent: #22c55e; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; }
+  
+  .test-area { background: #161b22; border: 2px solid #30363d; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  
+  .quote-display { font-size: 1.3rem; line-height: 1.8; color: #8b949e; margin-bottom: 1.5rem; font-family: 'JetBrains Mono', monospace; min-height: 100px; }
+  .quote-display .correct { color: #22c55e; }
+  .quote-display .incorrect { color: #f85149; text-decoration: underline; }
+  .quote-display .current { background: #22c55e; color: #0d1117; border-radius: 2px; }
+  
+  .input-area { width: 100%; padding: 1rem; font-size: 1.1rem; background: #0d1117; border: 2px solid #30363d; border-radius: 8px; color: #c9d1d9; font-family: 'JetBrains Mono', monospace; resize: none; min-height: 80px; box-sizing: border-box; }
+  .input-area:focus { outline: none; border-color: #22c55e; }
+  .input-area.disabled { opacity: 0.5; pointer-events: none; }
+  
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; text-align: center; }
+  .stat-value { font-size: 2rem; font-weight: 700; color: #22c55e; }
+  .stat-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.25rem; }
+  
+  .controls { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .btn { padding: 0.75rem 1.5rem; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { background: #30363d; }
+  .btn.primary { background: #22c55e; color: #0d1117; border-color: #22c55e; }
+  .btn.primary:hover { background: #16a34a; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { padding: 0.4rem 0.8rem; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; font-size: 0.8rem; cursor: pointer; }
+  .preset-btn:hover { background: #30363d; color: #c9d1d9; }
+  
+  .results { display: none; background: #161b22; border: 2px solid #22c55e; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; }
+  .results.show { display: block; }
+  .results h2 { margin: 0 0 1rem 0; color: #22c55e; }
+  
+  .history { margin-top: 1.5rem; }
+  .history h3 { font-size: 0.9rem; color: #8b949e; margin-bottom: 0.75rem; }
+  .history-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; }
+  .history-item { display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: #0d1117; border-radius: 6px; font-size: 0.85rem; }
+  .history-wpm { color: #22c55e; font-weight: 600; }
+  .history-accuracy { color: #8b949e; }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .current { animation: pulse 1s infinite; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Typing Speed Test</h1>
+    <p class="subtitle">Test your typing speed with WPM and accuracy tracking</p>
+    
+    <div class="presets">
+      <button class="preset-btn" data-mode="easy">Easy (Common Words)</button>
+      <button class="preset-btn" data-mode="medium">Medium (Mixed)</button>
+      <button class="preset-btn" data-mode="hard">Hard (Punctuation)</button>
+      <button class="preset-btn" data-mode="code">Code (Snippets)</button>
+    </div>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="wpm">0</div>
+        <div class="stat-label">WPM</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="accuracy">100%</div>
+        <div class="stat-label">Accuracy</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="time">0s</div>
+        <div class="stat-label">Time</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="chars">0</div>
+        <div class="stat-label">Characters</div>
+      </div>
+    </div>
+    
+    <div class="test-area">
+      <div class="quote-display" id="quoteDisplay"></div>
+      <textarea class="input-area" id="quoteInput" placeholder="Start typing to begin..."></textarea>
+    </div>
+    
+    <div class="controls">
+      <button class="btn primary" id="startBtn">Start Test</button>
+      <button class="btn" id="resetBtn">Reset</button>
+      <button class="btn" id="newQuoteBtn">New Quote</button>
+    </div>
+    
+    <div class="results" id="results">
+      <h2>Test Complete!</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="finalWpm">0</div>
+          <div class="stat-label">WPM</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="finalAccuracy">0%</div>
+          <div class="stat-label">Accuracy</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="finalTime">0s</div>
+          <div class="stat-label">Time</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="finalChars">0</div>
+          <div class="stat-label">Characters</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="history">
+      <h3>Recent Tests</h3>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+  
+  <script>
+    const quotes = {
+      easy: [
+        "the quick brown fox jumps over the lazy dog",
+        "hello world this is a simple test of your typing speed",
+        "the best way to predict the future is to create it",
+        "every moment is a fresh beginning",
+        "life is what happens when you are busy making other plans",
+        "the only way to do great work is to love what you do",
+        "in the middle of difficulty lies opportunity",
+        "believe you can and you are halfway there"
+      ],
+      medium: [
+        "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+        "Technology is best when it brings people together. The best way to predict the future is to create it.",
+        "In the middle of difficulty lies opportunity. Every moment is a fresh beginning.",
+        "Life is what happens when you are busy making other plans. The only way to do great work is to love what you do.",
+        "Success is not final, failure is not fatal: it is the courage to continue that counts."
+      ],
+      hard: [
+        "Hello, World! How are you? I'm fine, thanks. Let's test: your typing; speed, accuracy?",
+        "Wait, isn't this fun? Yes—it is! But... can you type: fast? Really? Let's see.",
+        "The quick brown fox jumps over the lazy dog. Did you know? 100% accuracy is possible.",
+        "It's a beautiful day, isn't it? Let's test: your speed (WPM), accuracy (%), and errors."
+      ],
+      code: [
+        "function hello() { return 'Hello, World!'; }",
+        "const sum = (a, b) => a + b; console.log(sum(2, 3));",
+        "for (let i = 0; i < 10; i++) { console.log(i); }",
+        "if (x > 0) { return true; } else { return false; }",
+        "import { useState } from 'react'; const [count, setCount] = useState(0);"
+      ]
+    };
+    
+    let currentMode = 'easy';
+    let startTime = null;
+    let timerInterval = null;
+    let isRunning = false;
+    let testStarted = false;
+    
+    const quoteDisplay = document.getElementById('quoteDisplay');
+    const quoteInput = document.getElementById('quoteInput');
+    const wpmEl = document.getElementById('wpm');
+    const accuracyEl = document.getElementById('accuracy');
+    const timeEl = document.getElementById('time');
+    const charsEl = document.getElementById('chars');
+    const resultsEl = document.getElementById('results');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const newQuoteBtn = document.getElementById('newQuoteBtn');
+    const historyList = document.getElementById('historyList');
+    
+    function getRandomQuote() {
+      const list = quotes[currentMode];
+      return list[Math.floor(Math.random() * list.length)];
+    }
+    
+    function renderQuote() {
+      const quote = getRandomQuote();
+      quoteDisplay.innerHTML = '';
+      quote.split('').forEach(char => {
+        const span = document.createElement('span');
+        span.innerText = char;
+        quoteDisplay.appendChild(span);
+      });
+    }
+    
+    function startTest() {
+      if (isRunning) return;
+      isRunning = true;
+      testStarted = true;
+      startTime = new Date();
+      quoteInput.disabled = false;
+      quoteInput.focus();
+      startBtn.textContent = 'Testing...';
+      startBtn.disabled = true;
+      
+      timerInterval = setInterval(() => {
+        const elapsed = (new Date() - startTime) / 1000;
+        timeEl.textContent = Math.floor(elapsed) + 's';
+      }, 1000);
+    }
+    
+    function endTest() {
+      isRunning = false;
+      clearInterval(timerInterval);
+      quoteInput.disabled = true;
+      startBtn.textContent = 'Start Test';
+      startBtn.disabled = false;
+      
+      const elapsed = (new Date() - startTime) / 1000 / 60;
+      const words = quoteInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+      const wpm = Math.round(words / elapsed) || 0;
+      
+      const original = quoteDisplay.innerText;
+      const typed = quoteInput.value;
+      let correct = 0;
+      for (let i = 0; i < typed.length; i++) {
+        if (typed[i] === original[i]) correct++;
+      }
+      const accuracy = typed.length > 0 ? Math.round((correct / typed.length) * 100) : 0;
+      
+      document.getElementById('finalWpm').textContent = wpm;
+      document.getElementById('finalAccuracy').textContent = accuracy + '%';
+      document.getElementById('finalTime').textContent = Math.floor((new Date() - startTime) / 1000) + 's';
+      document.getElementById('finalChars').textContent = typed.length;
+      
+      resultsEl.classList.add('show');
+      
+      saveToHistory(wpm, accuracy, Math.floor((new Date() - startTime) / 1000));
+    }
+    
+    function resetTest() {
+      isRunning = false;
+      testStarted = false;
+      clearInterval(timerInterval);
+      startTime = null;
+      quoteInput.value = '';
+      quoteInput.disabled = false;
+      wpmEl.textContent = '0';
+      accuracyEl.textContent = '100%';
+      timeEl.textContent = '0s';
+      charsEl.textContent = '0';
+      resultsEl.classList.remove('show');
+      startBtn.textContent = 'Start Test';
+      startBtn.disabled = false;
+      renderQuote();
+    }
+    
+    function updateStats() {
+      if (!isRunning || !startTime) return;
+      
+      const elapsed = (new Date() - startTime) / 1000 / 60;
+      const words = quoteInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+      const wpm = Math.round(words / elapsed) || 0;
+      
+      const original = quoteDisplay.innerText;
+      const typed = quoteInput.value;
+      let correct = 0;
+      for (let i = 0; i < typed.length; i++) {
+        if (typed[i] === original[i]) correct++;
+      }
+      const accuracy = typed.length > 0 ? Math.round((correct / typed.length) * 100) : 100;
+      
+      wpmEl.textContent = wpm;
+      accuracyEl.textContent = accuracy + '%';
+      charsEl.textContent = typed.length;
+      
+      const quoteSpan = quoteDisplay.querySelectorAll('span');
+      for (let i = 0; i < quoteSpan.length; i++) {
+        quoteSpan[i].classList.remove('correct', 'incorrect', 'current');
+        if (i < typed.length) {
+          quoteSpan[i].classList.add(typed[i] === quoteSpan[i].innerText ? 'correct' : 'incorrect');
+        } else if (i === typed.length) {
+          quoteSpan[i].classList.add('current');
+        }
+      }
+      
+      if (typed.length >= original.length) {
+        endTest();
+      }
+    }
+    
+    function saveToHistory(wpm, accuracy, time) {
+      const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+      history.unshift({ wpm, accuracy, time, date: new Date().toISOString() });
+      if (history.length > 10) history.pop();
+      localStorage.setItem('typingHistory', JSON.stringify(history));
+      renderHistory();
+    }
+    
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+      historyList.innerHTML = history.map(h => `
+        <div class="history-item">
+          <span class="history-wpm">${h.wpm} WPM</span>
+          <span class="history-accuracy">${h.accuracy}% · ${h.time}s</span>
+        </div>
+      `).join('');
+    }
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentMode = btn.dataset.mode;
+        document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '#21262d');
+        btn.style.background = '#22c55e';
+        btn.style.color = '#0d1117';
+        resetTest();
+      });
+    });
+    
+    quoteInput.addEventListener('input', () => {
+      if (!testStarted) {
+        startTest();
+      }
+      updateStats();
+    });
+    
+    startBtn.addEventListener('click', startTest);
+    resetBtn.addEventListener('click', resetTest);
+    newQuoteBtn.addEventListener('click', resetTest);
+    
+    renderQuote();
+    renderHistory();
+  </script>
+</body>
+</html>
