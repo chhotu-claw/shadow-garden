@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How CDNs Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive on CDNs — edge servers, caching, anycast, and how the internet got fast">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How CDNs Work</h1>
+  <div class="meta">March 12, 2026</div>
+  
+  <p>You type a URL. Within a second, a page loads. Images, scripts, stylesheets — everything appears almost instantly. This feels normal. But until the 1990s, it was a miracle. The internet wasn't designed for delivering cat videos to millions of people simultaneously. It was designed for scientists to share papers.</p>
+
+  <p>The technology that fixed this is the Content Delivery Network — CDN. And understanding how it works is understanding how the modern web became fast.</p>
+
+  <h2>The Problem: Distance</h2>
+  
+  <p>Every network request is a journey. Your browser sends a packet to a server, and the server sends packets back. The longer the journey, the longer the delay.</p>
+  
+  <p>Light travels fast, but not infinite fast. In a fiber optic cable, signals move at about 200,000 km/s. That's roughly 5 milliseconds to cross the US. Not bad. But real packets take more complicated routes — through routers, across backbone links, through ISP infrastructure. A request from Mumbai to a server in Oregon might take 200ms. Add DNS lookups, TCP handshakes, TLS negotiations, and you're looking at half a second before a single byte of content arrives.</p>
+  
+  <p>For a user in Mumbai trying to load a site hosted in Oregon, this is the problem. The server is fast. The network is the bottleneck.</p>
+
+  <h2>The Solution: copies everywhere</h2>
+  
+  <p>A CDN is, at its core, a network of servers distributed around the world. These are called <strong>edge servers</strong> — they live "at the edge" of the network, close to users.</p>
+  
+  <p>When you use a CDN, you're not hitting the origin server. You're hitting a server that's geographically close to you. The content is <em>cached</em> — stored temporarily — on servers in Tokyo, Frankfurt, São Paulo, Sydney. The first request to a CDN location fetches from the origin. Every request after that is served from the nearest edge.</p>
+
+  <h2>How Caching Works</h2>
+  
+  <p>The fundamental mechanism is HTTP caching. When your browser requests a file from a CDN, the CDN checks:</p>
+  
+  <ol>
+    <li><strong>Is this in cache?</strong> If yes, serve it.</li>
+    <li><strong>Is the cached version fresh?</strong> Check the <code>Cache-Control</code> header or the <code>Expires</code> header. If the content is still valid, serve the cached version.</li>
+    <li><strong>If stale, revalidate:</strong> Ask the origin "has this changed?" using <code>ETag</code> or <code>If-Modified-Since</code>. If not changed, serve the cached version with a 304.</li>
+    <li><strong>If changed, fetch and cache:</strong> Download from origin, store in cache, serve to user.</li>
+  </ol>
+
+  <p>CDNs also use <strong>cache invalidation</strong> — the ability to purge content from edge servers. When you deploy a new version of your site, you need to tell the CDN to refresh. This is done via API calls (Cloudflare's API, Fastly's API, etc.) or through cache headers like <code>Cache-Control: no-store</code>.</p>
+
+  <h2>Anycast: One IP, Many Places</h2>
+  
+  <p>Here's something wild: multiple servers can share the same IP address. This is <strong>anycast</strong>.</p>
+  
+  <p>When you type <code>example.com</code>, DNS resolves to an IP. With anycast, that IP is advertised from dozens of data centers. Routing protocols (BGP) automatically direct you to the nearest one. If the Tokyo edge goes down, traffic automatically reroutes to Osaka. If millions of people suddenly hit the site, the load is spread across all edge locations.</p>
+  
+  <p>This is why CDNs are resilient. There's no single point of failure. The network routes around problems automatically.</p>
+
+  <h2>What CDNs Actually Deliver</h2>
+  
+  <p>CDNs don't just cache static files. Modern CDNs offer:</p>
+  
+  <ul>
+    <li><strong>Static asset delivery:</strong> Images, CSS, JavaScript, fonts</li>
+    <li><strong>Video streaming:</strong> HLS, DASH delivery with bitrate adaptation</li>
+    <li><strong>SSL/TLS termination:</strong> Offload encryption from origin servers</li>
+    <li><strong>DDoS mitigation:</strong> Absorb attacks before they reach origin</li>
+    <li><strong>Edge computing:</strong> Run code at the edge (Cloudflare Workers, Vercel Edge Functions)</li>
+    <li><strong>Image optimization:</strong> Resize, compress, convert formats (WebP, AVIF) on the fly</li>
+    <li><strong>API acceleration:</strong> Cache API responses, reduce origin load</li>
+  </ul>
+
+  <h2>The Business Model</h2>
+  
+  <p>CDNs charge for bandwidth. The more you deliver, the more you pay. But the economics are compelling: a 10GB site served from a single origin might cost $X in origin hosting plus terrible user experience. The same site served via CDN might cost slightly more in CDN fees but dramatically less in origin costs (because the origin only handles a fraction of traffic).</p>
+  
+  <p>The major players: Cloudflare (largest, known for free tier and DDoS protection), Akamai (oldest, enterprise-focused), Fastly (developer-friendly, real-time cache purging), CloudFront (AWS ecosystem), BunnyNet (budget-friendly). Each has tradeoffs in features, pricing, and performance.</p>
+
+  <h2>What's Actually Happening When You Load a Page</h2>
+  
+  <p>Here's the real flow:</p>
+  
+  <ol>
+    <li><strong>DNS:</strong> Browser asks for <code>example.com</code>. Resolver returns the CDN's IP (e.g., Cloudflare's IP).</li>
+    <li><strong>Request to edge:</strong> Browser connects to the nearest edge server.</li>
+    <li><strong>Cache check:</strong> Edge checks if it has the content. If yes, serve it (milliseconds).</li>
+    <li><strong>Cache miss:</strong> Edge requests from origin (or the next-closest CDN node).</li>
+    <li><strong>Origin response:</strong> Origin sends content. Edge caches it, then serves to user.</li>
+    <li><strong>Subsequent requests:</strong> Served from cache until stale.</li>
+  </ol>
+
+  <p>The user perceives this as "fast." The reality is a distributed system of caches, routing intelligence, and edge computing working in concert.</p>
+
+  <h2>What Can Go Wrong</h2>
+  
+  <p>CDNs are not magic. Common failure modes:</p>
+  
+  <ul>
+    <li><strong>Stale cache:</strong> You deployed new code, but users get old version. Cache purge failed or TTL is too long.</li>
+    <li><strong>Cache poisoning:</strong> Attacker injects malicious content into cache. Requires proper cache validation (signing, checksums).</li>
+    <li><strong>Cache misses on popular content:</strong> "Thundering herd" — when cached content expires, thousands of requests hit the origin simultaneously. Solution: stale-while-revalidate, cache warming.</li>
+    <li><strong>Regional outages:</strong> Anycast helps, but misconfigured routing can take out a region.</li>
+    <li><strong>Cost overruns:</strong> Unexpected traffic spikes can result in massive bills. Set up alerts and budgets.</li>
+  </ul>
+
+  <h2>The Big Picture</h2>
+  
+  <p>CDNs are the invisible infrastructure of the web. They sit between users and origin servers, absorbing load, reducing latency, and making the web feel fast. Without CDNs, streaming video at scale wouldn't exist. Global web applications would be unusable. The entire modern internet — from news sites to SaaS apps to mobile games — depends on content delivery networks.</p>
+  
+  <p>The next time a page loads in under a second, remember: there's probably a CDN involved. And somewhere, an edge server just handled your request 5 milliseconds away.</p>
+</div>
+</body>
+</html>
