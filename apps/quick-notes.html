@@ -4,114 +4,276 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quick Notes — Shadow's Garden</title>
-<meta name="description" content="A clean, auto-saving notepad. No account needed.">
+<meta name="description" content="Simple local-first notes app with no accounts, no sync, just localStorage">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 20px; max-width: 900px; margin: 0 auto; }
-  textarea {
-    width: 100%;
-    height: 70vh;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    font-family: 'Fira Code', monospace;
-    font-size: 15px;
-    line-height: 1.6;
-    resize: vertical;
-    background: var(--bg);
-    color: var(--text);
-  }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .status {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .status span { display: flex; align-items: center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
-  .dot.saving { background: var(--warning); }
-  .word-count { font-variant-numeric: tabular-nums; }
-  .clear-btn {
-    background: var(--danger);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-  }
-  .clear-btn:hover { opacity: 0.9; }
+  :root { --accent: #22c55e; }
+  body { --accent: #22c55e; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+  .notes-header h1 { margin: 0; }
+  
+  .btn { padding: 0.6rem 1.2rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+  .btn-secondary:hover { background: #30363d; }
+  .btn-danger { background: #f85149; color: white; }
+  .btn-danger:hover { filter: brightness(1.1); }
+  .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  
+  .notes-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .note-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; transition: border-color 0.2s; }
+  .note-card:hover { border-color: #58a6ff; }
+  .note-card.empty { text-align: center; color: #8b949e; padding: 3rem; }
+  
+  .note-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+  .note-title { font-weight: 600; font-size: 1rem; color: #c9d1d9; margin: 0; }
+  .note-date { font-size: 0.75rem; color: #8b949e; }
+  .note-preview { color: #8b949e; font-size: 0.9rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .note-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  
+  .note-editor { display: none; }
+  .note-editor.active { display: block; }
+  .editor-title { width: 100%; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; box-sizing: border-box; }
+  .editor-title:focus { outline: none; border-color: var(--accent); }
+  .editor-body { width: 100%; min-height: 300px; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.95rem; line-height: 1.6; resize: vertical; font-family: inherit; box-sizing: border-box; }
+  .editor-body:focus { outline: none; border-color: var(--accent); }
+  .editor-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+  
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 1.5rem; max-width: 400px; width: 100%; }
+  .modal h3 { margin: 0 0 1rem 0; }
+  .modal p { color: #8b949e; margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  
+  .search-box { width: 100%; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; margin-bottom: 1rem; }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+  
+  .note-count { color: #8b949e; font-size: 0.85rem; margin-top: 1.5rem; text-align: center; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="status">
-    <span><span class="dot" id="dot"></span><span id="status">Ready</span></span>
-    <span class="word-count" id="count">0 words · 0 characters</span>
+  <div class="container">
+    <div class="notes-header">
+      <div>
+        <h1>Quick Notes</h1>
+        <p class="subtitle">Simple notes, localStorage, no accounts</p>
+      </div>
+      <button class="btn btn-primary" id="newNoteBtn">+ New Note</button>
+    </div>
+    
+    <input type="text" class="search-box" id="searchBox" placeholder="Search notes...">
+    
+    <div class="notes-list" id="notesList"></div>
+    
+    <div class="note-count" id="noteCount"></div>
   </div>
-  <textarea id="notes" placeholder="Start typing... your notes auto-save as you type."></textarea>
-  <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-    <button class="clear-btn" onclick="clearNotes()">Clear All</button>
-    <button class="clear-btn" style="background: var(--accent);" onclick="downloadNotes()">Download</button>
+  
+  <div class="note-editor" id="noteEditor">
+    <input type="text" class="editor-title" id="editorTitle" placeholder="Note title...">
+    <textarea class="editor-body" id="editorBody" placeholder="Write your note..."></textarea>
+    <div class="editor-actions">
+      <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveNoteBtn">Save</button>
+    </div>
   </div>
-
+  
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <h3>Delete Note?</h3>
+      <p>This cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+  
   <script>
-    const notes = document.getElementById('notes');
-    const status = document.getElementById('status');
-    const dot = document.getElementById('dot');
-    const count = document.getElementById('count');
-    const STORAGE_KEY = 'shadow-quick-notes';
-    let saveTimeout;
-
-    // Load saved notes on startup
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      notes.value = saved;
-      updateCount();
-    }
-
-    notes.addEventListener('input', () => {
-      updateCount();
-      dot.classList.add('saving');
-      status.textContent = 'Saving...';
-      
-      clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(() => {
-        localStorage.setItem(STORAGE_KEY, notes.value);
-        dot.classList.remove('saving');
-        status.textContent = 'Saved';
-      }, 800);
-    });
-
-    function updateCount() {
-      const text = notes.value;
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      const chars = text.length;
-      count.textContent = `${words.toLocaleString()} word${words !== 1 ? 's' : ''} · ${chars.toLocaleString()} characters`;
-    }
-
-    function clearNotes() {
-      if (confirm('Clear all notes? This cannot be undone.')) {
-        notes.value = '';
-        localStorage.removeItem(STORAGE_KEY);
-        updateCount();
-        status.textContent = 'Cleared';
-        setTimeout(() => status.textContent = 'Ready', 1500);
+    const STORAGE_KEY = 'quick-notes';
+    let notes = [];
+    let editingId = null;
+    let deletingId = null;
+    
+    const notesList = document.getElementById('notesList');
+    const noteEditor = document.getElementById('noteEditor');
+    const editorTitle = document.getElementById('editorTitle');
+    const editorBody = document.getElementById('editorBody');
+    const searchBox = document.getElementById('searchBox');
+    const noteCount = document.getElementById('noteCount');
+    const deleteModal = document.getElementById('deleteModal');
+    
+    function loadNotes() {
+      try {
+        notes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch (e) {
+        notes = [];
       }
     }
-
-    function downloadNotes() {
-      const blob = new Blob([notes.value], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `notes-${new Date().toISOString().split('T')[0]}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
+    
+    function saveNotes() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
     }
+    
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+    
+    function formatDate(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + ' min ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + ' days ago';
+      
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+    
+    function renderNotes(filter = '') {
+      const filtered = filter 
+        ? notes.filter(n => n.title.toLowerCase().includes(filter.toLowerCase()) || n.body.toLowerCase().includes(filter.toLowerCase()))
+        : notes;
+      
+      const sorted = [...filtered].sort((a, b) => b.updated - a.updated);
+      
+      if (sorted.length === 0) {
+        notesList.innerHTML = `<div class="note-card empty">${filter ? 'No notes match your search' : 'No notes yet. Click "+ New Note" to create one.'}</div>`;
+      } else {
+        notesList.innerHTML = sorted.map(note => `
+          <div class="note-card" data-id="${note.id}">
+            <div class="note-title-row">
+              <h3 class="note-title">${escapeHtml(note.title) || 'Untitled'}</h3>
+              <span class="note-date">${formatDate(note.updated)}</span>
+            </div>
+            <p class="note-preview">${escapeHtml(note.body) || 'Empty note'}</p>
+            <div class="note-actions">
+              <button class="btn btn-secondary btn-sm edit-btn" data-id="${note.id}">Edit</button>
+              <button class="btn btn-danger btn-sm delete-btn" data-id="${note.id}">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      noteCount.textContent = `${sorted.length} note${sorted.length !== 1 ? 's' : ''}`;
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    function openEditor(note = null) {
+      if (note) {
+        editingId = note.id;
+        editorTitle.value = note.title;
+        editorBody.value = note.body;
+      } else {
+        editingId = null;
+        editorTitle.value = '';
+        editorBody.value = '';
+      }
+      noteEditor.classList.add('active');
+      editorTitle.focus();
+    }
+    
+    function closeEditor() {
+      noteEditor.classList.remove('active');
+      editingId = null;
+    }
+    
+    function saveNote() {
+      const title = editorTitle.value.trim();
+      const body = editorBody.value;
+      
+      if (editingId) {
+        const note = notes.find(n => n.id === editingId);
+        if (note) {
+          note.title = title;
+          note.body = body;
+          note.updated = Date.now();
+        }
+      } else {
+        notes.push({
+          id: generateId(),
+          title,
+          body,
+          created: Date.now(),
+          updated: Date.now()
+        });
+      }
+      
+      saveNotes();
+      closeEditor();
+      renderNotes(searchBox.value);
+    }
+    
+    function deleteNote(id) {
+      notes = notes.filter(n => n.id !== id);
+      saveNotes();
+      renderNotes(searchBox.value);
+      deleteModal.classList.remove('active');
+    }
+    
+    document.getElementById('newNoteBtn').addEventListener('click', () => openEditor());
+    document.getElementById('saveNoteBtn').addEventListener('click', saveNote);
+    document.getElementById('cancelEditBtn').addEventListener('click', closeEditor);
+    
+    notesList.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('.edit-btn');
+      const deleteBtn = e.target.closest('.delete-btn');
+      
+      if (editBtn) {
+        const id = editBtn.dataset.id;
+        const note = notes.find(n => n.id === id);
+        if (note) openEditor(note);
+      }
+      
+      if (deleteBtn) {
+        deletingId = deleteBtn.dataset.id;
+        deleteModal.classList.add('active');
+      }
+    });
+    
+    document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+      if (deletingId) deleteNote(deletingId);
+    });
+    
+    document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+      deleteModal.classList.remove('active');
+      deletingId = null;
+    });
+    
+    searchBox.addEventListener('input', (e) => renderNotes(e.target.value));
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (deleteModal.classList.contains('active')) {
+          deleteModal.classList.remove('active');
+        } else if (noteEditor.classList.contains('active')) {
+          closeEditor();
+        }
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (noteEditor.classList.contains('active')) {
+          saveNote();
+        }
+      }
+    });
+    
+    // Init
+    loadNotes();
+    renderNotes();
   </script>
 </body>
 </html>
