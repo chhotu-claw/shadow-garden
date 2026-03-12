@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Path Query — Shadow's Garden</title>
+<meta name="description" content="Query JSON with JSONPath expressions. Extract, filter, and explore nested data">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #f7df1e; }
+  body { --accent: #f7df1e; }
+  .tag { background: var(--accent); color: #000; }
+  body { font-family: 'JetBrains Mono', monospace; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.8rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  textarea, input[type="text"] {
+    width: 100%; padding: 0.75rem 1rem; background: #161b22; border: 2px solid #30363d; border-radius: 8px; color: #c9d1d9; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; resize: vertical; box-sizing: border-box;
+  }
+  textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  #jsonInput { min-height: 200px; }
+  #pathInput { font-size: 1rem; }
+  
+  .output { background: #161b22; border: 2px solid #30363d; border-radius: 8px; padding: 1rem; min-height: 100px; max-height: 400px; overflow: auto; }
+  .output.empty { color: #8b949e; font-style: italic; }
+  .output pre { margin: 0; white-space: pre-wrap; word-break: break-all; }
+  
+  .error { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; }
+  
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { background: #30363d; color: #c9d1d9; }
+  
+  .stats { display: flex; gap: 2rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #30363d; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
+  
+  .help { margin-top: 2rem; padding: 1rem; background: #161b22; border-radius: 8px; border: 1px solid #30363d; }
+  .help h3 { margin: 0 0 0.75rem 0; font-size: 0.85rem; color: var(--accent); }
+  .help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; }
+  .help-item { font-size: 0.75rem; }
+  .help-item code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 3px; color: var(--accent); }
+  
+  .result-item { background: #21262d; padding: 0.5rem; margin: 0.25rem 0; border-radius: 4px; font-size: 0.85rem; }
+  .result-type { font-size: 0.7rem; color: #8b949e; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>JSON Path Query</h1>
+    <p class="subtitle">Query JSON with JSONPath expressions — extract, filter, and explore nested data</p>
+    
+    <div class="input-group">
+      <label>JSON Input</label>
+      <textarea id="jsonInput" placeholder='{"store": {"book": [{"title": "The..."}]}}'>{
+  "store": {
+    "book": [
+      {"title": "The Great Gatsby", "author": "Fitzgerald", "price": 10.99, "category": "fiction"},
+      {"title": "1984", "author": "Orwell", "price": 8.99, "category": "fiction"},
+      {"title": "Sapiens", "author": "Harari", "price": 14.99, "category": "history"}
+    ],
+    "bicycle": {"color": "red", "price": 19.99}
+  },
+  "categories": ["fiction", "history", "science"],
+  "version": 1
+}</textarea>
+    </div>
+    
+    <div class="input-group">
+      <label>JSONPath Expression</label>
+      <input type="text" id="pathInput" placeholder="$.store.book[*].title" value="$.store.book[*].title">
+      <div class="presets">
+        <button class="preset-btn" data-path="$.store.book[*].title">All book titles</button>
+        <button class="preset-btn" data-path="$.store.book[*].author">All authors</button>
+        <button class="preset-btn" data-path="$.store.book[?(@.price < 10)]">Cheap books (&lt;10)</button>
+        <button class="preset-btn" data-path="$.store.book[?(@.category==&quot;fiction&quot;)]">Fiction books</button>
+        <button class="preset-btn" data-path="$.store.*">Store children</button>
+        <button class="preset-btn" data-path="$..author">All authors (recursive)</button>
+        <button class="preset-btn" data-path="$.store.book[-1]">Last book</button>
+        <button class="preset-btn" data-path="$.store.book[0,1]">First two books</button>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label>Results</label>
+      <div class="output empty" id="output">Enter a JSONPath expression to see results...</div>
+      <div class="error" id="error"></div>
+    </div>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="matchCount">0</div>
+        <div class="stat-label">Matches</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="resultType">-</div>
+        <div class="stat-label">Type</div>
+      </div>
+    </div>
+    
+    <div class="help">
+      <h3>JSONPath Cheatsheet</h3>
+      <div class="help-grid">
+        <div class="help-item"><code>$</code> root</div>
+        <div class="help-item"><code>.</code> child</div>
+        <div class="help-item"><code>..</code> recursive</div>
+        <div class="help-item"><code>[*]</code> all</div>
+        <div class="help-item"><code>[n]</code> nth item</div>
+        <div class="help-item"><code>[n,m]</code> multiple</div>
+        <div class="help-item"><code>[start:end]</code> slice</div>
+        <div class="help-item"><code>?()</code> filter</div>
+        <div class="help-item"><code>@</code> current</div>
+        <div class="help-item"><code>==</code> equals</div>
+        <div class="help-item"><code>!=</code> not equals</div>
+        <div class="help-item"><code>&lt;, &gt;</code> compare</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const jsonInput = document.getElementById('jsonInput');
+    const pathInput = document.getElementById('pathInput');
+    const output = document.getElementById('output');
+    const error = document.getElementById('error');
+    const matchCount = document.getElementById('matchCount');
+    const resultType = document.getElementById('resultType');
+    
+    // Simple JSONPath implementation
+    function jsonPath(obj, path) {
+      if (!path) return { found: false };
+      if (!path.startsWith('$')) path = '$' + path;
+      if (!path.startsWith('$.')) path = '$' + path;
+      
+      const tokens = tokenize(path);
+      const results = evaluate(obj, tokens, 0);
+      return { found: true, results: results };
+    }
+    
+    function tokenize(path) {
+      const tokens = [];
+      let current = '';
+      let inBracket = false;
+      
+      for (let i = 0; i < path.length; i++) {
+        const c = path[i];
+        if (c === '[' || c === ']') {
+          if (current) { tokens.push(current); current = ''; }
+          tokens.push(c);
+          inBracket = c === '[';
+        } else if (c === '.' && !inBracket) {
+          if (current) { tokens.push(current); current = ''; }
+        } else if (c === '(' || c === ')') {
+          if (current) { tokens.push(current); current = ''; }
+          tokens.push(c);
+        } else {
+          current += c;
+        }
+      }
+      if (current) tokens.push(current);
+      return tokens;
+    }
+    
+    function evaluate(obj, tokens, start) {
+      if (start >= tokens.length) return [obj];
+      
+      const token = tokens[start];
+      
+      if (token === '$') {
+        return evaluate(obj, tokens, start + 1);
+      }
+      
+      if (token === '.') {
+        const next = tokens[start + 1];
+        if (typeof obj === 'object' && obj !== null && next in obj) {
+          return evaluate(obj[next], tokens, start + 2);
+        }
+        return [];
+      }
+      
+      if (token === '..') {
+        const next = tokens[start + 1];
+        let results = [];
+        if (typeof obj === 'object' && obj !== null) {
+          for (const key in obj) {
+            if (key === next || next === '*') {
+              results = results.concat(evaluate(obj[key], tokens, start + 2));
+            }
+            const deeper = evaluate(obj[key], tokens, start);
+            results = results.concat(deeper);
+          }
+        }
+        return results;
+      }
+      
+      if (token === '[') {
+        let end = start + 1;
+        let depth = 1;
+        while (end < tokens.length && depth > 0) {
+          if (tokens[end] === '[') depth++;
+          if (tokens[end] === ']') depth--;
+          end++;
+        }
+        const bracketContent = tokens.slice(start + 1, end - 1);
+        const results = bracketAccess(obj, bracketContent);
+        return evaluate(results, tokens, end);
+      }
+      
+      if (token === '*') {
+        if (Array.isArray(obj)) return obj;
+        if (typeof obj === 'object' && obj !== null) return Object.values(obj);
+        return [];
+      }
+      
+      if (typeof obj === 'object' && obj !== null && token in obj) {
+        return evaluate(obj[token], tokens, start + 1);
+      }
+      
+      return [];
+    }
+    
+    function bracketAccess(obj, tokens) {
+      if (tokens.length === 0) return obj;
+      const first = tokens[0];
+      
+      if (first === '*') {
+        if (Array.isArray(obj)) return obj;
+        if (typeof obj === 'object' && obj !== null) return Object.values(obj);
+        return [];
+      }
+      
+      if (first === '?') {
+        const filterExpr = tokens.slice(1, tokens.length - 1).join('');
+        if (Array.isArray(obj)) {
+          return obj.filter(item => evaluateFilter(item, filterExpr));
+        }
+        return [];
+      }
+      
+      if (first.includes(',')) {
+        const indices = first.split(',').map(s => parseInt(s.trim()));
+        return indices.map(i => Array.isArray(obj) ? obj[i] : null).filter(x => x !== null);
+      }
+      
+      if (first.includes(':')) {
+        const [start, end] = first.split(':').map(s => s ? parseInt(s) : undefined);
+        if (Array.isArray(obj)) {
+          return obj.slice(start, end);
+        }
+        return [];
+      }
+      
+      const idx = parseInt(first);
+      if (!isNaN(idx)) {
+        if (Array.isArray(obj)) return obj[idx] !== undefined ? [obj[idx]] : [];
+        if (typeof obj === 'object' && obj !== null) {
+          const keys = Object.keys(obj);
+          return keys[idx] ? [obj[keys[idx]]] : [];
+        }
+        return [];
+      }
+      
+      if (typeof obj === 'object' && obj !== null && first in obj) {
+        return [obj[first]];
+      }
+      
+      return [];
+    }
+    
+    function evaluateFilter(obj, expr) {
+      const match = expr.match(/@\.(\w+)\s*(<=|>=|==|!=|<|>)\s*(.+)/);
+      if (!match) return false;
+      
+      const [, field, op, value] = match;
+      const fieldValue = obj[field];
+      
+      if (value.startsWith("'") || value.startsWith('"')) {
+        return compare(fieldValue, op, value.slice(1, -1));
+      }
+      
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue)) {
+        return compare(fieldValue, op, numValue);
+      }
+      
+      return compare(fieldValue, op, value);
+    }
+    
+    function compare(a, op, b) {
+      switch (op) {
+        case '==': return a == b;
+        case '!=': return a != b;
+        case '<': return a < b;
+        case '>': return a > b;
+        case '<=': return a <= b;
+        case '>=': return a >= b;
+        default: return false;
+      }
+    }
+    
+    function getType(val) {
+      if (Array.isArray(val)) return 'array';
+      if (val === null) return 'null';
+      return typeof val;
+    }
+    
+    function formatValue(val) {
+      if (typeof val === 'object') {
+        return JSON.stringify(val, null, 2);
+      }
+      return String(val);
+    }
+    
+    function runQuery() {
+      const jsonStr = jsonInput.value;
+      const path = pathInput.value;
+      
+      if (!jsonStr.trim()) {
+        output.innerHTML = 'Enter JSON to query...';
+        output.classList.add('empty');
+        error.textContent = '';
+        matchCount.textContent = '0';
+        resultType.textContent = '-';
+        return;
+      }
+      
+      if (!path.trim()) {
+        output.innerHTML = 'Enter a JSONPath expression to see results...';
+        output.classList.add('empty');
+        error.textContent = '';
+        matchCount.textContent = '0';
+        resultType.textContent = '-';
+        return;
+      }
+      
+      try {
+        const json = JSON.parse(jsonStr);
+        const result = jsonPath(json, path);
+        
+        error.textContent = '';
+        
+        if (!result.found || result.results.length === 0) {
+          output.innerHTML = 'No matches found';
+          output.classList.add('empty');
+          matchCount.textContent = '0';
+          resultType.textContent = '-';
+          return;
+        }
+        
+        output.classList.remove('empty');
+        
+        let html = '';
+        result.results.forEach((item, i) => {
+          const type = getType(item);
+          html += `<div class="result-item"><span class="result-type">[${type}]</span> ${escapeHtml(formatValue(item))}</div>`;
+        });
+        
+        output.innerHTML = html;
+        matchCount.textContent = result.results.length;
+        resultType.textContent = getType(result.results);
+        
+      } catch (e) {
+        error.textContent = e.message;
+        output.innerHTML = '';
+        output.classList.add('empty');
+        matchCount.textContent = '0';
+        resultType.textContent = '-';
+      }
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    
+    // Event listeners
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pathInput.value = btn.dataset.path;
+        runQuery();
+      });
+    });
+    
+    jsonInput.addEventListener('input', runQuery);
+    pathInput.addEventListener('input', runQuery);
+    
+    // Initial run
+    runQuery();
+  </script>
+</body>
+</html>
