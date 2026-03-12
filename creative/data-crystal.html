@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Crystal — Shadow's Garden</title>
+<meta name="description" content="Turn text into crystallized visual patterns — each word becomes a unique geometric form">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --accent: #e879f9;
+  }
+  body { --bg: #0a0a0f; --fg: #e2e8f0; background: var(--bg); color: var(--fg); min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
+  h1 { font-size: 2.5rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #e879f9, #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .subtitle { color: #64748b; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  #input-wrap { position: relative; margin-bottom: 2rem; }
+  #text-input { 
+    width: 100%; padding: 1rem 1.5rem; font-size: 1.1rem; 
+    background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px; color: var(--fg); font-family: system-ui; resize: none;
+    min-height: 80px; transition: border-color 0.3s;
+  }
+  #text-input:focus { outline: none; border-color: var(--accent); }
+  #text-input::placeholder { color: #475569; }
+  
+  .controls { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
+  .ctrl-btn { 
+    padding: 0.6rem 1.2rem; background: rgba(255,255,255,0.08); 
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+    color: var(--fg); cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+  }
+  .ctrl-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+  .ctrl-btn.active { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
+  
+  #canvas-wrap { position: relative; width: 100%; aspect-ratio: 1; max-width: 600px; margin: 0 auto; background: radial-gradient(circle at center, rgba(232,121,249,0.05), transparent 70%); border-radius: 16px; overflow: hidden; }
+  #crystal-canvas { width: 100%; height: 100%; }
+  
+  .hint { color: #475569; font-size: 0.8rem; margin-top: 1rem; }
+  
+  .legend { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: #94a3b8; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Data Crystal</h1>
+    <p class="subtitle">Turn text into crystallized visual patterns</p>
+    
+    <div id="input-wrap">
+      <textarea id="text-input" placeholder="Type something... each character becomes a crystal shard"></textarea>
+    </div>
+    
+    <div class="controls">
+      <button class="ctrl-btn active" data-mode="crystal">Crystal</button>
+      <button class="ctrl-btn" data-mode="shard">Shards</button>
+      <button class="ctrl-btn" data-mode="flow">Flow</button>
+      <button class="ctrl-btn" id="clear-btn">Clear</button>
+      <button class="ctrl-btn" id="save-btn">Save</button>
+    </div>
+    
+    <div id="canvas-wrap">
+      <canvas id="crystal-canvas"></canvas>
+    </div>
+    
+    <p class="hint">Click anywhere to create ripples • Words are sorted by frequency</p>
+    
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#e879f9"></div>Common</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#22d3ee"></div>Rare</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#facc15"></div>Unique</div>
+    </div>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('crystal-canvas');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('text-input');
+    let mode = 'crystal';
+    let crystals = [];
+    let animationId;
+    
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    document.querySelectorAll('.ctrl-btn[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ctrl-btn[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        if (input.value) render();
+      });
+    });
+    
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      input.value = '';
+      crystals = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+    
+    document.getElementById('save-btn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'data-crystal.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+    
+    function analyzeText(text) {
+      const chars = text.split('').filter(c => c.trim());
+      const freq = {};
+      chars.forEach(c => freq[c] = (freq[c] || 0) + 1);
+      const max = Math.max(...Object.values(freq));
+      return chars.map((c, i) => ({
+        char: c,
+        freq: freq[c],
+        norm: freq[c] / max,
+        x: Math.random(),
+        y: Math.random()
+      }));
+    }
+    
+    function render() {
+      const data = analyzeText(input.value);
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+      const cx = w / 2, cy = h / 2;
+      
+      crystals = data.map((d, i) => {
+        const angle = (i / data.length) * Math.PI * 2;
+        const radius = mode === 'crystal' ? 50 + d.norm * 150 : 30 + Math.random() * 180;
+        return {
+          x: cx + Math.cos(angle) * radius * (mode === 'flow' ? 0.5 + Math.random() * 0.5 : 1),
+          y: cy + Math.sin(angle) * radius * (mode === 'flow' ? 0.5 + Math.random() * 0.5 : 1),
+          size: 3 + d.norm * 12,
+          freq: d.norm,
+          char: d.char,
+          rotation: Math.random() * Math.PI * 2,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3
+        };
+      });
+      
+      animate();
+    }
+    
+    function animate() {
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+      
+      if (mode === 'flow') {
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        ctx.clearRect(0, 0, w, h);
+      }
+      
+      crystals.forEach(c => {
+        c.x += c.vx;
+        c.y += c.vy;
+        
+        if (c.x < 0 || c.x > w) c.vx *= -1;
+        if (c.y < 0 || c.y > h) c.vy *= -1;
+        
+        const hue = c.freq < 0.3 ? 330 : c.freq < 0.7 ? 190 : 45;
+        const sat = 80 + c.freq * 20;
+        const light = 60 + c.freq * 25;
+        
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.rotation);
+        
+        if (mode === 'crystal') {
+          ctx.beginPath();
+          ctx.moveTo(0, -c.size);
+          ctx.lineTo(c.size * 0.7, 0);
+          ctx.lineTo(0, c.size);
+          ctx.lineTo(-c.size * 0.7, 0);
+          ctx.closePath();
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, 0.7)`;
+          ctx.fill();
+          ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light + 20}%, 0.9)`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else if (mode === 'shard') {
+          ctx.beginPath();
+          ctx.moveTo(0, -c.size * 1.5);
+          ctx.lineTo(c.size * 0.3, 0);
+          ctx.lineTo(0, c.size * 0.5);
+          ctx.lineTo(-c.size * 0.3, 0);
+          ctx.closePath();
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, 0.6)`;
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, c.size, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${0.3 + c.freq * 0.4})`;
+          ctx.fill();
+        }
+        
+        ctx.restore();
+        
+        c.rotation += 0.005;
+      });
+      
+      animationId = requestAnimationFrame(animate);
+    }
+    
+    input.addEventListener('input', () => {
+      if (input.value) render();
+    });
+    
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      crystals.forEach(c => {
+        const dx = c.x - x;
+        const dy = c.y - y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 100) {
+          c.vx += (dx / dist) * 2;
+          c.vy += (dy / dist) * 2;
+        }
+      });
+    });
+    
+    // Initial animation
+    animate();
+  </script>
+</body>
+</html>
