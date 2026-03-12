@@ -4,205 +4,173 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gravity Words — Shadow's Garden</title>
-<meta name="description" content="Words fall with physics. Type to drop them. Watch them stack, collide, and pile up.">
+<meta name="description" content="Interactive physics toy where typed words fall, collide, and stack. They bounce off walls, pile up on the ground.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #0a0a0f;
-    font-family: 'Courier New', monospace;
-  }
-  canvas {
-    display: block;
-  }
-  #input {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 300px;
-    padding: 12px 20px;
-    font-size: 18px;
-    background: rgba(20, 20, 30, 0.9);
-    border: 1px solid #333;
-    border-radius: 8px;
-    color: #e0e0e0;
-    outline: none;
-    text-align: center;
-    font-family: 'Courier New', monospace;
-  }
-  #input:focus {
-    border-color: #666;
-  }
-  #hint {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #555;
-    font-size: 14px;
-  }
-  #count {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    color: #444;
-    font-size: 12px;
-  }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.4); font-family: 'JetBrains Mono', monospace; font-size: 14px; pointer-events: none; transition: opacity 2s; }
+  .hint.hidden { opacity: 0; }
 </style>
 </head>
 <body data-page-type="app">
-  <div id="hint">type words and watch them fall</div>
-  <div id="count">0 words</div>
-  <canvas id="canvas"></canvas>
-  <input type="text" id="input" placeholder="type here..." autocomplete="off" autofocus>
+<canvas id="canvas"></canvas>
+<div class="hint" id="hint">type words to drop them</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+
+let width, height;
+const words = [];
+const GRAVITY = 0.25;
+const BOUNCE = 0.6;
+const FRICTION = 0.99;
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Word {
+  constructor(text, x) {
+    this.text = text;
+    this.x = x;
+    this.y = -50;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = 0;
+    this.rotation = (Math.random() - 0.5) * 0.2;
+    this.rotVel = 0;
+    this.color = `hsl(${Math.random() * 60 + 180}, 80%, 65%)`;
+    this.size = 18 + Math.random() * 10;
+    this.landed = false;
+    this.settled = false;
+  }
   
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const input = document.getElementById('input');
-    const countEl = document.getElementById('count');
+  update() {
+    if (this.settled) return;
     
-    let width, height;
-    const words = [];
-    const gravity = 0.15;
-    const friction = 0.98;
-    const bounce = 0.4;
+    this.vy += GRAVITY;
+    this.vx *= FRICTION;
+    this.rotVel *= 0.98;
     
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += this.rotVel;
+    
+    // Wall bounces
+    const padding = 20;
+    if (this.x < padding) {
+      this.x = padding;
+      this.vx *= -BOUNCE;
+      this.rotVel += 0.02;
     }
-    window.addEventListener('resize', resize);
-    resize();
+    if (this.x > width - padding) {
+      this.x = width - padding;
+      this.vx *= -BOUNCE;
+      this.rotVel -= 0.02;
+    }
     
-    class Word {
-      constructor(text, x) {
-        this.text = text;
-        this.x = x;
-        this.y = -30;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = 0;
-        this.rotation = (Math.random() - 0.5) * 0.5;
-        this.rotVel = 0;
-        this.width = ctx.measureText(text).width + 10;
-        this.height = 24;
-        this.grounded = false;
-        this.color = `hsl(${180 + Math.random() * 60}, 70%, ${60 + Math.random() * 20}%)`;
-      }
+    // Ground collision
+    const groundY = height - 30;
+    if (this.y > groundY) {
+      this.y = groundY;
+      this.vy *= -BOUNCE;
+      this.vx *= 0.8;
+      this.rotVel += this.vx * 0.01;
       
-      update() {
-        this.vy += gravity;
-        this.vx *= friction;
-        this.rotVel *= 0.95;
-        
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotation += this.rotVel;
-        
-        // Ground collision
-        if (this.y + this.height / 2 > height - 60) {
-          this.y = height - 60 - this.height / 2;
-          this.vy *= -bounce;
-          this.vx *= 0.8;
-          this.rotVel += this.vx * 0.01;
-          if (Math.abs(this.vy) < 0.5) {
-            this.grounded = true;
-            this.vy = 0;
+      if (Math.abs(this.vy) < 0.5 && Math.abs(this.vx) < 0.3) {
+        this.settled = true;
+        this.vy = 0;
+        this.vx = 0;
+      }
+    }
+  }
+  
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = `${this.size}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 15;
+    ctx.fillText(this.text, 0, 0);
+    ctx.restore();
+  }
+}
+
+let inputBuffer = '';
+let lastKeyTime = 0;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (inputBuffer.trim()) {
+      words.push(new Word(inputBuffer.trim(), width / 2 + (Math.random() - 0.5) * 100));
+      inputBuffer = '';
+    }
+    return;
+  }
+  
+  if (e.key === 'Backspace') {
+    inputBuffer = inputBuffer.slice(0, -1);
+    return;
+  }
+  
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+    const now = Date.now();
+    if (now - lastKeyTime > 500) inputBuffer = '';
+    lastKeyTime = now;
+    inputBuffer += e.key;
+    hint.classList.add('hidden');
+  }
+});
+
+function drawGround() {
+  const gradient = ctx.createLinearGradient(0, height - 30, 0, height);
+  gradient.addColorStop(0, '#1a1a2e');
+  gradient.addColorStop(1, '#0a0a0f');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, height - 30, width, 30);
+}
+
+function animate() {
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+  ctx.fillRect(0, 0, width, height);
+  
+  drawGround();
+  
+  words.forEach(w => {
+    w.update();
+    w.draw();
+  });
+  
+  // Word stacking - simple approximation
+  for (let i = 0; i < words.length; i++) {
+    for (let j = i + 1; j < words.length; j++) {
+      if (words[i].settled && !words[j].settled) {
+        const dx = Math.abs(words[i].x - words[j].x);
+        const dy = words[j].y - words[i].y;
+        if (dx < 80 && dy > 0 && dy < 40) {
+          words[j].y = words[i].y - 25;
+          words[j].vy = 0;
+          if (Math.abs(words[j].vy) < 1) {
+            words[j].settled = true;
           }
         }
-        
-        // Wall collision
-        if (this.x < 0) {
-          this.x = 0;
-          this.vx *= -bounce;
-        }
-        if (this.x + this.width > width) {
-          this.x = width - this.width;
-          this.vx *= -bounce;
-        }
-        
-        // Word collision
-        for (const other of words) {
-          if (other === this) continue;
-          this.collide(other);
-        }
-      }
-      
-      collide(other) {
-        const dx = (other.x + other.width/2) - (this.x + this.width/2);
-        const dy = (other.y + other.height/2) - (this.y + this.height/2);
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const minDist = Math.max(this.width, other.width) * 0.6;
-        
-        if (dist < minDist && dist > 0) {
-          const overlap = minDist - dist;
-          const nx = dx / dist;
-          const ny = dy / dist;
-          
-          this.x -= nx * overlap * 0.5;
-          this.y -= ny * overlap * 0.5;
-          other.x += nx * overlap * 0.5;
-          other.y += ny * overlap * 0.5;
-          
-          // Transfer momentum
-          const relVx = this.vx - other.vx;
-          const relVy = this.vy - other.vy;
-          this.vx -= relVx * 0.3;
-          this.vy -= relVy * 0.3;
-          other.vx += relVx * 0.3;
-          other.vy += relVy * 0.3;
-        }
-      }
-      
-      draw() {
-        ctx.save();
-        ctx.translate(this.x + this.width/2, this.y + this.height/2);
-        ctx.rotate(this.rotation);
-        ctx.fillStyle = this.color;
-        ctx.font = '18px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.text, 0, 0);
-        ctx.restore();
       }
     }
-    
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        const text = input.value.trim();
-        const x = Math.random() * (width - 100) + 50;
-        words.push(new Word(text, x));
-        input.value = '';
-        countEl.textContent = `${words.length} words`;
-      }
-    });
-    
-    function animate() {
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, width, height);
-      
-      // Draw ground
-      ctx.fillStyle = '#1a1a24';
-      ctx.fillRect(0, height - 60, width, 60);
-      ctx.strokeStyle = '#333';
-      ctx.beginPath();
-      ctx.moveTo(0, height - 60);
-      ctx.lineTo(width, height - 60);
-      ctx.stroke();
-      
-      for (const word of words) {
-        word.update();
-        word.draw();
-      }
-      
-      requestAnimationFrame(animate);
-    }
-    
-    animate();
-    input.focus();
-  </script>
+  }
+  
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
 </body>
 </html>
