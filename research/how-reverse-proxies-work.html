@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Reverse Proxies Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive on reverse proxies — Nginx, HAProxy, load balancing algorithms, SSL termination, caching">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root { --accent: #00b894; }
+  body { --accent: #00b894; }
+  .tag { background: var(--accent); }
+</style>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Reverse Proxies Work</h1>
+  <div class="meta">March 12, 2026</div>
+  
+  <p>A reverse proxy sits between clients and servers. But unlike a forward proxy (which represents the client), a reverse proxy represents the server. To the client, it looks like the server. To the server, it looks like all requests come from one place. This simple inversion changes everything.</p>
+
+  <h2>Forward vs Reverse</h2>
+  
+  <p>A <strong>forward proxy</strong> acts on behalf of clients. A user configures their browser to use a proxy, and the proxy forwards requests to the internet. The server doesn't know who the client is — it only sees the proxy. This is how you bypass censorship or cache frequently-requested pages.</p>
+  
+  <p>A <strong>reverse proxy</strong> acts on behalf of servers. The client sends requests to yourdomain.com, but there's a proxy in front. The client has no idea there's a server behind it. The proxy decides which backend server handles the request. This is load balancing, SSL termination, and caching — all in one.</p>
+
+  <h2>What Reverse Proxies Do</h2>
+  
+  <h3>Load Balancing</h3>
+  <p>The most common use. Traffic goes to one IP, the proxy distributes it across multiple backend servers. Algorithms include:</p>
+  
+  <ul>
+    <li><strong>Round Robin</strong> — each request goes to the next server in the list. Simple, fair, but ignores server load.</li>
+    <li><strong>Least Connections</strong> — send to the server with the fewest active connections. Better for varying request durations.</li>
+    <li><strong>IP Hash</strong> — hash the client IP and always send that client to the same server. Useful for session persistence.</li>
+    <li><strong>Weighted</strong> — assign weights to servers. More powerful servers get more traffic.</li>
+  </ul>
+
+  <h3>SSL Termination</h3>
+  <p>Managing SSL certificates on every backend server is painful. With SSL termination, the reverse proxy handles HTTPS. It decrypts requests before forwarding them to backends, and encrypts responses before sending back to clients. The backends talk plain HTTP — faster, simpler.</p>
+  
+  <p>This is why Cloudflare, AWS ALB, and nginx are so common. They handle the cryptographic heavy lifting so your application servers don't have to.</p>
+
+  <h3>Caching</h3>
+  <p>A reverse proxy can cache responses. If 10,000 users request the same page, the proxy serves the cached copy once and ignores the backends. This is Varnish, nginx's cache module, Cloudflare's CDN behavior.</p>
+  
+  <p>Caching at the proxy level is incredibly powerful because it protects your backends from traffic spikes. A viral blog post shouldn't kill your database.</p>
+
+  <h3>Compression</h3>
+  <p>Proxies like nginx can compress responses (gzip, brotli) before sending to clients. The client decompresses. This reduces bandwidth costs and improves perceived performance.</p>
+
+  <h3>Security</h3>
+  <p>The reverse proxy hides your backend servers. Attackers never see them — they only see the proxy. This means:</p>
+  
+  <ul>
+    <li>Backends can run on private networks</li>
+    <li>The proxy can rate-limit requests</li>
+    <li>The proxy can block known malicious IPs</li>
+    <li>DDOS hits the proxy, not your application</li>
+  </ul>
+
+  <h2>Common Implementations</h2>
+  
+  <h3>Nginx</h3>
+  <p>The most popular web server that happens to be a reverse proxy. Originally a web server, it evolved into a proxy because that's what people needed. Known for high performance under load, low memory footprint, and an configuration language that feels like a programming language.</p>
+  
+  <h3>HAProxy</h3>
+  <p>Pure load balancer. No web serving, just proxying. Known for reliability, precise health checks, and powerful ACLs. Used when you need fine-grained control over traffic routing.</p>
+  
+  <h3>Traefik</h3>
+  <p>Cloud-native. Auto-discovers services (Docker, Kubernetes, Consul) and dynamically updates routing. If you add a new container, Traefik notices and starts routing traffic to it. No config files to edit.</p>
+  
+  <h3>Cloudflare / AWS ALB / Nginx Proxy Manager</h3>
+  <p>Managed solutions. Cloudflare is a reverse proxy with a CDN built in. AWS ALB is a reverse proxy that scales automatically. These are infrastructure, not software you run yourself.</p>
+
+  <h2>The Request Flow</h2>
+  
+  <pre><code>Client → DNS → Cloudflare (CDN, WAF) 
+       → AWS ALB (SSL termination, health checks)
+       → Nginx (caching, compression)
+       → Application Server (your code)
+       → Database</code></pre>
+  
+  <p>Every request to a production system goes through multiple reverse proxies. Each layer does one thing well. The application server rarely sees the raw internet — it only sees the proxy in front of it.</p>
+
+  <h2>Health Checks</h2>
+  
+  <p>A reverse proxy that routes to dead servers is worse than useless. Health checks are essential:</p>
+  
+  <ul>
+    <li><strong>Passive</strong> — watch for failed requests. If a server starts timing out, mark it unhealthy.</li>
+    <li><strong>Active</strong> — periodically send a request (usually to /health) and check the response. If it fails, remove from the pool.</li>
+    <li><strong>Graceful degradation</strong> — when all backends fail, serve a cached response or a meaningful error.</li>
+  </ul>
+
+  <h2>Sticky Sessions</h2>
+  
+  <p>Sometimes you need the same client to hit the same backend. Reasons: session data lives in that server's memory, or long-running connections.</p>
+  
+  <p>Implemented via:</p>
+  <ul>
+    <li>Cookies (set by proxy, includes server ID)</li>
+    <li>Client IP hashing (simple but breaks for mobile users behind NAT)</li>
+    <li>Header inspection</li>
+  </ul>
+
+  <h2>Why It Matters</h2>
+  
+  <p>The reverse proxy is the guard dog of your infrastructure. It decides what reaches your application, how requests are distributed, and what gets served from cache. It handles TLS, compression, rate limiting, and DDOS protection.</p>
+  
+  <p>Understanding reverse proxies means understanding where your application fits in the system. It's rarely "client → your server". It's client → CDN → load balancer → proxy → your code. Each layer has tradeoffs. Each layer can fail.</p>
+  
+  <p>The best engineers know where the proxy ends and their code begins. And they respect the boundary.</p>
+</div>
+</body>
+</html>
