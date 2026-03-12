@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice Roller — Shadow's Garden</title>
+<meta name="description" content="Roll dice for tabletop games. Support for d4, d6, d8, d10, d12, d20, d100 with roll history">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #1a1a2e; --fg: #eaeaea; --accent: #e94560; --border: #16213e; }
+  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+  
+  .dice-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 2rem; }
+  .dice-btn { padding: 1rem; background: #16213e; border: 2px solid #0f3460; border-radius: 12px; color: #eaeaea; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .dice-btn:hover { background: #0f3460; border-color: #e94560; transform: translateY(-2px); }
+  .dice-btn:active { transform: translateY(0); }
+  
+  .result { font-size: 4rem; font-weight: 700; color: #e94560; min-height: 6rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+  .result.critical { color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+  .result.fumble { color: #666; }
+  
+  .modifier { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+  .modifier label { color: #888; font-size: 0.9rem; }
+  .modifier input { width: 60px; padding: 0.5rem; background: #16213e; border: 1px solid #0f3460; border-radius: 6px; color: #eaeaea; font-size: 1rem; text-align: center; }
+  
+  .history { background: #16213e; border-radius: 12px; padding: 1rem; text-align: left; }
+  .history h3 { margin: 0 0 1rem 0; font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .history-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; }
+  .history-item { display: flex; justify-content: space-between; padding: 0.5rem; background: #0f3460; border-radius: 6px; font-size: 0.9rem; }
+  .history-dice { color: #e94560; font-weight: 600; }
+  .history-result { font-weight: 600; }
+  .history-time { color: #666; font-size: 0.8rem; }
+  
+  .presets { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .preset-btn { padding: 0.5rem 1rem; background: #16213e; border: 1px solid #0f3460; border-radius: 20px; color: #888; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { background: #0f3460; color: #eaeaea; }
+  
+  .roll-btn { padding: 1rem 2rem; background: #e94560; border: none; border-radius: 8px; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.15s; margin-bottom: 2rem; }
+  .roll-btn:hover { background: #ff6b6b; transform: scale(1.02); }
+  
+  @media (max-width: 480px) {
+    .dice-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Dice Roller</h1>
+    <p class="subtitle">Roll dice for tabletop games</p>
+    
+    <div class="presets">
+      <button class="preset-btn" data-roll="1d4">1d4</button>
+      <button class="preset-btn" data-roll="1d6">1d6</button>
+      <button class="preset-btn" data-roll="1d8">1d8</button>
+      <button class="preset-btn" data-roll="1d10">1d10</button>
+      <button class="preset-btn" data-roll="1d12">1d12</button>
+      <button class="preset-btn" data-roll="1d20">1d20</button>
+      <button class="preset-btn" data-roll="1d100">1d100</button>
+      <button class="preset-btn" data-roll="2d6">2d6</button>
+      <button class="preset-btn" data-roll="3d6">3d6</button>
+      <button class="preset-btn" data-roll="4d6">4d6</button>
+      <button class="preset-btn" data-roll="2d20">2d20</button>
+    </div>
+    
+    <div class="dice-grid">
+      <button class="dice-btn" data-sides="4">d4</button>
+      <button class="dice-btn" data-sides="6">d6</button>
+      <button class="dice-btn" data-sides="8">d8</button>
+      <button class="dice-btn" data-sides="10">d10</button>
+      <button class="dice-btn" data-sides="12">d12</button>
+      <button class="dice-btn" data-sides="20">d20</button>
+      <button class="dice-btn" data-sides="100">d100</button>
+    </div>
+    
+    <div class="modifier">
+      <label>Modifier:</label>
+      <input type="number" id="modifier" value="0" min="-20" max="20">
+    </div>
+    
+    <button class="roll-btn" id="rollBtn">Roll</button>
+    
+    <div class="result" id="result">—</div>
+    
+    <div class="history">
+      <h3>Roll History</h3>
+      <div class="history-list" id="historyList">
+        <p style="color: #666; font-size: 0.9rem;">Roll some dice to see history</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const resultEl = document.getElementById('result');
+    const historyList = document.getElementById('historyList');
+    const modifierInput = document.getElementById('modifier');
+    let currentDice = '1d20';
+    let history = [];
+    
+    // Load history from localStorage
+    const saved = localStorage.getItem('diceHistory');
+    if (saved) {
+      history = JSON.parse(saved);
+      renderHistory();
+    }
+    
+    document.querySelectorAll('.dice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sides = btn.dataset.sides;
+        currentDice = `1d${sides}`;
+        roll();
+      });
+    });
+    
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentDice = btn.dataset.roll;
+        roll();
+      });
+    });
+    
+    document.getElementById('rollBtn').addEventListener('click', roll);
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        roll();
+      }
+    });
+    
+    function roll() {
+      const parts = currentDice.split('d');
+      const numDice = parseInt(parts[0]);
+      const sides = parseInt(parts[1]);
+      const modifier = parseInt(modifierInput.value) || 0;
+      
+      let total = 0;
+      let rolls = [];
+      
+      for (let i = 0; i < numDice; i++) {
+        const roll = Math.floor(Math.random() * sides) + 1;
+        rolls.push(roll);
+        total += roll;
+      }
+      
+      total += modifier;
+      
+      // Animate
+      resultEl.style.transform = 'scale(0.5)';
+      resultEl.style.opacity = '0';
+      
+      setTimeout(() => {
+        resultEl.textContent = total;
+        resultEl.style.transform = 'scale(1)';
+        resultEl.style.opacity = '1';
+        
+        // Check for crit/fumble
+        resultEl.classList.remove('critical', 'fumble');
+        if (numDice === 1 && sides === 20) {
+          if (rolls[0] === 20) resultEl.classList.add('critical');
+          else if (rolls[0] === 1) resultEl.classList.add('fumble');
+        }
+      }, 100);
+      
+      // Add to history
+      const entry = {
+        dice: currentDice,
+        rolls: rolls,
+        modifier: modifier,
+        total: total,
+        time: new Date().toLocaleTimeString()
+      };
+      
+      history.unshift(entry);
+      if (history.length > 50) history.pop();
+      localStorage.setItem('diceHistory', JSON.stringify(history));
+      
+      renderHistory();
+    }
+    
+    function renderHistory() {
+      if (history.length === 0) {
+        historyList.innerHTML = '<p style="color: #666; font-size: 0.9rem;">Roll some dice to see history</p>';
+        return;
+      }
+      
+      historyList.innerHTML = history.map(h => {
+        let rollStr = h.rolls.join(' + ');
+        if (h.modifier !== 0) rollStr += ` ${h.modifier > 0 ? '+' : ''}${h.modifier}`;
+        return `
+          <div class="history-item">
+            <span class="history-dice">${h.dice}</span>
+            <span class="history-result">${rollStr} = ${h.total}</span>
+            <span class="history-time">${h.time}</span>
+          </div>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
