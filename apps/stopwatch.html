@@ -4,183 +4,112 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stopwatch — Shadow's Garden</title>
-<meta name="description" content="A simple, beautiful stopwatch with lap times. Click to start, click to stop, press lap to record splits.">
+<meta name="description" content="Simple stopwatch with lap times and split functionality">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  * { box-sizing: border-box; }
+  :root { --accent: #22c55e; }
+  body { --bg: #0d1117; --fg: #e6edf3; }
+  .container { max-width: 500px; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
   
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  
-  .stopwatch {
-    text-align: center;
-    width: 100%;
-    max-width: 400px;
-  }
-  
-  .display {
-    font-size: clamp(3rem, 12vw, 5rem);
-    font-weight: 300;
-    letter-spacing: -2px;
-    margin-bottom: 30px;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-  }
-  
-  .display.running {
+  .time-display {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: clamp(2.5rem, 10vw, 5rem);
+    font-weight: 700;
     color: var(--accent);
+    margin: 2rem 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
   }
   
-  .controls {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    margin-bottom: 30px;
-  }
+  .controls { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
   
   button {
-    padding: 14px 28px;
+    padding: 0.75rem 1.5rem;
     font-size: 1rem;
-    border: 2px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.15s ease;
-    font-family: inherit;
-    min-width: 90px;
-  }
-  
-  button:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
-  }
-  
-  button:active {
-    transform: translateY(0);
-  }
-  
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--bg);
     font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 100px;
   }
   
-  button.primary:hover {
-    opacity: 0.9;
-  }
+  .btn-start { background: var(--accent); color: #0d1117; }
+  .btn-start:hover { background: #16a34a; transform: scale(1.02); }
+  .btn-stop { background: #ef4444; color: white; }
+  .btn-stop:hover { background: #dc2626; }
+  .btn-reset { background: #374151; color: #e6edf3; }
+  .btn-reset:hover { background: #4b5563; }
+  .btn-lap { background: #6366f1; color: white; }
+  .btn-lap:hover { background: #4f46e5; }
   
-  button.danger {
-    border-color: #e74c3c;
-    color: #e74c3c;
-  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   
-  button.danger:hover {
-    background: #e74c3c;
-    color: white;
-  }
-  
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  
-  button:disabled:hover {
-    border-color: var(--border);
-    transform: none;
-  }
-  
-  .laps {
-    width: 100%;
-    max-height: 300px;
-    overflow-y: auto;
-    border-top: 1px solid var(--border);
-  }
-  
-  .lap {
+  .laps { text-align: left; max-height: 300px; overflow-y: auto; }
+  .lap-item {
     display: flex;
     justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.9rem;
-    animation: slideIn 0.2s ease;
+    padding: 0.5rem 1rem;
+    background: #161b22;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    font-family: monospace;
   }
+  .lap-num { color: #8b949e; }
+  .lap-time { color: var(--accent); }
   
-  .lap:first-child {
-    border-top: none;
-  }
+  .presets { margin-bottom: 2rem; }
+  .presets button { min-width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: #21262d; color: #8b949e; margin: 0.2rem; }
+  .presets button:hover { background: #30363d; color: var(--fg); }
   
-  .lap-time {
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-  }
-  
-  .lap-delta {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-  
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .hint {
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-top: 20px;
-  }
+  .title { font-size: 1.5rem; color: var(--fg); margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; font-size: 0.9rem; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="stopwatch">
-    <div class="display" id="display">00:00.00</div>
+  <div class="container">
+    <h1 class="title">Stopwatch</h1>
+    <p class="subtitle">Press space to start/stop, L for lap, R to reset</p>
+    
+    <div class="presets">
+      <button onclick="setTime(1)">+1 min</button>
+      <button onclick="setTime(5)">+5 min</button>
+      <button onclick="setTime(10)">+10 min</button>
+      <button onclick="setTime(0)">Reset</button>
+    </div>
+    
+    <div class="time-display" id="display">00:00.00</div>
     
     <div class="controls">
-      <button id="startStop" class="primary">Start</button>
-      <button id="lap" disabled>Lap</button>
-      <button id="reset" class="danger" disabled>Reset</button>
+      <button class="btn-start" id="startBtn" onclick="start()">Start</button>
+      <button class="btn-stop" id="stopBtn" onclick="stop()" disabled>Stop</button>
+      <button class="btn-lap" id="lapBtn" onclick="lap()" disabled>Lap</button>
+      <button class="btn-reset" id="resetBtn" onclick="reset()">Reset</button>
     </div>
     
     <div class="laps" id="laps"></div>
-    
-    <div class="hint">Space to start/stop · L to lap · R to reset</div>
   </div>
-
+  
   <script>
-    const display = document.getElementById('display');
-    const startStopBtn = document.getElementById('startStop');
-    const lapBtn = document.getElementById('lap');
-    const resetBtn = document.getElementById('reset');
-    const lapsContainer = document.getElementById('laps');
-    
     let startTime = 0;
     let elapsed = 0;
     let running = false;
     let interval = null;
-    let laps = [];
+    let lapCount = 0;
+    
+    const display = document.getElementById('display');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const lapBtn = document.getElementById('lapBtn');
+    const lapsContainer = document.getElementById('laps');
     
     function formatTime(ms) {
       const totalSeconds = Math.floor(ms / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
       const centiseconds = Math.floor((ms % 1000) / 10);
-      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
     }
     
     function update() {
@@ -191,71 +120,52 @@
     
     function start() {
       if (running) return;
-      startTime = performance.now() - elapsed;
       running = true;
+      startTime = performance.now() - elapsed;
       interval = setInterval(update, 10);
-      display.classList.add('running');
-      startStopBtn.textContent = 'Stop';
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
       lapBtn.disabled = false;
-      resetBtn.disabled = false;
     }
     
     function stop() {
       if (!running) return;
-      clearInterval(interval);
       running = false;
-      display.classList.remove('running');
-      startStopBtn.textContent = 'Start';
-    }
-    
-    function toggle() {
-      if (running) stop();
-      else start();
-    }
-    
-    function lap() {
-      if (!running) return;
-      
-      const lapTime = elapsed;
-      const delta = laps.length > 0 ? lapTime - laps[laps.length - 1].time : lapTime;
-      
-      laps.push({ time: lapTime, delta });
-      
-      const lapEl = document.createElement('div');
-      lapEl.className = 'lap';
-      lapEl.innerHTML = `
-        <span>#${laps.length}</span>
-        <span class="lap-time">${formatTime(lapTime)}</span>
-        <span class="lap-delta">+${formatTime(delta)}</span>
-      `;
-      
-      lapsContainer.insertBefore(lapEl, lapsContainer.firstChild);
+      clearInterval(interval);
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      lapBtn.disabled = true;
     }
     
     function reset() {
       stop();
       elapsed = 0;
-      laps = [];
+      lapCount = 0;
       display.textContent = '00:00.00';
       lapsContainer.innerHTML = '';
-      startStopBtn.textContent = 'Start';
-      lapBtn.disabled = true;
-      resetBtn.disabled = true;
     }
     
-    startStopBtn.addEventListener('click', toggle);
-    lapBtn.addEventListener('click', lap);
-    resetBtn.addEventListener('click', reset);
+    function lap() {
+      if (!running && elapsed === 0) return;
+      lapCount++;
+      const lapTime = formatTime(elapsed);
+      const lapEl = document.createElement('div');
+      lapEl.className = 'lap-item';
+      lapEl.innerHTML = `<span class="lap-num">Lap ${lapCount}</span><span class="lap-time">${lapTime}</span>`;
+      lapsContainer.insertBefore(lapEl, lapsContainer.firstChild);
+    }
+    
+    function setTime(minutes) {
+      if (running) stop();
+      elapsed = minutes * 60 * 1000;
+      display.textContent = formatTime(elapsed);
+    }
     
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        toggle();
-      } else if (e.code === 'KeyL') {
-        lap();
-      } else if (e.code === 'KeyR') {
-        reset();
-      }
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') { e.preventDefault(); running ? stop() : start(); }
+      if (e.code === 'KeyR') reset();
+      if (e.code === 'KeyL') lap();
     });
   </script>
 </body>
