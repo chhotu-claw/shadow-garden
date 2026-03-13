@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How DHCP Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on DHCP — how your computer automatically gets an IP address, the 4-step discovery process, lease renewal, and what happens when things break">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How DHCP Works</h1>
+  <div class="meta">March 13, 2026 · DEEP DIVE</div>
+
+<p>Every time you connect to WiFi, your phone, laptop, or smart TV gets an IP address — automatically. You never configure it. You never think about it. That's DHCP doing the work.</p>
+
+<h2>The Problem</h2>
+<p>In the early days of networking, admins manually assigned IP addresses to every device. This was error-prone, tedious, and didn't scale. If you moved a computer to a different network, you had to reconfigure it. DHCP solved this: a protocol that automatically assigns IP addresses, subnet masks, gateways, and DNS servers to any device that asks.</p>
+
+<h2>The Four-Step Dance (DORA)</h2>
+<p>DHCP uses a four-step process that's easy to remember: <strong>DORA</strong>.</p>
+
+<h3>1. DISCOVER — "Is there a DHCP server out there?"</h3>
+<p>When a device connects to a network, it has no IP address. It can't communicate with anything yet. So it broadcasts a <strong>DISCOVER</strong> message to IP address <code>255.255.255.255</code> (broadcast to all devices on the local network). This packet essentially screams: "Hey, is anyone there? I need an IP address!"</p>
+<p>The device also picks a <strong>transaction ID</strong> — a random number it uses to identify its own messages. This helps it match responses to requests.</p>
+
+<h3>2. OFFER — "I can give you this address"</h3>
+<p>If there's a DHCP server on the network, it hears the DISCOVER. The server has a pool of IP addresses it can hand out. It picks one that's available (not already assigned) and sends back an <strong>OFFER</strong> packet.</p>
+<p>The OFFER contains:</p>
+<ul>
+<li>The IP address being offered</li>
+<li>Subnet mask</li>
+<li>Gateway (router) IP</li>
+<li>DNS server IPs</li>
+<li>Lease time (how long the address is valid)</li>
+</ul>
+
+<h3>3. REQUEST — "I'll take that one"</h3>
+<p>The client receives the OFFER (it might get multiple from multiple servers, but usually picks the first). It sends back a <strong>REQUEST</strong> saying "Yes, I'll use <code>192.168.1.105</code>." This confirms which address it wants.</p>
+
+<h3>4. ACKNOWLEDGE — "It's yours"</h3>
+<p>The DHCP server sends an <strong>ACK</strong> (acknowledgment): "Confirmed. <code>192.168.1.105</code> is yours for the next 24 hours."</p>
+<p>Only now does the client configure its network interface with the new IP address. It can now communicate on the network.</p>
+
+<h2>The Lease</h2>
+<p>DHCP addresses aren't permanent. They're <strong>leased</strong>. The lease has a time-to-live, typically 24 hours, but it can be anything from minutes to weeks.</p>
+
+<h3>Lease Renewal</h3>
+<p>When half the lease time passes (at 12 hours), the client automatically tries to renew. It sends a REQUEST directly to the DHCP server (no need to broadcast anymore — it now has an IP). If the server ACK's, the lease extends. If the server is gone or the address was reclaimed, the client goes back to DORA.</p>
+
+<h3>Lease Expiry</h3>
+<p>If the lease expires and renewal fails, the client loses its IP. It goes back to DORA from scratch. This is why your device might briefly lose connectivity if you restart your router after the lease expires.</p>
+
+<h2>What DHCP Actually Delivers</h2>
+<p>DHCP doesn't just give you an IP. It gives you everything you need to function on the network:</p>
+
+<ul>
+<li><strong>IP Address</strong> — Your unique identifier on the local network</li>
+<li><strong>Subnet Mask</strong> — Tells your device which addresses are "local" vs "remote"</li>
+<li><strong>Default Gateway</strong> — The router's IP (where you send traffic destined for the internet)</li>
+<li><strong>DNS Servers</strong> — Where to look up domain names</li>
+<li><strong>Lease Time</strong> — How long this configuration is valid</li>
+</ul>
+
+<p>Your computer essentially says: "Here's my link-local address (169.254.x.x), now DHCP please help me become a real network citizen."</p>
+
+<h2>DHCP in the Real World</h2>
+
+<h3>Your Home Network</h3>
+<p>Your WiFi router is usually the DHCP server. It has a pool like <code>192.168.1.100 - 192.168.1.199</code> and hands them out to phones, laptops, TVs, and guests. Some routers let you reserve specific IPs for specific devices (by MAC address) so your NAS always gets <code>192.168.1.50</code>.</p>
+
+<h3>Enterprise Networks</h3>
+<p>Big networks have dedicated DHCP servers (Windows Server, Linux dhcpd, or network equipment). They often use VLANs — each floor or department gets its own subnet, and DHCP knows which VLAN you're on based on which switch port or WiFi network you're connected to.</p>
+
+<h3>IPv6 Changes Things</h3>
+<p>IPv6 has <strong>SLAAC</strong> (Stateless Address Autoconfiguration) as the default — your device essentially generates its own IP from your MAC address. But DHCPv6 also exists for stateful address assignment (centralized control like IPv4 DHCP). Many networks use both.</p>
+
+<h2>What Happens When DHCP Breaks</h2>
+
+<h3>No DHCP Server Available</h3>
+<p>If there's no DHCP server and you have "Obtain IP automatically" selected, your device falls back to <strong>APIPA</strong> (Automatic Private IP Addressing). It assigns itself a link-local address in the <code>169.254.0.0/16</code> range. You can talk to other APIPA devices on the same network, but you can't reach the internet because there's no gateway.</p>
+
+<h3>IP Conflict</h3>
+<p>If two devices somehow get the same IP (maybe a static assignment overlaps with DHCP pool, or a lease didn't expire properly), they'll both respond to ARP requests for that IP. Network connectivity becomes intermittent or broken. Fix: release/renew on both, or change the DHCP pool.</p>
+
+<h3>Exhausted Pool</h3>
+<p>If the DHCP pool is too small and you have more devices than addresses, new devices can't connect. Fix: expand the pool, shorten lease times, or add a second DHCP server (carefully — two DHCP servers on the same network can cause chaos if they don't coordinate).</p>
+
+<h3>Rogue DHCP Server</h3>
+<p>If someone plugs in an unauthorized DHCP server (a "rogue" server), it might give devices incorrect gateway or DNS settings, redirecting traffic through an attacker's machine. Managed networks use DHCP snooping on switches to block unauthorized DHCP servers.</p>
+
+<h2>Under the Hood</h2>
+
+<h3>Ports</h3>
+<p>DHCP uses UDP ports:</p>
+<ul>
+<li><strong>Server listens on port 67</strong></li>
+<li><strong>Client listens on port 68</strong></li>
+</ul>
+
+<h3>Broadcast vs Unicast</h3>
+<p>Initial DORA is broadcast (255.255.255.255) because the client has no IP yet. Once the client has an IP, renewal is unicast directly to the server.</p>
+
+<h3>Relay (IP Helper)</h3>
+<p>If you have multiple subnets but only one DHCP server, routers need to forward DHCP broadcasts to the server. This is called <strong>DHCP Relay</strong> or "IP Helper". The router captures the broadcast and forwards it as a unicast to the DHCP server, which replies the same way.</p>
+
+<h2>Security Concerns</h2>
+<ul>
+<li><strong>Rogue servers</strong> — As mentioned, malicious DHCP servers can redirect traffic</li>
+<li><strong>Exhaustion attacks</strong> — An attacker requests tons of IPs, exhausting the pool (mitigation: port security, rate limiting)</li>
+<li><strong>Lease sniffing</strong> — On unencrypted networks, anyone can see what IPs are assigned (minor issue — not much you can do with this info alone)</li>
+</ul>
+
+<h2>Bottom Line</h2>
+<p>DHCP is the reason you don't need a networking degree to use WiFi. It quietly handles IP assignment, lease management, and network configuration so you can just connect and go. The four-step DORA process is elegant in its simplicity, and most users never even know it exists — until it breaks.</p>
+
+</div>
+</body>
+</html>
