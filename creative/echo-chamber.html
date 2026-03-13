@@ -4,240 +4,249 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="An interactive text experience where your words echo back transformed">
+<meta name="description" content="A text toy that transforms your words into mirror images, leetspeak, base64, morse code, and more">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    background: #0a0a0f;
-    overflow: hidden;
-  }
   .container {
     max-width: 700px;
-    width: 100%;
-    text-align: center;
+    margin: 0 auto;
+    padding: 2rem;
   }
   h1 {
-    font-size: 2.5rem;
+    text-align: center;
     margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, #cba6f7, #89b4fa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
   .subtitle {
-    color: #6c7086;
-    margin-bottom: 2rem;
-    font-size: 1rem;
-  }
-  #input-area {
-    margin-bottom: 2rem;
-  }
-  #word-input {
-    width: 100%;
-    max-width: 400px;
-    padding: 1rem 1.5rem;
-    font-size: 1.2rem;
-    background: #181825;
-    border: 2px solid #313244;
-    border-radius: 50px;
-    color: #cdd6f4;
     text-align: center;
-    outline: none;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    color: var(--text-secondary, #a6adc8);
+    margin-bottom: 2rem;
   }
-  #word-input:focus {
-    border-color: #cba6f7;
-    box-shadow: 0 0 20px rgba(203, 166, 247, 0.3);
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 1rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 12px;
+    background: var(--card-bg, #1e1e2e);
+    color: var(--text, #cdd6f4);
+    font-size: 1.1rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
   }
-  #word-input::placeholder {
-    color: #45475a;
+  .transforms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem;
+    margin: 1.5rem 0;
   }
-  .echoes {
-    position: relative;
-    min-height: 300px;
+  .transform-btn {
+    padding: 0.75rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
   }
-  .echo-word {
-    position: absolute;
-    font-size: 1.5rem;
-    font-weight: 600;
-    white-space: nowrap;
-    animation: fadeInEcho 0.5s ease-out forwards;
-    opacity: 0;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
+  .transform-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  @keyframes fadeInEcho {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .transform-btn.active {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  .echo-word.mirror { color: #f38ba8; }
-  .echo-word.reverse { color: #fab387; }
-  .echo-word.leetspeak { color: #a6e3a1; }
-  .echo-word.sponge { color: #f9e2af; }
-  .echo-word.emoji { font-size: 2rem; }
-  .echo-word.uppercase { color: #89b4fa; }
-  .echo-word.base64 { color: #cba6f7; font-family: monospace; font-size: 1rem; }
-  .echo-word.morse { color: #94e2d5; font-family: monospace; font-size: 0.9rem; }
-  .echo-word.atomize { color: #f5c2e7; font-size: 0.8rem; }
-  .echo-word.rhythm { color: #eba0ac; }
-  .echo-word.sound { color: #b4befe; }
-  .center-echo {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 2rem;
-    font-weight: 700;
-    color: #cdd6f4;
-    text-shadow: 0 0 30px rgba(203, 166, 247, 0.5);
+  .output-label {
+    display: block;
+    margin: 1.5rem 0 0.5rem;
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.9rem;
   }
-  .hint {
-    color: #45475a;
-    font-size: 0.85rem;
-    margin-top: 2rem;
-  }
-  .stats {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    color: #313244;
-    font-size: 0.75rem;
+  .output {
+    background: var(--result-bg, #181825);
+    border: 1px solid var(--border, #313244);
+    border-radius: 12px;
+    padding: 1rem;
+    min-height: 80px;
     font-family: monospace;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  .copy-btn {
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--accent, #cba6f7);
+    color: var(--accent, #cba6f7);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .copy-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .random-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .presets {
+    margin-bottom: 1rem;
+  }
+  .preset-link {
+    color: var(--accent, #cba6f7);
+    cursor: pointer;
+    text-decoration: underline;
   }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Echo Chamber</h1>
-  <p class="subtitle">type a word. watch it transform.</p>
+  <h1>🔮 Echo Chamber</h1>
+  <p class="subtitle">Transform your words into something else</p>
   
-  <div id="input-area">
-    <input type="text" id="word-input" placeholder="type something..." autocomplete="off" autofocus>
+  <textarea id="input" placeholder="Type something here..."></textarea>
+  
+  <div class="transforms">
+    <button class="transform-btn" onclick="transform('mirror')">🪞 Mirror</button>
+    <button class="transform-btn" onclick="transform('reverse')">🔄 Reverse</button>
+    <button class="transform-btn" onclick="transform('leet')">🧑‍💻 Leetspeak</button>
+    <button class="transform-btn" onclick="transform('upper')">⬆️ UPPERCASE</button>
+    <button class="transform-btn" onclick="transform('lower')">⬇️ lowercase</button>
+    <button class="transform-btn" onclick="transform('title')">Tt Title Case</button>
+    <button class="transform-btn" onclick="transform('base64')">📦 Base64</button>
+    <button class="transform-btn" onclick="transform('binary')">💾 Binary</button>
+    <button class="transform-btn" onclick="transform('hex')">🔢 Hex</button>
+    <button class="transform-btn" onclick="transform('morse')">� Telegraph</button>
+    <button class="transform-btn" onclick="transform('emoji')">😀 Emoji</button>
+    <button class="transform-btn" onclick="transform('zalgo')">👾 Zalgo</button>
+    <button class="transform-btn" onclick="transform('bubble')">⭕ Bubble</button>
+    <button class="transform-btn" onclick="transform('small')">{small}</button>
+    <button class="transform-btn" onclick="transform('wide')">ｖｅｒｔｉｃａｌ</button>
+    <button class="transform-btn" onclick="transform('vapor')">ｓａｔｉｃ</button>
+    <button class="transform-btn" onclick="transform('underline')">u_n_d_e_r_l_i_n_e</button>
+    <button class="transform-btn" onclick="transform('wave')">〰️ Wave</button>
   </div>
+
+  <label class="output-label">Output</label>
+  <div class="output" id="output"></div>
+  <button class="copy-btn" onclick="copyOutput()">Copy to clipboard</button>
   
-  <div class="echoes" id="echo-container">
-    <div class="center-echo" id="center-echo"></div>
-  </div>
-  
-  <p class="hint">press enter to echo</p>
+  <button class="random-btn" onclick="randomTransform()">🎲 Random Transform</button>
 </div>
 
-<div class="stats" id="stats">0 echoes</div>
-
 <script>
-  const input = document.getElementById('word-input');
-  const container = document.getElementById('echo-container');
-  const centerEcho = document.getElementById('center-echo');
-  const stats = document.getElementById('stats');
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
   
-  let echoCount = 0;
-  let lastWord = '';
-
-  const transforms = [
-    { name: 'mirror', fn: s => s.split('').reverse().join('') },
-    { name: 'reverse', fn: s => s.split(' ').reverse().join(' ') },
-    { name: 'uppercase', fn: s => s.toUpperCase() },
-    { name: 'leetspeak', fn: s => s.replace(/a/gi,'4').replace(/e/gi,'3').replace(/i/gi,'1').replace(/o/gi,'0').replace(/s/gi,'5').replace(/t/gi,'7') },
-    { name: 'sponge', fn: s => s.split('').map((c,i) => i%2===0?c.toUpperCase():c.toLowerCase()).join('') },
-    { name: 'base64', fn: s => btoa(s) },
-    { name: 'morse', fn: s => morseEncode(s) },
-    { name: 'atomize', fn: s => s.split('').join(' ') },
-    { name: 'rhythm', fn: s => s.replace(/[aeiou]/gi, '🌊').replace(/[bcdfghjklmnpqrstvwxyz]/gi, '●') },
-    { name: 'sound', fn: s => s.replace(/[aeiou]/g,'🎵').replace(/[bcdfghjklmnpqrstvwxyz]/g,'🔊') }
-  ];
-
-  const emojis = {
-    happy: ['😊','😄','😁','🥳','✨'],
-    love: ['💜','❤️','💕','🫶','💖'],
-    star: ['⭐','🌟','✨','💫','☆'],
-    fire: ['🔥','💥','⚡','🚀','💎'],
-    nature: ['🌸','🌺','🍀','🌿','🦋']
+  const transforms = {
+    mirror: s => s.split('').reverse().join('').split('').map(c => {
+      const m = {'b':'d','d':'b','p':'q','q':'p','w':'w','u':'∩','n':'u','∈':'∋','3':'Ɛ','4':'ʃ','6':'9','9':'6','<':'>','>':'<'};
+      return m[c] || c;
+    }).join(''),
+    
+    reverse: s => s.split('').reverse().join(''),
+    
+    leet: s => s.toLowerCase().replace(/a/g,'4').replace(/e/g,'3').replace(/i/g,'1').replace(/o/g,'0').replace(/s/g,'5').replace(/t/g,'7'),
+    
+    upper: s => s.toUpperCase(),
+    lower: s => s.toLowerCase(),
+    title: s => s.replace(/\b\w/g,c => c.toUpperCase()),
+    
+    base64: s => {
+      try { return btoa(unescape(encodeURIComponent(s))); } catch(e) { return 'Error: invalid input'; }
+    },
+    
+    binary: s => s.split('').map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' '),
+    
+    hex: s => s.split('').map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join(' '),
+    
+    morse: s => {
+      const morseCode = {'a':'.-','b':'-...','c':'-.-.','d':'-..','e':'.','f':'..-.','g':'--.','h':'....','i':'..','j':'.---','k':'-.-','l':'.-..','m':'--','n':'-.','o':'---','p':'.--.','q':'--.-','r':'.-.','s':'...','t':'-','u':'..-','v':'...-','w':'.--','x':'-..-','y':'-.--','z':'--..','0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',' ':' / '};
+      return s.toLowerCase().split('').map(c => morseCode[c] || c).join(' ');
+    },
+    
+    emoji: s => s.split('').map(c => {
+      const emojis = ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','☺️','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕'];
+      const code = c.charCodeAt(0);
+      if (code >= 33 && code <= 126) return emojis[(code - 33) % emojis.length];
+      return c;
+    }).join(''),
+    
+    zalgo: s => s.split('').map(c => {
+      if (c === ' ') return ' ';
+      const ups = ['\u0300','\u0301','\u0302','\u0303','\u0304','\u0305','\u0306','\u0307','\u0308','\u0309','\u030a','\u030b','\u030c','\u030d','\u030e','\u030f','\u0310','\u0311','\u0312','\u0313','\u0314','\u0315','\u0316','\u0317','\u0318','\u0319','\u031a','\u031b','\u031c','\u031d','\u031e','\u031f','\u0320','\u0321','\u0322','\u0323','\u0324','\u0325','\u0326','\u0327','\u0328','\u0329','\u032a','\u032b','\u032c','\u032d','\u032e','\u032f','\u0330','\u0331','\u0332','\u0333'];
+      let result = c;
+      for (let i = 0; i < 3; i++) result += ups[Math.floor(Math.random() * ups.length)];
+      return result;
+    }).join(''),
+    
+    bubble: s => s.split('').map(c => {
+      const codes = {'a':'𝔞','b':'𝔟','c':'𝔠','d':'𝔡','e':'𝔢','f':'𝔣','g':'𝔤','h':'𝔥','i':'𝔦','j':'𝔧','k':'𝔨','l':'𝔩','m':'𝔪','n':'𝔫','o':'𝔬','p':'𝔭','q':'𝔮','r':'𝔯','s':'𝔰','t':'𝔱','u':'𝔲','v':'𝔳','w':'𝔴','x':'𝔵','y':'𝔶','z':'𝔷','A':'𝔄','B':'𝔅','C':'ℭ','D':'𝔇','E':'𝔈','F':'𝔉','G':'𝔊','H':'ℌ','I':'ℑ','J':'𝔍','K':'𝔎','L':'𝔏','M':'𝔐','N':'𝔑','O':'𝔒','P':'𝔔','Q':'𝔔','R':'ℜ','S':'𝔖','T':'𝔗','U':'𝔘','V':'𝔙','W':'𝔚','X':'𝔛','Y':'𝔜','Z':'ℨ','0':'0','1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9'};
+      return codes[c] || c;
+    }).join(''),
+    
+    small: s => s.split('').map(c => {
+      const small = {'a':'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ꜰ','g':'ɢ','h':'ʜ','i':'ɪ','j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ','n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ','s':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ','A':'ᴀ','B':'ʙ','C':'ᴄ','D':'ᴅ','E':'ᴇ','F':'ꜰ','G':'ɢ','H':'ʜ','I':'ɪ','J':'ᴊ','K':'ᴋ','L':'ʟ','M':'ᴍ','N':'ɴ','O':'ᴏ','P':'ᴘ','Q':'ǫ','R':'ʀ','S':'s','T':'ᴛ','U':'ᴜ','V':'ᴠ','W':'ᴡ','X':'x','Y':'ʏ','Z':'ᴢ'};
+      return small[c] || c;
+    }).join(''),
+    
+    wide: s => s.split('').map(c => {
+      const wide = {'a':'ａ','b':'ｂ','c':'ｃ','d':'ｄ','e':'ｅ','f':'ｆ','g':'ｇ','h':'ｈ','i':'ｉ','j':'ｊ','k':'ｋ','l':'ｌ','m':'ｍ','n':'ｎ','o':'ｏ','p':'ｐ','q':'ｑ','r':'ｒ','s':'ｓ','t':'ｔ','u':'ｕ','v':'ｖ','w':'ｗ','x':'ｘ','y':'ｙ','z':'ｚ','A':'Ａ','B':'Ｂ','C':'Ｃ','D':'Ｄ','E':'Ｅ','F':'Ｆ','G':'Ｇ','H':'Ｈ','I':'Ｉ','J':'Ｊ','K':'Ｋ','L':'Ｌ','M':'Ｍ','N':'Ｎ','O':'Ｏ','P':'Ｐ','Q':'Ｑ','R':'Ｒ','S':'Ｓ','T':'Ｔ','U':'Ｕ','V':'Ｖ','W':'Ｗ','X':'Ｘ','Y':'Ｙ','Z':'Ｚ','0':'０','1':'１','2':'２','3':'３','4':'４','5':'５','6':'６','7':'７','8':'８','9':'９'};
+      return wide[c] || c;
+    }).join(''),
+    
+    vapor: s => s.split('').map(c => {
+      const v = {'a':'ａ','b':'ｂ','c':'ｃ','d':'ｄ','e':'ｅ','f':'ｆ','g':'ｇ','h':'ｈ','i':'ｉ','j':'ｊ','k':'ｋ','l':'ｌ','m':'ｍ','n':'ｎ','o':'ｏ','p':'ｐ','q':'ｑ','r':'ｒ','s':'ｓ','t':'ｔ','u':'ｕ','v':'ｖ','w':'ｗ','x':'ｘ','y':'ｙ','z':'ｚ','A':'Ａ','B':'Ｂ','C':'Ｃ','D':'Ｄ','E':'Ｅ','F':'Ｆ','G':'Ｇ','H':'Ｈ','I':'Ｉ','J':'Ｊ','K':'Ｋ','L':'Ｌ','M':'Ｍ','N':'Ｎ','O':'Ｏ','P':'Ｐ','Q':'Ｑ','R':'Ｒ','S':'Ｓ','T':'Ｔ','U':'Ｕ','V':'Ｖ','W':'Ｗ','X':'Ｘ','Y':'Ｙ','Z':'Ｚ','0':'０','1':'１','2':'２','3':'３','4':'４','5':'５','6':'６','7':'７','8':'８','9':'９','!':'！','?':'？','(':'（',')':'）'};
+      return v[c] || c;
+    }).join(''),
+    
+    underline: s => s.split('').join('_'),
+    
+    wave: s => s.split('').map((c,i) => i%2 ? c.toUpperCase() : c.toLowerCase()).join('')
   };
 
-  function morseEncode(str) {
-    const morse = {'a':'.−','b':'−...','c':'−.−.','d':'−..','e':'.','f':'..−.','g':'−−.','h':'....','i':'..','j':'.−−−','k':'−.−','l':'.−..','m':'−−','n':'−.','o':'−−−','p':'.−−.','q':'−−.−','r':'.−.','s':'...','t':'−','u':'..−','v':'...−','w':'.−−','x':'−..−','y':'−.−−','z':'−−..',' ':' / ','0':'−−−−−','1':'.−−−−','2':'..−−−','3':'...−−','4':'....−','5':'.....','6':'−....','7':'−−...','8':'−−−..','9':'−−−−.'};
-    return str.toLowerCase().split('').map(c => morse[c] || c).join(' ');
-  }
-
-  function getRandomPosition() {
-    const x = 20 + Math.random() * 60;
-    const y = 20 + Math.random() * 60;
-    return { x, y };
-  }
-
-  function getEmoji(word) {
-    const lower = word.toLowerCase();
-    for (const [key, arr] of Object.entries(emojis)) {
-      if (lower.includes(key)) return arr[Math.floor(Math.random() * arr.length)];
-    }
-    const allEmojis = Object.values(emojis).flat();
-    return allEmojis[Math.floor(Math.random() * allEmojis.length)];
-  }
-
-  function createEcho(word) {
-    const containerRect = container.getBoundingClientRect();
+  function transform(type) {
+    const s = input.value;
+    output.textContent = transforms[type] ? transforms[type](s) : s;
     
-    // Center echo (main transformation)
-    const mainTransform = transforms[Math.floor(Math.random() * transforms.length)];
-    centerEcho.textContent = mainTransform.fn(word);
-    centerEcho.className = 'center-echo ' + mainTransform.name;
-    
-    // Surrounding echoes
-    for (let i = 0; i < 8; i++) {
-      const transform = transforms[Math.floor(Math.random() * transforms.length)];
-      const result = transform.fn(word);
-      
-      const el = document.createElement('div');
-      el.className = 'echo-word ' + transform.name;
-      el.textContent = result;
-      
-      const pos = getRandomPosition();
-      el.style.left = pos.x + '%';
-      el.style.top = pos.y + '%';
-      
-      container.appendChild(el);
-      
-      // Emoji echo
-      const emojiEl = document.createElement('div');
-      emojiEl.className = 'echo-word emoji';
-      emojiEl.textContent = getEmoji(word);
-      const emojiPos = getRandomPosition();
-      emojiEl.style.left = emojiPos.x + '%';
-      emojiEl.style.top = emojiPos.y + '%';
-      container.appendChild(emojiEl);
-    }
-    
-    echoCount++;
-    stats.textContent = echoCount + ' echoes';
+    document.querySelectorAll('.transform-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
   }
 
-  function clearEchoes() {
-    const echoes = container.querySelectorAll('.echo-word');
-    echoes.forEach(e => e.remove());
+  function randomTransform() {
+    const keys = Object.keys(transforms);
+    const random = keys[Math.floor(Math.random() * keys.length)];
+    input.value = ['hello world','the quick brown fox','shadow','0123456789','message'][Math.floor(Math.random()*5)];
+    output.textContent = transforms[random](input.value);
+    
+    document.querySelectorAll('.transform-btn').forEach(btn => btn.classList.remove('active'));
   }
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) {
-      const word = input.value.trim();
-      if (word !== lastWord) {
-        clearEchoes();
-        createEcho(word);
-        lastWord = word;
-      }
-      input.value = '';
+  function copyOutput() {
+    navigator.clipboard.writeText(output.textContent);
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to clipboard', 1500);
+  }
+
+  input.addEventListener('input', () => {
+    if (output.textContent) {
+      const active = document.querySelector('.transform-btn.active');
+      if (active) active.click();
     }
   });
-
-  // Initial random echo on load
-  const starters = ['echo','shadow','hello','test','light','dark','wave','star'];
-  createEcho(starters[Math.floor(Math.random() * starters.length)]);
 </script>
 </body>
 </html>
