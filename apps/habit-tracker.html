@@ -4,262 +4,266 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Habit Tracker — Shadow's Garden</title>
-<meta name="description" content="Track daily habits with streaks, week view, and statistics">
+<meta name="description" content="Track your daily habits with streaks, localStorage, and no account required">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #22c55e;
-    --bg: #0d1117;
-    --fg: #c9d1d9;
-    --border: #30363d;
-    --card-bg: #161b22;
+  .tracker {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
   }
-  body {
-    --bg: #0d1117;
-    --fg: #c9d1d9;
-    --accent: #22c55e;
+  h1 { text-align: center; margin-bottom: 2rem; }
+  .add-habit {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
   }
-  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-  
-  .input-group { margin-bottom: 1.5rem; }
-  label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
-  
-  .add-habit { display: flex; gap: 0.5rem; }
-  #habitName { flex: 1; padding: 0.75rem 1rem; background: var(--card-bg); border: 2px solid var(--border); border-radius: 8px; color: var(--fg); font-size: 1rem; }
-  #habitName:focus { outline: none; border-color: var(--accent); }
-  .add-btn { padding: 0.75rem 1.5rem; background: var(--accent); color: #0d1117; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
-  .add-btn:hover { opacity: 0.9; }
-  
-  .habits-list { display: flex; flex-direction: column; gap: 1rem; }
-  .habit-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
-  .habit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .habit-name { font-weight: 600; font-size: 1.1rem; }
-  .habit-streak { display: flex; align-items: center; gap: 0.5rem; color: var(--accent); font-weight: 600; }
-  .streak-fire { font-size: 1.2rem; }
-  .delete-btn { background: transparent; border: none; color: #8b949e; cursor: pointer; padding: 0.25rem; font-size: 1.2rem; }
-  .delete-btn:hover { color: #f85149; }
-  
-  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; }
-  .day-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; background: #21262d; cursor: pointer; transition: all 0.15s; position: relative; }
-  .day-cell:hover { background: #30363d; }
-  .day-cell.completed { background: var(--accent); }
-  .day-cell.completed .day-label { color: #0d1117; }
-  .day-cell.today { border: 2px solid var(--accent); }
-  .day-label { font-size: 0.7rem; color: #8b949e; font-weight: 600; }
-  .day-num { font-size: 0.85rem; font-weight: 600; }
-  
-  .stats-row { display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-  .stat { text-align: center; }
-  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
-  .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
-  
-  .empty-state { text-align: center; padding: 3rem; color: #8b949e; }
-  .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
-  
-  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .preset-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid var(--border); border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
-  .preset-btn:hover { background: #30363d; color: var(--fg); }
+  .add-habit input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
+    font-size: 1rem;
+  }
+  .add-habit button {
+    padding: 0.75rem 1.25rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .habits-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .habit-card {
+    background: var(--card-bg, #1e1e2e);
+    border: 1px solid var(--border, #313244);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .habit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .habit-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .habit-streak {
+    font-size: 0.9rem;
+    color: var(--accent, #cba6f7);
+  }
+  .habit-delete {
+    background: none;
+    border: none;
+    color: var(--text-secondary, #a6adc8);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+    opacity: 0.6;
+  }
+  .habit-delete:hover {
+    opacity: 1;
+    color: #f38ba8;
+  }
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+  }
+  .day {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: var(--button-bg, #313244);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #a6adc8);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .day:hover {
+    transform: scale(1.1);
+  }
+  .day.done {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .day.today {
+    border: 2px solid var(--accent, #cba6f7);
+  }
+  .day-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-secondary, #a6adc8);
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .stats-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border, #313244);
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .habit-row-header {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .habit-row-header span {
+    flex: 1;
+    text-align: center;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Habit Tracker</h1>
-    <p class="subtitle">Build habits one day at a time</p>
-    
-    <div class="input-group">
-      <label>Add New Habit</label>
-      <div class="presets">
-        <button class="preset-btn" data-preset="Drink water">Drink water</button>
-        <button class="preset-btn" data-preset="Exercise">Exercise</button>
-        <button class="preset-btn" data-preset="Read">Read</button>
-        <button class="preset-btn" data-preset="Meditate">Meditate</button>
-        <button class="preset-btn" data-preset="No social media">No social media</button>
-        <button class="preset-btn" data-preset="Sleep before 11">Sleep before 11</button>
-      </div>
-      <div class="add-habit">
-        <input type="text" id="habitName" placeholder="Enter habit name...">
-        <button class="add-btn" id="addBtn">Add</button>
-      </div>
-    </div>
-    
-    <div class="habits-list" id="habitsList"></div>
-  </div>
+<div class="tracker">
+  <h1>🎯 Habit Tracker</h1>
   
-  <script>
-    const habitsList = document.getElementById('habitsList');
-    const habitNameInput = document.getElementById('habitName');
-    const addBtn = document.getElementById('addBtn');
-    
-    let habits = JSON.parse(localStorage.getItem('shadow-habits') || '[]');
-    
-    function save() {
-      localStorage.setItem('shadow-habits', JSON.stringify(habits));
-      render();
-    }
-    
-    function getWeekDays() {
-      const today = new Date();
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        days.push(d);
-      }
-      return days;
-    }
-    
-    function formatDate(date) {
-      return date.toISOString().split('T')[0];
-    }
-    
-    function getStreak(habit) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let streak = 0;
-      let checkDate = new Date(today);
-      
-      // Check today first
-      const todayStr = formatDate(today);
-      if (habit.completed && habit.completed.includes(todayStr)) {
-        streak = 1;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-      
-      // Count backwards
-      while (true) {
-        const dateStr = formatDate(checkDate);
-        if (habit.completed && habit.completed.includes(dateStr)) {
-          streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-      return streak;
-    }
-    
-    function getTotalCompletions(habit) {
-      return habit.completed ? habit.completed.length : 0;
-    }
-    
-    function getCompletionRate(habit) {
-      if (!habit.completed || habit.completed.length === 0) return 0;
-      const firstDate = habit.completed.sort()[0];
-      const daysSinceStart = Math.ceil((new Date() - new Date(firstDate)) / (1000 * 60 * 60 * 24)) + 1;
-      return Math.round((habit.completed.length / daysSinceStart) * 100);
-    }
-    
-    function toggleDay(habitIndex, dateStr) {
-      if (!habits[habitIndex].completed) {
-        habits[habitIndex].completed = [];
-      }
-      
-      const idx = habits[habitIndex].completed.indexOf(dateStr);
-      if (idx > -1) {
-        habits[habitIndex].completed.splice(idx, 1);
-      } else {
-        habits[habitIndex].completed.push(dateStr);
-      }
-      save();
-    }
-    
-    function deleteHabit(index) {
-      if (confirm('Delete this habit?')) {
-        habits.splice(index, 1);
-        save();
-      }
-    }
-    
-    function render() {
-      const weekDays = getWeekDays();
-      const todayStr = formatDate(new Date());
-      
-      if (habits.length === 0) {
-        habitsList.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">🎯</div>
-            <p>No habits yet. Add one above to get started.</p>
-          </div>
-        `;
-        return;
-      }
-      
-      habitsList.innerHTML = habits.map((habit, index) => {
-        const streak = getStreak(habit);
-        const total = getTotalCompletions(habit);
-        const rate = getCompletionRate(habit);
-        
-        return `
-          <div class="habit-card">
-            <div class="habit-header">
-              <span class="habit-name">${habit.name}</span>
-              <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div class="habit-streak">
-                  <span class="streak-fire">🔥</span>
-                  <span>${streak} day${streak !== 1 ? 's' : ''}</span>
-                </div>
-                <button class="delete-btn" onclick="deleteHabit(${index})">×</button>
-              </div>
-            </div>
-            <div class="week-grid">
-              ${weekDays.map(day => {
-                const dateStr = formatDate(day);
-                const isCompleted = habit.completed && habit.completed.includes(dateStr);
-                const isToday = dateStr === todayStr;
-                const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-                return `
-                  <div class="day-cell ${isCompleted ? 'completed' : ''} ${isToday ? 'today' : ''}" 
-                       onclick="toggleDay(${index}, '${dateStr}')">
-                    <span class="day-label">${dayNames[day.getDay()]}</span>
-                    <span class="day-num">${day.getDate()}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-            <div class="stats-row">
-              <div class="stat">
-                <div class="stat-value">${total}</div>
-                <div class="stat-label">Total</div>
-              </div>
-              <div class="stat">
-                <div class="stat-value">${rate}%</div>
-                <div class="stat-label">Rate</div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-    
-    addBtn.addEventListener('click', () => {
-      const name = habitNameInput.value.trim();
-      if (name) {
-        habits.push({ name, completed: [] });
-        habitNameInput.value = '';
-        save();
-      }
-    });
-    
-    habitNameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        addBtn.click();
-      }
-    });
-    
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
-        if (!habits.find(h => h.name.toLowerCase() === preset.toLowerCase())) {
-          habits.push({ name: preset, completed: [] });
-          save();
-        }
-      });
-    });
-    
+  <div class="add-habit">
+    <input type="text" id="new-habit" placeholder="New habit..." maxlength="50">
+    <button onclick="addHabit()">Add</button>
+  </div>
+
+  <div id="habits-container" class="habits-list">
+    <div class="empty-state">No habits yet. Add one above!</div>
+  </div>
+</div>
+
+<script>
+  let habits = JSON.parse(localStorage.getItem('shadowHabits') || '[]');
+
+  function save() {
+    localStorage.setItem('shadowHabits', JSON.stringify(habits));
     render();
-  </script>
+  }
+
+  function addHabit() {
+    const input = document.getElementById('new-habit');
+    const name = input.value.trim();
+    if (!name) return;
+    
+    habits.push({
+      id: Date.now(),
+      name: name,
+      completed: {}
+    });
+    input.value = '';
+    save();
+  }
+
+  function deleteHabit(id) {
+    if (!confirm('Delete this habit?')) return;
+    habits = habits.filter(h => h.id !== id);
+    save();
+  }
+
+  function toggleDay(habitId, dateStr) {
+    const habit = habits.find(h => h.id === habitId);
+    if (habit.completed[dateStr]) {
+      delete habit.completed[dateStr];
+    } else {
+      habit.completed[dateStr] = true;
+    }
+    save();
+  }
+
+  function getStreak(completed) {
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const str = d.toISOString().split('T')[0];
+      if (completed[str]) streak++;
+      else if (i > 0) break;
+    }
+    return streak;
+  }
+
+  function getWeekDates() {
+    const dates = [];
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 6);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      dates.push(d);
+    }
+    return dates;
+  }
+
+  function render() {
+    const container = document.getElementById('habits-container');
+    
+    if (habits.length === 0) {
+      container.innerHTML = '<div class="empty-state">No habits yet. Add one above!</div>';
+      return;
+    }
+
+    const weekDates = getWeekDates();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    container.innerHTML = habits.map(habit => {
+      const streak = getStreak(habit.completed);
+      const total = Object.keys(habit.completed).length;
+      
+      return `
+        <div class="habit-card">
+          <div class="habit-header">
+            <span class="habit-name">${habit.name}</span>
+            <span class="habit-streak">🔥 ${streak} day streak</span>
+            <button class="habit-delete" onclick="deleteHabit(${habit.id})">×</button>
+          </div>
+          <div class="habit-row-header">
+            ${weekDates.map(d => `<span>${d.toLocaleDateString('en-US', {weekday:'short'})}</span>`).join('')}
+          </div>
+          <div class="week-grid">
+            ${weekDates.map(d => {
+              const str = d.toISOString().split('T')[0];
+              const isDone = habit.completed[str];
+              const isToday = str === todayStr;
+              return `<div class="day ${isDone ? 'done' : ''} ${isToday ? 'today' : ''}" 
+                           onclick="toggleDay(${habit.id}, '${str}')">${d.getDate()}</div>`;
+            }).join('')}
+          </div>
+          <div class="stats-row">
+            <span>Total completions: ${total}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Handle Enter key
+  document.getElementById('new-habit').addEventListener('keypress', e => {
+    if (e.key === 'Enter') addHabit();
+  });
+
+  render();
+</script>
 </body>
 </html>
