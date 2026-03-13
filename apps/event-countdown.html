@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Countdown — Shadow's Garden</title>
+<meta name="description" content="Countdown timer for events — flights, birthdays, deadlines, holidays">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .add-event {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border, #313244);
+  }
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.9rem;
+  }
+  input[type="text"], input[type="date"], input[type="datetime-local"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
+    font-size: 1rem;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  button {
+    width: 100%;
+    padding: 0.875rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  .events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .event-card {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border, #313244);
+    position: relative;
+  }
+  .event-card.past {
+    opacity: 0.5;
+    background: var(--card-bg, #181825);
+  }
+  .event-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .event-date {
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+  .countdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 0.5rem;
+    text-align: center;
+  }
+  .countdown-item {
+    background: var(--result-bg, #181825);
+    padding: 0.75rem 0.5rem;
+    border-radius: 8px;
+  }
+  .countdown-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent, #cba6f7);
+  }
+  .countdown-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #a6adc8);
+    text-transform: uppercase;
+  }
+  .delete-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #a6adc8);
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0.25rem;
+    width: auto;
+    opacity: 0.5;
+  }
+  .delete-btn:hover {
+    opacity: 1;
+    color: #f38ba8;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--text-secondary, #a6adc8);
+    padding: 3rem 1rem;
+  }
+  .event-past {
+    color: var(--text-secondary, #a6adc8);
+    font-size: 1rem;
+  }
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .preset-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: auto;
+  }
+  .preset-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>⏰ Event Countdown</h1>
+  
+  <div class="add-event">
+    <div class="input-group">
+      <label>Event Name</label>
+      <input type="text" id="event-name" placeholder="e.g., Flight to Tokyo, Birthday, Deadline">
+    </div>
+    <div class="input-group">
+      <label>Date & Time</label>
+      <input type="datetime-local" id="event-date">
+    </div>
+    <div class="presets">
+      <button class="preset-btn" onclick="setPreset(1)">+1 day</button>
+      <button class="preset-btn" onclick="setPreset(7)">+1 week</button>
+      <button class="preset-btn" onclick="setPreset(30)">+1 month</button>
+      <button class="preset-btn" onclick="setPreset(365)">+1 year</button>
+    </div>
+    <button onclick="addEvent()">Add Event</button>
+  </div>
+
+  <div class="events-list" id="events-list"></div>
+</div>
+
+<script>
+  let events = JSON.parse(localStorage.getItem('eventCountdowns') || '[]');
+
+  function save() {
+    localStorage.setItem('eventCountdowns', JSON.stringify(events));
+    render();
+  }
+
+  function addEvent() {
+    const name = document.getElementById('event-name').value.trim();
+    const date = document.getElementById('event-date').value;
+    
+    if (!name || !date) {
+      alert('Please enter event name and date');
+      return;
+    }
+
+    events.push({ name, date, id: Date.now() });
+    document.getElementById('event-name').value = '';
+    document.getElementById('event-date').value = '';
+    save();
+  }
+
+  function deleteEvent(id) {
+    events = events.filter(e => e.id !== id);
+    save();
+  }
+
+  function setPreset(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(9, 0, 0, 0);
+    document.getElementById('event-date').value = d.toISOString().slice(0, 16);
+  }
+
+  function formatCountdown(target) {
+    const now = new Date();
+    const targetDate = new Date(target);
+    const diff = targetDate - now;
+
+    if (diff <= 0) {
+      return { past: true };
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return { days, hours, minutes, seconds, past: false };
+  }
+
+  function render() {
+    const list = document.getElementById('events-list');
+    
+    if (events.length === 0) {
+      list.innerHTML = '<div class="empty-state">No events yet. Add one above! 🎉</div>';
+      return;
+    }
+
+    // Sort: upcoming first, then past
+    events.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    list.innerHTML = events.map(e => {
+      const count = formatCountdown(e.date);
+      const dateStr = new Date(e.date).toLocaleString('en-US', { 
+        weekday: 'short', 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+
+      if (count.past) {
+        return `
+          <div class="event-card past">
+            <button class="delete-btn" onclick="deleteEvent(${e.id})">×</button>
+            <div class="event-name">${e.name}</div>
+            <div class="event-date">${dateStr}</div>
+            <div class="event-past">Event passed</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="event-card">
+          <button class="delete-btn" onclick="deleteEvent(${e.id})">×</button>
+          <div class="event-name">${e.name}</div>
+          <div class="event-date">${dateStr}</div>
+          <div class="countdown">
+            <div class="countdown-item">
+              <div class="countdown-number">${count.days}</div>
+              <div class="countdown-label">Days</div>
+            </div>
+            <div class="countdown-item">
+              <div class="countdown-number">${count.hours}</div>
+              <div class="countdown-label">Hours</div>
+            </div>
+            <div class="countdown-item">
+              <div class="countdown-number">${count.minutes}</div>
+              <div class="countdown-label">Mins</div>
+            </div>
+            <div class="countdown-item">
+              <div class="countdown-number">${count.seconds}</div>
+              <div class="countdown-label">Secs</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Update every second
+  setInterval(render, 1000);
+  render();
+</script>
+</body>
+</html>
