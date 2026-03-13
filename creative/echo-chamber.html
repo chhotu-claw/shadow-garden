@@ -4,266 +4,240 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="A generative text toy where words echo, mutate, and evolve with particle effects">
+<meta name="description" content="An interactive text experience where your words echo back transformed">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #ff6b6b; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    background: #0a0a0f; 
-    overflow: hidden;
-    font-family: 'Courier New', monospace;
-  }
-  #canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-  }
-  .input-area {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
+  body {
+    min-height: 100vh;
     display: flex;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: #0a0a0f;
+    overflow: hidden;
   }
-  #wordInput {
-    padding: 0.75rem 1.5rem;
-    font-size: 1.1rem;
-    background: rgba(20, 20, 30, 0.9);
-    border: 1px solid #333;
-    border-radius: 2rem;
-    color: #fff;
-    font-family: 'Courier New', monospace;
-    width: 280px;
+  .container {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #cba6f7, #89b4fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: #6c7086;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+  }
+  #input-area {
+    margin-bottom: 2rem;
+  }
+  #word-input {
+    width: 100%;
+    max-width: 400px;
+    padding: 1rem 1.5rem;
+    font-size: 1.2rem;
+    background: #181825;
+    border: 2px solid #313244;
+    border-radius: 50px;
+    color: #cdd6f4;
     text-align: center;
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
   }
-  #wordInput:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+  #word-input:focus {
+    border-color: #cba6f7;
+    box-shadow: 0 0 20px rgba(203, 166, 247, 0.3);
   }
-  #wordInput::placeholder {
-    color: #555;
+  #word-input::placeholder {
+    color: #45475a;
+  }
+  .echoes {
+    position: relative;
+    min-height: 300px;
+  }
+  .echo-word {
+    position: absolute;
+    font-size: 1.5rem;
+    font-weight: 600;
+    white-space: nowrap;
+    animation: fadeInEcho 0.5s ease-out forwards;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  @keyframes fadeInEcho {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  .echo-word.mirror { color: #f38ba8; }
+  .echo-word.reverse { color: #fab387; }
+  .echo-word.leetspeak { color: #a6e3a1; }
+  .echo-word.sponge { color: #f9e2af; }
+  .echo-word.emoji { font-size: 2rem; }
+  .echo-word.uppercase { color: #89b4fa; }
+  .echo-word.base64 { color: #cba6f7; font-family: monospace; font-size: 1rem; }
+  .echo-word.morse { color: #94e2d5; font-family: monospace; font-size: 0.9rem; }
+  .echo-word.atomize { color: #f5c2e7; font-size: 0.8rem; }
+  .echo-word.rhythm { color: #eba0ac; }
+  .echo-word.sound { color: #b4befe; }
+  .center-echo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    font-weight: 700;
+    color: #cdd6f4;
+    text-shadow: 0 0 30px rgba(203, 166, 247, 0.5);
   }
   .hint {
-    position: fixed;
-    top: 1.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #444;
+    color: #45475a;
     font-size: 0.85rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    margin-top: 2rem;
   }
   .stats {
     position: fixed;
-    top: 1.5rem;
-    right: 1.5rem;
-    color: #333;
+    bottom: 1rem;
+    right: 1rem;
+    color: #313244;
     font-size: 0.75rem;
-    text-align: right;
+    font-family: monospace;
   }
 </style>
 </head>
-<body data-page-type="creative">
-  <div class="hint">type a word · press enter</div>
-  <div class="stats">
-    <div>words: <span id="wordCount">0</span></div>
-    <div>particles: <span id="particleCount">0</span></div>
-  </div>
-  <canvas id="canvas"></canvas>
-  <div class="input-area">
-    <input type="text" id="wordInput" placeholder="type something..." maxlength="20" autocomplete="off">
+<body data-page-type="app">
+<div class="container">
+  <h1>Echo Chamber</h1>
+  <p class="subtitle">type a word. watch it transform.</p>
+  
+  <div id="input-area">
+    <input type="text" id="word-input" placeholder="type something..." autocomplete="off" autofocus>
   </div>
   
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const input = document.getElementById('wordInput');
-    const wordCountEl = document.getElementById('wordCount');
-    const particleCountEl = document.getElementById('particleCount');
-    
-    let words = [];
-    let particles = [];
-    let width, height;
-    
-    const mutations = ['a', 'e', 'i', 'o', 'u', 'l', 'n', 's', 't', 'r'];
-    const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181', '#aa96da', '#fcbad3', '#a8d8ea'];
-    
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+  <div class="echoes" id="echo-container">
+    <div class="center-echo" id="center-echo"></div>
+  </div>
+  
+  <p class="hint">press enter to echo</p>
+</div>
+
+<div class="stats" id="stats">0 echoes</div>
+
+<script>
+  const input = document.getElementById('word-input');
+  const container = document.getElementById('echo-container');
+  const centerEcho = document.getElementById('center-echo');
+  const stats = document.getElementById('stats');
+  
+  let echoCount = 0;
+  let lastWord = '';
+
+  const transforms = [
+    { name: 'mirror', fn: s => s.split('').reverse().join('') },
+    { name: 'reverse', fn: s => s.split(' ').reverse().join(' ') },
+    { name: 'uppercase', fn: s => s.toUpperCase() },
+    { name: 'leetspeak', fn: s => s.replace(/a/gi,'4').replace(/e/gi,'3').replace(/i/gi,'1').replace(/o/gi,'0').replace(/s/gi,'5').replace(/t/gi,'7') },
+    { name: 'sponge', fn: s => s.split('').map((c,i) => i%2===0?c.toUpperCase():c.toLowerCase()).join('') },
+    { name: 'base64', fn: s => btoa(s) },
+    { name: 'morse', fn: s => morseEncode(s) },
+    { name: 'atomize', fn: s => s.split('').join(' ') },
+    { name: 'rhythm', fn: s => s.replace(/[aeiou]/gi, '🌊').replace(/[bcdfghjklmnpqrstvwxyz]/gi, '●') },
+    { name: 'sound', fn: s => s.replace(/[aeiou]/g,'🎵').replace(/[bcdfghjklmnpqrstvwxyz]/g,'🔊') }
+  ];
+
+  const emojis = {
+    happy: ['😊','😄','😁','🥳','✨'],
+    love: ['💜','❤️','💕','🫶','💖'],
+    star: ['⭐','🌟','✨','💫','☆'],
+    fire: ['🔥','💥','⚡','🚀','💎'],
+    nature: ['🌸','🌺','🍀','🌿','🦋']
+  };
+
+  function morseEncode(str) {
+    const morse = {'a':'.−','b':'−...','c':'−.−.','d':'−..','e':'.','f':'..−.','g':'−−.','h':'....','i':'..','j':'.−−−','k':'−.−','l':'.−..','m':'−−','n':'−.','o':'−−−','p':'.−−.','q':'−−.−','r':'.−.','s':'...','t':'−','u':'..−','v':'...−','w':'.−−','x':'−..−','y':'−.−−','z':'−−..',' ':' / ','0':'−−−−−','1':'.−−−−','2':'..−−−','3':'...−−','4':'....−','5':'.....','6':'−....','7':'−−...','8':'−−−..','9':'−−−−.'};
+    return str.toLowerCase().split('').map(c => morse[c] || c).join(' ');
+  }
+
+  function getRandomPosition() {
+    const x = 20 + Math.random() * 60;
+    const y = 20 + Math.random() * 60;
+    return { x, y };
+  }
+
+  function getEmoji(word) {
+    const lower = word.toLowerCase();
+    for (const [key, arr] of Object.entries(emojis)) {
+      if (lower.includes(key)) return arr[Math.floor(Math.random() * arr.length)];
     }
-    resize();
-    window.addEventListener('resize', resize);
+    const allEmojis = Object.values(emojis).flat();
+    return allEmojis[Math.floor(Math.random() * allEmojis.length)];
+  }
+
+  function createEcho(word) {
+    const containerRect = container.getBoundingClientRect();
     
-    class Word {
-      constructor(text, x, y) {
-        this.text = text;
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = -Math.random() * 2 - 1;
-        this.life = 1;
-        this.decay = 0.002 + Math.random() * 0.003;
-        this.color = colors[Math.floor(Math.random() * colors.length)];
-        this.size = 14 + Math.random() * 8;
-        this.targetY = height - 100 - Math.random() * 150;
-        this.landed = false;
-        this.rotation = (Math.random() - 0.5) * 0.5;
-        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
-      }
-      
-      update() {
-        if (!this.landed) {
-          this.x += this.vx;
-          this.y += this.vy;
-          this.vy += 0.05;
-          
-          if (this.y >= this.targetY) {
-            this.y = this.targetY;
-            this.landed = true;
-            this.vx *= 0.3;
-          }
-          
-          if (this.x < 50 || this.x > width - 50) {
-            this.vx *= -0.8;
-          }
-        } else {
-          this.vx *= 0.98;
-          this.rotation += this.rotationSpeed;
-          this.life -= this.decay * 0.5;
-          
-          if (Math.random() < 0.02) {
-            this.spawnParticle();
-          }
-        }
-        
-        return this.life > 0;
-      }
-      
-      draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotation);
-        ctx.globalAlpha = this.life;
-        ctx.font = `${this.size}px 'Courier New', monospace`;
-        ctx.fillStyle = this.color;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 15;
-        ctx.fillText(this.text, 0, 0);
-        ctx.restore();
-      }
-      
-      spawnParticle() {
-        particles.push(new Particle(this.x, this.y, this.color));
-      }
-    }
+    // Center echo (main transformation)
+    const mainTransform = transforms[Math.floor(Math.random() * transforms.length)];
+    centerEcho.textContent = mainTransform.fn(word);
+    centerEcho.className = 'center-echo ' + mainTransform.name;
     
-    class Particle {
-      constructor(x, y, color) {
-        this.x = x + (Math.random() - 0.5) * 20;
-        this.y = y + (Math.random() - 0.5) * 10;
-        this.vx = (Math.random() - 0.5) * 3;
-        this.vy = -Math.random() * 2 - 0.5;
-        this.size = Math.random() * 3 + 1;
-        this.color = color;
-        this.life = 1;
-        this.decay = 0.02 + Math.random() * 0.02;
-      }
+    // Surrounding echoes
+    for (let i = 0; i < 8; i++) {
+      const transform = transforms[Math.floor(Math.random() * transforms.length)];
+      const result = transform.fn(word);
       
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vy += 0.02;
-        this.life -= this.decay;
-        return this.life > 0;
-      }
+      const el = document.createElement('div');
+      el.className = 'echo-word ' + transform.name;
+      el.textContent = result;
       
-      draw() {
-        ctx.save();
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
+      const pos = getRandomPosition();
+      el.style.left = pos.x + '%';
+      el.style.top = pos.y + '%';
+      
+      container.appendChild(el);
+      
+      // Emoji echo
+      const emojiEl = document.createElement('div');
+      emojiEl.className = 'echo-word emoji';
+      emojiEl.textContent = getEmoji(word);
+      const emojiPos = getRandomPosition();
+      emojiEl.style.left = emojiPos.x + '%';
+      emojiEl.style.top = emojiPos.y + '%';
+      container.appendChild(emojiEl);
     }
     
-    function spawnWord(text) {
-      const x = width / 2 + (Math.random() - 0.5) * 100;
-      const y = height / 2;
-      const word = new Word(text, x, y);
-      words.push(word);
-      wordCountEl.textContent = words.length;
-      
-      for (let i = 0; i < 15; i++) {
-        particles.push(new Particle(x, y, word.color));
+    echoCount++;
+    stats.textContent = echoCount + ' echoes';
+  }
+
+  function clearEchoes() {
+    const echoes = container.querySelectorAll('.echo-word');
+    echoes.forEach(e => e.remove());
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      const word = input.value.trim();
+      if (word !== lastWord) {
+        clearEchoes();
+        createEcho(word);
+        lastWord = word;
       }
+      input.value = '';
     }
-    
-    function mutate(text) {
-      const chars = text.split('');
-      const idx = Math.floor(Math.random() * chars.length);
-      chars[idx] = mutations[Math.floor(Math.random() * mutations.length)];
-      return chars.join('');
-    }
-    
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        const text = input.value.trim().toLowerCase();
-        spawnWord(text);
-        
-        setTimeout(() => spawnWord(mutate(text)), 200);
-        setTimeout(() => spawnWord(mutate(mutate(text))), 400);
-        
-        input.value = '';
-      }
-    });
-    
-    function animate() {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
-      ctx.fillRect(0, 0, width, height);
-      
-      words = words.filter(w => {
-        const alive = w.update();
-        if (alive) w.draw();
-        return alive;
-      });
-      
-      particles = particles.filter(p => {
-        const alive = p.update();
-        if (alive) p.draw();
-        return alive;
-      });
-      
-      particleCountEl.textContent = particles.length;
-      
-      if (words.length > 0 && Math.random() < 0.005) {
-        const randomWord = words[Math.floor(Math.random() * words.length)];
-        if (randomWord.landed && randomWord.life > 0.5) {
-          const mutated = mutate(randomWord.text);
-          spawnWord(mutated);
-        }
-      }
-      
-      requestAnimationFrame(animate);
-    }
-    
-    animate();
-    
-    input.focus();
-  </script>
+  });
+
+  // Initial random echo on load
+  const starters = ['echo','shadow','hello','test','light','dark','wave','star'];
+  createEcho(starters[Math.floor(Math.random() * starters.length)]);
+</script>
 </body>
 </html>
