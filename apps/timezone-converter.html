@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timezone Converter — Shadow's Garden</title>
+<meta name="description" content="Convert times across timezones instantly">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  .card {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border, #313244);
+  }
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    color: var(--accent, #cba6f7);
+    margin-bottom: 1rem;
+  }
+  .timezone-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 1rem;
+  }
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.9rem;
+  }
+  input[type="time"], input[type="date"], select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
+    font-size: 1rem;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  button {
+    padding: 0.875rem 1.5rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  .remove-btn {
+    background: transparent;
+    border: 1px solid var(--border, #313244);
+    color: var(--text-secondary, #a6adc8);
+    padding: 0.75rem;
+    font-size: 1.2rem;
+  }
+  .add-btn {
+    width: 100%;
+    background: transparent;
+    border: 2px dashed var(--border, #313244);
+    color: var(--text-secondary, #a6adc8);
+  }
+  .add-btn:hover {
+    border-color: var(--accent, #cba6f7);
+    color: var(--accent, #cba6f7);
+  }
+  .results {
+    margin-top: 1.5rem;
+  }
+  .result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--result-bg, #181825);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+  .result-time {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent, #cba6f7);
+  }
+  .result-zone {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .result-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a6adc8);
+    text-align: right;
+  }
+  .now-btn {
+    background: transparent;
+    border: 1px solid var(--accent, #cba6f7);
+    color: var(--accent, #cba6f7);
+    margin-top: 0.5rem;
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+  .common-zones {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .zone-chip {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .zone-chip:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .your-time {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .info-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a6adc8);
+    margin-top: 0.5rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="converter">
+  <h1>🌍 Timezone Converter</h1>
+  
+  <div class="card">
+    <h2>Your Time</h2>
+    <div class="input-group">
+      <label>Date</label>
+      <input type="date" id="base-date">
+    </div>
+    <div class="input-group">
+      <label>Time</label>
+      <input type="time" id="base-time">
+    </div>
+    <div class="input-group">
+      <label>Your Timezone</label>
+      <select id="base-timezone"></select>
+    </div>
+    <button class="now-btn" onclick="setNow()">Set to Now</button>
+  </div>
+
+  <div class="card">
+    <h2>Convert To</h2>
+    <div class="common-zones">
+      <button class="zone-chip" onclick="addZone('America/New_York')">New York</button>
+      <button class="zone-chip" onclick="addZone('America/Los_Angeles')">Los Angeles</button>
+      <button class="zone-chip" onclick="addZone('Europe/London')">London</button>
+      <button class="zone-chip" onclick="addZone('Europe/Paris')">Paris</button>
+      <button class="zone-chip" onclick="addZone('Asia/Tokyo')">Tokyo</button>
+      <button class="zone-chip" onclick="addZone('Asia/Dubai')">Dubai</button>
+      <button class="zone-chip" onclick="addZone('Asia/Singapore')">Singapore</button>
+      <button class="zone-chip" onclick="addZone('Australia/Sydney')">Sydney</button>
+    </div>
+    <div id="zones-container"></div>
+    <button class="add-btn" onclick="addEmptyZone()">+ Add Timezone</button>
+  </div>
+
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+  const timezones = [
+    { value: 'Pacific/Honolulu', label: 'Honolulu (HST)' },
+    { value: 'America/Anchorage', label: 'Anchorage (AKST)' },
+    { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
+    { value: 'America/Denver', label: 'Denver (MST)' },
+    { value: 'America/Chicago', label: 'Chicago (CST)' },
+    { value: 'America/New_York', label: 'New York (EST)' },
+    { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
+    { value: 'Europe/London', label: 'London (GMT/BST)' },
+    { value: 'Europe/Paris', label: 'Paris (CET)' },
+    { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+    { value: 'Europe/Moscow', label: 'Moscow (MSK)' },
+    { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+    { value: 'Asia/Kolkata', label: 'Mumbai/Delhi (IST)' },
+    { value: 'Asia/Bangkok', label: 'Bangkok (ICT)' },
+    { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+    { value: 'Asia/Hong_Kong', label: 'Hong Kong (HKT)' },
+    { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+    { value: 'Australia/Sydney', label: 'Sydney (AEDT)' },
+    { value: 'Pacific/Auckland', label: 'Auckland (NZDT)' },
+    { value: 'UTC', label: 'UTC' }
+  ];
+
+  let addedZones = [];
+
+  function init() {
+    const select = document.getElementById('base-timezone');
+    timezones.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz.value;
+      opt.textContent = tz.label;
+      select.appendChild(opt);
+    });
+    
+    // Detect user's timezone
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const userTzOption = timezones.find(tz => tz.value === userTz);
+    if (userTzOption) {
+      select.value = userTz;
+    } else {
+      // Try to find a close match
+      const offset = new Date().getTimezoneOffset() / -60;
+      select.value = 'UTC';
+    }
+    
+    setNow();
+    addEmptyZone();
+    updateResults();
+  }
+
+  function setNow() {
+    const now = new Date();
+    const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    document.getElementById('base-date').value = localISO.slice(0, 10);
+    document.getElementById('base-time').value = localISO.slice(11, 16);
+    updateResults();
+  }
+
+  function addZone(tz) {
+    if (!addedZones.includes(tz)) {
+      addedZones.push(tz);
+      renderZones();
+      updateResults();
+    }
+  }
+
+  function addEmptyZone() {
+    const select = document.createElement('select');
+    timezones.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz.value;
+      opt.textContent = tz.label;
+      select.appendChild(opt);
+    });
+    select.className = 'zone-select';
+    select.onchange = updateResults;
+    
+    const container = document.getElementById('zones-container');
+    const div = document.createElement('div');
+    div.className = 'timezone-row';
+    div.innerHTML = '';
+    div.appendChild(select);
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = () => {
+      div.remove();
+      updateResults();
+    };
+    div.appendChild(removeBtn);
+    
+    container.appendChild(div);
+    updateResults();
+  }
+
+  function renderZones() {
+    const container = document.getElementById('zones-container');
+    container.innerHTML = '';
+    addedZones.forEach((tz, i) => {
+      const div = document.createElement('div');
+      div.className = 'timezone-row';
+      
+      const select = document.createElement('select');
+      select.className = 'zone-select';
+      timezones.forEach(tz_opt => {
+        const opt = document.createElement('option');
+        opt.value = tz_opt.value;
+        opt.textContent = tz_opt.label;
+        if (tz_opt.value === tz) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.onchange = () => {
+        addedZones[i] = select.value;
+        updateResults();
+      };
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '×';
+      removeBtn.onclick = () => {
+        addedZones.splice(i, 1);
+        renderZones();
+        updateResults();
+      };
+      
+      div.appendChild(select);
+      div.appendChild(removeBtn);
+      container.appendChild(div);
+    });
+  }
+
+  function updateResults() {
+    const baseDate = document.getElementById('base-date').value;
+    const baseTime = document.getElementById('base-time').value;
+    const baseTz = document.getElementById('base-timezone').value;
+    
+    if (!baseDate || !baseTime) return;
+    
+    // Create date in base timezone
+    const baseDateTime = new Date(`${baseDate}T${baseTime}`);
+    
+    // Get all target zones
+    const targetZones = [];
+    document.querySelectorAll('.zone-select').forEach(select => {
+      if (select.value && !targetZones.includes(select.value)) {
+        targetZones.push(select.value);
+      }
+    });
+    addedZones.forEach(z => {
+      if (!targetZones.includes(z)) targetZones.push(z);
+    });
+    
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = '<h3>Converted Times</h3>';
+    
+    // Add base time first
+    const baseTzLabel = timezones.find(tz => tz.value === baseTz)?.label || baseTz;
+    const baseFormatted = baseDateTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    resultsDiv.innerHTML += `
+      <div class="result-item your-time">
+        <div>
+          <div class="result-time">${baseFormatted}</div>
+          <div class="result-zone">${baseTzLabel}</div>
+        </div>
+        <div class="result-date">${baseDate}</div>
+      </div>
+    `;
+    
+    // Add converted times
+    targetZones.forEach(tz => {
+      if (tz === baseTz) return;
+      
+      const options = { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, weekday: 'short', month: 'short', day: 'numeric' };
+      const timeOptions = { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true };
+      const dateOptions = { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' };
+      
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const timeFormatter = new Intl.DateTimeFormat('en-US', timeOptions);
+      const dateFormatter = new Intl.DateTimeFormat('en-US', dateOptions);
+      
+      // Convert time to target timezone
+      const parts = formatter.formatToParts(baseDateTime);
+      const timeStr = timeFormatter.format(baseDateTime);
+      const dateStr = dateFormatter.format(baseDateTime);
+      
+      const tzLabel = timezones.find(t => tz.startsWith(t.value.split('/')[0]))?.label || tz;
+      
+      resultsDiv.innerHTML += `
+        <div class="result-item">
+          <div>
+            <div class="result-time">${timeStr}</div>
+            <div class="result-zone">${tz.replace(/_/g, ' ')}</div>
+          </div>
+          <div class="result-date">${dateStr}</div>
+        </div>
+      `;
+    });
+  }
+
+  // Listen for changes
+  document.getElementById('base-date').addEventListener('change', updateResults);
+  document.getElementById('base-time').addEventListener('change', updateResults);
+  document.getElementById('base-timezone').addEventListener('change', updateResults);
+
+  init();
+</script>
+</body>
+</html>
