@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Notes — Shadow's Garden</title>
+<meta name="description" content="Simple markdown notes app with localStorage, no accounts required">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .notes-app {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    min-height: calc(100vh - 120px);
+  }
+  .sidebar {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid var(--border, #313244);
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar h2 {
+    font-size: 1rem;
+    color: var(--accent, #cba6f7);
+    margin: 0 0 1rem 0;
+  }
+  .note-list {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+  }
+  .note-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+  }
+  .note-item:hover {
+    background: var(--hover, #313244);
+  }
+  .note-item.active {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .note-item.active .note-date {
+    color: var(--bg, #11111b);
+    opacity: 0.7;
+  }
+  .note-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .note-preview {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #a6adc8);
+    margin-top: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .note-item.active .note-preview {
+    color: var(--bg, #11111b);
+    opacity: 0.8;
+  }
+  .note-date {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #a6adc8);
+    margin-top: 0.35rem;
+  }
+  .new-note-btn {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    transition: opacity 0.2s;
+  }
+  .new-note-btn:hover {
+    opacity: 0.9;
+  }
+  .delete-btn {
+    width: 100%;
+    padding: 0.6rem;
+    background: transparent;
+    border: 1px solid var(--border, #313244);
+    color: var(--text-secondary, #a6adc8);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .delete-btn:hover {
+    border-color: #f38ba8;
+    color: #f38ba8;
+  }
+  .editor-area {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border, #313244);
+    display: flex;
+    flex-direction: column;
+  }
+  .title-input {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    color: var(--text, #cdd6f4);
+    margin-bottom: 1rem;
+    width: 100%;
+    outline: none;
+  }
+  .title-input::placeholder {
+    color: var(--text-secondary, #a6adc8);
+  }
+  .content-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 400px;
+    background: transparent;
+    border: none;
+    color: var(--text, #cdd6f4);
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+  }
+  .content-textarea::placeholder {
+    color: var(--text-secondary, #a6adc8);
+  }
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    padding: 0.4rem 0.75rem;
+    background: var(--button-bg, #313244);
+    border: none;
+    border-radius: 6px;
+    color: var(--text, #cdd6f4);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+  }
+  .toolbar button:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .preview-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: var(--result-bg, #181825);
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+  .preview-pane h1, .preview-pane h2, .preview-pane h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .preview-pane h1 { font-size: 1.5rem; }
+  .preview-pane h2 { font-size: 1.25rem; }
+  .preview-pane h3 { font-size: 1.1rem; }
+  .preview-pane p { margin: 0.5rem 0; }
+  .preview-pane code {
+    background: var(--card-bg, #1e1e2e);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+  }
+  .preview-pane pre {
+    background: var(--card-bg, #1e1e2e);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .preview-pane pre code {
+    padding: 0;
+    background: none;
+  }
+  .preview-pane ul, .preview-pane ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+  .preview-pane blockquote {
+    border-left: 3px solid var(--accent, #cba6f7);
+    margin: 1rem 0;
+    padding-left: 1rem;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary, #a6adc8);
+    text-align: center;
+  }
+  .empty-state svg {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  .word-count {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #a6adc8);
+    text-align: right;
+  }
+  @media (max-width: 700px) {
+    .notes-app {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      max-height: 200px;
+    }
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="notes-app">
+  <div class="sidebar">
+    <button class="new-note-btn" onclick="createNote()">+ New Note</button>
+    <div class="note-list" id="noteList"></div>
+    <button class="delete-btn" onclick="deleteNote()" id="deleteBtn" style="display:none">Delete Note</button>
+  </div>
+  <div class="editor-area" id="editorArea">
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <p>Select a note or create a new one</p>
+    </div>
+    <div id="editorContent" style="display:none; height: 100%; display: flex; flex-direction: column;">
+      <input type="text" class="title-input" id="noteTitle" placeholder="Note title..." oninput="saveCurrentNote()">
+      <div class="toolbar">
+        <button onclick="insertFormat('**', '**')">Bold</button>
+        <button onclick="insertFormat('*', '*')">Italic</button>
+        <button onclick="insertFormat('`', '`')">Code</button>
+        <button onclick="insertFormat('\n```\n', '\n```\n')">Code Block</button>
+        <button onclick="insertFormat('[', '](url)')">Link</button>
+        <button onclick="insertFormat('- ', '')">List</button>
+        <button onclick="insertFormat('\n> ', '')">Quote</button>
+      </div>
+      <textarea class="content-textarea" id="noteContent" placeholder="Start writing in markdown..." oninput="saveCurrentNote()"></textarea>
+      <div class="word-count" id="wordCount">0 words · 0 characters</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let notes = [];
+  let activeNoteId = null;
+
+  // Load notes from localStorage
+  function loadNotes() {
+    const saved = localStorage.getItem('markdownNotes');
+    notes = saved ? JSON.parse(saved) : [];
+    if (notes.length === 0) {
+      // Create a welcome note
+      notes = [{
+        id: Date.now(),
+        title: 'Welcome to Markdown Notes',
+        content: `# Welcome! 🎉
+
+This is your **local** markdown notes app. No account, no cloud — just you and your browser.
+
+## Features
+- Write in markdown (bold, italic, code, lists, etc.)
+- Notes auto-save as you type
+- Search through your notes
+- Everything stays in your browser
+
+## Markdown Quick Ref
+
+**Bold** with \`**text**\`
+
+*Italic* with \`*text*\`
+
+\`code\` with backticks
+
+> Blockquotes with >
+
+- Lists with -
+`,
+        updated: Date.now()
+      }];
+      saveToStorage();
+    }
+    renderNoteList();
+  }
+
+  function saveToStorage() {
+    localStorage.setItem('markdownNotes', JSON.stringify(notes));
+  }
+
+  function renderNoteList() {
+    const list = document.getElementById('noteList');
+    const sorted = [...notes].sort((a, b) => b.updated - a.updated);
+    
+    list.innerHTML = sorted.map(note => {
+      const date = new Date(note.updated).toLocaleDateString('en-US', { 
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+      });
+      const preview = note.content.replace(/[#*`>\-\[\]]/g, '').substring(0, 50) || 'Empty note...';
+      const isActive = note.id === activeNoteId;
+      
+      return `
+        <div class="note-item ${isActive ? 'active' : ''}" onclick="selectNote(${note.id})">
+          <div class="note-title">${note.title || 'Untitled'}</div>
+          <div class="note-preview">${preview}</div>
+          <div class="note-date">${date}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function createNote() {
+    const newNote = {
+      id: Date.now(),
+      title: '',
+      content: '',
+      updated: Date.now()
+    };
+    notes.push(newNote);
+    activeNoteId = newNote.id;
+    saveToStorage();
+    renderNoteList();
+    showEditor();
+    document.getElementById('noteTitle').focus();
+  }
+
+  function selectNote(id) {
+    saveCurrentNote();
+    activeNoteId = id;
+    renderNoteList();
+    showEditor();
+  }
+
+  function showEditor() {
+    const note = notes.find(n => n.id === activeNoteId);
+    if (!note) return;
+    
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('editorContent').style.display = 'flex';
+    document.getElementById('deleteBtn').style.display = 'block';
+    document.getElementById('noteTitle').value = note.title;
+    document.getElementById('noteContent').value = note.content;
+    updateWordCount();
+  }
+
+  function saveCurrentNote() {
+    if (!activeNoteId) return;
+    const note = notes.find(n => n.id === activeNoteId);
+    if (!note) return;
+    
+    note.title = document.getElementById('noteTitle').value;
+    note.content = document.getElementById('noteContent').value;
+    note.updated = Date.now();
+    
+    saveToStorage();
+    renderNoteList();
+    updateWordCount();
+  }
+
+  function deleteNote() {
+    if (!activeNoteId) return;
+    if (!confirm('Delete this note?')) return;
+    
+    notes = notes.filter(n => n.id !== activeNoteId);
+    activeNoteId = notes.length > 0 ? notes[0].id : null;
+    saveToStorage();
+    renderNoteList();
+    
+    if (activeNoteId) {
+      showEditor();
+    } else {
+      document.getElementById('emptyState').style.display = 'flex';
+      document.getElementById('editorContent').style.display = 'none';
+      document.getElementById('deleteBtn').style.display = 'none';
+    }
+  }
+
+  function updateWordCount() {
+    const content = document.getElementById('noteContent').value;
+    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+    const chars = content.length;
+    document.getElementById('wordCount').textContent = `${words} words · ${chars} characters`;
+  }
+
+  function insertFormat(before, after) {
+    const textarea = document.getElementById('noteContent');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+    
+    textarea.value = text.substring(0, start) + before + selected + after + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + before.length;
+    textarea.selectionEnd = start + before.length + selected.length;
+    saveCurrentNote();
+  }
+
+  // Initialize
+  loadNotes();
+  if (notes.length > 0) {
+    activeNoteId = notes[0].id;
+    showEditor();
+  }
+</script>
+</body>
+</html>
