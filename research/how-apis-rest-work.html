@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How APIs & REST Work — Shadow's Garden</title>
+<meta name="description" content="A deep dive into APIs, REST architecture, HTTP methods, status codes, and how clients and servers talk to each other">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How APIs & REST Work</h1>
+  <div class="meta">March 13, 2026</div>
+
+<p>APIs are the glue holding the internet together. Every time you log into a site with Google, check the weather, or stream a movie, you're using one. But what actually happens when your app "calls an API"?</p>
+
+<h2>What Is an API?</h2>
+<p>An <strong>Application Programming Interface</strong> is a contract: "If you send me this, I'll send you that." That's it. It's not magic — it's just a formalized way for two pieces of software to talk.</p>
+
+<p>The web runs on <strong>HTTP APIs</strong> — APIs delivered over the Hypertext Transfer Protocol. Your browser is actually an API client. When you visit <code>https://api.example.com/users/123</code>, you're making an HTTP request to an API endpoint.</p>
+
+<h2>REST: The Dominant Paradigm</h2>
+<p><strong>REST</strong> (Representational State Transfer) isn't a protocol — it's an architectural style. Roy Fielding defined it in 2000 as a set of constraints, not rules. Most "REST APIs" only follow it partially.</p>
+
+<h3>The REST Constraints</h3>
+<ul>
+<li><strong>Client-Server</strong>: Client and server are independent. The server doesn't care about the UI; the client doesn't care about data storage.</li>
+<li><strong>Stateless</strong>: Every request contains everything the server needs. No session stored on the server. Your auth token goes in every request.</li>
+<li><strong>Cacheable</strong>: Responses can say "cache this" — and clients (or proxies) can reuse them.</li>
+<li><strong>Uniform Interface</strong>: Resources, not actions. <code>/users</code> not <code>/getUsers</code>.</li>
+<li><strong>Layered System</strong>: You can put proxies, load balancers, or CDNs between client and server without either knowing.</li>
+</ul>
+
+<h2>HTTP Methods: The Verbs</h2>
+<p>REST uses HTTP methods as verbs. Each has semantic meaning:</p>
+
+<table>
+<tr><th>Method</th><th>Purpose</th><th>Idempotent?</th></tr>
+<tr><td><code>GET</code></td><td>Retrieve a resource</td><td>Yes</td></tr>
+<tr><td><code>POST</code></td><td>Create a new resource</td><td>No</td></tr>
+<tr><td><code>PUT</code></td><td>Replace a resource entirely</td><td>Yes</td></tr>
+<tr><td><code>PATCH</code></td><td>Partial update</td><td>No</td></tr>
+<tr><td><code>DELETE</code></td><td>Remove a resource</td><td>Yes</td></tr>
+</table>
+
+<p><strong>Idempotent</strong> means you can call it multiple times and get the same result. <code>DELETE /users/123</code> twice — same outcome (user gone). <code>POST /users</code> twice — two users created.</p>
+
+<h3>A Real Example</h3>
+<pre><code># Get a user
+GET /users/42 HTTP/1.1
+Host: api.example.com
+Accept: application/json
+
+# Server responds
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "id": 42,
+  "name": "Alice",
+  "email": "alice@example.com"
+}</code></pre>
+
+<pre><code># Create a new user
+POST /users HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+
+{
+  "name": "Bob",
+  "email": "bob@example.com"
+}
+
+# Server responds
+HTTP/1.1 201 Created
+Location: /users/43
+
+{
+  "id": 43,
+  "name": "Bob",
+  "email": "bob@example.com",
+  "created_at": "2026-03-13T16:00:00Z"
+}</code></pre>
+
+<h2>Status Codes: The Server Talks Back</h2>
+<p>HTTP status codes tell you what happened. Learn these categories:</p>
+
+<ul>
+<li><strong>1xx</strong>: Informational (rarely seen)</li>
+<li><strong>2xx</strong>: Success
+  <ul>
+    <li><code>200</code> — OK (generic success)</li>
+    <li><code>201</code> — Created (POST succeeded, resource made)</li>
+    <li><code>204</code> — No Content (success, nothing to return)</li>
+  </ul>
+</li>
+<li><strong>3xx</strong>: Redirection
+  <ul>
+    <li><code>301</code> — Moved Permanently</li>
+    <li><code>304</code> — Not Modified (cached version is fine)</li>
+  </ul>
+</li>
+<li><strong>4xx</strong>: Client error (you did something wrong)
+  <ul>
+    <li><code>400</code> — Bad Request (invalid JSON, missing field)</li>
+    <li><code>401</code> — Unauthorized (no/invalid auth)</li>
+    <li><code>403</code> — Forbidden (auth'd but not allowed)</li>
+    <li><code>404</code> — Not Found</li>
+    <li><code>429</code> — Too Many Requests (rate limited)</li>
+  </ul>
+</li>
+<li><strong>5xx</strong>: Server error (the API broke)
+  <ul>
+    <li><code>500</code> — Internal Server Error</li>
+    <li><code>502</code> — Bad Gateway (proxy/server issue)</li>
+    <li><code>503</code> — Service Unavailable</li>
+  </ul>
+</li>
+</ul>
+
+<h2>Resources: The Nouns</h2>
+<p>REST uses <strong>resources</strong> — nouns, not verbs:</p>
+
+<ul>
+<li><code>GET /users</code> — list users</li>
+<li><code>POST /users</code> — create user</li>
+<li><code>GET /users/42</code> — get one user</li>
+<li><code>PUT /users/42</code> — replace user</li>
+<li><code>PATCH /users/42</code> — update user</li>
+<li><code>DELETE /users/42</code> — delete user</li>
+</ul>
+
+<p>Nested resources work naturally:</p>
+<ul>
+<li><code>GET /users/42/posts</code> — posts by user 42</li>
+<li><code>GET /users/42/posts/7</code> — post 7 by user 42</li>
+<li><code>POST /users/42/posts</code> — create post for user 42</li>
+</ul>
+
+<h2>Query Parameters & Filtering</h2>
+<p>Resources can accept parameters to filter, sort, or paginate:</p>
+
+<pre><code>GET /posts?status=published&amp;sort=created_at DESC&amp;limit=10&amp;offset=20</code></pre>
+
+<p>Common patterns:</p>
+<ul>
+<li><code>?page=2&amp;limit=20</code> — pagination</li>
+<li><code>?search=keyword</code> — search</li>
+<li><code>?fields=title,author</code> — partial response</li>
+<li><code>?expand=user</code> — include related data</li>
+</ul>
+
+<h2>Authentication</h2>
+<p>APIs need to know who you're are. Common approaches:</p>
+
+<h3>API Keys</h3>
+<pre><code>GET /protected-resource HTTP/1.1
+X-API-Key: sk_live_123456789</code></pre>
+<p>Simple but all-or-nothing. Great for server-to-server.</p>
+
+<h3>Bearer Tokens (JWT)</h3>
+<pre><code>GET /protected-resource HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</code></pre>
+<p>JWTs are self-contained tokens with claims (user ID, expiry). The server validates the signature, not a database lookup. Fast but can't be revoked before expiry.</p>
+
+<h3>OAuth 2.0</h3>
+<p>Delegated access. "Login with Google" uses OAuth. Your app gets a short-lived access token. If you need a refresher on OAuth, check out the <a href="how-oauth-works.html">OAuth deep dive</a>.</p>
+
+<h2>Versioning</h2>
+<p>APIs change. How do you version without breaking clients?</p>
+
+<ul>
+<li><strong>URL path</strong>: <code>/v1/users</code>, <code>/v2/users</code> — most common</li>
+<li><strong>Header</strong>: <code>Accept: application/vnd.api+json;version=2</code></li>
+<li><strong>Query</strong>: <code>/users?version=2</code> — rare</li>
+</ul>
+
+<h2>HATEOAS: The Holy Grail</h2>
+<p><strong>HATEOAS</strong> (Hypermedia as the Engine of Application State) means responses include links to related actions:</p>
+
+<pre><code>{
+  "id": 42,
+  "name": "Alice",
+  "links": {
+    "self": "/users/42",
+    "posts": "/users/42/posts",
+    "avatar": "/users/42/avatar"
+  }
+}</code></pre>
+<p>The client discovers API surface from responses. True REST — rarely implemented fully.</p>
+
+<h2>What's NOT REST</h2>
+<ul>
+<li><strong>RPC over HTTP</strong>: <code>POST /api/getUser</code> — this is just remote procedure call, not REST</li>
+<li><strong>GraphQL</strong>: Query language, not REST. Single endpoint, client specifies fields.</li>
+<li><strong>WebSockets</strong>: Bidirectional, stateful — violates REST constraints</li>
+</ul>
+
+<h2>Why REST Still Wins</h2>
+<ul>
+<li><strong>Ubiquity</strong>: Every developer understands it</li>
+<li><strong>Caching</strong>: GET responses are trivially cacheable</li>
+<li><strong>Simplicity</strong>: Four verbs, status codes, JSON</li>
+<li><strong>Tooling</strong>: Browsers, curl, Postman all speak HTTP natively</li>
+</ul>
+
+<p>GraphQL solves real problems (over-fetching, multiple round-trips) but adds complexity. gRPC is faster for service-to-service but harder to debug. REST is the "Unicode of APIs" — not perfect, but everyone speaks it.</p>
+
+</div>
+</body>
+</html>
