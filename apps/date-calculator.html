@@ -4,325 +4,371 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Date Calculator — Shadow's Garden</title>
-<meta name="description" content="Add/subtract days from dates, calculate differences between dates">
+<meta name="description" content="Calculate days between dates, add/subtract days, find weekdays, week numbers, and more">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #8b5cf6;
-    --accent-dark: #7c3aed;
-  }
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-  }
   .calculator {
-    background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
     padding: 2rem;
-    width: 100%;
-    max-width: 420px;
   }
-  h1 {
-    color: #fff;
-    font-size: 1.5rem;
+  .card {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
     margin-bottom: 1.5rem;
-    text-align: center;
+    border: 1px solid var(--border, #313244);
   }
-  .mode-toggle {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-  .mode-toggle button {
-    flex: 1;
-    padding: 0.75rem;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
-    color: rgba(255,255,255,0.7);
-    border-radius: 0.5rem;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
-  .mode-toggle button.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-  }
-  .mode-toggle button:hover:not(.active) {
-    background: rgba(255,255,255,0.1);
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    color: var(--accent, #cba6f7);
+    margin-bottom: 1rem;
   }
   .input-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
   label {
     display: block;
-    color: rgba(255,255,255,0.7);
-    font-size: 0.75rem;
     margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.9rem;
   }
-  input[type="date"], input[type="number"] {
+  input[type="date"], input[type="number"], select {
     width: 100%;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    color: #fff;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
     font-size: 1rem;
     font-family: inherit;
-    outline: none;
-    transition: border-color 0.2s;
+    box-sizing: border-box;
   }
-  input[type="date"]:focus, input[type="number"]:focus {
-    border-color: var(--accent);
-  }
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+  button {
+    width: 100%;
+    padding: 0.875rem;
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
   }
-  .presets {
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  .result {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--result-bg, #181825);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .result-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent, #cba6f7);
+  }
+  .result-label {
+    color: var(--text-secondary, #a6adc8);
+    margin-top: 0.25rem;
+  }
+  .today-btn {
+    background: transparent;
+    border: 1px solid var(--accent, #cba6f7);
+    color: var(--accent, #cba6f7);
+    margin-top: 0.5rem;
+  }
+  .quick-dates {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
-    margin-top: 0.75rem;
+    margin-bottom: 1rem;
   }
-  .presets button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 0.25rem;
+  .quick-btn {
     padding: 0.4rem 0.75rem;
-    color: rgba(255,255,255,0.7);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s;
   }
-  .presets button:hover {
-    background: rgba(255,255,255,0.2);
-  }
-  .result {
-    background: rgba(139, 92, 246, 0.15);
-    border: 1px solid var(--accent);
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    text-align: center;
-    margin-top: 1.5rem;
-  }
-  .result-value {
-    font-size: 1.75rem;
-    font-weight: bold;
-    color: #fff;
-  }
-  .result-date {
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.6);
-    margin-top: 0.5rem;
+  .quick-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
   .history {
-    margin-top: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 1rem;
     padding-top: 1rem;
-  }
-  .history h3 {
-    color: rgba(255,255,255,0.7);
-    font-size: 0.75rem;
-    margin-bottom: 0.75rem;
-    text-transform: uppercase;
+    border-top: 1px solid var(--border, #313244);
   }
   .history-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem;
-    background: rgba(0,0,0,0.2);
-    border-radius: 0.25rem;
-    margin-bottom: 0.5rem;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary, #a6adc8);
+    border-bottom: 1px solid var(--border, #313244);
+  }
+  .history-item:last-child {
+    border-bottom: none;
+  }
+  .clear-history {
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.6);
-  }
-  .history-item .del {
-    color: #ef4444;
+    color: var(--text-secondary, #a6adc8);
+    background: none;
+    border: none;
     cursor: pointer;
-    padding: 0 0.25rem;
+    text-decoration: underline;
+    width: auto;
+    padding: 0;
+    margin-top: 0.5rem;
   }
-  .hidden { display: none; }
+  .weekday-result {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent, #cba6f7);
+  }
 </style>
 </head>
 <body data-page-type="app">
 <div class="calculator">
   <h1>📅 Date Calculator</h1>
   
-  <div class="mode-toggle">
-    <button id="modeAdd" class="active" onclick="setMode('add')">Add/Subtract</button>
-    <button id="modeDiff" onclick="setMode('diff')">Date Difference</button>
+  <!-- Days Between Two Dates -->
+  <div class="card">
+    <h2>Days Between Two Dates</h2>
+    <div class="input-group">
+      <label>From</label>
+      <input type="date" id="date1">
+      <button class="today-btn" onclick="setToday('date1')">Today</button>
+    </div>
+    <div class="input-group">
+      <label>To</label>
+      <input type="date" id="date2">
+      <button class="today-btn" onclick="setToday('date2')">Today</button>
+    </div>
+    <button onclick="calcDaysBetween()">Calculate</button>
+    <div class="result" id="days-result" style="display:none">
+      <div class="result-number" id="days-number"></div>
+      <div class="result-label" id="days-label"></div>
+    </div>
   </div>
-  
-  <div id="addMode">
+
+  <!-- Add/Subtract Days -->
+  <div class="card">
+    <h2>Add or Subtract Days</h2>
     <div class="input-group">
       <label>Start Date</label>
-      <input type="date" id="startDate">
+      <input type="date" id="start-date">
+      <button class="today-btn" onclick="setToday('start-date')">Today</button>
     </div>
-    
     <div class="input-group">
-      <label>Add or Subtract Days</label>
-      <input type="number" id="days" value="7" placeholder="Number of days">
-      <div class="presets">
-        <button onclick="setDays(-1)">-1 day</button>
-        <button onclick="setDays(-7)">-1 week</button>
-        <button onclick="setDays(-30)">-1 month</button>
-        <button onclick="setDays(-365)">-1 year</button>
-        <button onclick="setDays(1)">+1 day</button>
-        <button onclick="setDays(7)">+1 week</button>
-        <button onclick="setDays(30)">+1 month</button>
-        <button onclick="setDays(365)">+1 year</button>
-      </div>
+      <label>Days to Add (negative to subtract)</label>
+      <input type="number" id="days-to-add" placeholder="e.g., 30 or -7">
+    </div>
+    <button onclick="calcNewDate()">Calculate</button>
+    <div class="result" id="add-result" style="display:none">
+      <div class="result-number" id="new-date"></div>
+      <div class="result-label" id="new-date-weekday"></div>
     </div>
   </div>
-  
-  <div id="diffMode" class="hidden">
+
+  <!-- Day of Week -->
+  <div class="card">
+    <h2>What Day Is It?</h2>
     <div class="input-group">
-      <label>From Date</label>
-      <input type="date" id="dateFrom">
+      <label>Select Date</label>
+      <input type="date" id="weekday-date">
+      <button class="today-btn" onclick="setToday('weekday-date')">Today</button>
     </div>
-    
-    <div class="input-group">
-      <label>To Date</label>
-      <input type="date" id="dateTo">
+    <button onclick="calcWeekday()">Find Day</button>
+    <div class="result" id="weekday-result" style="display:none">
+      <div class="weekday-result" id="weekday-name"></div>
+      <div class="result-label" id="weekday-relative"></div>
     </div>
   </div>
-  
-  <div class="result">
-    <div class="result-value" id="result">Select a mode</div>
-    <div class="result-date" id="resultDate"></div>
+
+  <!-- Week Number -->
+  <div class="card">
+    <h2>Week Number</h2>
+    <div class="input-group">
+      <label>Date</label>
+      <input type="date" id="weeknum-date">
+      <button class="today-btn" onclick="setToday('weeknum-date')">Today</button>
+    </div>
+    <button onclick="calcWeekNumber()">Get Week Number</button>
+    <div class="result" id="weeknum-result" style="display:none">
+      <div class="result-number" id="weeknum-number"></div>
+      <div class="result-label">of <span id="weeknum-year"></span></div>
+    </div>
   </div>
-  
-  <div class="history">
-    <h3>History</h3>
-    <div id="historyList"></div>
+
+  <!-- Quick Calculator -->
+  <div class="card">
+    <h2>Quick — Days From Today</h2>
+    <div class="quick-dates">
+      <button class="quick-btn" onclick="quickDays(7)">+7 days</button>
+      <button class="quick-btn" onclick="quickDays(14)">+14 days</button>
+      <button class="quick-btn" onclick="quickDays(30)">+30 days</button>
+      <button class="quick-btn" onclick="quickDays(60)">+60 days</button>
+      <button class="quick-btn" onclick="quickDays(90)">+90 days</button>
+      <button class="quick-btn" onclick="quickDays(365)">+1 year</button>
+    </div>
+    <div class="result" id="quick-result" style="display:none">
+      <div class="result-number" id="quick-date"></div>
+      <div class="result-label" id="quick-weekday"></div>
+    </div>
+  </div>
+
+  <div class="history" id="history-section" style="display:none">
+    <h3>Recent Calculations</h3>
+    <div id="history-list"></div>
+    <button class="clear-history" onclick="clearHistory()">Clear History</button>
   </div>
 </div>
 
 <script>
-let mode = 'add';
-let history = JSON.parse(localStorage.getItem('dateCalcHistory') || '[]');
+  // Load history from localStorage
+  let history = JSON.parse(localStorage.getItem('dateCalcHistory') || '[]');
 
-const startDate = document.getElementById('startDate');
-const daysInput = document.getElementById('days');
-const dateFrom = document.getElementById('dateFrom');
-const dateTo = document.getElementById('dateTo');
-const result = document.getElementById('result');
-const resultDate = document.getElementById('resultDate');
+  function setToday(id) {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById(id).value = today;
+  }
 
-// Set default dates
-const today = new Date();
-startDate.value = today.toISOString().split('T')[0];
-dateFrom.value = today.toISOString().split('T')[0];
-dateTo.value = new Date(today.getTime() + 30*24*60*60*1000).toISOString().split('T')[0];
-
-function setMode(m) {
-  mode = m;
-  document.getElementById('modeAdd').classList.toggle('active', m === 'add');
-  document.getElementById('modeDiff').classList.toggle('active', m === 'diff');
-  document.getElementById('addMode').classList.toggle('hidden', m !== 'add');
-  document.getElementById('diffMode').classList.toggle('hidden', m !== 'diff');
-  calculate();
-}
-
-function setDays(n) {
-  daysInput.value = n;
-  calculate();
-}
-
-function calculate() {
-  if (mode === 'add') {
-    const start = new Date(startDate.value);
-    const days = parseInt(daysInput.value) || 0;
-    const resultDateObj = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-    
-    result.textContent = resultDateObj.toLocaleDateString('en-US', { 
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  function formatDate(date) {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
-    
-    const diff = resultDateObj - today;
-    const diffDays = Math.ceil(diff / (24*60*60*1000));
-    resultDate.textContent = diffDays === 0 ? 'Today' : 
-      diffDays > 0 ? `In ${diffDays} days` : `${Math.abs(diffDays)} days ago`;
-    
-    addToHistory(`${days > 0 ? '+' : ''}${days} days from ${formatShort(start)}`, resultDateObj);
-  } else {
-    const from = new Date(dateFrom.value);
-    const to = new Date(dateTo.value);
-    const diffTime = Math.abs(to - from);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    const years = Math.floor(diffDays / 365);
-    const months = Math.floor((diffDays % 365) / 30);
-    const days = diffDays % 30;
-    
-    let breakdown = [];
-    if (years) breakdown.push(`${years} year${years > 1 ? 's' : ''}`);
-    if (months) breakdown.push(`${months} month${months > 1 ? 's' : ''}`);
-    if (days) breakdown.push(`${days} day${days > 1 ? 's' : ''}`);
-    
-    result.textContent = diffDays + ' day' + (diffDays !== 1 ? 's' : '');
-    resultDate.textContent = breakdown.join(', ') || 'Same day';
-    
-    addToHistory(`${formatShort(from)} → ${formatShort(to)}`, null, diffDays);
   }
-}
 
-function formatShort(d) {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function addToHistory(label, dateObj, days) {
-  const entry = { label, days, time: Date.now() };
-  
-  // Avoid duplicates
-  if (history.some(h => h.label === label && Date.now() - h.time < 60000)) return;
-  
-  history.unshift(entry);
-  history = history.slice(0, 10);
-  localStorage.setItem('dateCalcHistory', JSON.stringify(history));
-  renderHistory();
-}
-
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  if (!history.length) {
-    list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.75rem">No history yet</div>';
-    return;
+  function addToHistory(text) {
+    history.unshift({ text, time: new Date().toISOString() });
+    if (history.length > 10) history.pop();
+    localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+    renderHistory();
   }
-  list.innerHTML = history.map((h, i) => `
-    <div class="history-item">
-      <span>${h.label}${h.days !== undefined ? ` (${h.days}d)` : ''}</span>
-      <span class="del" onclick="deleteHistory(${i})">×</span>
-    </div>
-  `).join('');
-}
 
-function deleteHistory(i) {
-  history.splice(i, 1);
-  localStorage.setItem('dateCalcHistory', JSON.stringify(history));
+  function renderHistory() {
+    const section = document.getElementById('history-section');
+    const list = document.getElementById('history-list');
+    if (history.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    list.innerHTML = history.map(h => `<div class="history-item"><span>${h.text}</span></div>`).join('');
+  }
+
+  function clearHistory() {
+    history = [];
+    localStorage.setItem('dateCalcHistory', '[]');
+    renderHistory();
+  }
+
+  function calcDaysBetween() {
+    const d1 = new Date(document.getElementById('date1').value);
+    const d2 = new Date(document.getElementById('date2').value);
+    if (isNaN(d1) || isNaN(d2)) return;
+
+    const diff = Math.abs(Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+    const label = diff === 1 ? 'day' : 'days';
+    
+    document.getElementById('days-number').textContent = diff;
+    document.getElementById('days-label').textContent = label;
+    document.getElementById('days-result').style.display = 'block';
+    
+    addToHistory(`${diff} days between ${d1.toLocaleDateString()} and ${d2.toLocaleDateString()}`);
+  }
+
+  function calcNewDate() {
+    const start = new Date(document.getElementById('start-date').value);
+    const days = parseInt(document.getElementById('days-to-add').value);
+    if (isNaN(start) || isNaN(days)) return;
+
+    const result = new Date(start);
+    result.setDate(result.getDate() + days);
+    
+    document.getElementById('new-date').textContent = result.toLocaleDateString();
+    document.getElementById('new-date-weekday').textContent = result.toLocaleDateString('en-US', { weekday: 'long' });
+    document.getElementById('add-result').style.display = 'block';
+    
+    const sign = days >= 0 ? '+' : '';
+    addToHistory(`${start.toLocaleDateString()} ${sign}${days} days = ${result.toLocaleDateString()}`);
+  }
+
+  function calcWeekday() {
+    const date = new Date(document.getElementById('weekday-date').value);
+    if (isNaN(date)) return;
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = days[date.getDay()];
+    
+    document.getElementById('weekday-name').textContent = dayName;
+    
+    const today = new Date();
+    const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+    let relative = '';
+    if (diff === 0) relative = '(Today)';
+    else if (diff === 1) relative = '(Tomorrow)';
+    else if (diff === -1) relative = '(Yesterday)';
+    else if (diff > 0) relative = `(${diff} days from now)`;
+    else relative = `(${Math.abs(diff)} days ago)`;
+    
+    document.getElementById('weekday-relative').textContent = relative;
+    document.getElementById('weekday-result').style.display = 'block';
+    
+    addToHistory(`${date.toLocaleDateString()} is a ${dayName}`);
+  }
+
+  function calcWeekNumber() {
+    const date = new Date(document.getElementById('weeknum-date').value);
+    if (isNaN(date)) return;
+
+    const start = new Date(date.getFullYear(), 0, 1);
+    const diff = date - start;
+    const oneWeek = 604800000;
+    const weekNum = Math.ceil((diff + start.getDay() * 86400000) / oneWeek);
+    
+    document.getElementById('weeknumber').textContent = weekNum;
+    document.getElementById('weeknum-number').textContent = weekNum;
+    document.getElementById('weeknum-year').textContent = date.getFullYear();
+    document.getElementById('weeknum-result').style.display = 'block';
+    
+    addToHistory(`${date.toLocaleDateString()} is in week ${weekNum} of ${date.getFullYear()}`);
+  }
+
+  function quickDays(days) {
+    const today = new Date();
+    const result = new Date(today);
+    result.setDate(result.getDate() + days);
+    
+    document.getElementById('quick-date').textContent = result.toLocaleDateString();
+    document.getElementById('quick-weekday').textContent = result.toLocaleDateString('en-US', { weekday: 'long' });
+    document.getElementById('quick-result').style.display = 'block';
+    
+    addToHistory(`+${days} days from today = ${result.toLocaleDateString()}`);
+  }
+
+  // Initialize
+  setToday('date1');
+  setToday('date2');
+  setToday('start-date');
+  setToday('weekday-date');
+  setToday('weeknum-date');
   renderHistory();
-}
-
-startDate.addEventListener('change', calculate);
-daysInput.addEventListener('input', calculate);
-dateFrom.addEventListener('change', calculate);
-dateTo.addEventListener('change', calculate);
-
-renderHistory();
-calculate();
 </script>
 </body>
 </html>
