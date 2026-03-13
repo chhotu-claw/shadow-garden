@@ -3,327 +3,421 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pomodoro Focus — Shadow's Garden</title>
-<meta name="description" content="Simple Pomodoro timer with work/break cycles and session tracking">
+<title>Pomodoro Timer — Shadow's Garden</title>
+<meta name="description" content="Classic Pomodoro timer with work/break intervals, customizable durations, and audio notification">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --work: #ef4444;
-    --break: #22c55e;
-    --long-break: #3b82f6;
-  }
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  }
   .pomodoro {
-    background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 1rem;
+    max-width: 500px;
+    margin: 0 auto;
     padding: 2rem;
-    width: 100%;
-    max-width: 400px;
     text-align: center;
   }
-  h1 {
-    color: #fff;
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
   .timer-display {
-    font-size: 5rem;
-    font-weight: bold;
-    color: var(--work);
-    margin: 1.5rem 0;
+    font-size: 6rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    color: var(--accent, #cba6f7);
+    line-height: 1;
+    margin: 2rem 0;
+    text-shadow: 0 0 40px rgba(203, 166, 247, 0.3);
   }
-  .timer-display.break { color: var(--break); }
-  .timer-display.long-break { color: var(--long-break); }
-  .mode-label {
-    font-size: 0.8rem;
+  .timer-display.break {
+    color: #a6e3a1;
+    text-shadow: 0 0 40px rgba(166, 227, 161, 0.3);
+  }
+  .timer-display.paused {
+    color: #f9e2af;
+    text-shadow: 0 0 40px rgba(249, 226, 175, 0.3);
+  }
+  .status {
+    font-size: 1.25rem;
+    color: var(--text-secondary, #a6adc8);
     text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.1em;
   }
   .controls {
     display: flex;
-    gap: 0.75rem;
+    gap: 1rem;
     justify-content: center;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
+    flex-wrap: wrap;
   }
   button {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    color: #fff;
+    padding: 1rem 2rem;
     font-size: 1rem;
-    font-family: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: inherit;
   }
-  button:hover {
-    background: rgba(255,255,255,0.2);
+  .btn-primary {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  button.primary {
-    background: var(--work);
-    border-color: var(--work);
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 30px rgba(203, 166, 247, 0.4);
   }
-  button.primary:hover {
-    background: #dc2626;
+  .btn-secondary {
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+  }
+  .btn-secondary:hover {
+    background: var(--border, #45475a);
+  }
+  .btn-reset {
+    background: transparent;
+    border: 2px solid var(--border, #45475a);
+    color: var(--text-secondary, #a6adc8);
+  }
+  .btn-reset:hover {
+    border-color: var(--text-secondary, #a6adc8);
+    color: var(--text, #cdd6f4);
+  }
+  .settings {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: left;
+    border: 1px solid var(--border, #313244);
+  }
+  .settings h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: var(--text-secondary, #a6adc8);
+    margin-bottom: 1rem;
+  }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .setting-row:last-child {
+    margin-bottom: 0;
+  }
+  .setting-row label {
+    color: var(--text, #cdd6f4);
+  }
+  .setting-row input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 6px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
+    font-size: 1rem;
+    text-align: center;
+  }
+  .stats {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
+    border: 1px solid var(--border, #313244);
+  }
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border, #313244);
+  }
+  .stat-item:last-child {
+    border-bottom: none;
+  }
+  .stat-value {
+    color: var(--accent, #cba6f7);
+    font-weight: 600;
   }
   .presets {
     display: flex;
     gap: 0.5rem;
-    justify-content: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     flex-wrap: wrap;
   }
-  .presets button {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.75rem;
-    background: transparent;
-    border-color: rgba(255,255,255,0.15);
-  }
-  .presets button.active {
-    border-color: var(--work);
-    color: var(--work);
-  }
-  .session-info {
-    color: rgba(255,255,255,0.6);
+  .preset-btn {
+    padding: 0.4rem 0.75rem;
     font-size: 0.8rem;
-    margin-top: 1.5rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
   }
-  .session-info span {
-    color: var(--work);
-    font-weight: bold;
+  .preset-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  .stats {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
+  .sound-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+  .sound-toggle input {
+    width: auto;
   }
-  .stat {
-    background: rgba(0,0,0,0.2);
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-  }
-  .stat-value {
-    font-size: 1.5rem;
-    color: #fff;
-    font-weight: bold;
-  }
-  .stat-label {
-    font-size: 0.65rem;
-    color: rgba(255,255,255,0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .history {
-    margin-top: 1rem;
-    text-align: left;
-    max-height: 150px;
-    overflow-y: auto;
-  }
-  .history-item {
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.5);
-    padding: 0.25rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-  .history-item.work { color: var(--work); }
-  .history-item.break { color: var(--break); }
 </style>
 </head>
 <body data-page-type="app">
 <div class="pomodoro">
-  <h1>🍅 Pomodoro Focus</h1>
-  
-  <div class="mode-label" id="modeLabel">Work Session</div>
-  <div class="timer-display" id="timerDisplay">25:00</div>
-  
-  <div class="presets">
-    <button onclick="setMode('work')" id="btnWork" class="active">Work 25</button>
-    <button onclick="setMode('break')" id="btnBreak">Break 5</button>
-    <button onclick="setMode('long-break')" id="btnLong">Long 15</button>
-  </div>
+  <h1>🍅 Pomodoro Timer</h1>
+  <div class="status" id="status">Ready to focus</div>
+  <div class="timer-display" id="timer">25:00</div>
   
   <div class="controls">
-    <button class="primary" id="startBtn" onclick="toggleTimer()">Start</button>
-    <button onclick="resetTimer()">Reset</button>
-    <button onclick="skipSession()">Skip</button>
+    <button class="btn-primary" id="startBtn" onclick="startTimer()">Start</button>
+    <button class="btn-secondary" id="pauseBtn" onclick="pauseTimer()" style="display:none">Pause</button>
+    <button class="btn-reset" onclick="resetTimer()">Reset</button>
+    <button class="btn-secondary" onclick="skipPhase()">Skip</button>
   </div>
-  
-  <div class="session-info">
-    Session <span id="sessionCount">1</span> of 4
-  </div>
-  
+
   <div class="stats">
-    <div class="stats-grid">
-      <div class="stat">
-        <div class="stat-value" id="totalSessions">0</div>
-        <div class="stat-label">Sessions Today</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="totalMinutes">0</div>
-        <div class="stat-label">Minutes Focused</div>
+    <div class="stat-item">
+      <span>Sessions completed</span>
+      <span class="stat-value" id="sessions">0</span>
+    </div>
+    <div class="stat-item">
+      <span>Total focus time</span>
+      <span class="stat-value" id="totalTime">0 min</span>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h3>Settings</h3>
+    <div class="presets">
+      <button class="preset-btn" onclick="applyPreset(25, 5, 15)">Classic (25/5/15)</button>
+      <button class="preset-btn" onclick="applyPreset(50, 10, 20)">Extended (50/10/20)</button>
+      <button class="preset-btn" onclick="applyPreset(15, 3, 10)">Quick (15/3/10)</button>
+    </div>
+    <div class="setting-row">
+      <label>Work (minutes)</label>
+      <input type="number" id="workDuration" value="25" min="1" max="60" onchange="updateDurations()">
+    </div>
+    <div class="setting-row">
+      <label>Short break (minutes)</label>
+      <input type="number" id="shortBreak" value="5" min="1" max="30" onchange="updateDurations()">
+    </div>
+    <div class="setting-row">
+      <label>Long break (minutes)</label>
+      <input type="number" id="longBreak" value="15" min="1" max="60" onchange="updateDurations()">
+    </div>
+    <div class="setting-row">
+      <label>Long break after</label>
+      <input type="number" id="longBreakAfter" value="4" min="1" max="10" onchange="updateDurations()">
+      <span style="color: var(--text-secondary, #a6adc8); margin-left: 0.5rem;">sessions</span>
+    </div>
+    <div class="setting-row">
+      <label>Sound</label>
+      <div class="sound-toggle">
+        <input type="checkbox" id="soundEnabled" checked>
+        <span>Play notification</span>
       </div>
     </div>
-    <div class="history" id="history"></div>
   </div>
 </div>
 
 <script>
-const modes = {
-  'work': { time: 25 * 60, label: 'Work Session', color: 'work' },
-  'break': { time: 5 * 60, label: 'Short Break', color: 'break' },
-  'long-break': { time: 15 * 60, label: 'Long Break', color: 'long-break' }
-};
+  let workTime = 25 * 60;
+  let shortBreakTime = 5 * 60;
+  let longBreakTime = 15 * 60;
+  let longBreakAfter = 4;
+  
+  let timeLeft = workTime;
+  let isRunning = false;
+  let isPaused = false;
+  let isBreak = false;
+  let currentSession = 0;
+  let totalFocusSeconds = 0;
+  let timerInterval = null;
 
-let currentMode = 'work';
-let timeLeft = modes.work.time;
-let timer = null;
-let isRunning = false;
-let sessionCount = 1;
-let sessionsCompleted = 0;
+  // Load from localStorage
+  const saved = JSON.parse(localStorage.getItem('pomodoroStats') || '{}');
+  if (saved.sessions) currentSession = saved.sessions;
+  if (saved.totalSeconds) totalFocusSeconds = saved.totalSeconds;
+  updateStats();
 
-// Load stats from localStorage
-const today = new Date().toDateString();
-let stats = JSON.parse(localStorage.getItem('pomodoroStats') || '{}');
-if (stats.date !== today) {
-  stats = { date: today, sessions: 0, minutes: 0, history: [] };
-}
-updateStatsDisplay();
+  function saveStats() {
+    localStorage.setItem('pomodoroStats', JSON.stringify({
+      sessions: currentSession,
+      totalSeconds: totalFocusSeconds
+    }));
+  }
 
-const timerDisplay = document.getElementById('timerDisplay');
-const modeLabel = document.getElementById('modeLabel');
-const startBtn = document.getElementById('startBtn');
-
-function updateDisplay() {
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
-  timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  timerDisplay.className = 'timer-display ' + modes[currentMode].color;
-  modeLabel.textContent = modes[currentMode].label;
-}
-
-function toggleTimer() {
-  if (isRunning) {
-    clearInterval(timer);
-    isRunning = false;
-    startBtn.textContent = 'Start';
-  } else {
-    timer = setInterval(() => {
-      timeLeft--;
+  function updateDurations() {
+    workTime = parseInt(document.getElementById('workDuration').value) * 60;
+    shortBreakTime = parseInt(document.getElementById('shortBreak').value) * 60;
+    longBreakTime = parseInt(document.getElementById('longBreak').value) * 60;
+    longBreakAfter = parseInt(document.getElementById('longBreakAfter').value);
+    if (!isRunning && !isPaused) {
+      timeLeft = workTime;
       updateDisplay();
-      if (timeLeft <= 0) {
-        completeSession();
+    }
+  }
+
+  function applyPreset(work, short, long) {
+    document.getElementById('workDuration').value = work;
+    document.getElementById('shortBreak').value = short;
+    document.getElementById('longBreak').value = long;
+    updateDurations();
+  }
+
+  function updateDisplay() {
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    const display = document.getElementById('timer');
+    display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    display.classList.remove('break', 'paused');
+    if (isBreak) display.classList.add('break');
+    if (isPaused && isRunning) display.classList.add('paused');
+  }
+
+  function updateStats() {
+    document.getElementById('sessions').textContent = currentSession;
+    const hours = Math.floor(totalFocusSeconds / 3600);
+    const mins = Math.floor((totalFocusSeconds % 3600) / 60);
+    document.getElementById('totalTime').textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+  }
+
+  function startTimer() {
+    if (isRunning && !isPaused) return;
+    
+    isRunning = true;
+    isPaused = false;
+    
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('pauseBtn').style.display = 'inline-block';
+    
+    const status = isBreak ? (currentSession % longBreakAfter === 0 && currentSession > 0 ? 'Long break' : 'Short break') : 'Focus time';
+    document.getElementById('status').textContent = status;
+    
+    timerInterval = setInterval(() => {
+      if (timeLeft > 0) {
+        timeLeft--;
+        if (!isBreak) totalFocusSeconds++;
+        updateDisplay();
+      } else {
+        completePhase();
       }
     }, 1000);
-    isRunning = true;
-    startBtn.textContent = 'Pause';
   }
-}
 
-function resetTimer() {
-  clearInterval(timer);
-  isRunning = false;
-  timeLeft = modes[currentMode].time;
-  startBtn.textContent = 'Start';
-  updateDisplay();
-}
-
-function setMode(mode) {
-  currentMode = mode;
-  timeLeft = modes[mode].time;
-  clearInterval(timer);
-  isRunning = false;
-  startBtn.textContent = 'Start';
-  
-  document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1).replace('-', '')).classList.add('active');
-  
-  updateDisplay();
-}
-
-function completeSession() {
-  clearInterval(timer);
-  isRunning = false;
-  startBtn.textContent = 'Start';
-  
-  // Play notification sound
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.frequency.value = 800;
-    gain.gain.value = 0.3;
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.2);
-  } catch(e) {}
-  
-  if (currentMode === 'work') {
-    sessionsCompleted++;
-    stats.sessions++;
-    stats.minutes += 25;
-    stats.history.unshift({ type: 'work', time: new Date().toLocaleTimeString() });
+  function pauseTimer() {
+    if (!isRunning) return;
     
-    if (sessionsCompleted >= 4) {
-      sessionsCompleted = 0;
-      sessionCount = 1;
-      currentMode = 'long-break';
-      timeLeft = modes['long-break'].time;
-    } else {
-      sessionCount++;
-      currentMode = 'break';
-      timeLeft = modes['break'].time;
+    clearInterval(timerInterval);
+    isPaused = true;
+    isRunning = false;
+    
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('startBtn').textContent = 'Resume';
+    document.getElementById('status').textContent = 'Paused';
+    updateDisplay();
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    isPaused = false;
+    isBreak = false;
+    timeLeft = workTime;
+    
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('startBtn').textContent = 'Start';
+    document.getElementById('status').textContent = 'Ready to focus';
+    updateDisplay();
+  }
+
+  function skipPhase() {
+    clearInterval(timerInterval);
+    completePhase();
+  }
+
+  function completePhase() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    isPaused = false;
+    
+    // Play sound
+    if (document.getElementById('soundEnabled').checked) {
+      playNotification();
     }
-  } else {
-    currentMode = 'work';
-    timeLeft = modes['work'].time;
+    
+    if (!isBreak) {
+      // Work session complete
+      currentSession++;
+      saveStats();
+      updateStats();
+      
+      // Determine break type
+      if (currentSession % longBreakAfter === 0) {
+        timeLeft = longBreakTime;
+        isBreak = true;
+        document.getElementById('status').textContent = 'Long break! Take a real rest.';
+      } else {
+        timeLeft = shortBreakTime;
+        isBreak = true;
+        document.getElementById('status').textContent = 'Short break! You earned it.';
+      }
+    } else {
+      // Break complete
+      timeLeft = workTime;
+      isBreak = false;
+      document.getElementById('status').textContent = 'Ready to focus';
+    }
+    
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('startBtn').textContent = 'Start';
+    updateDisplay();
   }
-  
-  localStorage.setItem('pomodoroStats', JSON.stringify(stats));
-  updateStatsDisplay();
+
+  function playNotification() {
+    // Create a simple beep using Web Audio API
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.5);
+      
+      // Second beep
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.frequency.value = 1000;
+        osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc2.start(audioCtx.currentTime);
+        osc2.stop(audioCtx.currentTime + 0.5);
+      }, 200);
+    } catch (e) {
+      console.log('Audio not supported');
+    }
+  }
+
+  // Initialize
   updateDisplay();
-}
-
-function skipSession() {
-  if (currentMode === 'work' && isRunning) {
-    // Skipping work doesn't count
-  } else if (currentMode !== 'work') {
-    currentMode = 'work';
-    timeLeft = modes['work'].time;
-  }
-  resetTimer();
-}
-
-function updateStatsDisplay() {
-  document.getElementById('totalSessions').textContent = stats.sessions;
-  document.getElementById('totalMinutes').textContent = stats.minutes;
-  document.getElementById('sessionCount').textContent = sessionCount;
-  
-  const historyEl = document.getElementById('history');
-  historyEl.innerHTML = stats.history.slice(0, 10).map(h => 
-    `<div class="history-item ${h.type}">${h.type === 'work' ? '🍅' : '☕'} ${h.time}</div>`
-  ).join('');
-}
-
-updateDisplay();
 </script>
 </body>
 </html>
