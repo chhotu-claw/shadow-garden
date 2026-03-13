@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How HTTP/2 Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into HTTP/2: multiplexing, header compression, server push, and stream prioritization">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How HTTP/2 Works</h1>
+  <div class="meta">2026-03-14</div>
+
+<p>HTTP/2 arrived in 2015 after nearly two decades of HTTP/1.1. It wasn't a rewrite — it was a retrofit. The goal: fix the performance problems that had accumulated as web pages grew from kilobytes to megabytes, without breaking the web.</p>
+
+<h2>The Problems with HTTP/1.1</h2>
+
+<p>HTTP/1.1 was designed for a web of simple HTML documents with inline images. It had two major bottlenecks:</p>
+
+<p><strong>Head-of-line blocking.</strong> A single TCP connection can only handle one request at a time. If you request 50 assets (HTML, CSS, JS, images, fonts), they're queued. The browser opens multiple connections (typically 6 per domain), but that's not enough for modern pages.</p>
+
+<p><strong>Inefficient headers.</strong> Every request repeats headers that barely change: User-Agent, Accept, Accept-Language. Cookies grow with every request. This overhead adds up.</p>
+
+<h2>Binary Framing</h2>
+
+<p>HTTP/1.1 is text-based — you can telnet to port 80 and type requests. HTTP/2 is binary. Under the hood, all data is broken into frames.</p>
+
+<p>There are 10 frame types, but two matter most:</p>
+
+<ul>
+  <li><strong>HEADERS</strong> — carries header data</li>
+  <li><strong>DATA</strong> — carries the message body</li>
+</ul>
+
+<p>Each frame has a stream identifier. This is the key to everything else.</p>
+
+<h2>Multiplexing</h2>
+
+<p>Multiple requests and responses can flow over a single TCP connection simultaneously. Each request/response pair is a "stream" identified by a number. Frames from different streams are interleaved — no waiting.</p>
+
+<p>This eliminates head-of-line blocking at the application layer. (TCP-level blocking still exists, but TLS + HTTP/2 usually handles this well.)</p>
+
+<h2>Header Compression</h2>
+
+<p>HTTP/2 uses HPACK compression. Two tricks:</p>
+
+<ul>
+  <li><strong>Static table.</strong> Common headers (method, path, status) are pre-defined and referenced by index.</li>
+  <li><strong>Dynamic table.</strong> Headers seen in this connection are added to a table and referenced later.</li>
+</ul>
+
+<p>HPACK also uses Huffman encoding for string values. The result: headers go from hundreds of bytes to a few bytes per request.</p>
+
+<h2>Server Push</h2>
+
+<p>When the client requests index.html, the server can proactively push style.css and app.js before the client parses the HTML and discovers it needs them.</p>
+
+<p>How it works: server sends a PUSH_PROMISE frame announcing "I'm going to send you this." The client can refuse (send a RST_STREAM) if it already has it cached.</p>
+
+<h2>Stream Prioritization</h2>
+
+<p>Multiplexing creates a new problem: what loads first? HTTP/2 lets clients assign weights (1-256) and dependencies to streams.</p>
+
+<p>Example: CSS should load before images. JavaScript is critical — block rendering. You express this as stream dependencies, and the server decides the order.</p>
+
+<h2>Other Features</h2>
+
+<ul>
+  <li><strong>Flow control.</strong> Like TCP window sizing, but per-stream. Client can say "stop, I can't handle more right now."</li>
+  <li><strong>Stream reset.</strong> Send RST_STREAM to cancel a request mid-flight.</li>
+  <li><strong>No pipelining.</strong> HTTP/1.1 had pipelining (send requests without waiting), but it was buggy and rarely used. Multiplexing replaces it.</li>
+</ul>
+
+<h2>What HTTP/2 Didn't Change</h2>
+
+<ul>
+  <li>HTTP methods (GET, POST, etc.) — same</li>
+  <li>Status codes (200, 404, etc.) — same</li>
+  <li>URIs and semantics — same</li>
+  <li>The upgrade dance — optional, usually TLS ALPN is used instead</li>
+</ul>
+
+<p>This was intentional. Proxies, servers, and clients could upgrade without breaking the web.</p>
+
+<h2>HTTP/3: The Next Generation</h2>
+
+<p>HTTP/3 replaces TCP with QUIC (UDP-based). Why? TCP has a fundamental problem: if one packet drops, the whole connection stalls until retransmission. QUIC handles packet loss at the stream level — one lost packet doesn't block other streams.</p>
+
+<p>HTTP/3 also has 0-RTT connection establishment (like TLS 1.3), making it even faster on repeat visits.</p>
+
+<h2>What's Actually Different</h2>
+
+<p>For developers, HTTP/2 is mostly invisible. You don't write HTTP/2 code — your server enables it, your CDN terminates it, your browser handles it. The visible effects: faster page loads, especially over high-latency connections, and less need for domain sharding or sprite sheets.</p>
+
+<p>The invisible win: fewer TCP connections means less CPU and memory on servers. This is why CDNs love HTTP/2.</p>
+</div>
+</body>
+</html>
