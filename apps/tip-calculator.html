@@ -4,236 +4,341 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tip Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate tips, split bills, figure out per-person amounts. No math required.">
+<meta name="description" content="Calculate tips quickly — custom percentages, split the bill, save defaults">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #f59e0b;
-    --accent-dark: #d97706;
+  .tip-calculator {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 2rem;
   }
-  body {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    background: linear-gradient(135deg, #1f1f1f 0%, #2d2d2d 100%);
-  }
-  .calculator {
-    background: #fff;
-    border-radius: 1rem;
+  .card {
+    background: var(--card-bg, #1e1e2e);
+    border-radius: 12px;
     padding: 1.5rem;
-    width: 100%;
-    max-width: 380px;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border, #313244);
   }
   h1 {
-    color: #1f1f1f;
-    font-size: 1.25rem;
-    margin-bottom: 1.25rem;
     text-align: center;
+    margin-bottom: 1.5rem;
   }
   .input-group {
     margin-bottom: 1rem;
   }
   label {
     display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #6b7280;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary, #a6adc8);
+    font-size: 0.9rem;
   }
-  input[type="number"] {
+  .currency-input {
+    position: relative;
+  }
+  .currency-input::before {
+    content: "$";
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary, #a6adc8);
+    font-size: 1.2rem;
+  }
+  input[type="number"], input[type="text"] {
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.875rem 1rem 0.875rem 2rem;
+    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    background: var(--input-bg, #11111b);
+    color: var(--text, #cdd6f4);
     font-size: 1.25rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 0.5rem;
     font-family: inherit;
     box-sizing: border-box;
-    transition: border-color 0.2s;
   }
-  input[type="number"]:focus {
+  input:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--accent, #cba6f7);
   }
-  .presets {
-    display: flex;
+  .preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
-  .presets button {
-    flex: 1;
-    padding: 0.6rem 0.5rem;
-    background: #f3f4f6;
-    border: 2px solid transparent;
-    border-radius: 0.5rem;
+  .preset-btn {
+    padding: 0.625rem;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    border-radius: 8px;
     font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
+    transition: all 0.15s;
   }
-  .presets button:hover {
-    background: #e5e7eb;
+  .preset-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  .presets button.active {
-    border-color: var(--accent);
-    background: #fef3c7;
-    color: var(--accent-dark);
+  .preset-btn.active {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
   }
-  .split-row {
+  .custom-tip {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .custom-tip input {
+    width: 80px;
+    padding: 0.5rem;
+    text-align: center;
+  }
+  .custom-tip span {
+    color: var(--text-secondary, #a6adc8);
+  }
+  .split-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .split-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--button-bg, #313244);
+    color: var(--text, #cdd6f4);
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: center;
   }
-  .split-row input {
-    width: 70px;
+  .split-btn:hover {
+    background: var(--accent, #cba6f7);
+    color: var(--bg, #11111b);
+  }
+  .split-display {
+    flex: 1;
     text-align: center;
+    padding: 0.5rem;
+    background: var(--result-bg, #181825);
+    border-radius: 8px;
     font-size: 1rem;
-  }
-  .split-label {
-    color: #6b7280;
-    font-size: 0.9rem;
+    color: var(--text-secondary, #a6adc8);
   }
   .results {
-    background: #f9fafb;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    margin-top: 1.25rem;
+    background: var(--result-bg, #181825);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
   }
   .result-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    font-size: 0.95rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border, #313244);
+  }
+  .result-row:last-child {
+    border-bottom: none;
   }
   .result-row.total {
-    border-top: 2px solid #e5e7eb;
+    border-top: 2px solid var(--accent, #cba6f7);
     margin-top: 0.5rem;
-    padding-top: 0.75rem;
-    font-weight: bold;
-    font-size: 1.1rem;
+    padding-top: 1rem;
   }
-  .result-row.per-person {
-    color: var(--accent-dark);
+  .result-label {
+    color: var(--text-secondary, #a6adc8);
   }
   .result-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text, #cdd6f4);
+  }
+  .result-value.highlight {
+    color: var(--accent, #cba6f7);
+    font-size: 1.5rem;
+  }
+  .save-default {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a6adc8);
+  }
+  .save-default input {
+    width: auto;
+    padding: 0;
+  }
+  .per-person-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #a6adc8);
+    margin-top: 0.25rem;
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="calculator">
+<div class="tip-calculator">
   <h1>💸 Tip Calculator</h1>
   
-  <div class="input-group">
-    <label>Bill Amount</label>
-    <input type="number" id="bill" placeholder="0.00" step="0.01" min="0">
-  </div>
-  
-  <div class="input-group">
-    <label>Tip %</label>
-    <div class="presets">
-      <button onclick="setTip(10)">10%</button>
-      <button onclick="setTip(15)">15%</button>
-      <button onclick="setTip(18)">18%</button>
-      <button onclick="setTip(20)">20%</button>
-      <button onclick="setTip(25)">25%</button>
+  <div class="card">
+    <div class="input-group">
+      <label>Bill Amount</label>
+      <div class="currency-input">
+        <input type="number" id="bill" placeholder="0.00" step="0.01" autofocus>
+      </div>
     </div>
-    <input type="number" id="tipPercent" value="15" min="0" max="100" step="1">
-  </div>
-  
-  <div class="input-group">
-    <label>Split Between</label>
-    <div class="split-row">
-      <input type="number" id="split" value="1" min="1" max="20">
-      <span class="split-label">people</span>
+    
+    <div class="input-group">
+      <label>Tip Percentage</label>
+      <div class="preset-buttons">
+        <button class="preset-btn" data-tip="10">10%</button>
+        <button class="preset-btn" data-tip="15">15%</button>
+        <button class="preset-btn" data-tip="18">18%</button>
+        <button class="preset-btn" data-tip="20">20%</button>
+      </div>
+      <div class="custom-tip">
+        <input type="number" id="custom-tip" placeholder="25" min="0" max="100">
+        <span>%</span>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label>Split Between</label>
+      <div class="split-controls">
+        <button class="split-btn" id="split-minus">−</button>
+        <div class="split-display"><span id="split-count">1</span> person<span id="split-plural"></span></div>
+        <button class="split-btn" id="split-plus">+</button>
+      </div>
+    </div>
+    
+    <div class="save-default">
+      <input type="checkbox" id="save-default">
+      <label for="save-default">Remember my preferred tip %</label>
     </div>
   </div>
   
   <div class="results">
     <div class="result-row">
-      <span>Tip</span>
-      <span class="result-value" id="tipAmount">$0.00</span>
+      <span class="result-label">Tip</span>
+      <span class="result-value" id="tip-amount">$0.00</span>
     </div>
     <div class="result-row total">
-      <span>Total</span>
-      <span class="result-value" id="totalAmount">$0.00</span>
+      <span class="result-label">Total</span>
+      <span class="result-value" id="total-amount">$0.00</span>
     </div>
-    <div class="result-row per-person">
-      <span>Per Person</span>
-      <span class="result-value" id="perPerson">$0.00</span>
+    <div class="result-row">
+      <span class="result-label">Per Person</span>
+      <div>
+        <div class="result-value highlight" id="per-person">$0.00</div>
+        <div class="per-person-label" id="per-person-label"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-const billInput = document.getElementById('bill');
-const tipInput = document.getElementById('tipPercent');
-const splitInput = document.getElementById('split');
-const tipDisplay = document.getElementById('tipAmount');
-const totalDisplay = document.getElementById('totalAmount');
-const perPersonDisplay = document.getElementById('perPerson');
-const presetBtns = document.querySelectorAll('.presets button');
+  const billInput = document.getElementById('bill');
+  const customTipInput = document.getElementById('custom-tip');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  const splitMinus = document.getElementById('split-minus');
+  const splitPlus = document.getElementById('split-plus');
+  const splitCount = document.getElementById('split-count');
+  const splitPlural = document.getElementById('split-plural');
+  const tipAmount = document.getElementById('tip-amount');
+  const totalAmount = document.getElementById('total-amount');
+  const perPerson = document.getElementById('per-person');
+  const perPersonLabel = document.getElementById('per-person-label');
+  const saveDefault = document.getElementById('save-default');
 
-function setTip(percent) {
-  tipInput.value = percent;
-  presetBtns.forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.textContent) === percent);
-  });
-  calculate();
-}
+  let tipPercent = 15;
+  let split = 1;
 
-function calculate() {
-  const bill = parseFloat(billInput.value) || 0;
-  const tipPercent = parseFloat(tipInput.value) || 0;
-  const split = parseInt(splitInput.value) || 1;
-  
-  const tipAmount = bill * (tipPercent / 100);
-  const total = bill + tipAmount;
-  const perPerson = total / split;
-  
-  tipDisplay.textContent = formatMoney(tipAmount);
-  totalDisplay.textContent = formatMoney(total);
-  perPersonDisplay.textContent = formatMoney(perPerson);
-  
-  // Save
-  localStorage.setItem('tipCalc', JSON.stringify({
-    lastTip: tipPercent,
-    lastSplit: split
-  }));
-}
+  // Load saved preference
+  const savedTip = localStorage.getItem('preferredTipPercent');
+  if (savedTip) {
+    tipPercent = parseInt(savedTip);
+    customTipInput.value = tipPercent;
+    updatePresetActive();
+    saveDefault.checked = true;
+  }
 
-function formatMoney(amount) {
-  return '$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
+  function formatCurrency(amount) {
+    return '$' + amount.toFixed(2);
+  }
 
-// Load saved
-const saved = localStorage.getItem('tipCalc');
-if (saved) {
-  try {
-    const prefs = JSON.parse(saved);
-    if (prefs.lastTip) {
-      tipInput.value = prefs.lastTip;
-      setTip(prefs.lastTip);
+  function calculate() {
+    const bill = parseFloat(billInput.value) || 0;
+    const tip = bill * (tipPercent / 100);
+    const total = bill + tip;
+    const perPersonAmount = split > 0 ? total / split : total;
+
+    tipAmount.textContent = formatCurrency(tip);
+    totalAmount.textContent = formatCurrency(total);
+    perPerson.textContent = formatCurrency(perPersonAmount);
+
+    if (split > 1) {
+      perPersonLabel.textContent = `each (split ${split} ways)`;
+    } else {
+      perPersonLabel.textContent = '';
     }
-    if (prefs.lastSplit) splitInput.value = prefs.lastSplit;
-  } catch(e) {}
-} else {
-  setTip(15);
-}
+  }
 
-billInput.addEventListener('input', calculate);
-tipInput.addEventListener('input', () => {
-  presetBtns.forEach(btn => btn.classList.remove('active'));
+  function updatePresetActive() {
+    presetBtns.forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.tip) === tipPercent);
+    });
+  }
+
+  // Event listeners
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tipPercent = parseInt(btn.dataset.tip);
+      customTipInput.value = '';
+      updatePresetActive();
+      calculate();
+    });
+  });
+
+  customTipInput.addEventListener('input', () => {
+    tipPercent = parseInt(customTipInput.value) || 0;
+    presetBtns.forEach(btn => btn.classList.remove('active'));
+    calculate();
+  });
+
+  billInput.addEventListener('input', calculate);
+
+  splitMinus.addEventListener('click', () => {
+    if (split > 1) {
+      split--;
+      splitCount.textContent = split;
+      splitPlural.textContent = split > 1 ? 's' : '';
+      calculate();
+    }
+  });
+
+  splitPlus.addEventListener('click', () => {
+    if (split < 20) {
+      split++;
+      splitCount.textContent = split;
+      splitPlural.textContent = split > 1 ? 's' : '';
+      calculate();
+    }
+  });
+
+  saveDefault.addEventListener('change', () => {
+    if (saveDefault.checked) {
+      localStorage.setItem('preferredTipPercent', tipPercent);
+    } else {
+      localStorage.removeItem('preferredTipPercent');
+    }
+  });
+
+  // Initial calculation
   calculate();
-});
-splitInput.addEventListener('input', calculate);
-
-// Auto-focus bill
-billInput.focus();
 </script>
 </body>
 </html>
