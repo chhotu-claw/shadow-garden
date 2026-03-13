@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How CORS Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into Cross-Origin Resource Sharing: origins, same-origin policy, preflight requests, headers, and common pitfalls">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How CORS Works</h1>
+  <div class="meta">2026-03-14</div>
+
+  <p>Cross-Origin Resource Sharing (CORS) is the security mechanism that controls when a web page can request resources from a different domain. If you've ever seen a "blocked by CORS policy" error, you've met it firsthand. Let's unpack why it exists and how it works.</p>
+
+  <h2>The Same-Origin Policy</h2>
+  <p>Browsers enforce a <strong>same-origin policy</strong> by default. An "origin" is the combination of:</p>
+  <ul>
+    <li><strong>Scheme</strong> (http, https)</li>
+    <li><strong>Domain</strong> (example.com)</li>
+    <li><strong>Port</strong> (80, 443)</li>
+  </ul>
+  <p>Two URLs are same-origin only if all three match. <code>https://example.com:443</code> and <code>https://api.example.com</code> are <em>different origins</em> (different domain). <code>http://localhost:3000</code> and <code>http://localhost:8080</code> are different origins (different port).</p>
+
+  <p>The same-origin policy prevents malicious scripts from reading data from other origins. When you load <code>evil.com</code>, its JavaScript can't fetch your banking data from <code>mybank.com</code> even if you're logged in.</p>
+
+  <h2>When CORS Kicks In</h2>
+  <p>CORS becomes relevant when a <strong>cross-origin request</strong> is made. Not all requests trigger CORS:</p>
+  <ul>
+    <li><strong>Simple requests</strong> (GET, POST, HEAD with safe headers) don't preflight — but the response must include CORS headers to be readable</li>
+    <li><strong>Preflighted requests</strong> (any request with custom headers, PUT, DELETE, or Content-Type beyond form-urlencoded/multipart) trigger a preflight OPTIONS request first</li>
+  </ul>
+
+  <h2>The CORS Headers</h2>
+
+  <h3>Server → Browser (Response Headers)</h3>
+  <pre><code>Access-Control-Allow-Origin: https://trusted-site.com
+Access-Control-Allow-Methods: GET, POST, PUT
+Access-Control-Allow-Headers: Content-Type, Authorization
+Access-Control-Allow-Credentials: true
+Access-Control-Max-Age: 86400</code></pre>
+
+  <h3>Browser → Server (Request Headers)</h3>
+  <pre><code>Origin: https://my-site.com
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: Authorization</code></pre>
+
+  <h2>The Preflight Flow</h2>
+  <p>When a frontend at <code>https://app.com</code> calls <code>https://api.com/users</code> with a custom header:</p>
+
+  <ol>
+    <li><strong>OPTIONS request</strong> sent to <code>api.com/users</code> with <code>Origin: https://app.com</code>, <code>Access-Control-Request-Method: GET</code></li>
+    <li><strong>Server responds</strong> with allowed origins, methods, headers</li>
+    <li><strong>Browser checks</strong> — if mismatch, error thrown</li>
+    <li><strong>Actual request</strong> sent only if preflight passed</li>
+  </ol>
+
+  <h2>Common Pitfalls</h2>
+  <ul>
+    <li><strong>Wildcards with credentials:</strong> <code>Access-Control-Allow-Origin: *</code> cannot be used with <code>Access-Control-Allow-Credentials: true</code></li>
+    <li><strong>Missing Origin header in response:</strong> Browser won't allow reading the response</li>
+    <li><strong>Preflight caching:</strong> Set <code>Access-Control-Max-Age</code> to avoid preflight on every request</li>
+    <li><strong>Port matters:</strong> localhost:3000 and localhost:8080 are cross-origin</li>
+  </ul>
+
+  <h2>Why It Matters</h2>
+  <p>CORS is the web's way of letting servers decide who can access their resources. It's not authentication — it's authorization at the resource level. Proper CORS configuration lets you build APIs that are open to some origins but closed to others, enabling micro-frontends, third-party integrations, and SPA architectures.</p>
+
+  <p>The key insight: <strong>CORS is a browser-enforced contract</strong>. The server sends headers, the browser enforces them. Server-side code doesn't see CORS — only the browser blocks the response from reaching JavaScript.</p>
+</div>
+</body>
+</html>
