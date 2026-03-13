@@ -4,120 +4,135 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How WebSockets Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on WebSockets — the persistent, bidirectional connection that changed how the web communicates">
+<meta name="description" content="Deep dive into WebSockets: HTTP upgrade, frames, bidirectional communication, and real-world usage">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How WebSockets Work</h1>
-  <div class="meta">March 12, 2026</div>
-  
-  <p>HTTP was designed for documents, not data. You make a request, you get a response, the connection closes. This worked fine when the web was a collection of static pages. It falls apart when you need real-time updates — stock tickers, live dashboards, collaborative editing, notifications.</p>
+  <div class="meta">2026-03-13 · DEEP DIVE</div>
 
-  <p>WebSockets fix this by keeping the connection open.</p>
+<h2>The Problem with HTTP</h2>
+<p>HTTP is request-response. Client asks, server answers, connection closes. This works fine for loading pages — you ask for HTML, you get HTML, done. But what happens when the server has new data to push? Polling. Constantly asking "any new data yet? any new data yet?"</p>
+<p>That's waste. WebSockets fix this.</p>
 
-  <h2>The HTTP Handshake</h2>
-  
-  <p>A WebSocket connection starts as a regular HTTP request. The client sends a special header asking to "upgrade" the connection:</p>
-  
-  <pre><code>GET /ws HTTP/1.1
+<h2>The Upgrade</h2>
+<p>A WebSocket connection starts as a normal HTTP request:</p>
+<pre><code>GET /ws HTTP/1.1
 Host: example.com
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
 Sec-WebSocket-Version: 13</code></pre>
-  
-  <p>If the server supports WebSockets, it responds with:</p>
-  
-  <pre><code>HTTP/1.1 101 Switching Protocols
+
+<p>Server responds:</p>
+<pre><code>HTTP/1.1 101 Switching Protocols
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</code></pre>
-  
-  <p>And just like that, the HTTP connection transforms into a WebSocket. The port stays the same (usually 80 or 443), but the protocol changes.</p>
 
-  <h2>Frames: The Building Blocks</h2>
-  
-  <p>Once established, data travels in frames. A WebSocket frame is remarkably simple:</p>
-  
-  <ul>
-    <li><strong>FIN</strong> (1 bit): Is this the last frame of the message?</li>
-    <li><strong>OPCODE</strong> (4 bits): What type of frame? (0x1 = text, 0x2 = binary, 0x8 = close, 0x9 = ping, 0xA = pong)</li>
-    <li><strong>MASK</strong> (1 bit): Is the payload masked?</li>
-    <li><strong>PAYLOAD LENGTH</strong> (7, 7+16, or 7+64 bits): How long is the data?</li>
-    <li><strong>MASKING KEY</strong> (0 or 4 bytes): Used to XOR the payload</li>
-    <li><strong>PAYLOAD</strong>: The actual data</li>
-  </ul>
-  
-  <p>The masking bit is always 1 when the client sends data (server-to-client frames are unmasked). This prevents proxy interference and caching attacks.</p>
+<p>That's it. Protocol switch. The TCP connection stays open. Now both sides can send data anytime.</p>
 
-  <h2>Bidirectional Communication</h2>
-  
-  <p>Unlike HTTP, where only the client initiates requests, WebSockets allow either side to send frames at any time. Neither needs permission. Neither needs a new handshake. The connection is a full-duplex pipe — both ends can talk, listen, and switch roles instantly.</p>
+<h2>The Frames</h2>
+<p>WebSocket data travels in frames. Not HTTP messages — frames. Each frame has:</p>
+<ul>
+  <li><strong>FIN</strong> (1 bit) — is this the last fragment?</li>
+  <li><strong>Opcode</strong> (4 bits) — what kind of message? 0x1 = text, 0x2 = binary, 0x8 = close, 0x9 = ping, 0xA = pong</li>
+  <li><strong>Mask</strong> (1 bit) — is the payload masked?</li>
+  <li><strong>Payload length</strong> (7, 7+16, or 7+64 bits)</li>
+  <li><strong>Masking key</strong> (0 or 4 bytes) — used to obfuscate data</li>
+  <li><strong>Payload</strong> — the actual data</li>
+</ul>
 
-  <h2>Ping and Pong: The Heartbeat</h2>
-  
-  <p>Connections can die silently — routers reboot, NAT tables expire, servers crash. To detect this, WebSockets have a ping/pong mechanism:</p>
-  
-  <ul>
-    <li>Either side can send a ping (OPCODE 0x9)</li>
-    <li>The other side must respond with a pong (OPCODE 0xA) containing the same payload</li>
-  </ul>
-  
-  <p>Most implementations send automatic pings every 30-60 seconds. If pongs stop arriving, the connection is dead and should be recreated.</p>
+<p>Why mask? Originally required for security when proxied. Payload is XOR'd with a random key per frame. Receiver XOR's again to get original data.</p>
 
-  <h2>Subprotocols</h2>
-  
-  <p>WebSockets are a transport layer. They don't care what you send — text, JSON, binary, protocol buffers. But you can negotiate subprotocols during the handshake to agree on a message format:</p>
-  
-  <pre><code>Sec-WebSocket-Protocol: graphql-ws, json</code></pre>
-  
-  <p>Common subprotocols include WAMP (WebSocket Application Messaging Protocol), MQTT-SN for IoT, and various custom formats for real-time apps.</p>
+<h2>Bidirectional Magic</h2>
+<p>Unlike HTTP where client always initiates, WebSocket messages can go either direction. Server can push. Client can push. No asking permission.</p>
 
-  <h2>Security Considerations</h2>
-  
-  <h3>Origin Checks</h3>
-  <p>The server should validate the Origin header. Without this, any website can open a WebSocket to your server (unless CORS is properly configured).</p>
-  
-  <h3>Authentication</h3>
-  <p>WebSockets don't have built-in auth. Common approaches:</p>
-  <ul>
-    <li>Query parameters with tokens (easy but visible in URLs)</li>
-    <li>Custom headers (not allowed in browser WebSocket API)</li>
-    <li>Initial handshake over HTTP with session cookies or JWT, then upgrade</li>
-  </ul>
-  
-  <h3>Rate Limiting</h3>
-  <p>Unlike HTTP, WebSocket frames don't trigger new connections. This makes traditional rate limiting ineffective. Many servers implement application-level throttling or per-connection quotas.</p>
+<p>Both sides can send:</p>
+<ul>
+  <li><strong>TEXT frames</strong> — UTF-8 text</li>
+  <li><strong>BINARY frames</strong> — raw bytes</li>
+  <li><strong>CLOSE frames</strong> — graceful shutdown</li>
+  <li><strong>PING/PONG frames</strong> — keepalive and latency check</li>
+</ul>
 
-  <h2>When to Use WebSockets</h2>
-  
-  <p>WebSockets shine when you need:</p>
-  <ul>
-    <li>Low-latency, high-frequency updates (trading, gaming)</li>
-    <li>Server-initiated pushes (notifications, alerts)</li>
-    <li>Long-lived stateful connections (collaborative editing)</li>
-  </ul>
-  
-  <p>Consider HTTP long-polling or Server-Sent Events (SSE) when:</p>
-  <ul>
-    <li>You only need one-way updates from server to client</li>
-    <li>The connection lifetime is short</li>
-    <li>Proxy or firewall compatibility is a concern</li>
-  </ul>
+<h2>Ping-Pong: The Heartbeat</h2>
+<p>WebSockets have no built-in timeout, but middleboxes (load balancers, firewalls) may close idle connections. Solution: PING/PONG.</p>
+<p>Send a PING (opcode 0x9), receive a PONG (opcode 0xA). This keeps the connection alive and detects if the other side is dead.</p>
 
-  <h2>The Modern Alternative: HTTP/2 and HTTP/3</h2>
-  
-  <p>HTTP/2's multiplexing makes WebSockets less necessary for some use cases — you can send multiple requests over a single connection. HTTP/3's QUIC protocol further improves real-time performance with 0-RTT connection establishment.</p>
-  
-  <p>But WebSockets remain the simplest solution for truly bidirectional, event-driven communication in browsers. The API is straightforward, the protocol is well-understood, and every language has libraries.</p>
+<h2>Subprotocols</h2>
+<p>WebSocket is a transport. The application protocol on top is up to you. Common ones:</p>
+<ul>
+  <li><strong>SOAP</strong> — XML over WebSocket</li>
+  <li><strong>MQTT</strong> — lightweight messaging</li>
+  <li><strong>WAMP</strong> — RPC + pub/sub</li>
+  <li><strong>GraphQL subscriptions</strong> — often over WebSocket</li>
+</ul>
 
-  <h2>The Pattern</h2>
-  
-  <p>WebSockets represent a fundamental shift in web architecture: from request-response to event-driven. The connection stays open, state is maintained, and both ends emit events. This pattern — familiar from desktop and mobile apps — finally came to the web.</p>
-  
-  <p>The web was built for documents. WebSockets brought it to applications.</p>
+<p>You negotiate during the handshake:</p>
+<pre><code>Sec-WebSocket-Protocol: graphql-ws, mqtt</code></pre>
+
+<h2>Security</h2>
+<h3>Origin Checking</h3>
+<p>Server should validate the Origin header. Don't accept connections from untrusted origins.</p>
+
+<h3>WSS (WebSocket Secure)</h3>
+<p>Always use TLS:</p>
+<pre><code>wss://example.com/socket</code></pre>
+
+<p>Not <code>ws://</code>. Unencrypted WebSockets send everything in plaintext including the masking key.</p>
+
+<h3>Input Validation</h3>
+<p>Just because it's WebSocket doesn't mean you skip validation. Validate every message. Don't trust the client.</p>
+
+<h3>Rate Limiting</h3>
+<p>Without rate limits, a compromised client can flood the server. Implement throttling per connection.</p>
+
+<h2>When to Use WebSockets</h2>
+<p><strong>Good for:</strong></p>
+<ul>
+  <li>Real-time chat</li>
+  <li>Live dashboards (stock tickers, metrics)</li>
+  <li>Multiplayer games</li>
+  <li>Collaborative editing</li>
+  <li>Notifications</li>
+</ul>
+
+<p><strong>Bad for:</strong></p>
+<ul>
+  <li>Simple request-response (just use HTTP)</li>
+  <li>High-frequency trading (use binary protocols, co-location)</li>
+  <li>When you need caching (WebSockets don't cache well)</li>
+</ul>
+
+<h2>HTTP/2 and HTTP/3</h2>
+<p>WebSockets predate HTTP/2. With HTTP/2's streams, you can achieve bidirectional communication too. HTTP/3 with QUIC makes it even better. But WebSockets still win for true server push without request overhead.</p>
+
+<h2>The Handshake Math</h2>
+<p>The Sec-WebSocket-Key is base64 of a 16-byte random value. The Sec-WebSocket-Accept is:</p>
+<pre><code>base64(SHA1(sec-websocket-key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))</code></pre>
+
+<p>That magic string is the WebSocket protocol GUID. Client proves it understands the protocol by generating the correct response.</p>
+
+<h2>Closing Connections</h2>
+<p>To close gracefully, send a CLOSE frame (opcode 0x8) with:</p>
+<ul>
+  <li>Close code (1000 = normal, 1001 = going away, etc.)</li>
+  <li>Optional reason string</li>
+</ul>
+
+<p>Always close properly. Don't just kill the TCP connection — send the close frame and wait for response.</p>
+
+<h2>Summary</h2>
+<ul>
+  <li>WebSockets start as HTTP upgrade (101 Switching Protocols)</li>
+  <li>Bidirectional, frame-based communication</li>
+  <li>Text and binary frames, plus PING/PONG for keepalive</li>
+  <li>Use WSS, validate input, rate limit</li>
+  <li>Great for real-time, bad for simple request-response</li>
+</ul>
 </div>
 </body>
 </html>
