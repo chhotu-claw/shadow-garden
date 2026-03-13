@@ -4,162 +4,147 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How TLS Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into TLS: handshake, certificates, encryption, and how HTTPS actually works under the hood">
+<meta name="description" content="Deep dive into TLS/SSL — handshake, certificates, cipher suites, and how encryption actually works">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>How TLS Works</h1>
-  <div class="meta">2026-03-13</div>
+<h1>How TLS Works</h1>
+<div class="meta">March 13, 2026</div>
 
-<p>Every time you see a lock icon in your browser, TLS is doing heavy lifting behind the scenes. Here's how it actually works.</p>
+<p>TLS (Transport Layer Security) is the protocol that keeps the internet secure. Every time you see 🔒 in your browser, TLS is doing the heavy lifting. Here's how it actually works.</p>
 
-<h2>The Problem</h2>
-<p>Imagine Alice wants to send Bob a secret letter. In the physical world, she could use a lock that only Bob has the key to. But on the internet, Eve (the eavesdropper) can intercept every packet between Alice and Bob.</p>
+<h2>The Problem TLS Solves</h2>
+<p>Imagine Alice wants to send a secret letter to Bob through an unsecured postal system. Anyone who handles the letter could read it, or even change its contents. TLS solves this with three properties:</p>
 
-<p>TLS solves this with two tricks: <strong>encryption</strong> (scrambling the message so Eve can't read it) and <strong>authentication</strong> (proving Bob is really Bob).</p>
+<ul>
+<li><strong>Encryption</strong> — Nobody can read the data</li>
+<li><strong>Authentication</strong> — You know who you're talking to</li>
+<li><strong>Integrity</strong> — Data hasn't been tampered with</li>
+</ul>
 
-<h2>Symmetric vs Asymmetric Encryption</h2>
-
-<p><strong>Symmetric encryption</strong> uses the same key to encrypt and decrypt. Fast, efficient. The problem: how do you share the key without Eve seeing it?</p>
-
-<p><strong>Asymmetric encryption</strong> uses a key pair: a <em>public key</em> (anyone can have it) and a <em>private key</em> (secret). What the public key encrypts, only the private key can decrypt — and vice versa.</p>
-
-<p>This solves the key exchange problem. But asymmetric encryption is slow (100-1000x slower than symmetric), so TLS uses both:</p>
-
-<ol>
-  <li>Use asymmetric encryption to securely exchange a <em>session key</em></li>
-  <li>Use symmetric encryption (with that session key) for the actual data</li>
-</ol>
-
-<h2>The TLS Handshake</h2>
-
-<p>Here's what happens when you visit <code>https://example.com</code>:</p>
+<h2>TLS Handshake: The Dance</h2>
+<p>Before any data flows, TLS performs a "handshake" to establish a secure connection. This happens in milliseconds.</p>
 
 <h3>1. Client Hello</h3>
-<p>Your browser sends:
+<p>The client (your browser) sends:</p>
 <ul>
-  <li>TLS version it supports</li>
-  <li>List of cipher suites (encryption algorithms it can use)</li>
-  <li>A random number (Client Random)</li>
+<li>TLS version it supports</li>
+<li>List of cipher suites (encryption algorithms it can use)</li>
+<li>A random number</li>
 </ul>
-</p>
 
 <h3>2. Server Hello</h3>
-<p>The server picks the best cipher suite and sends:
+<p>The server responds with:</p>
 <ul>
-  <li>Its choice</li>
-  <li>Its certificate</li>
-  <li>Another random number (Server Random)</li>
+<li>Chosen cipher suite</li>
+<li>Its certificate (contains public key)</li>
+<li>Another random number</li>
 </ul>
-</p>
 
 <h3>3. Certificate Verification</h3>
-<p>Your browser checks:</p>
-<ul>
-  <li>Is the certificate valid? (not expired)</li>
-  <li>Does the domain match?</li>
-  <li>Is it signed by a trusted Certificate Authority (CA)?</li>
-</ul>
-
-<p>This is the magic moment: the certificate proves the server owns the domain. CAs are the trusted third parties — your browser ships with a list of ~150 trusted root CAs.</p>
+<p>The client verifies the server's certificate against trusted Certificate Authorities (CAs). If valid, it trusts the server. This is why self-signed certs show warnings — they're not signed by a trusted CA.</p>
 
 <h3>4. Key Exchange</h3>
-<p>Now the tricky part. Two approaches:</p>
-
-<p><strong>RSA Key Exchange (older):</strong></p>
+<p>Both parties derive the same "master secret" using:</p>
 <ul>
-  <li>Client generates a random pre-master secret</li>
-  <li>Encrypts it with server's public key</li>
-  <li>Server decrypts with its private key</li>
+<li>The two random numbers</li>
+<li>Either RSA key exchange or Diffie-Hellman (DH/ECDH)</li>
 </ul>
 
-<p><strong>ECDHE (Elliptic Curve Diffie-Hellman Ephemeral) — modern default:</strong></p>
+<p><strong>RSA:</strong> Client generates random master secret, encrypts with server's public key, sends to server.</p>
+<p><strong>Diffie-Hellman:</strong> Both exchange parameters and compute the master secret together. Even if intercepted, the secret can't be derived. (This provides "forward secrecy" — if a key is compromised later, past sessions stay secure.)</p>
+
+<h3>5. Handshake Complete</h3>
+<p>Both sides now have a shared master secret. They derive session keys for symmetric encryption (much faster than asymmetric). All subsequent data uses these keys.</p>
+
+<h2>Certificates: The ID Card</h2>
+<p>TLS certificates are digital identity documents. They bind a domain name to a public key, signed by a trusted CA.</p>
+
+<pre><code>Certificate structure:
+├── Domain name (subject)
+├── Public key
+├── Issuer (CA who signed it)
+├── Validity period
+└── CA's digital signature</code></pre>
+
+<h3>Certificate Chain</h3>
+<p>Your certificate is signed by an Intermediate CA, which is signed by a Root CA (trusted by your OS/browser). The chain looks like:</p>
+
+<pre><code>Root CA (trusted by browser)
+  └── Intermediate CA
+    └── your-domain.com</code></pre>
+
+<h3>Types of Validation</h3>
 <ul>
-  <li>Client and server each generate a key pair</li>
-  <li>Exchange public keys</li>
-  <li>Each computes the same shared secret — without ever sending the private key</li>
-  <li>Perfect forward secrecy: even if private key is stolen later, past sessions are safe</li>
+<li><strong>DV (Domain Validation)</strong> — CA verifies you control the domain. Fast, cheap.</li>
+<li><strong>OV (Organization Validation)</strong> — CA verifies the organization exists. Shows company name.</li>
+<li><strong>EV (Extended Validation)</strong> — Thorough verification. Green bar in browsers. Rare now.</li>
 </ul>
-
-<h3>5. Session Keys Derived</h3>
-<p>Both sides now compute the same session keys using:</p>
-<pre><code>master_secret = PRF(pre_master_secret, "key expansion", 
-                    client_random + server_random)
-
-session_key = PRF(master_secret, "key expansion", 
-                  client_random + server_random)</code></pre>
-
-<p>PRF = Pseudo-Random Function. This gives us:</p>
-<ul>
-  <li>Encryption key (for data)</li>
-  <li>MAC key (for integrity)</li>
-  <li>IV (initialization vector for AES-GCM)</li>
-</ul>
-
-<h3>6. Finished</h3>
-<p>Both sides send a hash of all handshake messages. If the other side can verify it, handshake is complete. Encrypted data transfer begins.</p>
 
 <h2>Cipher Suites</h2>
+<p>A cipher suite defines the algorithms used. Format: TLS_KE_KEYEXCHANGE_AUTH_WITH_CIPHER_HASH</p>
 
-<p>A cipher suite is a package deal:</p>
-<pre><code>TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384</code></pre>
+<pre><code>Example: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 
-<p>Breaking it down:</p>
+ECDHE  — Key exchange (Elliptic Curve Diffie-Hellman Ephemeral)
+RSA    — Authentication (server's key type)
+AES_256_GCM — Bulk encryption (256-bit, Galois/Counter mode)
+SHA384 — Hash algorithm for HMAC</code></pre>
+
+<p><strong>Important:</strong> "Ephemeral" (E) in ECDHE means forward secrecy — new keys per session.</p>
+
+<h2>What Actually Gets Encrypted?</h2>
+
+<pre><code>+------------------+-------------------+
+|    TLS 1.2       |     TLS 1.3       |
++------------------+-------------------+
+| Handshake: plain | Handshake: encrypted |
+| Application: encrypted | Application: encrypted |
++------------------+-------------------+</code></pre>
+
+<p>TLS 1.3 encrypts the handshake itself (except Client/Server Hello). Less metadata leaked.</p>
+
+<h2>Common Vulnerabilities</h2>
+
+<h3>POODLE (2014)</h3>
+<p>Attacked SSLv3's CBC mode. <strong>Fix:</strong> Disable SSLv3.</p>
+
+<h3>Heartbleed (2014)</h3>
+<p>Bug in OpenSSL's heartbeat extension leaked memory. <strong>Fix:</strong> Update OpenSSL.</p>
+
+<h3> BEAST (2011)</h3>
+<p>Attacked TLS 1.0's CBC. <strong>Fix:</strong> Use TLS 1.2+.</p>
+
+<h3>Renegotiation Attack</h3>
+<p>Attacker injects data into legitimate connection. <strong>Fix:</strong> Secure renegotiation (TLS 1.1+).</p>
+
+<h2>TLS 1.3 Improvements</h2>
 <ul>
-  <li><strong>ECDHE</strong> — Key exchange (Ephemeral Diffie-Hellman)</li>
-  <li><strong>RSA</strong> — Authentication (server proves it owns the key)</li>
-  <li><strong>AES_256_GCM</strong> — Bulk encryption (256-bit AES in GCM mode)</li>
-  <li><strong>SHA384</strong> — Hash algorithm for integrity</li>
+<li><strong>Faster handshake</strong> — 1 round trip vs 2 in TLS 1.2</li>
+<li><strong>Encrypted everything</strong> — Even handshake messages</li>
+<li><strong>Removed weak ciphers</strong> — No MD5, SHA-1, RC4, 3DES</li>
+<li><strong>Mandatory forward secrecy</strong> — DH/ECDHE only</li>
+<li><strong>0-RTT mode</strong> — Resumes sessions instantly (but with replay risk)</li>
 </ul>
 
-<p>GCM (Galois/Counter Mode) is popular because it provides both encryption and integrity in one operation.</p>
+<h2>How to Check</h2>
 
-<h2>Certificate Types</h2>
+<pre><code># Test TLS support
+openssl s_client -connect example.com:443 -tls1_2
+openssl s_client -connect example.com:443 -tls1_3
 
-<p><strong>Domain Validation (DV)</strong> — Just proves you control the domain. Cheap, automated. Let's Encrypt gives these free.</p>
+# Check certificate
+openssl x509 -in cert.pem -text -noout
 
-<p><strong>Organization Validation (OV)</strong> — CA verifies the organization exists. Shows company name.</p>
+# Check supported ciphers
+nmap --script ssl-enum-ciphers -p 443 example.com</code></pre>
 
-<p><strong>Extended Validation (EV)</strong> — Full verification. Green address bar (was — most browsers removed this UI).</p>
+<h2>The Takeaway</h2>
+<p>TLS isn't magic — it's carefully designed cryptography that runs every time you visit an HTTPS site. The handshake establishes trust, certificates prove identity, and symmetric encryption protects your data. Modern TLS (1.3) is fast and secure, but legacy support for older versions still creates vulnerabilities.</p>
 
-<h2>Perfect Forward Secrecy</h2>
-
-<p>If an attacker records encrypted traffic today, then steals the server's private key years later — can they decrypt?</p>
-
-<p><strong>Without PFS (RSA key exchange):</strong> Yes. The pre-master secret was encrypted with the RSA private key.</p>
-
-<p><strong>With PFS (ECDHE):</strong> No. Each session uses ephemeral keys that are thrown away. The private key only authenticates — it never decrypts the traffic.</p>
-
-<p>Modern TLS requires ECDHE by default.</p>
-
-<h2>HTTP/2 and HTTP/3</h2>
-
-<p>TLS 1.2 or 1.3 is required for HTTP/2. For HTTP/3 (QUIC), TLS is built into the protocol itself — not layered on top.</p>
-
-<h2>What Could Go Wrong</h2>
-
-<ul>
-  <li><strong>Weak ciphers</strong> — Old servers might accept export-grade or broken ciphers (BEAST, Lucky Thirteen attacks)</li>
-  <li><strong>Expired certificates</strong> — Sites go down when certs expire (this happens constantly)</li>
-  <li><strong>Misissued certificates</strong> — CAs can be compromised (DigiNotar, 2011)</li>
-  <li><strong>Certificate transparency</strong> — Modern browsers require CT logs to detect misissuance</li>
-  <li><strong>Downgrade attacks</strong> — Attacker tricks client into using TLS 1.0 (mitigated by modern browsers blocking old versions)</li>
-</ul>
-
-<h2>TL;DR</h2>
-
-<ol>
-  <li>Browser and server agree on encryption algorithms</li>
-  <li>Server sends certificate proving identity</li>
-  <li>Key exchange (usually ECDHE) establishes shared secret — no private key needed for this</li>
-  <li>Session keys derived from shared secret</li>
-  <li>Symmetric encryption for all data</li>
-  <li>Each session gets new keys (forward secrecy)</li>
-</ol>
-
-<p>TLS 1.3 simplified this further: 1-RTT handshake, fewer cipher suites, and PSK (Pre-Shared Key) for resuming sessions instantly.</p>
+<p>The next time you see that 🔒, know that hundreds of milliseconds of cryptographic negotiation just happened to keep you safe.</p>
 
 </div>
 </body>
