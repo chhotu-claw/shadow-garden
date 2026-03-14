@@ -4,204 +4,510 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Timestamp Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between Unix timestamps, ISO dates, and human-readable formats. Instant, local, no tracking.">
+<meta name="description" content="Convert between Unix timestamps, ISO 8601, and human-readable dates. View time in multiple timezones.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 2rem; max-width: 800px; margin: 0 auto; }
-  .converter { background: var(--card-bg, #1a1a1a); border-radius: 12px; padding: 2rem; margin-top: 1rem; }
-  .input-group { margin-bottom: 1.5rem; }
-  label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-muted, #888); }
-  input, select { 
-    width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border, #333);
-    background: var(--bg, #111); color: var(--text, #eee); font-size: 1rem; font-family: monospace;
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --error: #f85149;
   }
-  input:focus, select:focus { outline: 2px solid var(--accent, #00d4ff); border-color: transparent; }
-  .results { display: grid; gap: 1rem; margin-top: 1.5rem; }
-  .result-row { 
-    background: var(--bg, #111); padding: 1rem; border-radius: 8px; 
-    display: flex; justify-content: space-between; align-items: center;
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
   }
-  .result-label { color: var(--text-muted, #888); font-size: 0.875rem; }
-  .result-value { font-family: monospace; font-size: 1rem; }
-  .copy-btn {
-    background: var(--accent, #00d4ff); color: #000; border: none; padding: 0.5rem 1rem;
-    border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500;
+
+  h1 {
+    margin-bottom: 0.5rem;
   }
-  .copy-btn:hover { opacity: 0.9; }
-  .copy-btn.copied { background: #22c55e; }
-  .now-btn {
-    background: transparent; border: 1px solid var(--border, #333); color: var(--text, #eee);
-    padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem;
+
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
   }
-  .now-btn:hover { border-color: var(--accent, #00d4ff); }
-  .input-row { display: flex; gap: 0.5rem; align-items: center; }
-  h1 { margin-bottom: 0.5rem; }
-  .hint { font-size: 0.875rem; color: var(--text-muted, #888); margin-top: 0.25rem; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 0.875rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+  }
+
+  .input-group {
+    margin-bottom: 1rem;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  input, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  input {
+    flex: 1;
+  }
+
+  select {
+    cursor: pointer;
+    min-width: 150px;
+  }
+
+  .btn {
+    background: var(--accent);
+    border: none;
+    color: #000;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  .btn:hover {
+    background: #79b8ff;
+  }
+
+  .btn.secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn.secondary:hover {
+    background: var(--muted);
+    color: var(--bg);
+  }
+
+  .results {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border-radius: 6px;
+    gap: 1rem;
+  }
+
+  .result-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    min-width: 100px;
+  }
+
+  .result-value {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+    color: var(--text);
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .result-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.7rem;
+  }
+
+  .btn-icon:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  .timezone-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .tz-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .tz-name {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .tz-time {
+    font-family: monospace;
+    color: var(--text);
+  }
+
+  .quick-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .quick-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .quick-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .status {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  .status.show {
+    display: block;
+  }
+
+  .status.error {
+    background: rgba(248, 81, 73, 0.15);
+    border: 1px solid var(--error);
+    color: var(--error);
+  }
 </style>
 </head>
 <body data-page-type="app">
+<div class="container">
   <h1>Timestamp Converter</h1>
-  <p style="color: var(--text-muted); margin-bottom: 2rem;">Convert between Unix timestamps and human-readable formats. All processing happens locally.</p>
-  
-  <div class="converter">
+  <p class="subtitle">Convert between Unix timestamps, ISO 8601, and human-readable dates.</p>
+
+  <div id="status" class="status"></div>
+
+  <div class="section">
+    <div class="section-title">Input</div>
+    <div class="quick-actions">
+      <button class="quick-btn" id="nowBtn">Now</button>
+      <button class="quick-btn" id="todayBtn">Today 00:00</button>
+      <button class="quick-btn" id="tomorrowBtn">Tomorrow 00:00</button>
+      <button class="quick-btn" id="weekBtn">+1 Week</button>
+      <button class="quick-btn" id="monthBtn">+1 Month</button>
+    </div>
+
     <div class="input-group">
       <label>Unix Timestamp (seconds)</label>
       <div class="input-row">
-        <input type="text" id="epochInput" placeholder="e.g. 1704067200" autocomplete="off">
-        <button class="now-btn" onclick="setNow()">Now</button>
+        <input type="text" id="timestampInput" placeholder="e.g., 1773456000">
+        <button class="btn" id="convertBtn">Convert</button>
       </div>
     </div>
 
     <div class="input-group">
-      <label>Or enter a date/time</label>
-      <input type="datetime-local" id="dateInput">
-    </div>
-
-    <div class="results">
-      <div class="result-row">
-        <div>
-          <div class="result-label">Unix Timestamp (seconds)</div>
-          <div class="result-value" id="resultEpoch">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultEpoch')">Copy</button>
-      </div>
-      <div class="result-row">
-        <div>
-          <div class="result-label">Unix Timestamp (milliseconds)</div>
-          <div class="result-value" id="resultEpochMs">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultEpochMs')">Copy</button>
-      </div>
-      <div class="result-row">
-        <div>
-          <div class="result-label">ISO 8601</div>
-          <div class="result-value" id="resultISO">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultISO')">Copy</button>
-      </div>
-      <div class="result-row">
-        <div>
-          <div class="result-label">UTC</div>
-          <div class="result-value" id="resultUTC">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultUTC')">Copy</button>
-      </div>
-      <div class="result-row">
-        <div>
-          <div class="result-label">Local</div>
-          <div class="result-value" id="resultLocal">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultLocal')">Copy</button>
-      </div>
-      <div class="result-row">
-        <div>
-          <div class="result-label">Relative</div>
-          <div class="result-value" id="resultRelative">—</div>
-        </div>
-        <button class="copy-btn" onclick="copy('resultRelative')">Copy</button>
+      <label>ISO 8601 / Date String</label>
+      <div class="input-row">
+        <input type="text" id="isoInput" placeholder="e.g., 2026-03-14T06:30:00Z">
+        <button class="btn secondary" id="convertIsoBtn">Convert</button>
       </div>
     </div>
   </div>
 
-  <script>
-    const epochInput = document.getElementById('epochInput');
-    const dateInput = document.getElementById('dateInput');
-    
-    function updateFromEpoch() {
-      const val = epochInput.value.trim();
-      if (!val) return clearResults();
-      
-      let ts = parseInt(val);
-      if (isNaN(ts)) return clearResults();
-      
-      // Detect if milliseconds (10+ digits) or seconds
-      if (ts > 9999999999) ts = Math.floor(ts / 1000);
-      
-      const date = new Date(ts * 1000);
-      if (isNaN(date.getTime())) return clearResults();
-      
-      displayResults(date);
-      updateDateInput(date);
-    }
+  <div class="section" id="resultsSection" style="display:none;">
+    <div class="section-title">Results</div>
+    <div class="results">
+      <div class="result-row">
+        <span class="result-label">Unix</span>
+        <span class="result-value" id="resUnix"></span>
+        <div class="result-actions">
+          <button class="btn-icon" data-copy="resUnix">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <span class="result-label">ISO 8601</span>
+        <span class="result-value" id="resIso"></span>
+        <div class="result-actions">
+          <button class="btn-icon" data-copy="resIso">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <span class="result-label">UTC</span>
+        <span class="result-value" id="resUtc"></span>
+        <div class="result-actions">
+          <button class="btn-icon" data-copy="resUtc">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Local</span>
+        <span class="result-value" id="resLocal"></span>
+        <div class="result-actions">
+          <button class="btn-icon" data-copy="resLocal">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Relative</span>
+        <span class="result-value" id="resRelative"></span>
+        <div class="result-actions">
+          <button class="btn-icon" id="refreshRelative">↻</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    function updateFromDate() {
-      const val = dateInput.value;
-      if (!val) return;
-      
-      const date = new Date(val);
-      if (isNaN(date.getTime())) return;
-      
-      displayResults(date);
-      epochInput.value = Math.floor(date.getTime() / 1000);
-    }
+  <div class="section">
+    <div class="section-title">Timezones</div>
+    <div class="timezone-grid" id="tzGrid"></div>
+  </div>
+</div>
 
-    function displayResults(date) {
-      document.getElementById('resultEpoch').textContent = Math.floor(date.getTime() / 1000);
-      document.getElementById('resultEpochMs').textContent = date.getTime();
-      document.getElementById('resultISO').textContent = date.toISOString();
-      document.getElementById('resultUTC').textContent = date.toUTCString();
-      document.getElementById('resultLocal').textContent = date.toLocaleString();
-      document.getElementById('resultRelative').textContent = getRelativeTime(date);
-    }
+<script>
+const timestampInput = document.getElementById('timestampInput');
+const isoInput = document.getElementById('isoInput');
+const resultsSection = document.getElementById('resultsSection');
+const status = document.getElementById('status');
 
-    function updateDateInput(date) {
-      // Format for datetime-local input (YYYY-MM-DDTHH:mm)
-      const pad = n => n.toString().padStart(2, '0');
-      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-      dateInput.value = local.toISOString().slice(0, 16);
-    }
+const timezones = [
+  { name: 'UTC', tz: 'UTC' },
+  { name: 'New York', tz: 'America/New_York' },
+  { name: 'Los Angeles', tz: 'America/Los_Angeles' },
+  { name: 'London', tz: 'Europe/London' },
+  { name: 'Paris', tz: 'Europe/Paris' },
+  { name: 'Dubai', tz: 'Asia/Dubai' },
+  { name: 'Mumbai', tz: 'Asia/Kolkata' },
+  { name: 'Singapore', tz: 'Asia/Singapore' },
+  { name: 'Tokyo', tz: 'Asia/Tokyo' },
+  { name: 'Sydney', tz: 'Australia/Sydney' },
+];
 
-    function getRelativeTime(date) {
-      const now = new Date();
-      const diff = now - date;
-      const absDiff = Math.abs(diff);
-      const suffix = diff > 0 ? 'ago' : 'from now';
-      
-      const seconds = Math.floor(absDiff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-      const months = Math.floor(days / 30);
-      const years = Math.floor(days / 365);
-      
-      if (years > 0) return `${years} year${years > 1 ? 's' : ''} ${suffix}`;
-      if (months > 0) return `${months} month${months > 1 ? 's' : ''} ${suffix}`;
-      if (days > 0) return `${days} day${days > 1 ? 's' : ''} ${suffix}`;
-      if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ${suffix}`;
-      if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ${suffix}`;
-      return `${seconds} second${seconds !== 1 ? 's' : ''} ${suffix}`;
-    }
+function showStatus(msg) {
+  status.textContent = msg;
+  status.className = 'status show error';
+  setTimeout(() => status.className = 'status', 3000);
+}
 
-    function setNow() {
-      const now = new Date();
-      epochInput.value = Math.floor(now.getTime() / 1000);
-      updateFromEpoch();
-    }
+function formatRelative(date) {
+  const now = new Date();
+  const diff = date - now;
+  const absDiff = Math.abs(diff);
+  const suffix = diff > 0 ? 'from now' : 'ago';
 
-    function clearResults() {
-      document.querySelectorAll('.result-value').forEach(el => el.textContent = '—');
-    }
+  if (absDiff < 60000) return 'just now';
+  if (absDiff < 3600000) return Math.floor(absDiff / 60000) + ' minutes ' + suffix;
+  if (absDiff < 86400000) return Math.floor(absDiff / 3600000) + ' hours ' + suffix;
+  if (absDiff < 2592000000) return Math.floor(absDiff / 86400000) + ' days ' + suffix;
+  if (absDiff < 31536000000) return Math.floor(absDiff / 2592000000) + ' months ' + suffix;
+  return Math.floor(absDiff / 31536000000) + ' years ' + suffix;
+}
 
-    function copy(id) {
-      const text = document.getElementById(id).textContent;
-      if (text === '—') return;
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = document.querySelector(`[onclick="copy('${id}')"]`);
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.textContent = 'Copy';
-          btn.classList.remove('copied');
-        }, 1500);
-      });
-    }
+function formatInTimezone(date, tz) {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date);
+  } catch (e) {
+    return 'Invalid';
+  }
+}
 
-    epochInput.addEventListener('input', updateFromEpoch);
-    dateInput.addEventListener('change', updateFromDate);
-    
-    // Initialize with current time
-    setNow();
-  </script>
+function renderTimezones(baseDate) {
+  const grid = document.getElementById('tzGrid');
+  grid.innerHTML = timezones.map(z => `
+    <div class="tz-row">
+      <span class="tz-name">${z.name}</span>
+      <span class="tz-time">${formatInTimezone(baseDate, z.tz)}</span>
+    </div>
+  `).join('');
+}
+
+function convertFromTimestamp() {
+  const val = timestampInput.value.trim();
+  if (!val) return;
+
+  let ts = parseInt(val);
+  if (isNaN(ts)) {
+    // Try as milliseconds
+    ts = parseFloat(val);
+    if (isNaN(ts)) {
+      showStatus('Invalid timestamp');
+      return;
+    }
+  }
+
+  // If timestamp is less than 10^11, assume seconds
+  if (ts < 100000000000) {
+    ts *= 1000;
+  }
+
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) {
+    showStatus('Invalid date');
+    return;
+  }
+
+  displayResults(date);
+}
+
+function convertFromIso() {
+  const val = isoInput.value.trim();
+  if (!val) return;
+
+  const date = new Date(val);
+  if (isNaN(date.getTime())) {
+    showStatus('Invalid date format');
+    return;
+  }
+
+  // Update timestamp input
+  timestampInput.value = Math.floor(date.getTime() / 1000);
+  displayResults(date);
+}
+
+function displayResults(date) {
+  resultsSection.style.display = 'block';
+
+  document.getElementById('resUnix').textContent = Math.floor(date.getTime() / 1000);
+  document.getElementById('resIso').textContent = date.toISOString();
+  document.getElementById('resUtc').textContent = date.toUTCString();
+  document.getElementById('resLocal').textContent = date.toLocaleString();
+  document.getElementById('resRelative').textContent = formatRelative(date);
+
+  renderTimezones(date);
+}
+
+// Quick actions
+document.getElementById('nowBtn').addEventListener('click', () => {
+  const now = new Date();
+  timestampInput.value = Math.floor(now.getTime() / 1000);
+  isoInput.value = now.toISOString();
+  displayResults(now);
+});
+
+document.getElementById('todayBtn').addEventListener('click', () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  timestampInput.value = Math.floor(today.getTime() / 1000);
+  isoInput.value = today.toISOString();
+  displayResults(today);
+});
+
+document.getElementById('tomorrowBtn').addEventListener('click', () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  timestampInput.value = Math.floor(tomorrow.getTime() / 1000);
+  isoInput.value = tomorrow.toISOString();
+  displayResults(tomorrow);
+});
+
+document.getElementById('weekBtn').addEventListener('click', () => {
+  const week = new Date();
+  week.setDate(week.getDate() + 7);
+  week.setHours(0, 0, 0, 0);
+  timestampInput.value = Math.floor(week.getTime() / 1000);
+  isoInput.value = week.toISOString();
+  displayResults(week);
+});
+
+document.getElementById('monthBtn').addEventListener('click', () => {
+  const month = new Date();
+  month.setMonth(month.getMonth() + 1);
+  month.setHours(0, 0, 0, 0);
+  timestampInput.value = Math.floor(month.getTime() / 1000);
+  isoInput.value = month.toISOString();
+  displayResults(month);
+});
+
+document.getElementById('convertBtn').addEventListener('click', convertFromTimestamp);
+document.getElementById('convertIsoBtn').addEventListener('click', convertFromIso);
+
+timestampInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') convertFromTimestamp();
+});
+isoInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') convertFromIso();
+});
+
+// Copy buttons
+document.querySelectorAll('[data-copy]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.copy;
+    const text = document.getElementById(target).textContent;
+    navigator.clipboard.writeText(text);
+    showStatus('Copied!');
+  });
+});
+
+document.getElementById('refreshRelative').addEventListener('click', () => {
+  const ts = parseInt(document.getElementById('resUnix').textContent);
+  if (!isNaN(ts)) {
+    const date = new Date(ts * 1000);
+    document.getElementById('resRelative').textContent = formatRelative(date);
+  }
+});
+
+// Init with current time
+document.getElementById('nowBtn').click();
+</script>
 </body>
 </html>
