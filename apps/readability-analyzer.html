@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Readability Analyzer — Shadow's Garden</title>
+<meta name="description" content="Analyze text readability with Flesch-Kincaid, Gunning Fog, and other metrics — no tracking, just analysis">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+  textarea {
+    width: 100%;
+    height: 200px;
+    padding: 1rem;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+  }
+  .grade-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-top: 0.5rem;
+  }
+  .grade-easy { background: #22c55e; color: white; }
+  .grade-medium { background: #eab308; color: black; }
+  .grade-hard { background: #ef4444; color: white; }
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 1rem;
+  }
+  .btn:hover { opacity: 0.9; }
+  h1 { margin-bottom: 0.5rem; }
+  .tagline { color: var(--text-light); margin-bottom: 2rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Readability Analyzer</h1>
+  <p class="tagline">Paste your text to analyze its readability score</p>
+  
+  <textarea id="input" placeholder="Paste or type your text here..."></textarea>
+  <button class="btn" onclick="analyze()">Analyze Readability</button>
+  
+  <div class="stats-grid" id="results" style="display: none;">
+    <div class="stat-card">
+      <div class="stat-value" id="flesch">—</div>
+      <div class="stat-label">Flesch Reading Ease</div>
+      <div id="fleschGrade"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="kincaid">—</div>
+      <div class="stat-label">Flesch-Kincaid Grade</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="fog">—</div>
+      <div class="stat-label">Gunning Fog Index</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="words">0</div>
+      <div class="stat-label">Words</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="sentences">0</div>
+      <div class="stat-label">Sentences</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="syllables">0</div>
+      <div class="stat-label">Syllables (est.)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="avgWords">—</div>
+      <div class="stat-label">Avg. Words/Sentence</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="avgSyllables">—</div>
+      <div class="stat-label">Avg. Syllables/Word</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function countSyllables(word) {
+  word = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (word.length <= 3) return 1;
+  
+  // Common suffix patterns
+  word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+  word = word.replace(/^y/, '');
+  
+  const matches = word.match(/[aeiouy]{1,2}/g);
+  return matches ? matches.length : 1;
+}
+
+function getWords(text) {
+  return text.match(/\b[a-zA-Z]+\b/g) || [];
+}
+
+function getSentences(text) {
+  return text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+}
+
+function analyze() {
+  const text = document.getElementById('input').value;
+  const words = getWords(text);
+  const sentences = getSentences(text);
+  
+  if (words.length === 0 || sentences.length === 0) {
+    alert('Please enter some text to analyze.');
+    return;
+  }
+  
+  let totalSyllables = 0;
+  words.forEach(word => {
+    totalSyllables += countSyllables(word);
+  });
+  
+  const wordCount = words.length;
+  const sentenceCount = sentences.length;
+  const syllableCount = totalSyllables;
+  
+  // Flesch Reading Ease
+  // 206.835 - 1.015 * (words/sentences) - 84.6 * (syllables/words)
+  const flesch = 206.835 - 1.015 * (wordCount / sentenceCount) - 84.6 * (syllableCount / wordCount);
+  
+  // Flesch-Kincaid Grade Level
+  // 0.39 * (words/sentences) + 11.8 * (syllables/words) - 15.59
+  const kincaid = 0.39 * (wordCount / sentenceCount) + 11.8 * (syllableCount / wordCount) - 15.59;
+  
+  // Gunning Fog Index
+  // 0.4 * ((words/sentences) + 100 * (complexWords/words))
+  const complexWords = words.filter(w => countSyllables(w) >= 3).length;
+  const fog = 0.4 * ((wordCount / sentenceCount) + 100 * (complexWords / wordCount));
+  
+  // Display results
+  document.getElementById('results').style.display = 'grid';
+  document.getElementById('flesch').textContent = Math.max(0, Math.min(100, flesch)).toFixed(1);
+  document.getElementById('kincaid').textContent = Math.max(0, kincaid).toFixed(1);
+  document.getElementById('fog').textContent = Math.max(0, fog).toFixed(1);
+  document.getElementById('words').textContent = wordCount;
+  document.getElementById('sentences').textContent = sentenceCount;
+  document.getElementById('syllables').textContent = syllableCount;
+  document.getElementById('avgWords').textContent = (wordCount / sentenceCount).toFixed(1);
+  document.getElementById('avgSyllables').textContent = (syllableCount / wordCount).toFixed(2);
+  
+  // Flesch grade badge
+  const fleschGrade = document.getElementById('fleschGrade');
+  let gradeClass, gradeText;
+  if (flesch >= 80) {
+    gradeClass = 'grade-easy';
+    gradeText = 'Easy';
+  } else if (flesch >= 50) {
+    gradeClass = 'grade-medium';
+    gradeText = 'Medium';
+  } else {
+    gradeClass = 'grade-hard';
+    gradeText = 'Difficult';
+  }
+  fleschGrade.innerHTML = `<span class="grade-badge ${gradeClass}">${gradeText}</span>`;
+}
+
+// Auto-analyze on paste
+document.getElementById('input').addEventListener('input', function() {
+  if (this.value.length > 50) {
+    analyze();
+  }
+});
+</script>
+</body>
+</html>
