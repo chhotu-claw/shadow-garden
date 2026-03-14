@@ -4,272 +4,367 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="An interactive sound visualizer that responds to your voice">
+<meta name="description" content="An interactive particle system that reacts to your presence.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
+  :root {
+    --bg: #0a0a0f;
+    --accent: #ff6b9d;
+    --accent2: #4ecdc4;
+    --accent3: #ffe66d;
+  }
+
   body {
     margin: 0;
+    padding: 0;
+    background: var(--bg);
     overflow: hidden;
-    background: #0a0a0f;
-    font-family: 'Courier New', monospace;
+    font-family: system-ui, sans-serif;
   }
-  #canvas {
+
+  canvas {
     display: block;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
   }
+
   .controls {
     position: fixed;
-    bottom: 2rem;
+    bottom: 1.5rem;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 1rem;
-    z-index: 100;
+    gap: 0.75rem;
+    z-index: 10;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0 1rem;
   }
-  button {
-    padding: 0.75rem 1.5rem;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0.6rem 1.2rem;
     border-radius: 8px;
     cursor: pointer;
-    font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     backdrop-filter: blur(10px);
-    transition: all 0.2s;
+    transition: all 0.2s ease;
   }
-  button:hover {
-    background: rgba(255,255,255,0.2);
+
+  .btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
   }
-  button.active {
-    background: #cba6f7;
-    color: #0a0a0f;
+
+  .btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
   }
+
   .info {
     position: fixed;
-    top: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255,255,255,0.5);
-    font-size: 0.8rem;
-    text-align: center;
-    z-index: 100;
+    top: 1.5rem;
+    left: 1.5rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    z-index: 10;
+    pointer-events: none;
   }
-  .visualizer-bars {
+
+  .info span {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .title {
     position: fixed;
-    bottom: 6rem;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 3px;
-    align-items: flex-end;
-    height: 100px;
-    z-index: 100;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.15);
+    font-size: clamp(2rem, 8vw, 5rem);
+    font-weight: 200;
+    letter-spacing: 0.3em;
+    pointer-events: none;
+    z-index: 5;
+    transition: opacity 1s ease;
   }
-  .bar {
-    width: 4px;
-    background: linear-gradient(to top, #cba6f7, #f5c2e7);
-    border-radius: 2px;
-    transition: height 0.05s;
+
+  .title.hidden {
+    opacity: 0;
   }
 </style>
 </head>
 <body data-page-type="app">
 <canvas id="canvas"></canvas>
 
-<div class="info">Click to start · Move mouse to disturb · Make noise to animate</div>
+<div class="title" id="title">ECHO</div>
 
-<div class="visualizer-bars" id="bars"></div>
+<div class="info">
+  <span id="particleCount">particles: 0</span>
+  <span id="fps">fps: 0</span>
+  <span id="mode">mode: float</span>
+</div>
 
 <div class="controls">
-  <button id="micBtn">🎤 Enable Mic</button>
-  <button id="clearBtn">Clear</button>
-  <button id="pauseBtn">Pause</button>
+  <button class="btn active" id="floatBtn">Float</button>
+  <button class="btn" id="attractBtn">Attract</button>
+  <button class="btn" id="repelBtn">Repel</button>
+  <button class="btn" id="chaosBtn">Chaos</button>
+  <button class="btn" id="resetBtn">Reset</button>
 </div>
 
 <script>
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  let width, height;
-  let particles = [];
-  let paused = false;
-  let audioCtx, analyser, microphone;
-  let dataArray;
-  let mouseX = 0, mouseY = 0;
-  
-  // Create bars for visualizer
-  const barsContainer = document.getElementById('bars');
-  const numBars = 32;
-  for (let i = 0; i < numBars; i++) {
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    bar.style.height = '2px';
-    barsContainer.appendChild(bar);
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const title = document.getElementById('title');
+const particleCountEl = document.getElementById('particleCount');
+const fpsEl = document.getElementById('fps');
+const modeEl = document.getElementById('mode');
+
+let width, height;
+let particles = [];
+let mouse = { x: 0, y: 0, vx: 0, vy: 0, active: false };
+let lastMouse = { x: 0, y: 0 };
+let mode = 'float';
+let lastTime = 0;
+let frameCount = 0;
+let fps = 0;
+
+const colors = ['#ff6b9d', '#4ecdc4', '#ffe66d', '#a8e6cf', '#dda0dd', '#87ceeb'];
+
+class Particle {
+  constructor() {
+    this.reset();
   }
-  const bars = barsContainer.querySelectorAll('.bar');
-  
-  function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+
+  reset() {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.size = Math.random() * 3 + 1;
+    this.color = colors[Math.floor(Math.random() * colors.length)];
+    this.alpha = Math.random() * 0.5 + 0.2;
+    this.life = Math.random() * 100 + 50;
+    this.maxLife = this.life;
+    this.connections = [];
   }
+
+  update() {
+    if (mode === 'float') {
+      this.vx += (Math.random() - 0.5) * 0.1;
+      this.vy += (Math.random() - 0.5) * 0.1;
+      this.vx *= 0.99;
+      this.vy *= 0.99;
+    } else if (mode === 'attract' && mouse.active) {
+      const dx = mouse.x - this.x;
+      const dy = mouse.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 10) {
+        const force = 500 / (dist * dist);
+        this.vx += (dx / dist) * force * 0.1;
+        this.vy += (dy / dist) * force * 0.1;
+      }
+    } else if (mode === 'repel' && mouse.active) {
+      const dx = this.x - mouse.x;
+      const dy = this.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 300 && dist > 0) {
+        const force = (300 - dist) / 300 * 2;
+        this.vx += (dx / dist) * force;
+        this.vy += (dy / dist) * force;
+      }
+    } else if (mode === 'chaos') {
+      this.vx += (Math.random() - 0.5) * 2;
+      this.vy += (Math.random() - 0.5) * 2;
+    }
+
+    this.vx *= 0.95;
+    this.vy *= 0.95;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Boundary wrap
+    if (this.x < 0) this.x = width;
+    if (this.x > width) this.x = 0;
+    if (this.y < 0) this.y = height;
+    if (this.y > height) this.y = 0;
+
+    // Life decay in chaos mode
+    if (mode === 'chaos') {
+      this.life -= 1;
+      this.alpha = (this.life / this.maxLife) * 0.7;
+      if (this.life <= 0) this.reset();
+    }
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+
+function init() {
   resize();
-  window.addEventListener('resize', resize);
-  
-  // Particle class
-  class Particle {
-    constructor(x, y) {
-      this.x = x || Math.random() * width;
-      this.y = y || Math.random() * height;
-      this.vx = (Math.random() - 0.5) * 2;
-      this.vy = (Math.random() - 0.5) * 2;
-      this.size = Math.random() * 3 + 1;
-      this.hue = Math.random() * 60 + 260; // purples
-      this.life = 1;
-      this.decay = Math.random() * 0.01 + 0.005;
-    }
-    
-    update(audioLevel = 0) {
-      this.x += this.vx * (1 + audioLevel * 5);
-      this.y += this.vy * (1 + audioLevel * 5);
-      
-      // Mouse repulsion
-      const dx = this.x - mouseX;
-      const dy = this.y - mouseY;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 150) {
-        const force = (150 - dist) / 150;
-        this.vx += (dx / dist) * force * 0.5;
-        this.vy += (dy / dist) * force * 0.5;
-      }
-      
-      // Audio reactivity
-      this.size = (Math.random() * 3 + 1) * (1 + audioLevel * 3);
-      
-      this.life -= this.decay;
-      
-      // Wrap around
-      if (this.x < 0) this.x = width;
-      if (this.x > width) this.x = 0;
-      if (this.y < 0) this.y = height;
-      if (this.y > height) this.y = 0;
-      
-      // Speed limit
-      const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
-      if (speed > 8) {
-        this.vx = (this.vx / speed) * 8;
-        this.vy = (this.vy / speed) * 8;
-      }
-    }
-    
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${this.hue}, 70%, 70%, ${this.life})`;
-      ctx.fill();
-    }
-  }
-  
-  // Initialize particles
+  particles = [];
   for (let i = 0; i < 200; i++) {
     particles.push(new Particle());
   }
-  
-  // Mouse tracking
-  document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
-  
-  // Click to add particles
-  document.addEventListener('click', (e) => {
-    for (let i = 0; i < 20; i++) {
-      particles.push(new Particle(e.clientX, e.clientY));
-    }
-  });
-  
-  // Audio setup
-  async function initAudio() {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      microphone = audioCtx.createMediaStreamSource(stream);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      microphone.connect(analyser);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      document.getElementById('micBtn').textContent = '🎤 Mic Active';
-      document.getElementById('micBtn').classList.add('active');
-    } catch (err) {
-      console.log('Mic not available:', err);
-    }
-  }
-  
-  document.getElementById('micBtn').addEventListener('click', initAudio);
-  
-  document.getElementById('clearBtn').addEventListener('click', () => {
-    particles = [];
-    for (let i = 0; i < 100; i++) {
-      particles.push(new Particle());
-    }
-  });
-  
-  document.getElementById('pauseBtn').addEventListener('click', () => {
-    paused = !paused;
-    document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
-  });
-  
-  // Animation loop
-  function animate() {
-    if (!paused) {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
-      ctx.fillRect(0, 0, width, height);
+}
+
+function drawConnections() {
+  const maxDist = 120;
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // Get audio level
-      let audioLevel = 0;
-      if (analyser) {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-          bars[i].style.height = (dataArray[i] / 255 * 50 + 2) + 'px';
-        }
-        audioLevel = (sum / dataArray.length) / 255;
-      }
-      
-      // Update and draw particles
-      particles.forEach((p, i) => {
-        p.update(audioLevel);
-        p.draw();
-        if (p.life <= 0) {
-          particles.splice(i, 1);
-          particles.push(new Particle());
-        }
-      });
-      
-      // Draw connections
-      ctx.strokeStyle = 'rgba(203, 166, 247, 0.1)';
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < 100) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.stroke();
-          }
-        }
+      if (dist < maxDist) {
+        const alpha = (1 - dist / maxDist) * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
       }
     }
-    requestAnimationFrame(animate);
   }
+}
+
+function animate(time) {
+  // FPS calculation
+  frameCount++;
+  if (time - lastTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    lastTime = time;
+    fpsEl.textContent = `fps: ${fps}`;
+  }
+
+  // Trail effect
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+  ctx.fillRect(0, 0, width, height);
+
+  // Draw connections
+  drawConnections();
+
+  // Update and draw particles
+  particles.forEach(p => {
+    p.update();
+    p.draw();
+  });
+
+  // Update mouse velocity
+  if (mouse.active) {
+    mouse.vx = mouse.x - lastMouse.x;
+    mouse.vy = mouse.y - lastMouse.y;
+    lastMouse.x = mouse.x;
+    lastMouse.y = mouse.y;
+  }
+
+  particleCountEl.textContent = `particles: ${particles.length}`;
+
+  requestAnimationFrame(animate);
+}
+
+// Event listeners
+canvas.addEventListener('mousemove', (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  mouse.active = true;
+  lastMouse.x = mouse.x;
+  lastMouse.y = mouse.y;
   
-  animate();
+  // Hide title on first interaction
+  title.classList.add('hidden');
+});
+
+canvas.addEventListener('mouseleave', () => {
+  mouse.active = false;
+});
+
+canvas.addEventListener('click', () => {
+  // Spawn burst on click
+  for (let i = 0; i < 20; i++) {
+    const p = new Particle();
+    p.x = mouse.x;
+    p.y = mouse.y;
+    p.vx = (Math.random() - 0.5) * 10;
+    p.vy = (Math.random() - 0.5) * 10;
+    particles.push(p);
+  }
+  if (particles.length > 400) {
+    particles.splice(0, 20);
+  }
+});
+
+// Touch support
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+  mouse.active = true;
+  title.classList.add('hidden');
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  mouse.active = false;
+});
+
+// Mode buttons
+document.getElementById('floatBtn').addEventListener('click', () => setMode('float'));
+document.getElementById('attractBtn').addEventListener('click', () => setMode('attract'));
+document.getElementById('repelBtn').addEventListener('click', () => setMode('repel'));
+document.getElementById('chaosBtn').addEventListener('click', () => setMode('chaos'));
+document.getElementById('resetBtn').addEventListener('click', () => {
+  particles = [];
+  for (let i = 0; i < 200; i++) {
+    particles.push(new Particle());
+  }
+  title.classList.remove('hidden');
+});
+
+function setMode(newMode) {
+  mode = newMode;
+  modeEl.textContent = `mode: ${mode}`;
+  
+  document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(newMode + 'Btn').classList.add('active');
+
+  // Reset particles when switching to chaos
+  if (mode === 'chaos') {
+    particles.forEach(p => {
+      p.life = Math.random() * 100 + 50;
+      p.maxLife = p.life;
+      p.alpha = 0.7;
+    });
+  }
+}
+
+window.addEventListener('resize', resize);
+
+init();
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>
