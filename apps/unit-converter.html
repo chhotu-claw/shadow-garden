@@ -4,14 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unit Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between length, weight, temperature, and volume units instantly">
+<meta name="description" content="Convert length, weight, and temperature units instantly. No tracking, no ads, just works.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .converter {
-    max-width: 500px;
+  :root {
+    --accent: #10b981;
+    --bg-secondary: #1a1a2e;
+  }
+  .container {
+    max-width: 600px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: #888;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
   }
   .tabs {
     display: flex;
@@ -20,369 +33,394 @@
     flex-wrap: wrap;
   }
   .tab {
-    padding: 0.6rem 1rem;
-    background: var(--button-bg, #313244);
-    border: none;
-    border-radius: 8px;
-    color: var(--text, #cdd6f4);
+    padding: 0.6rem 1.2rem;
+    background: var(--bg-secondary);
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #aaa;
     cursor: pointer;
-    font-size: 0.9rem;
     transition: all 0.2s;
+    font-size: 0.9rem;
   }
   .tab:hover {
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
+    border-color: var(--accent);
+    color: #fff;
   }
   .tab.active {
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
   }
-  .card {
-    background: var(--card-bg, #1e1e2e);
-    border-radius: 12px;
+  .panel {
+    display: none;
+    background: var(--bg-secondary);
     padding: 1.5rem;
-    border: 1px solid var(--border, #313244);
+    border-radius: 8px;
+    border: 1px solid #333;
+  }
+  .panel.active {
+    display: block;
   }
   .input-group {
     margin-bottom: 1rem;
   }
   label {
     display: block;
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary, #a6adc8);
+    margin-bottom: 0.4rem;
+    color: #888;
     font-size: 0.85rem;
   }
   .input-row {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   input[type="number"] {
     flex: 1;
-    padding: 0.75rem;
-    border: 1px solid var(--border, #313244);
-    border-radius: 8px;
-    background: var(--input-bg, #11111b);
-    color: var(--text, #cdd6f4);
-    font-size: 1.1rem;
-    font-family: inherit;
+    padding: 0.7rem;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 1rem;
+  }
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
   }
   select {
-    padding: 0.75rem;
-    border: 1px solid var(--border, #313244);
-    border-radius: 8px;
-    background: var(--input-bg, #11111b);
-    color: var(--text, #cdd6f4);
-    font-size: 1rem;
-    font-family: inherit;
+    padding: 0.7rem;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.95rem;
     min-width: 120px;
+  }
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
   }
   .result {
     margin-top: 1.5rem;
-    padding: 1.25rem;
-    background: var(--result-bg, #181825);
-    border-radius: 8px;
-    text-align: center;
+    padding: 1rem;
+    background: #0f0f1a;
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+  }
+  .result-label {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.3rem;
   }
   .result-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--accent, #cba6f7);
-    word-break: break-word;
+    font-size: 1.4rem;
+    color: var(--accent);
+    font-weight: 600;
+    word-break: break-all;
   }
-  .result-unit {
-    color: var(--text-secondary, #a6adc8);
-    margin-top: 0.25rem;
+  .all-results {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #333;
+  }
+  .all-results h4 {
+    color: #666;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #222;
     font-size: 0.9rem;
   }
-  .swap-btn {
-    display: block;
-    margin: 1rem auto;
+  .result-row:last-child {
+    border-bottom: none;
+  }
+  .result-row .unit {
+    color: #888;
+  }
+  .result-row .value {
+    color: #fff;
+    font-family: monospace;
+  }
+  .copy-btn {
+    margin-top: 1rem;
     padding: 0.5rem 1rem;
     background: transparent;
-    border: 1px solid var(--border, #313244);
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .keyboard-hint {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
     border-radius: 6px;
-    color: var(--text-secondary, #a6adc8);
-    cursor: pointer;
-    font-size: 1.2rem;
+    font-size: 0.8rem;
+    color: #666;
   }
-  .swap-btn:hover {
-    border-color: var(--accent, #cba6f7);
-    color: var(--accent, #cba6f7);
+  kbd {
+    background: #222;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+    color: #aaa;
   }
-  .common-values {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-top: 1rem;
-  }
-  .common-btn {
-    padding: 0.35rem 0.6rem;
-    font-size: 0.75rem;
-    background: var(--button-bg, #313244);
-    border: none;
-    border-radius: 5px;
-    color: var(--text-secondary, #a6adc8);
-    cursor: pointer;
-  }
-  .common-btn:hover {
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-  }
-  .hidden { display: none; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="converter">
-  <h1>🔄 Unit Converter</h1>
+<div class="container">
+  <h1>Unit Converter</h1>
+  <p class="subtitle">Length, weight, temperature. No tracking. Just works.</p>
   
   <div class="tabs">
-    <button class="tab active" data-type="length">Length</button>
-    <button class="tab" data-type="weight">Weight</button>
-    <button class="tab" data-type="temperature">Temperature</button>
-    <button class="tab" data-type="volume">Volume</button>
+    <button class="tab active" data-tab="length">Length</button>
+    <button class="tab" data-tab="weight">Weight</button>
+    <button class="tab" data-tab="temperature">Temperature</button>
   </div>
 
-  <!-- Length -->
-  <div class="card" id="length-panel">
+  <!-- Length Panel -->
+  <div class="panel active" id="length">
     <div class="input-group">
-      <label>From</label>
+      <label>Enter value</label>
       <div class="input-row">
-        <input type="number" id="length-value" placeholder="Enter value" oninput="convert('length')">
-        <select id="length-from" onchange="convert('length')">
-          <option value="mm">mm</option>
-          <option value="cm">cm</option>
-          <option value="m" selected>m</option>
-          <option value="km">km</option>
-          <option value="in">in</option>
-          <option value="ft">ft</option>
-          <option value="yd">yd</option>
-          <option value="mi">mi</option>
+        <input type="number" id="length-value" placeholder="0" step="any">
+        <select id="length-unit">
+          <option value="m">Meter (m)</option>
+          <option value="km">Kilometer (km)</option>
+          <option value="cm">Centimeter (cm)</option>
+          <option value="mm">Millimeter (mm)</option>
+          <option value="mi">Mile (mi)</option>
+          <option value="yd">Yard (yd)</option>
+          <option value="ft">Foot (ft)</option>
+          <option value="in">Inch (in)</option>
+          <option value="nm">Nautical Mile (nmi)</option>
         </select>
       </div>
     </div>
-    <button class="swap-btn" onclick="swap('length')">⇅</button>
-    <div class="input-group">
-      <label>To</label>
-      <div class="input-row">
-        <input type="number" id="length-result" placeholder="Result" readonly>
-        <select id="length-to" onchange="convert('length')">
-          <option value="mm">mm</option>
-          <option value="cm" selected>cm</option>
-          <option value="m">m</option>
-          <option value="km">km</option>
-          <option value="in">in</option>
-          <option value="ft">ft</option>
-          <option value="yd">yd</option>
-          <option value="mi">mi</option>
-        </select>
-      </div>
-    </div>
-    <div class="common-values" id="length-common"></div>
-  </div>
-
-  <!-- Weight -->
-  <div class="card hidden" id="weight-panel">
-    <div class="input-group">
-      <label>From</label>
-      <div class="input-row">
-        <input type="number" id="weight-value" placeholder="Enter value" oninput="convert('weight')">
-        <select id="weight-from" onchange="convert('weight')">
-          <option value="mg">mg</option>
-          <option value="g" selected>g</option>
-          <option value="kg">kg</option>
-          <option value="oz">oz</option>
-          <option value="lb">lb</option>
-          <option value="ton">ton</option>
-        </select>
-      </div>
-    </div>
-    <button class="swap-btn" onclick="swap('weight')">⇅</button>
-    <div class="input-group">
-      <label>To</label>
-      <div class="input-row">
-        <input type="number" id="weight-result" placeholder="Result" readonly>
-        <select id="weight-to" onchange="convert('weight')">
-          <option value="mg">mg</option>
-          <option value="g">g</option>
-          <option value="kg" selected>kg</option>
-          <option value="oz">oz</option>
-          <option value="lb">lb</option>
-          <option value="ton">ton</option>
-        </select>
-      </div>
+    <div class="result">
+      <div class="result-label">Result</div>
+      <div class="result-value" id="length-result">—</div>
+      <div class="all-results" id="length-all"></div>
     </div>
   </div>
 
-  <!-- Temperature -->
-  <div class="card hidden" id="temperature-panel">
+  <!-- Weight Panel -->
+  <div class="panel" id="weight">
     <div class="input-group">
-      <label>From</label>
+      <label>Enter value</label>
       <div class="input-row">
-        <input type="number" id="temp-value" placeholder="Enter value" oninput="convert('temp')">
-        <select id="temp-from" onchange="convert('temp')">
-          <option value="C" selected>°C</option>
-          <option value="F">°F</option>
-          <option value="K">K</option>
+        <input type="number" id="weight-value" placeholder="0" step="any">
+        <select id="weight-unit">
+          <option value="kg">Kilogram (kg)</option>
+          <option value="g">Gram (g)</option>
+          <option value="mg">Milligram (mg)</option>
+          <option value="t">Metric Ton (t)</option>
+          <option value="lb">Pound (lb)</option>
+          <option value="oz">Ounce (oz)</option>
+          <option value="st">Stone (st)</option>
         </select>
       </div>
     </div>
-    <button class="swap-btn" onclick="swap('temp')">⇅</button>
-    <div class="input-group">
-      <label>To</label>
-      <div class="input-row">
-        <input type="number" id="temp-result" placeholder="Result" readonly>
-        <select id="temp-to" onchange="convert('temp')">
-          <option value="C">°C</option>
-          <option value="F" selected>°F</option>
-          <option value="K">K</option>
-        </select>
-      </div>
+    <div class="result">
+      <div class="result-label">Result</div>
+      <div class="result-value" id="weight-result">—</div>
+      <div class="all-results" id="weight-all"></div>
     </div>
   </div>
 
-  <!-- Volume -->
-  <div class="card hidden" id="volume-panel">
+  <!-- Temperature Panel -->
+  <div class="panel" id="temperature">
     <div class="input-group">
-      <label>From</label>
+      <label>Enter value</label>
       <div class="input-row">
-        <input type="number" id="volume-value" placeholder="Enter value" oninput="convert('volume')">
-        <select id="volume-from" onchange="convert('volume')">
-          <option value="ml" selected>ml</option>
-          <option value="l">L</option>
-          <option value="tsp">tsp</option>
-          <option value="tbsp">tbsp</option>
-          <option value="cup">cup</option>
-          <option value="pt">pt</option>
-          <option value="qt">qt</option>
-          <option value="gal">gal</option>
+        <input type="number" id="temperature-value" placeholder="0" step="any">
+        <select id="temperature-unit">
+          <option value="c">Celsius (°C)</option>
+          <option value="f">Fahrenheit (°F)</option>
+          <option value="k">Kelvin (K)</option>
         </select>
       </div>
     </div>
-    <button class="swap-btn" onclick="swap('volume')">⇅</button>
-    <div class="input-group">
-      <label>To</label>
-      <div class="input-row">
-        <input type="number" id="volume-result" placeholder="Result" readonly>
-        <select id="volume-to" onchange="convert('volume')">
-          <option value="ml">ml</option>
-          <option value="l" selected>L</option>
-          <option value="tsp">tsp</option>
-          <option value="tbsp">tbsp</option>
-          <option value="cup">cup</option>
-          <option value="pt">pt</option>
-          <option value="qt">qt</option>
-          <option value="gal">gal</option>
-        </select>
-      </div>
+    <div class="result">
+      <div class="result-label">Result</div>
+      <div class="result-value" id="temperature-result">—</div>
+      <div class="all-results" id="temperature-all"></div>
     </div>
   </div>
 
-  <div class="result hidden" id="result-display">
-    <div class="result-value" id="result-text"></div>
-    <div class="result-unit" id="result-unit"></div>
+  <div class="keyboard-hint">
+    <kbd>Tab</kbd> to switch fields · <kbd>Enter</kbd> to convert · Results update as you type
   </div>
 </div>
 
 <script>
-  // Conversion factors to base unit (m for length, g for weight, L for volume)
-  const conversions = {
-    length: {
-      mm: 0.001, cm: 0.01, m: 1, km: 1000,
-      in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344
-    },
-    weight: {
-      mg: 0.001, g: 1, kg: 1000, oz: 28.3495, lb: 453.592, ton: 907185
-    },
-    volume: {
-      ml: 0.001, l: 1, tsp: 0.00492892, tbsp: 0.0147868, 
-      cup: 0.236588, pt: 0.473176, qt: 0.946353, gal: 3.78541
-    }
+  // Conversion factors to base unit (meter for length, kg for weight)
+  const lengthToMeter = {
+    m: 1,
+    km: 1000,
+    cm: 0.01,
+    mm: 0.001,
+    mi: 1609.344,
+    yd: 0.9144,
+    ft: 0.3048,
+    in: 0.0254,
+    nm: 1852
   };
 
-  const tempConversions = {
-    C: { F: (v) => v * 9/5 + 32, K: (v) => v + 273.15 },
-    F: { C: (v) => (v - 32) * 5/9, K: (v) => (v - 32) * 5/9 + 273.15 },
-    K: { C: (v) => v - 273.15, F: (v) => (v - 273.15) * 9/5 + 32 }
+  const lengthUnits = ['m', 'km', 'cm', 'mm', 'mi', 'yd', 'ft', 'in', 'nmi'];
+  const lengthLabels = { m: 'Meter', km: 'Kilometer', cm: 'Centimeter', mm: 'Millimeter', mi: 'Mile', yd: 'Yard', ft: 'Foot', in: 'Inch', nmi: 'Nautical Mile' };
+
+  const weightToKg = {
+    kg: 1,
+    g: 0.001,
+    mg: 0.000001,
+    t: 1000,
+    lb: 0.453592,
+    oz: 0.0283495,
+    st: 6.35029
   };
 
-  let currentType = 'length';
+  const weightUnits = ['kg', 'g', 'mg', 't', 'lb', 'oz', 'st'];
+  const weightLabels = { kg: 'Kilogram', g: 'Gram', mg: 'Milligram', t: 'Metric Ton', lb: 'Pound', oz: 'Ounce', st: 'Stone' };
 
   // Tab switching
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
-      currentType = tab.dataset.type;
-      
-      document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
-      document.getElementById(currentType + '-panel').classList.remove('hidden');
-      document.getElementById('result-display').classList.add('hidden');
+      document.getElementById(tab.dataset.tab).classList.add('active');
     });
   });
 
-  function swap(type) {
-    const from = document.getElementById(type + '-from');
-    const to = document.getElementById(type + '-to');
-    const temp = from.value;
-    from.value = to.value;
-    to.value = temp;
-    convert(type);
-  }
+  // Length conversion
+  function convertLength() {
+    const value = parseFloat(document.getElementById('length-value').value);
+    const fromUnit = document.getElementById('length-unit').value;
+    const resultEl = document.getElementById('length-result');
+    const allEl = document.getElementById('length-all');
 
-  function convert(type) {
-    let value, fromUnit, toUnit, result;
-    let displayType = type;
-
-    if (type === 'temp') {
-      value = parseFloat(document.getElementById('temp-value').value);
-      fromUnit = document.getElementById('temp-from').value;
-      toUnit = document.getElementById('temp-to').value;
-      
-      if (isNaN(value)) {
-        document.getElementById('temp-result').value = '';
-        return;
-      }
-      
-      if (fromUnit === toUnit) {
-        result = value;
-      } else {
-        result = tempConversions[fromUnit][toUnit](value);
-      }
-      
-      document.getElementById('temp-result').value = Math.round(result * 10000) / 10000;
-      displayType = 'temperature';
-    } else {
-      value = parseFloat(document.getElementById(type + '-value').value);
-      fromUnit = document.getElementById(type + '-from').value;
-      toUnit = document.getElementById(type + '-to').value;
-      
-      if (isNaN(value)) {
-        document.getElementById(type + '-result').value = '';
-        return;
-      }
-      
-      // Convert to base unit, then to target
-      const baseValue = value * conversions[type][fromUnit];
-      result = baseValue / conversions[type][toUnit];
-      
-      document.getElementById(type + '-result').value = Math.round(result * 1000000) / 1000000;
+    if (isNaN(value)) {
+      resultEl.textContent = '—';
+      allEl.innerHTML = '';
+      return;
     }
 
-    // Show result below
-    const unitNames = { 
-      length: { mm: 'millimeters', cm: 'centimeters', m: 'meters', km: 'kilometers', 
-                in: 'inches', ft: 'feet', yd: 'yards', mi: 'miles' },
-      weight: { mg: 'milligrams', g: 'grams', kg: 'kilograms', oz: 'ounces', lb: 'pounds', ton: 'tons' },
-      temperature: { C: '°C', F: '°F', K: 'Kelvin' },
-      volume: { ml: 'milliliters', l: 'liters', tsp: 'teaspoons', tbsp: 'tablespoons', 
-                cup: 'cups', pt: 'pints', qt: 'quarts', gal: 'gallons' }
-    };
-    
-    const display = document.getElementById('result-display');
-    display.classList.remove('hidden');
-    document.getElementById('result-text').textContent = document.getElementById(type + '-result').value;
-    document.getElementById('result-unit').textContent = unitNames[displayType][toUnit];
+    const inMeters = value * lengthToMeter[fromUnit];
+    let html = '<h4>All conversions</h4>';
+    let mainResult = '';
+
+    lengthUnits.forEach(unit => {
+      const converted = inMeters / lengthToMeter[unit];
+      const displayValue = converted < 0.0001 || converted > 1000000 ? converted.toExponential(4) : converted.toLocaleString(undefined, { maximumFractionDigits: 6 });
+      html += `<div class="result-row"><span class="unit">${lengthLabels[unit]}</span><span class="value">${displayValue} ${unit}</span></div>`;
+      if (unit !== fromUnit && !mainResult) {
+        mainResult = `${displayValue} ${unit}`;
+      }
+    });
+
+    resultEl.textContent = mainResult || `${value} ${fromUnit}`;
+    allEl.innerHTML = html;
   }
+
+  // Weight conversion
+  function convertWeight() {
+    const value = parseFloat(document.getElementById('weight-value').value);
+    const fromUnit = document.getElementById('weight-unit').value;
+    const resultEl = document.getElementById('weight-result');
+    const allEl = document.getElementById('weight-all');
+
+    if (isNaN(value)) {
+      resultEl.textContent = '—';
+      allEl.innerHTML = '';
+      return;
+    }
+
+    const inKg = value * weightToKg[fromUnit];
+    let html = '<h4>All conversions</h4>';
+    let mainResult = '';
+
+    weightUnits.forEach(unit => {
+      const converted = inKg / weightToKg[unit];
+      const displayValue = converted < 0.0001 || converted > 1000000 ? converted.toExponential(4) : converted.toLocaleString(undefined, { maximumFractionDigits: 6 });
+      html += `<div class="result-row"><span class="unit">${weightLabels[unit]}</span><span class="value">${displayValue} ${unit}</span></div>`;
+      if (unit !== fromUnit && !mainResult) {
+        mainResult = `${displayValue} ${unit}`;
+      }
+    });
+
+    resultEl.textContent = mainResult || `${value} ${fromUnit}`;
+    allEl.innerHTML = html;
+  }
+
+  // Temperature conversion
+  function convertTemperature() {
+    const value = parseFloat(document.getElementById('temperature-value').value);
+    const fromUnit = document.getElementById('temperature-unit').value;
+    const resultEl = document.getElementById('temperature-result');
+    const allEl = document.getElementById('temperature-all');
+
+    if (isNaN(value)) {
+      resultEl.textContent = '—';
+      allEl.innerHTML = '';
+      return;
+    }
+
+    // Convert to Celsius first
+    let celsius;
+    if (fromUnit === 'c') celsius = value;
+    else if (fromUnit === 'f') celsius = (value - 32) * 5/9;
+    else celsius = value - 273.15;
+
+    // Convert to all units
+    const fahrenheit = celsius * 9/5 + 32;
+    const kelvin = celsius + 273.15;
+
+    const unitLabels = { c: 'Celsius', f: 'Fahrenheit', k: 'Kelvin' };
+    let html = '<h4>All conversions</h4>';
+    html += `<div class="result-row"><span class="unit">Celsius</span><span class="value">${celsius.toLocaleString(undefined, { maximumFractionDigits: 2 })} °C</span></div>`;
+    html += `<div class="result-row"><span class="unit">Fahrenheit</span><span class="value">${fahrenheit.toLocaleString(undefined, { maximumFractionDigits: 2 })} °F</span></div>`;
+    html += `<div class="result-row"><span class="unit">Kelvin</span><span class="value">${kelvin.toLocaleString(undefined, { maximumFractionDigits: 2 })} K</span></div>`;
+
+    let mainResult;
+    if (fromUnit === 'c') mainResult = `${fahrenheit.toLocaleString(undefined, { maximumFractionDigits: 2 })} °F`;
+    else if (fromUnit === 'f') mainResult = `${celsius.toLocaleString(undefined, { maximumFractionDigits: 2 })} °C`;
+    else mainResult = `${celsius.toLocaleString(undefined, { maximumFractionDigits: 2 })} °C`;
+
+    resultEl.textContent = mainResult;
+    allEl.innerHTML = html;
+  }
+
+  // Event listeners
+  document.getElementById('length-value').addEventListener('input', convertLength);
+  document.getElementById('length-unit').addEventListener('change', convertLength);
+  document.getElementById('weight-value').addEventListener('input', convertWeight);
+  document.getElementById('weight-unit').addEventListener('change', convertWeight);
+  document.getElementById('temperature-value').addEventListener('input', convertTemperature);
+  document.getElementById('temperature-unit').addEventListener('change', convertTemperature);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const activePanel = document.querySelector('.panel.active').id;
+      if (activePanel === 'length') convertLength();
+      else if (activePanel === 'weight') convertWeight();
+      else if (activePanel === 'temperature') convertTemperature();
+    }
+  });
 </script>
 </body>
 </html>
