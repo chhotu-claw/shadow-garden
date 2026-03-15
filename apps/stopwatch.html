@@ -4,169 +4,208 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stopwatch — Shadow's Garden</title>
-<meta name="description" content="Simple stopwatch with lap times and split functionality">
+<meta name="description" content="A simple, clean stopwatch with lap times — all local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #22c55e; }
-  body { --bg: #0d1117; --fg: #e6edf3; }
-  .container { max-width: 500px; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
-  
-  .time-display {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: clamp(2.5rem, 10vw, 5rem);
-    font-weight: 700;
-    color: var(--accent);
-    margin: 2rem 0;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 2px;
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text);
   }
-  
-  .controls { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
-  
+  .stopwatch {
+    text-align: center;
+    padding: 3rem;
+    background: var(--card-bg);
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  .time-display {
+    font-size: 5rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -0.05em;
+    margin-bottom: 2rem;
+    color: var(--text);
+  }
+  .controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
   button {
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     font-weight: 600;
     border: none;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     cursor: pointer;
-    transition: all 0.15s;
-    min-width: 100px;
+    transition: all 0.2s ease;
+    font-family: var(--font-sans);
   }
-  
-  .btn-start { background: var(--accent); color: #0d1117; }
-  .btn-start:hover { background: #16a34a; transform: scale(1.02); }
-  .btn-stop { background: #ef4444; color: white; }
-  .btn-stop:hover { background: #dc2626; }
-  .btn-reset { background: #374151; color: #e6edf3; }
-  .btn-reset:hover { background: #4b5563; }
-  .btn-lap { background: #6366f1; color: white; }
-  .btn-lap:hover { background: #4f46e5; }
-  
-  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  
-  .laps { text-align: left; max-height: 300px; overflow-y: auto; }
+  .btn-start {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-start:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+  .btn-stop {
+    background: #e74c3c;
+    color: white;
+  }
+  .btn-reset {
+    background: var(--border);
+    color: var(--text);
+  }
+  .btn-lap {
+    background: var(--tag-research);
+    color: white;
+  }
+  .laps {
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    text-align: left;
+  }
   .lap-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 1rem;
-    background: #161b22;
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    font-family: monospace;
   }
-  .lap-num { color: #8b949e; }
-  .lap-time { color: var(--accent); }
-  
-  .presets { margin-bottom: 2rem; }
-  .presets button { min-width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: #21262d; color: #8b949e; margin: 0.2rem; }
-  .presets button:hover { background: #30363d; color: var(--fg); }
-  
-  .title { font-size: 1.5rem; color: var(--fg); margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; font-size: 0.9rem; }
+  .lap-item:first-child {
+    border-top: 1px solid var(--border);
+  }
+  h2 {
+    font-size: 1rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1 class="title">Stopwatch</h1>
-    <p class="subtitle">Press space to start/stop, L for lap, R to reset</p>
-    
-    <div class="presets">
-      <button onclick="setTime(1)">+1 min</button>
-      <button onclick="setTime(5)">+5 min</button>
-      <button onclick="setTime(10)">+10 min</button>
-      <button onclick="setTime(0)">Reset</button>
-    </div>
-    
-    <div class="time-display" id="display">00:00.00</div>
-    
+  <div class="stopwatch">
+    <div class="time-display" id="display">00:00:00.00</div>
     <div class="controls">
-      <button class="btn-start" id="startBtn" onclick="start()">Start</button>
-      <button class="btn-stop" id="stopBtn" onclick="stop()" disabled>Stop</button>
-      <button class="btn-lap" id="lapBtn" onclick="lap()" disabled>Lap</button>
-      <button class="btn-reset" id="resetBtn" onclick="reset()">Reset</button>
+      <button class="btn-start" id="startBtn">Start</button>
+      <button class="btn-stop" id="stopBtn" style="display:none;">Stop</button>
+      <button class="btn-lap" id="lapBtn" disabled>Lap</button>
+      <button class="btn-reset" id="resetBtn">Reset</button>
     </div>
-    
-    <div class="laps" id="laps"></div>
+    <div class="laps-section" id="lapsSection" style="display:none;">
+      <h2>Laps</h2>
+      <div class="laps" id="laps"></div>
+    </div>
   </div>
-  
+
   <script>
     let startTime = 0;
     let elapsed = 0;
     let running = false;
     let interval = null;
     let lapCount = 0;
-    
+
     const display = document.getElementById('display');
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const lapBtn = document.getElementById('lapBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const lapsSection = document.getElementById('lapsSection');
     const lapsContainer = document.getElementById('laps');
-    
+
     function formatTime(ms) {
-      const totalSeconds = Math.floor(ms / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
+      const totalSec = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
       const centiseconds = Math.floor((ms % 1000) / 10);
-      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+      
+      return [hours, minutes, seconds, centiseconds]
+        .map(n => n.toString().padStart(2, '0'))
+        .join(':');
     }
-    
-    function update() {
-      const now = performance.now();
-      elapsed = now - startTime;
-      display.textContent = formatTime(elapsed);
+
+    function updateDisplay() {
+      const current = running ? Date.now() - startTime + elapsed : elapsed;
+      display.textContent = formatTime(current);
     }
-    
+
     function start() {
       if (running) return;
       running = true;
-      startTime = performance.now() - elapsed;
-      interval = setInterval(update, 10);
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
+      startTime = Date.now();
+      interval = setInterval(updateDisplay, 10);
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
       lapBtn.disabled = false;
     }
-    
+
     function stop() {
       if (!running) return;
       running = false;
+      elapsed += Date.now() - startTime;
       clearInterval(interval);
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+      stopBtn.textContent = 'Resume';
       lapBtn.disabled = true;
     }
-    
+
+    function resume() {
+      running = true;
+      startTime = Date.now();
+      interval = setInterval(updateDisplay, 10);
+      stopBtn.textContent = 'Stop';
+      lapBtn.disabled = false;
+    }
+
     function reset() {
-      stop();
+      running = false;
+      clearInterval(interval);
       elapsed = 0;
       lapCount = 0;
-      display.textContent = '00:00.00';
+      display.textContent = '00:00:00.00';
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+      stopBtn.textContent = 'Stop';
+      lapBtn.disabled = true;
+      lapsSection.style.display = 'none';
       lapsContainer.innerHTML = '';
     }
-    
+
     function lap() {
-      if (!running && elapsed === 0) return;
+      if (!running) return;
       lapCount++;
-      const lapTime = formatTime(elapsed);
-      const lapEl = document.createElement('div');
-      lapEl.className = 'lap-item';
-      lapEl.innerHTML = `<span class="lap-num">Lap ${lapCount}</span><span class="lap-time">${lapTime}</span>`;
-      lapsContainer.insertBefore(lapEl, lapsContainer.firstChild);
+      const current = Date.now() - startTime + elapsed;
+      const lapTime = current - (lapCount > 1 ? parseInt(lapsContainer.firstChild?.dataset.time || 0) : 0);
+      
+      const div = document.createElement('div');
+      div.className = 'lap-item';
+      div.dataset.time = current;
+      div.innerHTML = `<span>Lap ${lapCount}</span><span>${formatTime(lapTime)}</span>`;
+      lapsContainer.insertBefore(div, lapsContainer.firstChild);
+      lapsSection.style.display = 'block';
     }
-    
-    function setTime(minutes) {
-      if (running) stop();
-      elapsed = minutes * 60 * 1000;
-      display.textContent = formatTime(elapsed);
-    }
-    
-    document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.code === 'Space') { e.preventDefault(); running ? stop() : start(); }
-      if (e.code === 'KeyR') reset();
-      if (e.code === 'KeyL') lap();
+
+    startBtn.addEventListener('click', start);
+    stopBtn.addEventListener('click', () => {
+      if (stopBtn.textContent === 'Stop') stop();
+      else resume();
     });
+    resetBtn.addEventListener('click', reset);
+    lapBtn.addEventListener('click', lap);
   </script>
 </body>
 </html>
