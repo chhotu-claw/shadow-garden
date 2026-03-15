@@ -4,151 +4,141 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UUID Generator — Shadow's Garden</title>
-<meta name="description" content="Generate UUIDs v4, v7, and more. Copy to clipboard instantly.">
+<meta name="description" content="Generate UUIDs in browser — v4 (random), v7 (time-ordered), v1 (timestamp). Click to copy, batch generate.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  .uuid-display {
-    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-    font-size: 1.1rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
-    word-break: break-all;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .uuid-display:hover { border-color: var(--accent); }
-  .uuid-display.copied { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-  .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  button {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  button.primary:hover { opacity: 0.9; }
-  .label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
-  select {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.5rem;
-    font-size: 0.9rem;
-  }
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%) translateY(100px);
-    background: #22c55e;
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 500;
-    opacity: 0;
-    transition: all 0.3s;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-  .count-row { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; }
-  .count-row input { width: 60px; padding: 0.5rem; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 2rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .control-group { display: flex; align-items: center; gap: 0.5rem; }
+  select, button, input { padding: 0.5rem 1rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+  button { cursor: pointer; background: #333; color: white; border: none; }
+  button:hover { background: #555; }
+  button.secondary { background: #666; }
+  .uuid-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .uuid-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #f5f5f5; border-radius: 4px; cursor: pointer; }
+  .uuid-item:hover { background: #eee; }
+  .uuid-item.copied { background: #d4edda; }
+  .uuid-text { font-family: monospace; font-size: 0.95rem; flex: 1; word-break: break-all; }
+  .uuid-type { font-size: 0.75rem; color: #666; background: #ddd; padding: 0.2rem 0.5rem; border-radius: 3px; white-space: nowrap; }
+  .count-input { width: 80px; }
+  .hint { font-size: 0.85rem; color: #666; margin-top: 1rem; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
   <h1>UUID Generator</h1>
-  <p class="desc">Generate UUIDs instantly. Click any UUID to copy.</p>
+  <p>Generate UUIDs in your browser. All client-side, no tracking.</p>
   
-  <div class="label">Version</div>
   <div class="controls">
-    <select id="version">
-      <option value="4">UUID v4 (random)</option>
-      <option value="7">UUID v7 (time-ordered)</option>
-      <option value="1">UUID v1 (timestamp)</option>
-    </select>
+    <div class="control-group">
+      <label>Type:</label>
+      <select id="uuidType">
+        <option value="v4">v4 (Random)</option>
+        <option value="v7">v7 (Time-ordered)</option>
+        <option value="v1">v1 (Timestamp)</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Count:</label>
+      <input type="number" id="count" class="count-input" value="1" min="1" max="100">
+    </div>
     <button onclick="generate()">Generate</button>
-    <button class="primary" onclick="copyCurrent()">Copy</button>
+    <button class="secondary" onclick="copyAll()">Copy All</button>
   </div>
 
-  <div class="count-row">
-    <label class="label">Count:</label>
-    <input type="number" id="count" value="1" min="1" max="100">
-    <button onclick="generate()">Generate</button>
-  </div>
+  <div class="uuid-list" id="uuidList"></div>
+  <p class="hint">Click any UUID to copy it.</p>
 
-  <div id="output"></div>
-</div>
+  <script>
+    // UUID generation functions
+    function generateV4() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
 
-<div class="toast" id="toast">Copied!</div>
+    function generateV7() {
+      const timestamp = Date.now();
+      const rand = new Uint8Array(10);
+      crypto.getRandomValues(rand);
+      const hex = timestamp.toString(16).padStart(12, '0') + 
+        Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
+      return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-7' + 
+        hex.slice(12, 15) + '-' + (rand[0] & 0x0f | 0x8).toString(16) + 
+        hex.slice(15, 20) + '-' + hex.slice(20);
+    }
 
-<script>
-function generate() {
-  const version = document.getElementById('version').value;
-  const count = Math.min(100, Math.max(1, parseInt(document.getElementById('count').value) || 1));
-  const output = document.getElementById('output');
-  output.innerHTML = '';
-  
-  for (let i = 0; i < count; i++) {
-    const uuid = generateUUID(version);
-    const div = document.createElement('div');
-    div.className = 'uuid-display';
-    div.textContent = uuid;
-    div.onclick = () => copy(uuid, div);
-    output.appendChild(div);
-  }
-}
+    function generateV1() {
+      const now = Date.now();
+      const ticks = (now - 12219292800000) * 10000;
+      const clock = Math.floor(Math.random() * 16384) | 0;
+      const node = new Uint6(6);
+      crypto.getRandomValues(node);
+      const nodeHex = Array.from(node).map(b => b.toString(16).padStart(2, '0')).join(':').replace(/:(.):/g, ':0$1:').replace(/:$/, '');
+      const timeLow = (ticks & 0xffffffff).toString(16).padStart(8, '0');
+      const timeMid = ((ticks >> 32) & 0xffff).toString(16).padStart(4, '0');
+      const timeHi = ((ticks >> 48) & 0x0fff).toString(16).padStart(4, '0');
+      return `${timeLow}-${timeMid}-1${timeHi.slice(1)}-${clock.toString(16).padStart(4, '0')}-${nodeHex}`;
+    }
 
-function generateUUID(version) {
-  if (version === '4') {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  } else if (version === '7') {
-    const time = Date.now();
-    const timeHi = ((time & 0x0FFF) | 0x7000).toString(16);
-    const timeLo = time.toString(16).padStart(13, '0');
-    const rand = 'xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16));
-    return `${timeHi.slice(0,8)}-${timeHi.slice(-4)}-${rand.slice(0,4)}-7${rand.slice(4,7)}-${rand.slice(7)}`;
-  } else if (version === '1') {
-    const now = Date.now();
-    const timeLow = (now & 0xFFFFFFFF).toString(16).padStart(8, '0');
-    const timeMid = ((now >> 32) & 0xFFFF).toString(16).padStart(4, '0');
-    const timeHi = ((now >> 48) & 0x0FFF).toString(16).padStart(4, '0');
-    const clock = (Math.random() * 0x3FFF | 0x8000).toString(16).padStart(4, '0');
-    const hex = 'xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16));
-    return `${timeLow}-${timeMid}-${timeHi}-${clock}-${hex}`;
-  }
-}
+    // Simple version without node ID complexity
+    function generateV1Simple() {
+      const now = Date.now();
+      const offset = 12219292800000;
+      const timestamp = (now - offset) * 10000;
+      const clock = Math.floor(Math.random() * 16384) | 0;
+      const rand = new Uint8Array(6);
+      crypto.getRandomValues(rand);
+      
+      const timeLow = (timestamp & 0xffffffff).toString(16).padStart(8, '0');
+      const timeMid = ((timestamp >> 32) & 0xffff).toString(16).padStart(4, '0');
+      const timeHi = ((timestamp >> 48) & 0x0fff).toString(16).padStart(4, '0');
+      const clockSeq = clock.toString(16).padStart(4, '0');
+      const node = Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      return `${timeLow}-${timeMid}-1${timeHi.slice(1)}-${clockSeq}-${node}`;
+    }
 
-function copy(text, el) {
-  navigator.clipboard.writeText(text);
-  document.querySelectorAll('.uuid-display').forEach(d => d.classList.remove('copied'));
-  el.classList.add('copied');
-  showToast();
-}
+    function generate() {
+      const type = document.getElementById('uuidType').value;
+      const count = Math.min(100, Math.max(1, parseInt(document.getElementById('count').value) || 1));
+      const list = document.getElementById('uuidList');
+      list.innerHTML = '';
+      
+      for (let i = 0; i < count; i++) {
+        let uuid;
+        switch(type) {
+          case 'v4': uuid = generateV4(); break;
+          case 'v7': uuid = generateV7(); break;
+          case 'v1': uuid = generateV1Simple(); break;
+        }
+        
+        const item = document.createElement('div');
+        item.className = 'uuid-item';
+        item.innerHTML = `<span class="uuid-text">${uuid}</span><span class="uuid-type">${type}</span>`;
+        item.onclick = () => copyOne(uuid, item);
+        list.appendChild(item);
+      }
+    }
 
-function copyCurrent() {
-  const first = document.querySelector('.uuid-display');
-  if (first) copy(first.textContent, first);
-}
+    function copyOne(text, el) {
+      navigator.clipboard.writeText(text).then(() => {
+        el.classList.add('copied');
+        setTimeout(() => el.classList.remove('copied'), 1000);
+      });
+    }
 
-function showToast() {
-  const t = document.getElementById('toast');
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 1500);
-}
+    function copyAll() {
+      const uuids = Array.from(document.querySelectorAll('.uuid-text')).map(el => el.textContent);
+      navigator.clipboard.writeText(uuids.join('\n'));
+    }
 
-generate();
-</script>
+    // Generate on load
+    generate();
+  </script>
 </body>
 </html>

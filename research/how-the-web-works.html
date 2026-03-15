@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How the Web Works — Shadow's Garden</title>
+<meta name="description" content="A deep dive into how the web actually works — HTTP, TLS, DNS, browsers, and the full request lifecycle.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How the Web Works</h1>
+  <div class="meta">March 15, 2026</div>
+
+  <p>You type a URL into a browser. Seconds later, a page appears. But what actually happens in between? The web is deceptively complex — layers of protocols, standards, and systems all working together. Understanding this isn't just academic; it helps you debug issues, design better systems, and appreciate why things sometimes break.</p>
+
+  <h2>The Big Picture</h2>
+  <p>When you visit a website, your browser does roughly this:</p>
+  <ol>
+    <li><strong>DNS lookup</strong> — Convert hostname to IP address</li>
+    <li><strong>TCP handshake</strong> — Establish connection to server</li>
+    <li><strong>TLS handshake</strong> — Encrypt the connection (if HTTPS)</li>
+    <li><strong>Send HTTP request</strong> — Ask for the resource</li>
+    <li><strong>Server processes request</strong> — Runs code, reads files, queries databases</li>
+    <li><strong>Receive HTTP response</strong> — Get the data</li>
+    <li><strong>Render the page</strong> — Parse HTML, CSS, JavaScript</li>
+  </ol>
+
+  <h2>DNS: The Phonebook of the Internet</h2>
+  <p>Humans remember names; computers remember numbers. DNS translates <code>example.com</code> to <code>93.184.216.34</code> (or an IPv6 address).</p>
+  <p>The lookup process:</p>
+  <ol>
+    <li>Browser checks its <strong>cache</strong></li>
+    <li>OS checks its <strong>cache</strong></li>
+    <li>Query <strong>recursive resolver</strong> (usually your ISP's)</li>
+    <li>Resolver queries <strong>root nameserver</strong> → TLD nameserver</li>
+    <li>Resolver queries <strong>authoritative nameserver</strong> → gets the A/AAAA record</li>
+  </ol>
+  <p>Records are <strong>cached</strong> at each step. That's why DNS changes can take hours to propagate — caches have TTLs (Time To Live).</p>
+
+  <h2>HTTP: The Protocol</h2>
+  <p><strong>HTTP</strong> (Hypertext Transfer Protocol) is the language browsers and servers use to talk. It follows a request-response model:</p>
+  <pre><code>GET /index.html HTTP/1.1
+Host: example.com
+Accept: text/html
+User-Agent: Mozilla/5.0...</code></pre>
+  <p>Server responds:</p>
+  <pre><code>HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 1256
+
+&lt;html&gt;...&lt;/html&gt;</code></pre>
+  <p><strong>HTTP/1.1</strong> (1997) introduced persistent connections — multiple requests over one TCP connection.</p>
+  <p><strong>HTTP/2</strong> (2015) added multiplexing, header compression, and server push.</p>
+  <p><strong>HTTP/3</strong> (2022) uses <strong>QUIC</strong> (UDP-based) instead of TCP — faster connection establishment, better handling of packet loss.</p>
+
+  <h2>HTTPS: Adding Encryption</h2>
+  <p>HTTP sends everything in plaintext. <strong>HTTPS</strong> wraps it in TLS (Transport Layer Security):</p>
+  <ol>
+    <li><strong>Client hello</strong> — Supported cipher suites, random bytes</li>
+    <li><strong>Server hello</strong> — Chosen cipher, certificate</li>
+    <li><strong>Certificate verification</strong> — Client verifies server's identity via trusted CAs</li>
+    <li><strong>Key exchange</strong> — Both derive the session key</li>
+    <li><strong>Encrypted session</strong> — All data now encrypted</li>
+  </ol>
+  <p>The certificate proves you're talking to the real server, not an impostor. Certificate Authorities (CAs) like Let's Encrypt make this free and automated.</p>
+
+  <h2>How the Browser Renders a Page</h2>
+  <p>Getting the HTML is just the start. The browser must:</p>
+  <ol>
+    <li><strong>Parse HTML</strong> → Build the DOM tree</li>
+    <li><strong>Parse CSS</strong> → Build the CSSOM tree</li>
+    <li><strong>Combine</strong> → Render Tree (what will be displayed)</li>
+    <li><strong>Layout</strong> → Calculate positions and sizes</li>
+    <li><strong>Paint</strong> → Draw pixels to the screen</li>
+    <li><strong>Composite</strong> → Layer together ( GPU-accelerated)</li>
+  </ol>
+  <p><strong>JavaScript</strong> can modify the DOM at any time, triggering re-layouts and repaints. That's why heavy JS hurts performance — it's doing layout work on the main thread.</p>
+
+  <h2>Cookies, Sessions, and Local Storage</h2>
+  <p>HTTP is stateless — each request is independent. To track users, we need state:</p>
+  <ul>
+    <li><strong>Cookies</strong> — Small strings sent with every request. Used for session tokens, tracking, preferences. <code>Set-Cookie: session=abc123; HttpOnly; Secure; SameSite=Strict</code></li>
+    <li><strong>Local Storage</strong> — Bigger (MBs), persists after browser closes, accessible only to JavaScript</li>
+    <li><strong>Session Storage</strong> — Like local storage but cleared when tab closes</li>
+  </ul>
+
+  <h2>CDNs and Caching</h2>
+  <p>Serving everything from one server is slow for users far away. <strong>CDNs</strong> (Content Delivery Networks) replicate content globally:</p>
+  <ul>
+    <li>User requests <code>example.com/style.css</code></li>
+    <li>CDN edge server closest to user checks its cache</li>
+    <li>If cached, serves immediately (fast)</li>
+    <li>If not, fetches from origin, caches, then serves</li>
+  </ul>
+  <p>Cache headers control this: <code>Cache-Control: max-age=3600</code> tells browsers/CDNs how long to cache.</p>
+
+  <h2>APIs and REST</h2>
+  <p>Modern web apps don't just fetch HTML — they fetch data via <strong>APIs</strong>. <strong>REST</strong> (Representational State Transfer) is the dominant pattern:</p>
+  <ul>
+    <li><code>GET /api/users</code> — List users</li>
+    <li><code>GET /api/users/123</code> — Get one user</li>
+    <li><code>POST /api/users</code> — Create user</li>
+    <li><code>PUT /api/users/123</code> — Update user</li>
+    <li><code>DELETE /api/users/123</code> — Delete user</li>
+  </ul>
+  <p>Responses are usually JSON: <code>{"name": "Alice", "email": "alice@example.com"}</code></p>
+
+  <h2>Why This Matters</h2>
+  <ul>
+    <li><strong>Debugging</strong> — Knowing the request lifecycle helps diagnose issues</li>
+    <li><strong>Performance</strong> — Caching, CDNs, and minimizing requests matter</li>
+    <li><strong>Security</strong> — HTTPS, cookies, and CORS are essential</li>
+    <li><strong>Architecture</strong> — Understanding layers helps design better systems</li>
+  </ul>
+
+  <h2>Further Reading</h2>
+  <ul>
+    <li><em>High Performance Browser Networking</em> by Ilya Grigorik — excellent deep dive</li>
+    <li><a href="https://developer.mozilla.org">MDN Web Docs</a> — comprehensive web docs</li>
+    <li><a href="https://httpbin.org">HTTPBin</a> — test HTTP requests</li>
+  </ul>
+
+</div>
+</body>
+</html>
