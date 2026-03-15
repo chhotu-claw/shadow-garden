@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morse Translator — Shadow's Garden</title>
+<meta name="description" content="Translate between text and Morse code with audio playback. Learn Morse visually or by ear.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  h1 { margin-bottom: 0.5rem; }
+  .tagline { color: #666; margin-bottom: 2rem; }
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  textarea {
+    width: 100%;
+    height: 150px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #1a1a1a;
+    color: #eee;
+    resize: vertical;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: #4a9eff;
+  }
+  .controls {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #333;
+    color: #eee;
+    transition: background 0.2s;
+  }
+  button:hover { background: #444; }
+  button.primary { background: #4a9eff; color: #fff; }
+  button.primary:hover { background: #3a8eef; }
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .speed-control input {
+    width: 80px;
+    padding: 0.5rem;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #eee;
+    border-radius: 4px;
+  }
+  .output {
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .reference {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+  }
+  .reference h3 { margin-top: 0; }
+  .morse-chart {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.5rem;
+    font-family: monospace;
+  }
+  .morse-char {
+    padding: 0.25rem;
+    background: #2a2a2a;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .playing { background: #4a9eff; color: #fff; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>📡 Morse Translator</h1>
+  <p class="tagline">Translate text to Morse code and back — with audio playback</p>
+  
+  <div class="container">
+    <div>
+      <label><strong>Text / Morse</strong></label>
+      <textarea id="input" placeholder="Type here to translate to Morse...&#10;Or enter Morse (e.g. .... . .-.. .-.. --- / .-- --- .-. .-.. -..) to translate to text"></textarea>
+    </div>
+    
+    <div class="controls">
+      <button id="toMorse" class="primary">Text → Morse</button>
+      <button id="toText">Morse → Text</button>
+      <button id="play">🔊 Play Audio</button>
+      <button id="stop">⏹ Stop</button>
+      <div class="speed-control">
+        <label>WPM:</label>
+        <input type="number" id="wpm" value="20" min="5" max="40">
+      </div>
+      <button id="copy">📋 Copy</button>
+      <button id="clear">Clear</button>
+    </div>
+    
+    <div>
+      <label><strong>Output</strong></label>
+      <div id="output" class="output"></div>
+    </div>
+    
+    <div class="reference">
+      <h3>Morse Reference</h3>
+      <div class="morse-chart" id="chart"></div>
+    </div>
+  </div>
+
+  <script>
+    const MORSE_CODE = {
+      'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+      'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+      'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+      'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+      'Y': '-.--', 'Z': '--..',
+      '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+      '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+      '.': '.-.-.-', ',': '--..--', '?': '..--..', '!': '-.-.--', '/': '-..-.',
+      '-': '-....-', '(': '-.--.', ')': '-.--.-', ' ': '/'
+    };
+    
+    const REVERSE_MORSE = Object.fromEntries(
+      Object.entries(MORSE_CODE).flatMap(([k, v]) => [[v, k]])
+    );
+
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const wpmInput = document.getElementById('wpm');
+    let audioContext = null;
+    let isPlaying = false;
+    let stopRequested = false;
+
+    function textToMorse(text) {
+      return text.toUpperCase().split('').map(char => {
+        return MORSE_CODE[char] || char;
+      }).join(' ');
+    }
+
+    function morseToText(morse) {
+      return morse.split(' ').map(code => {
+        return REVERSE_MORSE[code] || code;
+      }).join('');
+    }
+
+    function isMorse(str) {
+      return /^[.\-/ ]+$/.test(str.trim());
+    }
+
+    document.getElementById('toMorse').addEventListener('click', () => {
+      const text = input.value;
+      output.textContent = textToMorse(text);
+    });
+
+    document.getElementById('toText').addEventListener('click', () => {
+      const morse = input.value;
+      output.textContent = morseToText(morse);
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      output.textContent = '';
+    });
+
+    document.getElementById('copy').addEventListener('click', () => {
+      navigator.clipboard.writeText(output.textContent);
+    });
+
+    // Audio playback
+    async function playMorse() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const wpm = parseInt(wpmInput.value) || 20;
+      const dotLength = 1200 / wpm; // ms
+      const dashLength = dotLength * 3;
+      const symbolSpace = dotLength;
+      const letterSpace = dotLength * 3;
+      const wordSpace = dotLength * 7;
+      
+      const morse = output.textContent;
+      stopRequested = false;
+      isPlaying = true;
+      
+      for (const symbol of morse) {
+        if (stopRequested) break;
+        
+        if (symbol === '.') {
+          playTone(dotLength);
+          await sleep(symbolSpace);
+        } else if (symbol === '-') {
+          playTone(dashLength);
+          await sleep(symbolSpace);
+        } else if (symbol === ' ') {
+          await sleep(letterSpace - symbolSpace);
+        } else if (symbol === '/') {
+          await sleep(wordSpace - letterSpace);
+        }
+      }
+      
+      isPlaying = false;
+    }
+
+    function playTone(duration) {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 600;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration / 1000);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    document.getElementById('play').addEventListener('click', playMorse);
+    document.getElementById('stop').addEventListener('click', () => {
+      stopRequested = true;
+    });
+
+    // Build reference chart
+    const chart = document.getElementById('chart');
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?!/-()';
+    for (const char of letters) {
+      const div = document.createElement('div');
+      div.className = 'morse-char';
+      div.textContent = `${char}: ${MORSE_CODE[char]}`;
+      chart.appendChild(div);
+    }
+
+    // Auto-detect direction
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      if (!val) {
+        output.textContent = '';
+        return;
+      }
+      if (isMorse(val)) {
+        output.textContent = morseToText(val);
+      } else {
+        output.textContent = textToMorse(val);
+      }
+    });
+  </script>
+</body>
+</html>
