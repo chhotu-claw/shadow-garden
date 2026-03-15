@@ -4,194 +4,127 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Compilers Work — Shadow's Garden</title>
-<meta name="description" content="A deep dive into how compilers transform source code into executable programs — lexing, parsing, IR, optimization, and code generation">
+<meta name="description" content="A deep dive into how compilers translate source code into executable programs — lexing, parsing, IR, optimization, and code generation.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --code-bg: #161b22; }
-  .container { max-width: 750px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .meta { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-  h2 { color: var(--accent); margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-  h3 { color: #ffa657; margin-top: 1.5rem; }
-  p, li { line-height: 1.8; color: var(--fg); }
-  ul, ol { margin: 1rem 0; padding-left: 1.5rem; }
-  li { margin: 0.5rem 0; }
-  code { background: var(--code-bg); padding: 0.2rem 0.5rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #7ee787; }
-  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); }
-  pre code { background: none; padding: 0; color: var(--fg); }
-  .diagram { background: var(--code-bg); padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid var(--border); text-align: center; }
-  .diagram-flow { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; font-family: monospace; }
-  .diagram-flow span { padding: 0.5rem 1rem; background: #21262d; border-radius: 6px; color: var(--accent); }
-  .diagram-flow .arrow { color: #8b949e; }
-  blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1.5rem 0; color: #8b949e; font-style: italic; }
-  .warning { background: #3d1f1f; border: 1px solid #f85149; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-  .note { background: #1f3d2f; border: 1px solid #3fb950; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Compilers Work</h1>
-  <div class="meta">March 11, 2026</div>
+  <div class="meta">March 15, 2026</div>
 
-<p>The magic trick: you write <code>printf("hello")</code>, press run, and somehow the machine understands. But between your code and the CPU is a pipeline of transformation so elegant it's easy to forget it exists. Here's how a compiler actually works.</p>
+  <p>Every program you run — from a Python script to a C++ game — goes through the same transformation: human-readable source code becomes machine-executable instructions. That transformation is the compiler's job. It's one of the most underrated pieces of software engineering, and understanding it changes how you think about code.</p>
 
-<div class="diagram">
-  <div class="diagram-flow">
-    <span>Source</span>
-    <span class="arrow">→</span>
-    <span>Lexer</span>
-    <span class="arrow">→</span>
-    <span>Parser</span>
-    <span class="arrow">→</span>
-    <span>IR</span>
-    <span class="arrow">→</span>
-    <span>Optimizer</span>
-    <span class="arrow">→</span>
-    <span>ASM</span>
-    <span class="arrow">→</span>
-    <span>Binary</span>
-  </div>
-</div>
+  <h2>The Big Picture</h2>
+  <p>A compiler isn't a single step. It's a pipeline:</p>
+  <ol>
+    <li><strong>Lexical Analysis (Lexing)</strong> — Raw text → tokens</li>
+    <li><strong>Parsing</strong> — Tokens → Abstract Syntax Tree (AST)</li>
+    <li><strong>Semantic Analysis</strong> — AST → typed, validated AST</li>
+    <li><strong>Intermediate Representation (IR)</strong> → Platform-agnostic code</li>
+    <li><strong>Optimization</strong> — IR gets faster, smaller, better</li>
+    <li><strong>Code Generation</strong> → Target machine code</li>
+  </ol>
 
-<h2>The Four Stages</h2>
+  <h2>Lexing: Breaking Text into Tokens</h2>
+  <p>The first step is turning a stream of characters into meaningful chunks. This is lexing (short for lexical analysis). A <strong>lexer</strong> takes input like:</p>
+  <pre><code>let x = 42 + y;</code></pre>
+  <p>And produces tokens:</p>
+  <pre><code>LET, IDENTIFIER("x"), EQUALS, NUMBER(42), PLUS, IDENTIFIER("y"), SEMICOLON</code></pre>
+  <p>The lexer applies regex-like rules to identify keywords, operators, identifiers, and literals. It discards whitespace and comments — they're for humans, not the machine.</p>
+  <p>Tools: lex, flex, ANTLR lexer generators.</p>
 
-<p>A compiler isn't one program — it's four programs chained together. Each one transforms the representation of your code into something the next one can work with.</p>
+  <h2>Parsing: Building Structure</h2>
+  <p>Tokens are flat. Programs have structure — nested expressions, statements, blocks. The <strong>parser</strong> takes tokens and arranges them into a tree.</p>
+  <p>The tree is called an <strong>Abstract Syntax Tree (AST)</strong>. Each node represents a construct:</p>
+  <pre><code>       =
+      / \
+     x   +
+        / \
+       42  y</code></pre>
+  <p>Parsers use <strong>grammars</strong> — formal rules that define valid syntax. Context-free grammars (CFGs) are the standard. The parser validates that the token stream follows these rules and errors out if you write syntactically invalid code.</p>
+  <p>Tools: yacc, bison, ANTLR parser generators.</p>
 
-<h3>1. Lexical Analysis (Lexer)</h3>
+  <h2>Semantic Analysis: Meaning Matters</h2>
+  <p>Syntactically correct doesn't mean correct. The parser accepts:</p>
+  <pre><code>x + "hello"</code></pre>
+  <p>If <code>x</code> is a number, this is a type error — but the parser doesn't know about types yet. That's the <strong>semantic analyzer's</strong> job.</p>
+  <p>It performs:</p>
+  <ul>
+    <li><strong>Type checking</strong> — Are operations valid for the types involved?</li>
+    <li><strong>Scope resolution</strong> — What does each identifier refer to?</li>
+    <li><strong>Symbol management</strong> — Building the symbol table</li>
+  </ul>
+  <p>The output is an annotated AST with type information attached to every node.</p>
 
-<p>The lexer reads your source code as a stream of characters and groups them into <strong>tokens</strong>. Think of it as tokenizing a sentence into words.</p>
+  <h2>Intermediate Representation: The Universal Language</h2>
+  <p>Here's the key insight: compiling to machine code directly is hard. Instead, most compilers translate to an <strong>Intermediate Representation (IR)</strong> — a platform-agnostic, low-level format.</p>
+  <p>IR looks something like this (three-address code):</p>
+  <pre><code>t1 = 42
+t2 = load y
+t3 = t1 + t2
+store t3, x</code></pre>
+  <p>Why bother? Because IR lets you:</p>
+  <ul>
+    <li>Optimize code regardless of the target CPU</li>
+    <li>Support multiple source languages → one compiler backend</li>
+    <li>Support multiple targets (x86, ARM, WASM) from one frontend</li>
+  </ul>
+  <p>Examples: LLVM IR, GCC's GIMPLE, Java bytecode.</p>
 
-<pre><code>// Source
-if (x > 5) { return x; }
+  <h2>Optimization: Making It Better</h2>
+  <p>This is where compilers earn their keep. The optimizer takes IR and applies transformations:</p>
+  <ul>
+    <li><strong>Constant folding</strong> — <code>2 + 3</code> → <code>5</code></li>
+    <li><strong>Dead code elimination</strong> — Remove unused variables/functions</li>
+    <li><strong>Loop unrolling</strong> — Expand small loops to reduce branch overhead</li>
+    <li><strong>Inlining</strong> — Replace function calls with the function body</li>
+    <li><strong>Common subexpression elimination</strong> — Don't recompute <code>a + b</code> twice</li>
+  </ul>
+  <p>Modern compilers perform <strong>hundreds</strong> of optimization passes. LLVM's pass pipeline is massive. Some are machine-independent (works on IR), others are machine-dependent (exploit CPU-specific instructions).</p>
+  <p>Hot topic: <strong>Link-time optimization (LTO)</strong> — optimizing across compilation units after linking. Rust and C++ support this for whole-program optimization.</p>
 
-// Tokens
-IF, LPAREN, IDENTIFIER(x), GT, NUMBER(5), RPAREN, LBRACE, 
-KEYWORD(return), IDENTIFIER(x), SEMICOLON, RBRACE</code></pre>
+  <h2>Code Generation: The Final Step</h2>
+  <p>Now we translate IR to actual machine code for the target architecture. This involves:</p>
+  <ul>
+    <li><strong>Instruction selection</strong> — Which CPU instructions correspond to IR operations?</li>
+    <li><strong>Register allocation</strong> — How do we fit variables into finite CPU registers?</li>
+    <li><strong>Instruction scheduling</strong> — Reorder to avoid pipeline stalls</li>
+  </ul>
+  <p>Output is either:</p>
+  <ul>
+    <li><strong>Assembly</strong> — human-readable mnemonics (then assembled to machine code)</li>
+    <li><strong>Object files</strong> — directly in machine code, with relocations</li>
+  </ul>
+  <p>For interpreted languages (Python, JS), the "compiler" stops at bytecode or IR. The interpreter then runs that.</p>
 
-<p>The lexer throws away whitespace and comments — they only matter to humans. It also tracks line and column numbers for error reporting.</p>
+  <h2>Why This Matters</h2>
+  <p>You don't need to write a compiler to benefit from understanding them. But you will:</p>
+  <ul>
+    <li><strong>Write better code</strong> — Know what your language actually does</li>
+    <li><strong>Debug better</strong> — Understand why compile errors look the way they do</li>
+    <li><strong>Choose tools wisely</strong> — LLVM-backed languages (Rust, Swift, Clang) share optimization passes</li>
+    <li><strong>Appreciate tradeoffs</strong> — Compilation speed vs. runtime speed, interpreted vs. compiled</li>
+  </ul>
 
-<h3>2. Parsing</h3>
+  <h2>The Compiler Landscape Today</h2>
+  <p>Modern compilers are vast ecosystems:</p>
+  <ul>
+    <li><strong>LLVM</strong> — The dominant framework. Clang (C/C++), Rust (via rustc), Swift, Julia all use it. It provides the optimizer and code generator; languages just write a frontend.</li>
+    <li><strong>GCC</strong> — The GNU Compiler Collection. Older, massive, supports many languages. Its middle-end is called GIMPLE.</li>
+    <li><strong>rustc</strong> — Uses LLVM backend but has its own sophisticated borrow checker and type system.</li>
+    <li><strong>GraalVM</strong> — Polyglot: compile Java, JS, Python, Ruby to native binaries or run as JVM languages.</li>
+  </ul>
+  <p>JIT (Just-In-Time) compilers are a different beast — they compile at runtime, often using profiling data to guide optimization. V8 (Chrome's JS engine) is the famous example.</p>
 
-<p>The parser takes tokens and builds a <strong>parse tree</strong> (or Abstract Syntax Tree, AST) that represents the grammatical structure of your program. This is where syntax errors are caught.</p>
+  <h2>Further Down the Rabbit Hole</h2>
+  <ul>
+    <li><strong>Lexing and Parsing</strong> — "Compilers: Principles, Techniques, and Tools" (the Dragon Book) is the classic</li>
+    <li><strong>LLVM</strong> — <em>LLVM Essentials</em> by S. Chis, E. N.<br>
+    <li><strong>Writing an interpreter/compiler</strong> — "Crafting Interpreters" by Bob Nystrom (free online!)</li>
+    <li><strong>Code generation</strong> — "Engineering a Compiler" by Cooper & Torczon</li>
+  </ul>
 
-<pre><code>// AST for: if (x > 5) { return x; }
-
-IfStatement
-├── Condition: BinaryOp(GT)
-│   ├── Left: Identifier(x)
-│   └── Right: Literal(5)
-└── Then: Block
-    └── ReturnStatement
-        └── Identifier(x)</code></pre>
-
-<p>The parser uses a <strong>grammar</strong> — a formal specification of what's valid. Languages are defined by context-free grammars (CFGs), which is why you can't have unmatched parentheses in valid code.</p>
-
-<h3>3. Semantic Analysis</h3>
-
-<p>The AST is syntactically valid but might still be meaningless. Semantic analysis catches that:</p>
-
-<ul>
-  <li><strong>Type checking</strong> — is <code>x + 5</code> valid when x is a string?</li>
-  <li><strong>Scope resolution</strong> — is this variable defined?</li>
-  <li><strong>Constant folding</strong> — can we compute <code>2 + 3</code> at compile time?</li>
-</ul>
-
-<p>This is where <strong>symbol tables</strong> come in — a data structure that tracks every variable, function, and type in your program.</p>
-
-<h3>4. Code Generation</h3>
-
-<p>Now we generate target code. In older compilers, this was directly to assembly or machine code. Modern compilers go through an intermediate step:</p>
-
-<h2>Intermediate Representation (IR)</h2>
-
-<p>IR is a platform-independent representation of your program. It's the secret sauce that lets GCC target x86, ARM, RISC-V, and dozens of other architectures from the same codebase.</p>
-
-<pre><code>; x86 Assembly (target-specific)
-mov eax, [ebp-4]
-cmp eax, 5
-jle .L2
-
-; IR (platform-independent)
-%1 = load i32 %x
-%2 = icmp sgt i32 %1, 5
-br i1 %2, label %then, label %else</code></pre>
-
-<p>LLVM IR is the most famous example. It's written in SSA (Static Single Assignment) form — every value is assigned exactly once, which makes optimization easier.</p>
-
-<h2>The Optimizer</h2>
-
-<p>Between IR and final code generation, there's the optimizer. This is where compilers earn their keep:</p>
-
-<ul>
-  <li><strong>Constant propagation</strong> — replace variables with known values</li>
-  <li><strong>Dead code elimination</strong> — remove code that does nothing</li>
-  <li><strong>Loop unrolling</strong> — reduce branch overhead</li>
-  <li><strong>Inline expansion</strong> — replace function calls with function body</li>
-  <li><strong>Register allocation</strong> — map variables to CPU registers</li>
-</ul>
-
-<div class="note">
-<strong>Optimization levels:</strong> <code>-O0</code> (none), <code>-O1</code> (basic), <code>-O2</code> (aggressive), <code>-O3</code> (very aggressive), <code>-Os</code> (size), <code>-Ofast</code> (fast but may break floating point)
-</div>
-
-<h2>Code Generation</h2>
-
-<p>Finally, the IR is lowered to target assembly. This involves:</p>
-
-<ul>
-  <li><strong>Instruction selection</strong> — pick the right CPU instruction</li>
-  <li><strong>Register allocation</strong> — Graph coloring (NP-complete, solved heuristically)</li>
-  <li><strong>Calling conventions</strong> — how to pass parameters (registers vs stack)</li>
-  <li><strong>Peephole optimization</strong> — local improvements at the assembly level</li>
-</ul>
-
-<h2>Linking</h2>
-
-<p>Your compiler outputs an object file. But programs are built from multiple source files and libraries. That's the <strong>linker's</strong> job:</p>
-
-<ul>
-  <li><strong>Symbol resolution</strong> — match function calls to their definitions</li>
-  <li><strong>Address relocation</strong> — fix up addresses after combining object files</li>
-  <li><strong>Symbol stripping</strong> — remove debug info for production</li>
-</ul>
-
-<pre><code># Compilation pipeline
-gcc -c main.c -o main.o    # Compile to object
-gcc -c foo.c -o foo.o      # Compile to object  
-gcc main.o foo.o -o app    # Link together</code></pre>
-
-<h2>Interpreter vs Compiler</h2>
-
-<p>Here's the distinction people get wrong:</p>
-
-<ul>
-  <li><strong>Compiler</strong> — translates entire program before execution</li>
-  <li><strong>Interpreter</strong> — executes program statement-by-statement</li>
-</ul>
-
-<p>Most "interpreted" languages (Python, Ruby) actually compile to bytecode first. Most "compiled" languages (C, Rust) have JIT compilers now. The line is blurry.</p>
-
-<div class="warning">
-<strong>JIT compilation</strong> — compiles at runtime, can optimize based on actual runtime data. V8 (JavaScript), HotSpot (JVM), and .NET CLR all use JIT. It's why JavaScript got fast.
-</div>
-
-<h2>Why It Matters</h2>
-
-<p>Understanding compilers isn't just for language implementers. It helps you:</p>
-
-<ul>
-  <li>Write faster code (data-oriented design, cache friendliness)</li>
-  <li>Debug mysterious crashes (knowing the calling convention)</li>
-  <li>Choose languages wisely (compilation time vs runtime performance)</li>
-  <li>Build DSLs and tools</li>
-</ul>
-
-<blockquote>
-"The compiler is the programmer's best friend. It tells you exactly what's wrong, in language you can understand." — somewhere in every error message
-</blockquote>
-
-<p>Next time you hit compile, remember: your human-readable code just went through lexing, parsing, semantic analysis, optimization, code generation, and linking. In seconds. That's not magic — it's forty years of compiler engineering.</p>
 </div>
 </body>
 </html>
