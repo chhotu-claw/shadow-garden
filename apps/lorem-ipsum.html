@@ -4,123 +4,150 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorem Ipsum Generator — Shadow's Garden</title>
-<meta name="description" content="Generate placeholder text instantly. Copy to clipboard. Boring but essential.">
+<meta name="description" content="Generate lorem ipsum placeholder text in paragraphs, words, bytes, or lists. Copy to clipboard or download as .txt.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 2rem; max-width: 800px; margin: 0 auto; }
-  .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
-  .controls label { font-weight: 500; }
-  .controls input[type="number"] { 
-    width: 80px; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; 
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem; }
+  .controls { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; align-items: center; }
+  .control-group { display: flex; align-items: center; gap: 0.5rem; }
+  label { font-weight: 500; }
+  select, input[type="number"] { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
+  input[type="number"] { width: 70px; }
+  button { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; transition: background 0.2s; }
+  .btn-primary { background: #2d2d2d; color: #fff; }
+  .btn-primary:hover { background: #444; }
+  .btn-secondary { background: #e0e0e0; color: #333; }
+  .btn-secondary:hover { background: #ccc; }
+  #output { 
+    background: #f8f8f8; 
+    padding: 1.5rem; 
+    border-radius: 6px; 
+    white-space: pre-wrap; 
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.6;
+    font-family: Georgia, serif;
   }
-  .controls select {
-    padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;
-  }
-  .btn {
-    padding: 0.6rem 1.2rem; background: #333; color: #fff; border: none; border-radius: 4px;
-    cursor: pointer; font-size: 1rem; transition: background 0.2s;
-  }
-  .btn:hover { background: #555; }
-  .btn-secondary { background: #666; }
-  .btn-secondary:hover { background: #777; }
-  .output {
-    background: #f5f5f5; padding: 1.5rem; border-radius: 8px; min-height: 200px;
-    white-space: pre-wrap; line-height: 1.6; font-size: 1rem; margin-bottom: 1rem;
-  }
-  .actions { display: flex; gap: 0.5rem; }
-  .copied { color: #2a9d8f; font-size: 0.9rem; margin-left: 0.5rem; opacity: 0; transition: opacity 0.3s; }
-  .copied.show { opacity: 1; }
+  .stats { margin-top: 1rem; font-size: 0.85rem; color: #666; }
+  .copy-feedback { margin-left: 0.5rem; color: #2a7; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; }
+  .copy-feedback.show { opacity: 1; }
 </style>
 </head>
 <body data-page-type="app">
+<div class="container">
   <h1>Lorem Ipsum Generator</h1>
-  <p style="color: #666; margin-bottom: 1.5rem;">Generate placeholder text for mockups. Copy with one click.</p>
+  <p>Generate placeholder text for designs. All local, no tracking.</p>
   
   <div class="controls">
-    <label>Paragraphs:</label>
-    <input type="number" id="count" value="3" min="1" max="50">
-    
-    <label>Type:</label>
-    <select id="type">
-      <option value="classic">Classic Lorem Ipsum</option>
-      <option value="bacon">Bacon Ipsum</option>
-      <option value="hipster">Hipster Ipsum</option>
-      <option value="corporate">Corporate Speak</option>
-    </select>
-    
-    <button class="btn" onclick="generate()">Generate</button>
+    <div class="control-group">
+      <label>Type:</label>
+      <select id="type">
+        <option value="paragraphs">Paragraphs</option>
+        <option value="words">Words</option>
+        <option value="bytes">Bytes</option>
+        <option value="lists">List items</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Count:</label>
+      <input type="number" id="count" value="3" min="1" max="100">
+    </div>
+    <button class="btn-primary" onclick="generate()">Generate</button>
+    <button class="btn-secondary" onclick="copy()">Copy</button>
   </div>
   
-  <div class="output" id="output"></div>
+  <div id="output"></div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<script>
+const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore', 'magna', 'aliqua', 'enim', 'ad', 'minim', 'veniam', 'quis', 'nostrud', 'exercitation', 'ullamco', 'laboris', 'nisi', 'aliquip', 'ex', 'ea', 'commodo', 'consequat', 'duis', 'aute', 'irure', 'in', 'reprehenderit', 'voluptate', 'velit', 'esse', 'cillum', 'fugiat', 'nulla', 'pariatur', 'excepteur', 'sint', 'occaecat', 'cupidatat', 'non', 'proident', 'sunt', 'culpa', 'qui', 'officia', 'deserunt', 'mollit', 'anim', 'id', 'est', 'laborum'];
+
+function randomWord() {
+  return words[Math.floor(Math.random() * words.length)];
+}
+
+function generateParagraph(minWords = 30, maxWords = 60) {
+  const len = Math.floor(Math.random() * (maxWords - minWords + 1)) + minWords;
+  const paragraph = [];
+  let sentenceLen = 0;
+  for (let i = 0; i < len; i++) {
+    const word = randomWord();
+    paragraph.push(word);
+    sentenceLen++;
+    if (sentenceLen > 8 && Math.random() > 0.8) {
+      paragraph[paragraph.length - 1] += '.';
+      sentenceLen = 0;
+    }
+  }
+  // Capitalize first word, end with period
+  paragraph[0] = paragraph[0].charAt(0).toUpperCase() + paragraph[0].slice(1);
+  if (!paragraph[paragraph.length - 1].endsWith('.')) {
+    paragraph[paragraph.length - 1] += '.';
+  }
+  return paragraph.join(' ');
+}
+
+function generate() {
+  const type = document.getElementById('type').value;
+  const count = parseInt(document.getElementById('count').value) || 3;
+  let output = '';
+  let stats = '';
   
-  <div class="actions">
-    <button class="btn btn-secondary" onclick="copyText()">Copy to Clipboard</button>
-    <span class="copied" id="copied">Copied!</span>
-  </div>
-
-  <script>
-    const corpora = {
-      classic: [
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-        "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-        "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-        "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
-        "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.",
-        "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum."
-      ],
-      bacon: [
-        "Bacon ipsum dolor sit amet beef ribs pork belly, ham hock pork loin cow turkey boudin chicken.",
-        "Beef ribs turkey pastrami, pork chop short ribs ham hock porchetta bacon pork belly swine.",
-        "Pork belly short ribs bacon biltong, turducken cow beef ribs ham hamburger.",
-        "Turkey pork loin pork chop ribeye, pork belly beef ham hock brisket beef turkey.",
-        "Shankle beef ribs pork, pastrami turducken pork belly brisket turkey swine.",
-        "Tenderloin pork chop turkey, bacon pork belly ham hock beef ribs swine brisket."
-      ],
-      hipster: [
-        "Viral actually disrupt, typewriter squid literally heirloom. Hammock flexitarian 3 wolf moon, irony 90s bushwick.",
-        "Tilde echo park meditation, typewriter PBR&B 8-bit. Kale chips adaptogen distillery.",
-        "Craft beer stumptown hot chicken, lo-fi williamsburg ethical meditation. Echo park listicle.",
-        "Jean shorts +1 bicycle rights, shabby chic actually locavore sustainable. Mlkshk four dollar toast.",
-        "Freegan art party man braid, typewriter sustainable. 90s cronut YOLO, shabby chic."
-      ],
-      corporate: [
-        "Leverage agile frameworks to provide a robust synopsis for high level overviews.",
-        "Iterative approaches to corporate strategy foster collaborative thinking to further the overall value proposition.",
-        "Organically grow the holistic world view of disruptive innovation via workplace diversity and empowerment.",
-        "Bring to the table win-win survival strategies to ensure proactive domination.",
-        "At the end of the day, going forward, a new normal that has evolved from generation X is on the runway heading towards a streamlined cloud solution.",
-        "Capitalize on low hanging fruit to identify a ballpark value added activity to beta test."
-      ]
-    };
-
-    function generate() {
-      const count = parseInt(document.getElementById('count').value);
-      const type = document.getElementById('type').value;
-      const output = document.getElementById('output');
-      
-      let text = [];
-      const source = corpora[type];
-      
-      for (let i = 0; i < count; i++) {
-        text.push(source[i % source.length]);
+  if (type === 'paragraphs') {
+    const paras = [];
+    for (let i = 0; i < count; i++) {
+      paras.push(generateParagraph());
+    }
+    output = paras.join('\n\n');
+    stats = `${count} paragraph${count > 1 ? 's' : ''}`;
+  } else if (type === 'words') {
+    const w = [];
+    for (let i = 0; i < count; i++) {
+      w.push(randomWord());
+    }
+    output = w.join(' ');
+    stats = `${count} word${count > 1 ? 's' : ''}`;
+  } else if (type === 'bytes') {
+    // Generate exactly N bytes of lorem-style text
+    const targetBytes = count;
+    let result = '';
+    while (result.length < targetBytes) {
+      const para = generateParagraph(15, 30);
+      if (result.length + para.length + 2 <= targetBytes) {
+        result += para + '\n\n';
+      } else {
+        const remaining = targetBytes - result.length;
+        result += para.substring(0, remaining);
       }
-      
-      output.textContent = text.join('\n\n');
     }
-
-    function copyText() {
-      const text = document.getElementById('output').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        const copied = document.getElementById('copied');
-        copied.classList.add('show');
-        setTimeout(() => copied.classList.remove('show'), 2000);
-      });
+    output = result;
+    stats = `${result.length} bytes`;
+  } else if (type === 'lists') {
+    const items = [];
+    for (let i = 0; i < count; i++) {
+      items.push(`${i + 1}. ${generateParagraph(5, 10)}`);
     }
+    output = items.join('\n');
+    stats = `${count} list item${count > 1 ? 's' : ''}`;
+  }
+  
+  document.getElementById('output').textContent = output;
+  document.getElementById('stats').textContent = stats;
+}
 
-    generate();
-  </script>
+function copy() {
+  const text = document.getElementById('output').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const feedback = document.getElementById('stats');
+    feedback.textContent += ' — Copied!';
+    setTimeout(() => generate(), 2000);
+  });
+}
+
+// Generate on load
+generate();
+</script>
 </body>
 </html>
