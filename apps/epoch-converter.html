@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epoch Converter — Shadow's Garden</title>
+<meta name="description" content="Convert Unix timestamps to human-readable dates and vice versa. Supports milliseconds, seconds, and custom formats.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 2rem; }
+  .converter { background: #f5f5f5; padding: 1.5rem; border-radius: 8px; }
+  .input-group { margin-bottom: 1rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+  input, select { width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+  .result { background: #fff; padding: 1rem; border-radius: 4px; margin-top: 1rem; word-break: break-all; }
+  .result-label { font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; }
+  .result-value { font-family: monospace; font-size: 1.1rem; }
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .presets button { padding: 0.4rem 0.8rem; font-size: 0.85rem; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  .presets button:hover { background: #444; }
+  .formats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-top: 1rem; }
+  .format-btn { padding: 0.5rem; font-size: 0.85rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; }
+  .format-btn:hover { background: #eee; }
+  .format-btn.active { background: #333; color: white; border-color: #333; }
+  .hint { font-size: 0.85rem; color: #666; margin-top: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Epoch Converter</h1>
+  <p>Convert Unix timestamps to human-readable dates and vice versa.</p>
+  
+  <div class="converter">
+    <div class="input-group">
+      <label>Unix Timestamp (seconds):</label>
+      <input type="text" id="epochInput" placeholder="e.g. 1742083200" oninput="convertFromEpoch()">
+    </div>
+    <div class="input-group">
+      <label>Or pick a date:</label>
+      <input type="datetime-local" id="dateInput" onchange="convertFromDate()">
+    </div>
+    
+    <div class="presets">
+      <button onclick="setNow()">Now</button>
+      <button onclick="setEpoch(0)">Unix Epoch (1970-01-01)</button>
+      <button onclick="setEpoch(1000000000)">1B seconds (2001-09-09)</button>
+      <button onclick="setEpoch(1704067200)">2024-01-01</button>
+      <button onclick="setEpoch(1735689600)">2025-01-01</button>
+    </div>
+
+    <div class="result">
+      <div class="result-label">UTC</div>
+      <div class="result-value" id="utcResult">—</div>
+    </div>
+    <div class="result">
+      <div class="result-label">Local</div>
+      <div class="result-value" id="localResult">—</div>
+    </div>
+    <div class="result">
+      <div class="result-label">Relative</div>
+      <div class="result-value" id="relativeResult">—</div>
+    </div>
+
+    <div class="input-group" style="margin-top: 1.5rem;">
+      <label>Custom Format:</label>
+      <input type="text" id="customFormat" value="YYYY-MM-DD HH:mm:ss" oninput="updateCustom()">
+    </div>
+    <div class="result">
+      <div class="result-label">Custom Format</div>
+      <div class="result-value" id="customResult">—</div>
+    </div>
+  </div>
+
+  <p class="hint">Tip: You can also enter milliseconds (13 digits) — it'll auto-detect.</p>
+
+  <script>
+    let currentEpoch = null;
+
+    function detectEpoch(input) {
+      const num = parseInt(input.trim());
+      if (isNaN(num)) return null;
+      // If 13+ digits, assume milliseconds
+      if (num >= 1000000000000) return Math.floor(num / 1000);
+      // If 10 digits or less, assume seconds
+      return num;
+    }
+
+    function convertFromEpoch() {
+      const input = document.getElementById('epochInput').value;
+      const epoch = detectEpoch(input);
+      
+      if (epoch === null) {
+        clearResults();
+        return;
+      }
+      
+      currentEpoch = epoch;
+      const date = new Date(epoch * 1000);
+      
+      document.getElementById('utcResult').textContent = date.toISOString().replace('T', ' ').slice(0, 19);
+      document.getElementById('localResult').textContent = date.toLocaleString();
+      document.getElementById('relativeResult').textContent = getRelativeTime(date);
+      
+      // Set date input
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      document.getElementById('dateInput').value = local.toISOString().slice(0, 16);
+      
+      updateCustom();
+    }
+
+    function convertFromDate() {
+      const input = document.getElementById('dateInput').value;
+      if (!input) return;
+      
+      const date = new Date(input);
+      const epoch = Math.floor(date.getTime() / 1000);
+      
+      currentEpoch = epoch;
+      document.getElementById('epochInput').value = epoch;
+      
+      document.getElementById('utcResult').textContent = date.toISOString().replace('T', ' ').slice(0, 19);
+      document.getElementById('localResult').textContent = date.toLocaleString();
+      document.getElementById('relativeResult').textContent = getRelativeTime(date);
+      
+      updateCustom();
+    }
+
+    function updateCustom() {
+      if (!currentEpoch) {
+        document.getElementById('customResult').textContent = '—';
+        return;
+      }
+      const date = new Date(currentEpoch * 1000);
+      const format = document.getElementById('customFormat').value;
+      document.getElementById('customResult').textContent = formatDate(date, format);
+    }
+
+    function formatDate(date, format) {
+      const pad = (n) => n.toString().padStart(2, '0');
+      const Y = date.getFullYear();
+      const M = pad(date.getMonth() + 1);
+      const D = pad(date.getDate());
+      const H = pad(date.getHours());
+      const m = pad(date.getMinutes());
+      const s = pad(date.getSeconds());
+      
+      return format
+        .replace('YYYY', Y)
+        .replace('MM', M)
+        .replace('DD', D)
+        .replace('HH', H)
+        .replace('mm', m)
+        .replace('ss', s);
+    }
+
+    function getRelativeTime(date) {
+      const now = new Date();
+      const diff = now - date;
+      const abs = Math.abs(diff);
+      const suffix = diff > 0 ? 'ago' : 'from now';
+      
+      const seconds = Math.floor(abs / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      const years = Math.floor(days / 365);
+      
+      if (years > 0) return `${years} year${years > 1 ? 's' : ''} ${suffix}`;
+      if (days > 0) return `${days} day${days > 1 ? 's' : ''} ${suffix}`;
+      if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ${suffix}`;
+      if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ${suffix}`;
+      return `${seconds} second${seconds !== 1 ? 's' : ''} ${suffix}`;
+    }
+
+    function setNow() {
+      const now = Math.floor(Date.now() / 1000);
+      document.getElementById('epochInput').value = now;
+      convertFromEpoch();
+    }
+
+    function setEpoch(epoch) {
+      document.getElementById('epochInput').value = epoch;
+      convertFromEpoch();
+    }
+
+    function clearResults() {
+      currentEpoch = null;
+      document.getElementById('utcResult').textContent = '—';
+      document.getElementById('localResult').textContent = '—';
+      document.getElementById('relativeResult').textContent = '—';
+      document.getElementById('customResult').textContent = '—';
+    }
+
+    // Initialize with current time
+    setNow();
+  </script>
+</body>
+</html>
