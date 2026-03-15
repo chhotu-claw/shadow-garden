@@ -4,569 +4,182 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Formatter — Shadow's Garden</title>
-<meta name="description" content="Format, validate, and minify JSON instantly. No tracking, no bloat.">
+<meta name="description" content="Format, validate, minify, and explore JSON — all local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --border: #30363d;
-    --text: #c9d1d9;
-    --muted: #8b949e;
-    --accent: #58a6ff;
-    --success: #3fb950;
-    --error: #f85149;
-    --key: #79c0ff;
-    --string: #a5d6ff;
-    --number: #79c0ff;
-    --bool: #ff7b72;
-    --null: #8b949e;
-  }
-
-  .container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-
-  h1 {
-    margin-bottom: 0.5rem;
-  }
-
-  .subtitle {
-    color: var(--muted);
-    margin-bottom: 2rem;
-    font-size: 0.95rem;
-  }
-
-  .toolbar {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    transition: all 0.15s;
-  }
-
-  .btn:hover {
-    background: var(--border);
-    border-color: var(--muted);
-  }
-
-  .btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #000;
-    font-weight: 600;
-  }
-
-  .btn.primary:hover {
-    background: #79b8ff;
-  }
-
-  .btn.success {
-    background: var(--success);
-    border-color: var(--success);
-    color: #000;
-    font-weight: 600;
-  }
-
-  .btn.error {
-    background: var(--error);
-    border-color: var(--error);
-    color: #fff;
-  }
-
-  .panels {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  @media (max-width: 768px) {
-    .panels {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .panel {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .panel-title {
-    font-size: 0.875rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .panel-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .btn-icon {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75rem;
-  }
-
-  .btn-icon:hover {
-    color: var(--text);
-    border-color: var(--muted);
-  }
-
-  textarea {
-    width: 100%;
-    height: 400px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 0.875rem;
-    padding: 1rem;
-    resize: vertical;
-    line-height: 1.5;
-  }
-
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  textarea::placeholder {
-    color: var(--muted);
-  }
-
-  #output {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 0.875rem;
-    padding: 1rem;
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-    height: 400px;
-  }
-
-  .status {
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    display: none;
-  }
-
-  .status.show {
-    display: block;
-  }
-
-  .status.valid {
-    background: rgba(63, 185, 80, 0.15);
-    border: 1px solid var(--success);
-    color: var(--success);
-  }
-
-  .status.invalid {
-    background: rgba(248, 81, 73, 0.15);
-    border: 1px solid var(--error);
-    color: var(--error);
-  }
-
-  .status-line {
-    color: var(--muted);
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-  }
-
-  .json-key { color: var(--key); }
-  .json-string { color: var(--string); }
-  .json-number { color: var(--number); }
-  .json-bool { color: var(--bool); }
-  .json-null { color: var(--null); }
-
-  .info-bar {
-    display: flex;
-    gap: 1.5rem;
-    color: var(--muted);
-    font-size: 0.875rem;
-    margin-top: 1rem;
-  }
-
-  .info-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .info-label {
-    color: var(--muted);
-  }
-
-  .info-value {
-    color: var(--text);
-    font-family: monospace;
-  }
-
-  .shortcuts {
-    margin-top: 2rem;
-    padding: 1rem;
-    background: var(--surface);
-    border-radius: 6px;
-    border: 1px solid var(--border);
-  }
-
-  .shortcuts h3 {
-    font-size: 0.875rem;
-    color: var(--muted);
-    margin-bottom: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .shortcut-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.25rem 0;
-    font-size: 0.875rem;
-  }
-
-  .shortcut-kbd {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.125rem 0.5rem;
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: var(--text);
-  }
+  body { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --border: #30363d; --success: #3fb950; --error: #f85149; --muted: #8b949e; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .btn { background: var(--border); color: var(--fg); border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: background 0.15s; }
+  .btn:hover { background: var(--accent); color: #fff; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #79b8ff; }
+  .btn.success { background: var(--success); color: #fff; }
+  .btn.error { background: var(--error); color: #fff; }
+  .row { display: flex; gap: 16px; flex: 1; min-height: 500px; }
+  .panel { flex: 1; display: flex; flex-direction: column; }
+  .panel-header { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  textarea { flex: 1; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; resize: none; line-height: 1.5; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  .status { font-size: 0.8rem; margin-top: 8px; display: flex; gap: 12px; align-items: center; }
+  .status.valid { color: var(--success); }
+  .status.invalid { color: var(--error); }
+  .stats { font-size: 0.75rem; color: var(--muted); }
+  .stats span { margin-right: 12px; }
+  @media (max-width: 768px) { .row { flex-direction: column; } textarea { min-height: 250px; } }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>JSON Formatter</h1>
-  <p class="subtitle">Format, validate, and minify JSON. No tracking, no bloat.</p>
-
-  <div id="status" class="status"></div>
-
+  <h1>JSON Formatter & Validator</h1>
   <div class="toolbar">
-    <button class="btn primary" id="formatBtn">Format</button>
-    <button class="btn" id="minifyBtn">Minify</button>
-    <button class="btn" id="validateBtn">Validate</button>
-    <button class="btn" id="clearBtn">Clear</button>
+    <button class="btn primary" onclick="format()">Format</button>
+    <button class="btn" onclick="minify()">Minify</button>
+    <button class="btn" onclick="sort()">Sort Keys</button>
+    <button class="btn" onclick="clearAll()">Clear</button>
+    <button class="btn" onclick="copyOutput()">Copy</button>
+    <button class="btn" onclick="sample()">Sample</button>
   </div>
-
-  <div class="panels">
+  <div class="row">
     <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Input</span>
-        <div class="panel-actions">
-          <button class="btn-icon" id="copyInput">Copy</button>
-          <button class="btn-icon" id="pasteInput">Paste</button>
-          <button class="btn-icon" id="sampleInput">Sample</button>
-        </div>
-      </div>
-      <textarea id="input" placeholder='Paste your JSON here...
-
-{
-  "example": "data"
-}'></textarea>
+      <div class="panel-header">Input (paste JSON)</div>
+      <textarea id="input" placeholder='{"key": "value"}'></textarea>
+      <div class="status" id="status"></div>
     </div>
-
     <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Output</span>
-        <div class="panel-actions">
-          <button class="btn-icon" id="copyOutput">Copy</button>
-          <button class="btn-icon" id="downloadOutput">Download</button>
-        </div>
-      </div>
-      <div id="output"></div>
-    </div>
-  </div>
-
-  <div class="info-bar">
-    <div class="info-item">
-      <span class="info-label">Keys:</span>
-      <span class="info-value" id="keyCount">0</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">Size:</span>
-      <span class="info-value" id="sizeInfo">0 B</span>
-    </div>
-  </div>
-
-  <div class="shortcuts">
-    <h3>Keyboard Shortcuts</h3>
-    <div class="shortcut-row">
-      <span>Format JSON</span>
-      <span class="shortcut-kbd">Ctrl</span> + <span class="shortcut-kbd">Enter</span>
-    </div>
-    <div class="shortcut-row">
-      <span>Minify JSON</span>
-      <span class="shortcut-kbd">Ctrl</span> + <span class="shortcut-kbd">M</span>
-    </div>
-    <div class="shortcut-row">
-      <span>Validate</span>
-      <span class="shortcut-kbd">Ctrl</span> + <span class="shortcut-kbd">V</span>
+      <div class="panel-header">Output</div>
+      <textarea id="output" readonly></textarea>
+      <div class="stats" id="stats"></div>
     </div>
   </div>
 </div>
-
 <script>
 const input = document.getElementById('input');
 const output = document.getElementById('output');
 const status = document.getElementById('status');
-const formatBtn = document.getElementById('formatBtn');
-const minifyBtn = document.getElementById('minifyBtn');
-const validateBtn = document.getElementById('validateBtn');
-const clearBtn = document.getElementById('clearBtn');
-const keyCountEl = document.getElementById('keyCount');
-const sizeInfoEl = document.getElementById('sizeInfo');
+const stats = document.getElementById('stats');
 
-function showStatus(message, type, details = '') {
-  status.textContent = message;
-  status.className = 'status show ' + type;
-  if (details) {
-    status.innerHTML += `<div class="status-line">${details}</div>`;
-  }
-}
-
-function hideStatus() {
-  status.className = 'status';
-}
-
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-function countKeys(obj) {
-  let count = 0;
-  if (typeof obj === 'object' && obj !== null) {
-    for (const key in obj) {
-      count++;
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
-        count += countKeys(obj[key]);
-      }
-    }
-  }
-  return count;
-}
-
-function syntaxHighlight(json) {
-  if (typeof json !== 'string') {
-    json = JSON.stringify(json, null, 2);
-  }
-  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-    let cls = 'json-number';
-    if (/^"/.test(match)) {
-      if (/:$/.test(match)) {
-        cls = 'json-key';
-      } else {
-        cls = 'json-string';
-      }
-    } else if (/true|false/.test(match)) {
-      cls = 'json-bool';
-    } else if (/null/.test(match)) {
-      cls = 'json-null';
-    }
-    return '<span class="' + cls + '">' + match + '</span>';
-  });
-}
-
-function updateStats(obj) {
-  const jsonStr = JSON.stringify(obj);
-  keyCountEl.textContent = countKeys(obj);
-  sizeInfoEl.textContent = formatSize(new Blob([jsonStr]).size);
-}
-
-function format() {
-  hideStatus();
+input.addEventListener('input', () => {
   const val = input.value.trim();
   if (!val) {
-    output.innerHTML = '<span style="color: var(--muted)">Output will appear here...</span>';
-    keyCountEl.textContent = '0';
-    sizeInfoEl.textContent = '0 B';
+    status.textContent = '';
+    output.value = '';
+    stats.innerHTML = '';
     return;
   }
-
   try {
     const parsed = JSON.parse(val);
-    const formatted = JSON.stringify(parsed, null, 2);
-    output.innerHTML = syntaxHighlight(formatted);
+    status.className = 'status valid';
+    status.textContent = '✓ Valid JSON';
+    output.value = JSON.stringify(parsed, null, 2);
     updateStats(parsed);
-    showStatus('Valid JSON', 'valid', `Formatted successfully • ${countKeys(parsed)} keys`);
   } catch (e) {
-    output.innerHTML = '';
-    showStatus('Invalid JSON', 'invalid', e.message);
+    status.className = 'status invalid';
+    status.textContent = '✗ ' + e.message;
+    output.value = '';
+    stats.innerHTML = '';
+  }
+});
+
+function format() {
+  if (!input.value.trim()) return;
+  try {
+    const parsed = JSON.parse(input.value.trim());
+    output.value = JSON.stringify(parsed, null, 2);
+    status.className = 'status valid';
+    status.textContent = '✓ Formatted';
+    updateStats(parsed);
+  } catch (e) {
+    status.className = 'status invalid';
+    status.textContent = '✗ ' + e.message;
   }
 }
 
 function minify() {
-  hideStatus();
-  const val = input.value.trim();
-  if (!val) return;
-
+  if (!input.value.trim()) return;
   try {
-    const parsed = JSON.parse(val);
-    const minified = JSON.stringify(parsed);
-    output.textContent = minified;
+    const parsed = JSON.parse(input.value.trim());
+    output.value = JSON.stringify(parsed);
+    status.className = 'status valid';
+    status.textContent = '✓ Minified';
     updateStats(parsed);
-    showStatus('Valid JSON', 'valid', `Minified • ${countKeys(parsed)} keys`);
   } catch (e) {
-    output.textContent = '';
-    showStatus('Invalid JSON', 'invalid', e.message);
+    status.className = 'status invalid';
+    status.textContent = '✗ ' + e.message;
   }
 }
 
-function validate() {
-  hideStatus();
-  const val = input.value.trim();
-  if (!val) {
-    showStatus('Empty input', 'invalid', 'Please paste some JSON to validate');
-    return;
-  }
-
+function sort() {
+  if (!input.value.trim()) return;
   try {
-    const parsed = JSON.parse(val);
-    updateStats(parsed);
-    showStatus('Valid JSON ✓', 'valid', `${countKeys(parsed)} keys • ${formatSize(new Blob([val]).size)}`);
+    const parsed = JSON.parse(input.value.trim());
+    output.value = JSON.stringify(sortKeys(parsed), null, 2);
+    status.className = 'status valid';
+    status.textContent = '✓ Keys sorted';
+    updateStats(sortKeys(parsed));
   } catch (e) {
-    showStatus('Invalid JSON ✗', 'invalid', e.message);
+    status.className = 'status invalid';
+    status.textContent = '✗ ' + e.message;
   }
 }
 
-function clear() {
+function sortKeys(obj) {
+  if (Array.isArray(obj)) return obj.map(sortKeys);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).sort().reduce((res, key) => {
+      res[key] = sortKeys(obj[key]);
+      return res;
+    }, {});
+  }
+  return obj;
+}
+
+function clearAll() {
   input.value = '';
-  output.innerHTML = '<span style="color: var(--muted)">Output will appear here...</span>';
-  hideStatus();
-  keyCountEl.textContent = '0';
-  sizeInfoEl.textContent = '0 B';
+  output.value = '';
+  status.textContent = '';
+  stats.innerHTML = '';
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showStatus('Copied to clipboard', 'valid');
-    setTimeout(hideStatus, 1500);
-  }).catch(() => {
-    showStatus('Failed to copy', 'invalid');
+function copyOutput() {
+  if (!output.value) return;
+  navigator.clipboard.writeText(output.value).then(() => {
+    status.className = 'status valid';
+    status.textContent = '✓ Copied!';
   });
 }
 
-const sampleJSON = {
-  "name": "Shadow's Garden",
-  "version": "1.0.0",
-  "description": "A collection of useful web tools",
-  "author": {
-    "name": "Shadow",
-    "email": "shadow@example.com",
-    "url": "https://shadow-garden.example.com"
-  },
-  "features": [
-    "JSON formatting",
-    "Validation",
-    "Minification",
-    "Syntax highlighting"
-  ],
-  "stats": {
-    "users": 1337,
-    "rating": 4.8,
-    "active": true,
-    "tags": ["tool", "json", "developer"]
-  },
-  "settings": {
-    "theme": "dark",
-    "autoFormat": true,
-    "maxSize": null
-  },
-  "created": "2026-01-01T00:00:00Z",
-  "updated": "2026-03-14T04:00:00Z"
-};
+function updateStats(parsed) {
+  const str = JSON.stringify(parsed);
+  stats.innerHTML = `<span>${str.length.toLocaleString()} bytes</span><span>${countKeys(parsed)} keys</span><span>${countDepth(parsed)} depth</span>`;
+}
 
-// Event Listeners
-formatBtn.addEventListener('click', format);
-minifyBtn.addEventListener('click', minify);
-validateBtn.addEventListener('click', validate);
-clearBtn.addEventListener('click', clear);
+function countKeys(obj) {
+  if (Array.isArray(obj)) return obj.reduce((sum, i) => sum + countKeys(i), 0);
+  if (obj !== null && typeof obj === 'object') return Object.keys(obj).reduce((sum, k) => sum + 1 + countKeys(obj[k]), 0);
+  return 0;
+}
 
-document.getElementById('copyInput').addEventListener('click', () => copyToClipboard(input.value));
-document.getElementById('pasteInput').addEventListener('click', async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    input.value = text;
-    format();
-  } catch (e) {
-    showStatus('Failed to paste', 'invalid');
-  }
-});
-document.getElementById('sampleInput').addEventListener('click', () => {
-  input.value = JSON.stringify(sampleJSON, null, 2);
-  format();
-});
-document.getElementById('copyOutput').addEventListener('click', () => copyToClipboard(output.textContent));
-document.getElementById('downloadOutput').addEventListener('click', () => {
-  const blob = new Blob([output.textContent], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'data.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showStatus('Download started', 'valid');
-  setTimeout(hideStatus, 1500);
-});
+function countDepth(obj) {
+  if (Array.isArray(obj)) return obj.length ? 1 + Math.max(...obj.map(countDepth)) : 0;
+  if (obj !== null && typeof obj === 'object') return Object.keys(obj).length ? 1 + Math.max(...Object.values(obj).map(countDepth)) : 0;
+  return 0;
+}
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      format();
-    } else if (e.key === 'm' || e.key === 'M') {
-      e.preventDefault();
-      minify();
-    } else if (e.key === 'v' || e.key === 'V') {
-      e.preventDefault();
-      validate();
-    }
-  }
-});
-
-// Auto-format on paste
-input.addEventListener('paste', () => {
-  setTimeout(format, 0);
-});
-
-format();
+function sample() {
+  input.value = JSON.stringify({
+    "name": "Shadow's Garden",
+    "version": "1.0.0",
+    "description": "A collection of useful tools",
+    "tools": ["converter", "generator", "analyzer"],
+    "stats": { "users": 1337, "active": true },
+    "tags": ["web", "local", "privacy"]
+  }, null, 2);
+  input.dispatchEvent(new Event('input'));
+}
 </script>
 </body>
 </html>
