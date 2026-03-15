@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Rain — Shadow's Garden</title>
+<meta name="description" content="A meditative experience where words fall like rain. Watch your thoughts decompose into fading echoes.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'Courier New', monospace;
+  }
+  canvas {
+    display: block;
+  }
+  #input-area {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 600px;
+    z-index: 10;
+  }
+  #word-input {
+    width: 100%;
+    padding: 15px 20px;
+    font-size: 18px;
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  #word-input:focus {
+    border-color: #6b5b95;
+  }
+  #mode-select {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 8px 12px;
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10;
+  }
+  #mode-select:hover {
+    border-color: #555;
+  }
+  .hint {
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <select id="mode-select">
+    <option value="normal">Normal</option>
+    <option value="chaos">Chaos</option>
+    <option value="whisper">Whisper</option>
+  </select>
+  <canvas id="canvas"></canvas>
+  <div id="input-area">
+    <input type="text" id="word-input" placeholder="type a word..." autocomplete="off">
+    <div class="hint">press Enter to release</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('word-input');
+    const modeSelect = document.getElementById('mode-select');
+    
+    let width, height;
+    let words = [];
+    let mode = 'normal';
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    class FallingWord {
+      constructor(text, x) {
+        this.text = text;
+        this.x = x;
+        this.y = 80;
+        this.speed = 1 + Math.random() * 1.5;
+        this.opacity = 1;
+        this.rotation = (Math.random() - 0.5) * 0.3;
+        this.hue = 180 + Math.random() * 60;
+        this.size = 18 + Math.random() * 8;
+        this.wobble = Math.random() * Math.PI * 2;
+        this.wobbleSpeed = 0.02 + Math.random() * 0.02;
+      }
+      
+      update() {
+        if (mode === 'chaos') {
+          this.wobble += this.wobbleSpeed;
+          this.x += Math.sin(this.wobble) * 3;
+          this.speed = 0.5 + Math.random() * 2;
+          this.rotation += (Math.random() - 0.5) * 0.1;
+        } else if (mode === 'whisper') {
+          this.speed = 0.3 + Math.random() * 0.5;
+          this.opacity -= 0.001;
+        } else {
+          this.speed += 0.005;
+        }
+        
+        this.y += this.speed;
+        
+        if (mode !== 'whisper') {
+          this.opacity -= 0.002;
+        }
+        
+        return this.opacity > 0 && this.y < height + 50;
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        
+        let alpha = Math.max(0, this.opacity);
+        if (mode === 'whisper') {
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = `hsla(${this.hue}, 60%, 70%, ${alpha})`;
+        }
+        
+        ctx.font = `${this.size}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        
+        const gradient = ctx.createLinearGradient(0, -10, 0, 10);
+        gradient.addColorStop(0, `hsla(${this.hue}, 70%, 70%, ${alpha})`);
+        gradient.addColorStop(1, `hsla(${this.hue}, 50%, 50%, ${alpha})`);
+        
+        ctx.fillStyle = gradient;
+        ctx.fillText(this.text, 0, 0);
+        
+        // Echo trail
+        if (mode === 'normal' && this.opacity > 0.3) {
+          ctx.globalAlpha = alpha * 0.3;
+          ctx.fillText(this.text, 0, -15);
+        }
+        
+        ctx.restore();
+      }
+    }
+    
+    function animate() {
+      // Trail effect
+      ctx.fillStyle = mode === 'chaos' ? 'rgba(10, 10, 15, 0.1)' : 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+      
+      words = words.filter(w => {
+        const alive = w.update();
+        if (alive) w.draw();
+        return alive;
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        const text = input.value.trim().toUpperCase();
+        const x = 100 + Math.random() * (width - 200);
+        words.push(new FallingWord(text, x));
+        input.value = '';
+      }
+    });
+    
+    modeSelect.addEventListener('change', (e) => {
+      mode = e.target.value;
+    });
+    
+    // Start with a few words
+    words.push(new FallingWord('ECHO', window.innerWidth / 2));
+    
+    animate();
+  </script>
+</body>
+</html>
