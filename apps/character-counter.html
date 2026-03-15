@@ -4,193 +4,74 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Character Counter — Shadow's Garden</title>
-<meta name="description" content="Count characters, words, lines in text. Real-time stats for writing, coding, limits">
+<meta name="description" content="Count characters, words, sentences, paragraphs in your text. No tracking, no ads.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #10b981; }
-  body { --accent: #10b981; }
-  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #6b7280; margin-bottom: 2rem; font-size: 0.95rem; }
-  
-  textarea { 
-    width: 100%; min-height: 300px; 
-    padding: 1rem; 
-    background: #1f2937; 
-    border: 2px solid #374151; 
-    border-radius: 8px; 
-    color: #f3f4f6; 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 0.95rem; 
-    line-height: 1.6; 
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+  textarea {
+    width: 100%; height: 200px;
+    padding: 1rem; font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
     resize: vertical;
-    box-sizing: border-box;
+    font-family: inherit;
   }
   textarea:focus { outline: none; border-color: var(--accent); }
-  
-  .stats { 
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1.5rem; 
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
   }
-  .stat { 
-    background: #1f2937; padding: 1rem; border-radius: 8px; text-align: center; 
+  .stat-box {
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--border);
   }
-  .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
-  .stat-label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.25rem; }
-  
-  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .preset-btn { 
-    padding: 0.4rem 0.8rem; background: #374151; border: none; border-radius: 6px; 
-    color: #d1d5db; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; 
-  }
-  .preset-btn:hover { background: #4b5563; }
-  
-  .limits { margin-top: 1.5rem; padding: 1rem; background: #1f2937; border-radius: 8px; }
-  .limits h3 { margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #9ca3af; }
-  .limit-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #374151; font-size: 0.85rem; }
-  .limit-item:last-child { border-bottom: none; }
-  .limit-name { color: #d1d5db; }
-  .limit-value { color: var(--accent); font-family: monospace; }
-  .limit-warn { color: #ef4444; }
-  
-  .quick { margin-top: 1.5rem; display: flex; gap: 0.5rem; }
-  .quick button { 
-    padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; 
-    color: #111; font-weight: 600; cursor: pointer; font-size: 0.85rem;
-  }
-  .quick button:hover { opacity: 0.9; }
-  .quick button.secondary { background: #374151; color: #d1d5db; }
+  .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+  .stat-label { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Character Counter</h1>
-    <p class="subtitle">Real-time stats for writing, code, and character limits</p>
-    
-    <div class="presets">
-      <button class="preset-btn" data-text="twitter">Tweet (280)</button>
-      <button class="preset-btn" data-text="meta">Meta description (160)</button>
-      <button class="preset-btn" data-text="title">Page title (60)</button>
-      <button class="preset-btn" data-text="sms">SMS (160)</button>
-      <button class="preset-btn" data-text="reddit">Reddit title (300)</button>
-    </div>
-    
-    <textarea id="input" placeholder="Paste or type text here..."></textarea>
-    
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value" id="chars">0</div>
-        <div class="stat-label">Characters</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="words">0</div>
-        <div class="stat-label">Words</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="lines">0</div>
-        <div class="stat-label">Lines</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="para">0</div>
-        <div class="stat-label">Paragraphs</div>
-      </div>
-    </div>
-    
-    <div class="quick">
-      <button id="copy">Copy Text</button>
-      <button id="clear" class="secondary">Clear</button>
-    </div>
-    
-    <div class="limits">
-      <h3>Platform Limits</h3>
-      <div class="limit-item"><span class="limit-name">Twitter/X</span><span class="limit-value" id="limit-twitter">0/280</span></div>
-      <div class="limit-item"><span class="limit-name">Meta Description</span><span class="limit-value" id="limit-meta">0/160</span></div>
-      <div class="limit-item"><span class="limit-name">Page Title</span><span class="limit-value" id="limit-title">0/60</span></div>
-      <div class="limit-item"><span class="limit-name">Reddit Title</span><span class="limit-value" id="limit-reddit">0/300</span></div>
-    </div>
+<div class="container">
+  <h1>Character Counter</h1>
+  <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Paste or type your text below. Counts update as you type.</p>
+  <textarea id="input" placeholder="Type or paste text here..."></textarea>
+  <div class="stats">
+    <div class="stat-box"><div class="stat-value" id="chars">0</div><div class="stat-label">Characters</div></div>
+    <div class="stat-box"><div class="stat-value" id="charsNoSpaces">0</div><div class="stat-label">Characters (no spaces)</div></div>
+    <div class="stat-box"><div class="stat-value" id="words">0</div><div class="stat-label">Words</div></div>
+    <div class="stat-box"><div class="stat-value" id="sentences">0</div><div class="stat-label">Sentences</div></div>
+    <div class="stat-box"><div class="stat-value" id="paragraphs">0</div><div class="stat-label">Paragraphs</div></div>
+    <div class="stat-box"><div class="stat-value" id="lines">0</div><div class="stat-label">Lines</div></div>
   </div>
-  
-  <script>
-    const input = document.getElementById('input');
-    const charsEl = document.getElementById('chars');
-    const wordsEl = document.getElementById('words');
-    const linesEl = document.getElementById('lines');
-    const paraEl = document.getElementById('para');
-    
-    const limits = {
-      twitter: { el: document.getElementById('limit-twitter'), max: 280 },
-      meta: { el: document.getElementById('limit-meta'), max: 160 },
-      title: { el: document.getElementById('limit-title'), max: 60 },
-      reddit: { el: document.getElementById('limit-reddit'), max: 300 }
-    };
-    
-    function count() {
-      const text = input.value;
-      
-      // Characters (excluding trailing newlines)
-      const chars = text.length;
-      charsEl.textContent = chars.toLocaleString();
-      
-      // Words
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      wordsEl.textContent = words.toLocaleString();
-      
-      // Lines
-      const lines = text ? text.split('\n').length : 0;
-      linesEl.textContent = lines.toLocaleString();
-      
-      // Paragraphs
-      const paras = text.trim() ? text.trim().split(/\n\s*\n/).filter(p => p.trim()).length : 0;
-      paraEl.textContent = paras;
-      
-      // Update limits
-      for (const [key, data] of Object.entries(limits)) {
-        const pct = (chars / data.max * 100).toFixed(0);
-        data.el.textContent = `${chars}/${data.max}`;
-        data.el.classList.toggle('limit-warn', chars > data.max);
-      }
-    }
-    
-    input.addEventListener('input', count);
-    
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const presets = {
-          twitter: '280 characters — write your tweet',
-          meta: '160 characters — write your meta description',
-          title: '60 characters — write your page title',
-          sms: '160 characters — write your SMS',
-          reddit: '300 characters — write your Reddit title'
-        };
-        input.value = presets[btn.dataset.text] || '';
-        count();
-      });
-    });
-    
-    document.getElementById('copy').addEventListener('click', () => {
-      if (input.value) {
-        navigator.clipboard.writeText(input.value);
-        const btn = document.getElementById('copy');
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy Text', 1500);
-      }
-    });
-    
-    document.getElementById('clear').addEventListener('click', () => {
-      input.value = '';
-      count();
-    });
-    
-    // Load saved text
-    const saved = localStorage.getItem('char-counter-text');
-    if (saved) {
-      input.value = saved;
-      count();
-    }
-    
-    input.addEventListener('input', () => {
-      localStorage.setItem('char-counter-text', input.value);
-    });
-  </script>
+</div>
+<script>
+const input = document.getElementById('input');
+const stats = {
+  chars: document.getElementById('chars'),
+  charsNoSpaces: document.getElementById('charsNoSpaces'),
+  words: document.getElementById('words'),
+  sentences: document.getElementById('sentences'),
+  paragraphs: document.getElementById('paragraphs'),
+  lines: document.getElementById('lines')
+};
+function count() {
+  const text = input.value;
+  stats.chars.textContent = text.length;
+  stats.charsNoSpaces.textContent = text.replace(/\s/g, '').length;
+  stats.words.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+  stats.sentences.textContent = text.split(/[.!?]+/).filter(s => s.trim()).length || 0;
+  stats.paragraphs.textContent = text.split(/\n\n+/).filter(p => p.trim()).length || (text.trim() ? 1 : 0);
+  stats.lines.textContent = text.split('\n').length;
+}
+input.addEventListener('input', count);
+count();
+</script>
 </body>
 </html>
