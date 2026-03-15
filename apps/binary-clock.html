@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binary Clock — Shadow's Garden</title>
+<meta name="description" content="A meditative binary clock that shows time in BCD format with optional decimal display">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body { 
+    font-family: 'Courier New', monospace; 
+    background: #0a0a0a; 
+    color: #00ff88; 
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+  }
+  h1 { 
+    font-weight: normal; 
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .clock { 
+    display: flex; 
+    gap: 2rem; 
+    align-items: center;
+  }
+  .digit-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .label {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    letter-spacing: 0.1em;
+  }
+  .bits {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .bit {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    transition: all 0.3s ease;
+  }
+  .bit.on {
+    background: #00ff88;
+    border-color: #00ff88;
+    box-shadow: 0 0 20px #00ff8866, 0 0 40px #00ff8833;
+  }
+  .separator {
+    font-size: 3rem;
+    opacity: 0.3;
+    margin-top: -1rem;
+  }
+  .decimal {
+    font-size: 4rem;
+    opacity: 0.8;
+    margin-top: 2rem;
+    font-family: 'Courier New', monospace;
+  }
+  .controls {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+  }
+  button {
+    background: transparent;
+    border: 1px solid #333;
+    color: #666;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: #00ff88;
+    color: #00ff88;
+  }
+  button.active {
+    background: #00ff88;
+    color: #0a0a0a;
+    border-color: #00ff88;
+  }
+  .info {
+    margin-top: 2rem;
+    font-size: 0.7rem;
+    color: #444;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Binary Clock</h1>
+  
+  <div class="clock" id="clock">
+    <div class="digit-group">
+      <div class="bits" id="hours"></div>
+      <span class="label">HOURS</span>
+    </div>
+    <span class="separator">:</span>
+    <div class="digit-group">
+      <div class="bits" id="minutes"></div>
+      <span class="label">MINS</span>
+    </div>
+    <span class="separator">:</span>
+    <div class="digit-group">
+      <div class="bits" id="seconds"></div>
+      <span class="label">SECS</span>
+    </div>
+  </div>
+
+  <div class="decimal" id="decimal"></div>
+
+  <div class="controls">
+    <button id="btnDecimal" onclick="toggleDecimal()">Decimal: ON</button>
+    <button id="btn24h" onclick="toggle24h()">24h: ON</button>
+  </div>
+
+  <div class="info">
+    Each column shows a digit in binary (BCD). Top bit = 8, bottom = 1. Lit = 1, dark = 0.<br>
+    Example: 5 = 8+0+4+2+1 = 8+4+2+1 = 💡💡💡💡 on
+  </div>
+
+  <script>
+    let showDecimal = true;
+    let use24h = true;
+
+    function createBits(container, count = 4) {
+      container.innerHTML = '';
+      for (let i = count - 1; i >= 0; i--) {
+        const bit = document.createElement('div');
+        bit.className = 'bit';
+        container.appendChild(bit);
+      }
+    }
+
+    createBits(document.getElementById('hours'), 5);
+    createBits(document.getElementById('minutes'), 6);
+    createBits(document.getElementById('seconds'), 6);
+
+    function toBCD(decimal) {
+      const bits = [];
+      for (let i = 5; i >= 0; i--) {
+        bits.push((decimal >> i) & 1);
+      }
+      return bits;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+
+      if (!use24h && hours > 12) hours -= 12;
+      if (!use24h && hours === 0) hours = 12;
+
+      const h1 = Math.floor(hours / 10);
+      const h2 = hours % 10;
+      const m1 = Math.floor(minutes / 10);
+      const m2 = minutes % 10;
+      const s1 = Math.floor(seconds / 10);
+      const s2 = seconds % 10;
+
+      const setBits = (container, value) => {
+        const bits = toBCD(value);
+        const bitEls = container.querySelectorAll('.bit');
+        bitEls.forEach((bit, i) => {
+          bit.classList.toggle('on', bits[i] === 1);
+        });
+      };
+
+      const hBits = toBCD(h1 * 10 + h2).slice(-5);
+      const hContainer = document.getElementById('hours');
+      hContainer.querySelectorAll('.bit').forEach((bit, i) => {
+        bit.classList.toggle('on', hBits[i] === 1);
+      });
+
+      setBits(document.getElementById('minutes'), m1 * 10 + m2);
+      setBits(document.getElementById('seconds'), s1 * 10 + s2);
+
+      const decimalEl = document.getElementById('decimal');
+      if (showDecimal) {
+        decimalEl.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        decimalEl.style.display = 'block';
+      } else {
+        decimalEl.style.display = 'none';
+      }
+    }
+
+    function toggleDecimal() {
+      showDecimal = !showDecimal;
+      document.getElementById('btnDecimal').textContent = `Decimal: ${showDecimal ? 'ON' : 'OFF'}`;
+      document.getElementById('btnDecimal').classList.toggle('active', showDecimal);
+      updateClock();
+    }
+
+    function toggle24h() {
+      use24h = !use24h;
+      document.getElementById('btn24h').textContent = `24h: ${use24h ? 'ON' : 'OFF'}`;
+      document.getElementById('btn24h').classList.toggle('active', use24h);
+      updateClock();
+    }
+
+    setInterval(updateClock, 100);
+    updateClock();
+    toggleDecimal();
+    toggle24h();
+  </script>
+</body>
+</html>
