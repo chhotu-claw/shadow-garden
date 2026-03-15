@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echoes — Shadow's Garden</title>
+<meta name="description" content="A generative text experiment — type and watch your words decompose into echoes">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+  }
+  
+  h1 {
+    font-size: 1.2rem;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+    color: #666;
+  }
+  
+  .container {
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  textarea {
+    width: 100%;
+    height: 120px;
+    background: transparent;
+    border: 1px solid #333;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1.1rem;
+    padding: 1rem;
+    resize: none;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  
+  textarea:focus {
+    border-color: #555;
+  }
+  
+  .echoes {
+    margin-top: 2rem;
+    min-height: 200px;
+    position: relative;
+  }
+  
+  .echo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1rem;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: fade 3s ease-out forwards;
+  }
+  
+  @keyframes fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.9); }
+    20% { opacity: var(--o); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-60px) scale(1.1); }
+  }
+  
+  .controls {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  button {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.1em;
+  }
+  
+  button:hover {
+    border-color: #666;
+    color: #aaa;
+  }
+  
+  .hint {
+    margin-top: 3rem;
+    font-size: 0.7rem;
+    color: #444;
+    text-align: center;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Echoes</h1>
+  
+  <div class="container">
+    <textarea id="input" placeholder="type something..." autofocus></textarea>
+    
+    <div class="echoes" id="echoes"></div>
+    
+    <div class="controls">
+      <button id="clearBtn">Clear</button>
+      <button id="chaosBtn">Chaos Mode</button>
+      <button id="whisperBtn">Whisper</button>
+    </div>
+    
+    <p class="hint">each word you type becomes an echo that fades</p>
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const echoes = document.getElementById('echoes');
+    const clearBtn = document.getElementById('clearBtn');
+    const chaosBtn = document.getElementById('chaosBtn');
+    const whisperBtn = document.getElementById('whisperBtn');
+    
+    let mode = 'normal';
+    let wordIndex = 0;
+    
+    // Color palettes
+    const palettes = {
+      normal: ['#e0e0e0', '#a0a0a0', '#606060'],
+      chaos: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181'],
+      whisper: ['#444', '#333', '#222']
+    };
+    
+    function getPalette() {
+      return palettes[mode] || palettes.normal;
+    }
+    
+    function createEcho(text) {
+      if (!text.trim()) return;
+      
+      const word = document.createElement('div');
+      word.className = 'echo';
+      word.textContent = text;
+      
+      const palette = getPalette();
+      const color = palette[Math.floor(Math.random() * palette.length)];
+      const opacity = 0.3 + Math.random() * 0.5;
+      const offset = (Math.random() - 0.5) * 40;
+      
+      word.style.setProperty('--o', opacity);
+      word.style.color = color;
+      word.style.left = `calc(50% + ${offset}px)`;
+      word.style.animationDuration = `${2 + Math.random() * 2}s`;
+      
+      if (mode === 'chaos') {
+        word.style.fontSize = `${0.8 + Math.random() * 1.5}rem`;
+        word.style.fontFamily = ['Courier New', 'Georgia', 'Times', 'Arial'][Math.floor(Math.random() * 4)];
+      }
+      
+      echoes.appendChild(word);
+      
+      // Keep only last 50 echoes
+      while (echoes.children.length > 50) {
+        echoes.removeChild(echoes.firstChild);
+      }
+      
+      // Clean up after animation
+      setTimeout(() => {
+        if (word.parentNode) word.remove();
+      }, 4000);
+    }
+    
+    // Handle input
+    let lastWord = '';
+    input.addEventListener('input', (e) => {
+      const text = e.target.value;
+      const words = text.trim().split(/\s+/);
+      const newWord = words[words.length - 1];
+      
+      if (newWord && newWord !== lastWord) {
+        createEcho(newWord);
+        lastWord = newWord;
+      }
+    });
+    
+    // Clear button
+    clearBtn.addEventListener('click', () => {
+      echoes.innerHTML = '';
+      input.value = '';
+      lastWord = '';
+    });
+    
+    // Mode buttons
+    chaosBtn.addEventListener('click', () => {
+      mode = mode === 'chaos' ? 'normal' : 'chaos';
+      chaosBtn.style.color = mode === 'chaos' ? '#ffe66d' : '#888';
+      chaosBtn.style.borderColor = mode === 'chaos' ? '#ffe66d' : '#444';
+    });
+    
+    whisperBtn.addEventListener('click', () => {
+      mode = mode === 'whisper' ? 'normal' : 'whisper';
+      whisperBtn.style.color = mode === 'whisper' ? '#666' : '#888';
+      whisperBtn.style.borderColor = mode === 'whisper' ? '#444' : '#444';
+    });
+    
+    // Auto-focus
+    input.focus();
+  </script>
+</body>
+</html>
