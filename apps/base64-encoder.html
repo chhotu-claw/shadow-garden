@@ -4,270 +4,216 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Base64 Encoder/Decoder — Shadow's Garden</title>
-<meta name="description" content="Encode and decode Base64 strings instantly. Plain text to Base64 and back.">
+<meta name="description" content="Encode and decode Base64 strings instantly. All processing happens locally in your browser — nothing is sent to any server.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container {
-    max-width: 700px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-  .subtitle {
-    text-align: center;
-    color: var(--text-secondary, #a6adc8);
-    margin-bottom: 2rem;
-  }
-  .card {
-    background: var(--card-bg, #1e1e2e);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--border, #313244);
-  }
-  label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary, #a6adc8);
-    font-size: 0.9rem;
-  }
-  textarea, input[type="text"] {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border, #313244);
-    border-radius: 8px;
-    background: var(--input-bg, #11111b);
-    color: var(--text, #cdd6f4);
-    font-size: 1rem;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    box-sizing: border-box;
-    resize: vertical;
-    min-height: 120px;
-  }
-  textarea:focus, input:focus {
-    outline: none;
-    border-color: var(--accent, #cba6f7);
-  }
-  .buttons {
-    display: flex;
-    gap: 0.75rem;
-    margin: 1rem 0;
-    flex-wrap: wrap;
-  }
-  button {
-    flex: 1;
-    min-width: 140px;
-    padding: 0.875rem;
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
+  body { padding: 2rem 1rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .mode-switch { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+  .mode-btn {
+    padding: 0.6rem 1.2rem;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
     cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
+    font-family: inherit;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    transition: all 0.2s;
   }
-  button:hover {
-    opacity: 0.9;
-  }
-  button:active {
-    transform: scale(0.98);
-  }
-  button.secondary {
-    background: var(--button-bg, #313244);
-    color: var(--text, #cdd6f4);
-  }
-  .result-box {
-    margin-top: 1rem;
+  .mode-btn:hover { border-color: var(--accent); }
+  .mode-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .io-group { margin-bottom: 1.5rem; }
+  .io-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+  textarea {
+    width: 100%;
+    min-height: 150px;
     padding: 1rem;
-    background: var(--result-bg, #181825);
+    border: 2px solid var(--border);
     border-radius: 8px;
-    border: 1px solid var(--border, #313244);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
   }
-  .result-box.success {
-    border-color: #a6e3a1;
-  }
-  .result-box.error {
-    border-color: #f38ba8;
-  }
-  .result-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-  .result-label {
-    color: var(--text-secondary, #a6adc8);
-    font-size: 0.85rem;
-  }
-  .copy-btn {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
-    background: transparent;
-    border: 1px solid var(--accent, #cba6f7);
-    color: var(--accent, #cba6f7);
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+  .btn {
+    padding: 0.7rem 1.4rem;
+    border: none;
     border-radius: 6px;
     cursor: pointer;
-    width: auto;
-    flex: none;
-  }
-  .result-text {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    word-break: break-all;
-    white-space: pre-wrap;
-    color: var(--text, #cdd6f4);
+    font-family: inherit;
     font-size: 0.95rem;
+    transition: all 0.2s;
   }
-  .info {
-    text-align: center;
-    color: var(--text-secondary, #a6adc8);
-    font-size: 0.85rem;
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { opacity: 0.8; }
+  .stats {
     margin-top: 1rem;
+    padding: 0.8rem;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
   }
-  .tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-  .tab {
-    padding: 0.5rem 1rem;
-    background: var(--button-bg, #313244);
-    color: var(--text, #cdd6f4);
-    border: none;
-    border-radius: 8px 8px 0 0;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-  .tab.active {
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-  }
-  .tab-content {
-    display: none;
-  }
-  .tab-content.active {
-    display: block;
-  }
+  .error { color: #e74c3c; font-weight: 600; margin-top: 0.5rem; }
+  .success { color: #27ae60; font-weight: 600; margin-top: 0.5rem; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>🔐 Base64 Encoder/Decoder</h1>
-  <p class="subtitle">Convert between plain text and Base64 instantly</p>
-
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('encode')">Encode</button>
-    <button class="tab" onclick="switchTab('decode')">Decode</button>
+  <h1>Base64 Encoder/Decoder</h1>
+  <p>Encode plaintext to Base64, or decode Base64 back to plaintext. All processing is local — nothing leaves your browser.</p>
+  
+  <div class="mode-switch">
+    <button class="mode-btn active" data-mode="encode">Encode</button>
+    <button class="mode-btn" data-mode="decode">Decode</button>
   </div>
-
-  <div id="encode-tab" class="tab-content active">
-    <div class="card">
-      <label>Plain Text</label>
-      <textarea id="plain-input" placeholder="Enter text to encode..."></textarea>
-      <div class="buttons">
-        <button onclick="encode()">Encode → Base64</button>
-        <button class="secondary" onclick="document.getElementById('plain-input').value=''">Clear</button>
-      </div>
-      <div class="result-box" id="encode-result" style="display:none">
-        <div class="result-header">
-          <span class="result-label">Base64 Output</span>
-          <button class="copy-btn" onclick="copyResult('encode-output')">Copy</button>
-        </div>
-        <div class="result-text" id="encode-output"></div>
-      </div>
-    </div>
+  
+  <div class="io-group">
+    <label id="inputLabel">Plaintext</label>
+    <textarea id="input" placeholder="Enter text to encode..."></textarea>
   </div>
-
-  <div id="decode-tab" class="tab-content">
-    <div class="card">
-      <label>Base64 String</label>
-      <textarea id="base64-input" placeholder="Enter Base64 to decode..."></textarea>
-      <div class="buttons">
-        <button onclick="decode()">Decode → Plain Text</button>
-        <button class="secondary" onclick="document.getElementById('base64-input').value=''">Clear</button>
-      </div>
-      <div class="result-box" id="decode-result" style="display:none">
-        <div class="result-header">
-          <span class="result-label">Plain Text Output</span>
-          <button class="copy-btn" onclick="copyResult('decode-output')">Copy</button>
-        </div>
-        <div class="result-text" id="decode-output"></div>
-      </div>
-    </div>
+  
+  <div class="actions">
+    <button class="btn btn-primary" id="convertBtn">Convert</button>
+    <button class="btn btn-secondary" id="swapBtn">Swap</button>
+    <button class="btn btn-secondary" id="copyBtn">Copy Result</button>
+    <button class="btn btn-secondary" id="clearBtn">Clear</button>
   </div>
-
-  <p class="info">Base64 encoding converts binary data into ASCII text. Commonly used for embedding images in HTML/CSS, transmitting data in URLs, and encoding credentials.</p>
+  
+  <div class="error" id="error"></div>
+  <div class="success" id="success"></div>
+  
+  <div class="io-group" style="margin-top: 1.5rem;">
+    <label id="outputLabel">Base64 Output</label>
+    <textarea id="output" placeholder="Result will appear here..." readonly></textarea>
+  </div>
+  
+  <div class="stats" id="stats"></div>
 </div>
 
 <script>
-  function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    
-    if (tab === 'encode') {
-      document.querySelector('.tab:first-child').classList.add('active');
-      document.getElementById('encode-tab').classList.add('active');
-    } else {
-      document.querySelector('.tab:last-child').classList.add('active');
-      document.getElementById('decode-tab').classList.add('active');
-    }
-  }
-
-  function encode() {
-    const input = document.getElementById('plain-input').value;
-    if (!input) {
-      showResult('encode', '', 'Please enter some text', 'error');
-      return;
-    }
-    try {
-      const encoded = btoa(unescape(encodeURIComponent(input)));
-      showResult('encode', encoded, '', 'success');
-    } catch (e) {
-      showResult('encode', '', 'Error encoding: ' + e.message, 'error');
-    }
-  }
-
-  function decode() {
-    const input = document.getElementById('base64-input').value.trim();
-    if (!input) {
-      showResult('decode', '', 'Please enter a Base64 string', 'error');
-      return;
-    }
-    try {
-      const decoded = decodeURIComponent(escape(atob(input)));
-      showResult('decode', decoded, '', 'success');
-    } catch (e) {
-      showResult('decode', '', 'Invalid Base64 string', 'error');
-    }
-  }
-
-  function showResult(type, text, error, status) {
-    const resultBox = document.getElementById(type + '-result');
-    const output = document.getElementById(type + '-output');
-    
-    resultBox.style.display = 'block';
-    resultBox.className = 'result-box ' + status;
-    
-    if (error) {
-      output.textContent = error;
-    } else {
-      output.textContent = text;
-    }
-  }
-
-  function copyResult(elementId) {
-    const text = document.getElementById(elementId).textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = document.querySelector(`#${elementId}`).previousElementSibling.querySelector('.copy-btn');
-      const original = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = original, 1500);
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const inputLabel = document.getElementById('inputLabel');
+  const outputLabel = document.getElementById('outputLabel');
+  const error = document.getElementById('error');
+  const success = document.getElementById('success');
+  const stats = document.getElementById('stats');
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  
+  let mode = 'encode';
+  
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      updateLabels();
+      clearMessages();
     });
+  });
+  
+  function updateLabels() {
+    if (mode === 'encode') {
+      inputLabel.textContent = 'Plaintext';
+      outputLabel.textContent = 'Base64 Output';
+      input.placeholder = 'Enter text to encode...';
+    } else {
+      inputLabel.textContent = 'Base64 Input';
+      outputLabel.textContent = 'Plaintext Output';
+      input.placeholder = 'Enter Base64 to decode...';
+    }
   }
+  
+  function clearMessages() {
+    error.textContent = '';
+    success.textContent = '';
+  }
+  
+  document.getElementById('convertBtn').addEventListener('click', () => {
+    clearMessages();
+    const val = input.value.trim();
+    if (!val) {
+      output.value = '';
+      stats.textContent = '';
+      return;
+    }
+    
+    try {
+      if (mode === 'encode') {
+        // Encode: text -> UTF-8 bytes -> Base64
+        const encoded = btoa(unescape(encodeURIComponent(val)));
+        output.value = encoded;
+        showStats(val, encoded, 'encoded');
+      } else {
+        // Decode: Base64 -> UTF-8 bytes -> text
+        const decoded = decodeURIComponent(escape(atob(val)));
+        output.value = decoded;
+        showStats(val, decoded, 'decoded');
+      }
+    } catch (e) {
+      error.textContent = 'Invalid input: ' + e.message;
+      output.value = '';
+      stats.textContent = '';
+    }
+  });
+  
+  function showStats(inputVal, outputVal, operation) {
+    const inputBytes = new Blob([inputVal]).size;
+    const outputBytes = new Blob([outputVal]).size;
+    stats.innerHTML = `
+      Input: ${inputVal.length} chars (${inputBytes} bytes)<br>
+      Output: ${outputVal.length} chars (${outputBytes} bytes)<br>
+      Ratio: ${(outputBytes / inputBytes).toFixed(2)}x
+    `;
+  }
+  
+  document.getElementById('swapBtn').addEventListener('click', () => {
+    const temp = input.value;
+    input.value = output.value;
+    output.value = temp;
+    clearMessages();
+    
+    // Auto-convert in the new mode
+    if (input.value.trim()) {
+      document.getElementById('convertBtn').click();
+    }
+  });
+  
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    if (!output.value) return;
+    navigator.clipboard.writeText(output.value).then(() => {
+      success.textContent = 'Copied to clipboard!';
+      setTimeout(() => success.textContent = '', 2000);
+    });
+  });
+  
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    input.value = '';
+    output.value = '';
+    clearMessages();
+    stats.textContent = '';
+  });
+  
+  // Auto-convert on input change
+  input.addEventListener('input', () => {
+    if (input.value.trim()) {
+      document.getElementById('convertBtn').click();
+    } else {
+      output.value = '';
+      clearMessages();
+      stats.textContent = '';
+    }
+  });
 </script>
 </body>
 </html>
