@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Live — Shadow's Garden</title>
+<meta name="description" content="A simple markdown editor with live preview. No tracking, no account needed.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 1.5rem; }
+  
+  .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    height: calc(100vh - 200px);
+    min-height: 400px;
+  }
+  
+  .pane {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  
+  .pane-header {
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .pane-header button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  
+  .pane-header button:hover {
+    opacity: 0.9;
+  }
+  
+  textarea {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    resize: none;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background: var(--bg);
+    color: var(--text);
+  }
+  
+  textarea:focus { outline: none; }
+  
+  .preview {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+  
+  .preview h1, .preview h2, .preview h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  .preview h1:first-child { margin-top: 0; }
+  .preview p { margin-bottom: 1rem; }
+  .preview code {
+    background: var(--bg-secondary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+  }
+  .preview pre {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  .preview pre code {
+    background: none;
+    padding: 0;
+  }
+  .preview blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 1rem 0;
+    padding-left: 1rem;
+    color: var(--text-muted);
+  }
+  .preview ul, .preview ol { margin: 1rem 0; padding-left: 1.5rem; }
+  .preview li { margin-bottom: 0.25rem; }
+  .preview a { color: var(--accent); }
+  .preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+  }
+  .preview th, .preview td {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    text-align: left;
+  }
+  .preview th { background: var(--bg-secondary); }
+  .preview hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  .preview img { max-width: 100%; border-radius: 6px; }
+  
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .toolbar button {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  .toolbar button:hover {
+    background: var(--border);
+  }
+  
+  .toolbar button.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  
+  .word-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  
+  @media (max-width: 768px) {
+    .editor-container { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>Markdown Live</h1>
+    <div class="subtitle">Write markdown with real-time preview. No tracking, no account.</div>
+    
+    <div class="toolbar">
+      <button onclick="insertFormat('**', '**')">Bold</button>
+      <button onclick="insertFormat('*', '*')">Italic</button>
+      <button onclick="insertFormat('`', '`')">Code</button>
+      <button onclick="insertFormat('[', '](url)')">Link</button>
+      <button onclick="insertFormat('![alt](', ')')">Image</button>
+      <button onclick="insertFormat('# ', '')">H1</button>
+      <button onclick="insertFormat('## ', '')">H2</button>
+      <button onclick="insertFormat('### ', '')">H3</button>
+      <button onclick="insertFormat('- ', '')">List</button>
+      <button onclick="insertFormat('> ', '')">Quote</button>
+      <button onclick="insertFormat('```\n', '\n```')">Code Block</button>
+      <button class="primary" onclick="downloadMarkdown()">Download .md</button>
+      <button class="primary" onclick="copyHTML()">Copy HTML</button>
+    </div>
+    
+    <div class="editor-container">
+      <div class="pane">
+        <div class="pane-header">
+          <span>Markdown</span>
+          <span class="word-count" id="wordCount">0 words</span>
+        </div>
+        <textarea id="editor" placeholder="Start writing markdown here...
+
+# Example
+Write **bold** or *italic* text, create lists:
+- item one
+- item two
+
+Or code blocks:
+```js
+console.log('hello');
+```" autofocus></textarea>
+      </div>
+      <div class="pane">
+        <div class="pane-header">
+          <span>Preview</span>
+        </div>
+        <div class="preview" id="preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const wordCount = document.getElementById('wordCount');
+    
+    // Load saved content
+    const saved = localStorage.getItem('shadow-markdown-content');
+    if (saved) {
+      editor.value = saved;
+      render();
+    }
+    
+    // Simple markdown parser
+    function parseMarkdown(text) {
+      let html = text
+        // Escape HTML
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Code blocks (must be first to avoid other rules)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Headers
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Blockquotes
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Horizontal rule
+        .replace(/^---$/gm, '<hr>')
+        // Images
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        // Bold and italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        // Unordered lists
+        .replace(/^\- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        // Ordered lists
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        // Paragraphs (wrap remaining text)
+        .replace(/^(?!<[houbpl]|<li|<hr|<img|<a)(.+)$/gm, '<p>$1</p>')
+        // Clean up empty paragraphs
+        .replace(/<p>\s*<\/p>/g, '')
+        // Merge consecutive blockquotes
+        .replace(/<\/blockquote>\n<blockquote>/g, '<br>');
+      
+      return html;
+    }
+    
+    function render() {
+      const text = editor.value;
+      preview.innerHTML = parseMarkdown(text);
+      
+      // Word count
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      wordCount.textContent = `${words} words`;
+      
+      // Save to localStorage
+      localStorage.setItem('shadow-markdown-content', text);
+    }
+    
+    // Auto-render on input
+    editor.addEventListener('input', render);
+    
+    // Insert formatting
+    function insertFormat(before, after) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const text = editor.value;
+      const selected = text.substring(start, end);
+      
+      editor.value = text.substring(0, start) + before + selected + after + text.substring(end);
+      editor.focus();
+      render();
+    }
+    
+    // Download as .md file
+    function downloadMarkdown() {
+      const blob = new Blob([editor.value], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'document.md';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    // Copy HTML to clipboard
+    function copyHTML() {
+      navigator.clipboard.writeText(preview.innerHTML).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1500);
+      });
+    }
+    
+    // Keyboard shortcuts
+    editor.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'b') { e.preventDefault(); insertFormat('**', '**'); }
+        if (e.key === 'i') { e.preventDefault(); insertFormat('*', '*'); }
+        if (e.key === 'k') { e.preventDefault(); insertFormat('[', '](url)'); }
+      }
+    });
+  </script>
+</body>
+</html>
