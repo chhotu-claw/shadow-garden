@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII Table — Shadow's Garden</title>
+<meta name="description" content="Complete ASCII character table with decimal, hex, octal, binary, and HTML entities. Click to copy.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'SF Mono', Monaco, 'Courier New', monospace; max-width: 900px; margin: 0 auto; padding: 2rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .filters { margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+  .filters input, .filters select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+  .filters input { width: 200px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #f5f5f5; position: sticky; top: 0; }
+  tr:hover { background: #f9f9f9; cursor: pointer; }
+  tr:hover td { background: #f0f0f0; }
+  .char { font-size: 1.2rem; width: 50px; text-align: center; }
+  .desc { color: #666; font-size: 0.8rem; }
+  .hidden { display: none; }
+  .copied { background: #d4edda !important; }
+  .legend { font-size: 0.8rem; color: #666; margin-top: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>ASCII Table</h1>
+  <p>Complete ASCII character reference. Click any row to copy the character.</p>
+  
+  <div class="filters">
+    <input type="text" id="search" placeholder="Search by char, dec, hex, or name..." oninput="filter()">
+    <select id="range" onchange="filter()">
+      <option value="all">All (0-127)</option>
+      <option value="printable">Printable (32-126)</option>
+      <option value="control">Control (0-31)</option>
+      <option value="extended">Extended (128-255)</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dec</th>
+          <th>Hex</th>
+          <th>Oct</th>
+          <th>Bin</th>
+          <th>Char</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+  <p class="legend">Extended ASCII (128-255) varies by code page. Shown as CP437.</p>
+
+  <script>
+    const controlChars = [
+      'NUL', 'SOH', 'STX', 'ETX', 'EOT', 'ENQ', 'ACK', 'BEL', 'BS', 'TAB', 'LF', 'VT', 'FF', 'CR', 'SO', 'SI',
+      'DLE', 'DC1', 'DC2', 'DC3', 'DC4', 'NAK', 'SYN', 'ETB', 'CAN', 'EM', 'SUB', 'ESC', 'FS', 'GS', 'RS', 'US', 'SPACE'
+    ];
+    
+    const extended = [
+      'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å',
+      'É', 'æ', 'Æ', 'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₹', 'Pt', '§', '©',
+      '®', '™', '°', '±', '²', '³', 'µ', '¶', '·', '¸', '¹', 'º', '»', '¼', '½', '¾', '¿', '×', '÷', '√', '∞', '≠', '≤', '≥'
+    ];
+
+    function toBin(n) { return n.toString(2).padStart(8, '0'); }
+    function toOct(n) { return n.toString(8).padStart(3, '0'); }
+    
+    function getDesc(n) {
+      if (n <= 32) return controlChars[n] || 'CTRL';
+      if (n === 32) return 'SPACE';
+      if (n === 127) return 'DEL';
+      if (n >= 128) return extended[n - 128] || 'EXT';
+      return '';
+    }
+
+    function getChar(n) {
+      if (n <= 31 || n === 127) return ' ';
+      if (n === 32) return '␣';
+      return String.fromCharCode(n);
+    }
+
+    let rows = [];
+    
+    function render() {
+      const tbody = document.getElementById('table');
+      tbody.innerHTML = '';
+      rows = [];
+      
+      for (let i = 0; i < 256; i++) {
+        const row = { dec: i, hex: i.toString(16).toUpperCase().padStart(2, '0'), oct: toOct(i), bin: toBin(i), char: getChar(i), desc: getDesc(i) };
+        rows.push(row);
+        
+        const tr = document.createElement('tr');
+        tr.dataset.dec = i;
+        tr.onclick = () => copy(row.char, tr);
+        tr.innerHTML = `
+          <td>${row.dec}</td>
+          <td>0x${row.hex}</td>
+          <td>${row.oct}</td>
+          <td>${row.bin}</td>
+          <td class="char">${row.char === ' ' ? '␣' : row.char}</td>
+          <td class="desc">${row.desc}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function filter() {
+      const search = document.getElementById('search').value.toLowerCase();
+      const range = document.getElementById('range').value;
+      
+      document.querySelectorAll('tr').forEach(tr => {
+        const dec = parseInt(tr.dataset.dec);
+        let show = true;
+        
+        if (range === 'printable' && (dec < 32 || dec > 126)) show = false;
+        if (range === 'control' && (dec < 0 || dec > 31)) show = false;
+        if (range === 'extended' && dec < 128) show = false;
+        
+        if (search) {
+          const text = tr.textContent.toLowerCase();
+          if (!text.includes(search)) show = false;
+        }
+        
+        tr.classList.toggle('hidden', !show);
+      });
+    }
+
+    function copy(char, row) {
+      const text = char === '␣' ? ' ' : char;
+      navigator.clipboard.writeText(text).then(() => {
+        row.classList.add('copied');
+        setTimeout(() => row.classList.remove('copied'), 500);
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
