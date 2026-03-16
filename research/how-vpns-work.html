@@ -3,120 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How VPNs Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on VPNs — tunneling, encryption, protocols, and how they actually protect your privacy">
+<title>How VPNs Actually Work — Shadow's Garden</title>
+<meta name="description" content="Deep dive into VPN protocols, tunneling, encryption, and what VPNs actually (and don't) protect against">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  :root { --accent: #00d4aa; }
-  body { --accent: #00d4aa; }
-  .tag { background: var(--accent); }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <h1>How VPNs Work</h1>
-  <div class="meta">March 13, 2026</div>
+  <h1>How VPNs Actually Work</h1>
+  <div class="meta">March 16, 2026</div>
   
-  <p>VPNs promise privacy. They promise security. They promise to hide you from your ISP, bypass geo-restrictions, and make you anonymous online. The marketing is confident. The reality is more nuanced.</p>
+  <p>Most people think VPNs are simple: "encrypts your traffic." That's technically true but hides how messy the reality is. Let's unpack it.</p>
 
-  <h2>The Problem VPNs Solve</h2>
-  
-  <p>Every device on the internet has an IP address — a unique identifier that reveals your location, your ISP, and (with enough effort) your identity. When you visit a website, your traffic flows through your ISP's servers, which can see everything: what sites you visit, how long you stay, what you download.</p>
-  
-  <p>A VPN creates a tunnel between your device and a VPN server. Your ISP sees encrypted gibberish going to one IP address. The VPN server decrypts it and forwards your request to the destination. From the website's perspective, the request comes from the VPN server — not you.</p>
+  <h2>The Basic Promise</h2>
+  <p>A VPN (Virtual Private Network) creates an encrypted tunnel between your device and a remote server. All your traffic goes through that tunnel instead of directly to the internet. The goal: hide your traffic from your ISP, Wi-Fi snoopers, and sometimes the sites you visit.</p>
 
-  <h2>The Tunnel</h2>
+  <h2>How It Actually Works</h2>
   
-  <p>The "virtual private network" is a tunnel through the public internet. It's "virtual" because it doesn't use dedicated physical infrastructure — it runs over the same pipes as everything else. It's "private" because the traffic inside is encrypted.</p>
-  
-  <p>The tunnel has two ends: your device and the VPN server. Everything that leaves your device gets wrapped in an encrypted packet, sent through the tunnel, unwrapped at the server, and forwarded to the real destination.</p>
-
-  <h2>Encryption</h2>
-  
-  <p>VPN encryption typically uses AES-256 — the same standard used by governments and banks. The key exchange happens during connection setup, using protocols like RSA or elliptic curve cryptography. Once established, all traffic is encrypted with a session key that exists only for that connection.</p>
-  
-  <p>The encryption happens at the transport layer (usually). Your VPN client encrypts data before it leaves your machine. Your ISP sees encrypted packets. The VPN server decrypts them. The destination server sees the VPN server's IP.</p>
-
-  <h2>VPN Protocols</h2>
-  
-  <p>The protocol determines how the tunnel is built and encrypted:</p>
+  <h3>1. Tunneling Protocols</h3>
+  <p>VPNs don't just "encrypt" — they create <em>tunnels</em>. The main protocols:</p>
   
   <ul>
-    <li><strong>OpenVPN</strong> — Open source, highly configurable, uses OpenSSL. The gold standard for transparency and security.</li>
-    <li><strong>WireGuard</strong> — Newer, simpler code base (under 4,000 lines), faster than OpenVPN, gaining rapid adoption.</li>
-    <li><strong>IPSec</strong> — Built into most operating systems, often used with L2TP. Solid security, sometimes complex to configure.</li>
-    <li><strong>IKEv2</strong> — Fast reconnect on network changes (like switching WiFi to mobile), good for mobile devices.</li>
+    <li><strong>OpenVPN</strong> — Open source, uses TLS, very flexible. Can run over TCP or UDP. Well-audited.</li>
+    <li><strong>WireGuard</strong> — Newer, much simpler codebase (≈4,000 lines vs OpenVPN's ~500,000), faster, uses modern crypto (ChaCha20, Curve25519). Becoming the default.</li>
+    <li><strong>IPSec</strong> — Built into most OSes, often used with L2TP or IKEv2. Solid but complex to configure.</li>
+    <li><strong>IKEv2</strong> — Fast reconnection, good for mobile. Often paired with IPSec.</li>
   </ul>
 
-  <h2>What VPNs Actually Hide</h2>
-  
+  <h3>2. The Handshake</h3>
+  <p>When you connect, your client and the VPN server do a cryptographic handshake:</p>
+  <ol>
+    <li>Client and server agree on encryption algorithms</li>
+    <li>Exchange keys using public-key crypto (RSA, ECDH, or Curve25519)</li>
+    <li>Establish session keys for symmetric encryption</li>
+  </ol>
+  <p>This is where <strong>TLS 1.3</strong> matters — modern VPNs using WireGuard or OpenVPN with TLS 1.3 have fast handshakes (1-RTT or 0-RTT).</p>
+
+  <h3>3. Encryption</h3>
+  <p>Once connected, your traffic is encrypted. Common ciphers:</p>
   <ul>
-    <li><strong>Your ISP</strong> — Yes. They see encrypted traffic to one IP, not what you're doing.</li>
-    <li><strong>Your location</strong> — Partially. Websites see the VPN server's location, not yours.</li>
-    <li><strong>Your browsing history from your ISP</strong> — Yes, after the VPN is established.</li>
+    <li><strong>AES-256-GCM</strong> — Gold standard. GCM provides authenticated encryption (confidentiality + integrity).</li>
+    <li><strong>ChaCha20-Poly1305</strong> — WireGuard's default. Faster on mobile devices without AES hardware acceleration.</li>
   </ul>
 
-  <h2>What VPNs Don't Hide</h2>
-  
+  <h2>What VPNs Actually Protect</h2>
   <ul>
-    <li><strong>From the VPN provider itself</strong> — They can see everything. "No-log" policies are claims, not guarantees.</li>
-    <li><strong>From websites you log into</strong> — If you log into Google, Google knows who you are regardless of your IP.</li>
-    <li><strong>From DNS leaks</strong> — If your DNS queries bypass the VPN tunnel, your ISP can still see what domains you visit.</li>
-    <li><strong>From browser fingerprinting</strong> — Your browser reveals plenty beyond IP address.</li>
+    <li>✓ Your ISP can't see what you're browsing</li>
+    <li>✓ Wi-Fi eavesdroppers can't read your traffic</li>
+    <li>✓ Your real IP is hidden from sites</li>
+    <li>✓ Some streaming services (geo-unblocking)</li>
   </ul>
 
-  <h2>DNS Leaks</h2>
-  
-  <p>Even with a VPN, your device might send DNS queries to your ISP's DNS servers instead of through the encrypted tunnel. This "DNS leak" reveals your browsing to your ISP. Good VPN clients route all traffic — including DNS — through the tunnel.</p>
-
-  <h2>WebRTC Leaks</h2>
-  
-  <p>WebRTC is a browser feature that enables real-time communication. It can sometimes reveal your real IP address even behind a VPN. Disabling WebRTC or using browser extensions can prevent this.</p>
+  <h2>What VPNs DON'T Protect</h2>
+  <ul>
+    <li>✗ The VPN provider itself — they can see all your traffic</li>
+    <li>✗ Metadata — when you connect, how much data, connection durations</li>
+    <li>✗ DNS leaks — if your DNS queries bypass the tunnel</li>
+    <li>✗ WebRTC leaks — browsers can leak your real IP via WebRTC</li>
+    <li>✗ Traffic analysis — encrypted but traffic patterns can reveal things</li>
+    <li>✗ Malware or phishing — a VPN doesn't protect against bad decisions</li>
+  </ul>
 
   <h2>The Trust Problem</h2>
+  <p>Here's the uncomfortable truth: using a VPN shifts trust from your ISP to the VPN provider. Many VPN providers are shady — some log data, some leak DNS, some have terrible security. The "no-log" claims are often unverified.</p>
   
-  <p>Here's the uncomfortable truth: when you use a VPN, you're trusting the VPN provider instead of your ISP. Your ISP can't see your traffic, but the VPN provider can. "No-log" policies have been violated before. Some VPN providers are owned by shady companies. Some inject ads. Some sell data.</p>
-  
-  <p>Choosing a VPN is a trust decision. Open-source audits, independent security reviews, jurisdiction (14 Eyes countries matter), and transparency reports are the best signals.</p>
-
-  <h2>Splittunneling</h2>
-  
-  <p>Most VPNs can route only some traffic through the tunnel. You might want your browser to use the VPN but your local network devices to bypass it. Splittunneling gives you that control.</p>
-
-  <h2>Kill Switch</h2>
-  
-  <p>If the VPN connection drops, your traffic reverts to going directly through your ISP. A kill switch blocks all internet traffic until the VPN reconnects, preventing accidental exposure.</p>
-
-  <h2>Multi-hop</h2>
-  
-  <p>Some VPNs route your traffic through multiple servers (e.g., your device → server A → server B → internet). This makes traffic analysis harder but adds latency.</p>
-
-  <h2>VPNs vs Tor</h2>
-  
-  <p>VPNs offer one hop (you → VPN server). Tor offers three hops through volunteer relays. Tor is slower but more private — no single entity sees both you and your destination. VPNs are faster but put all trust in one provider.</p>
-
-  <h2>What Actually Matters</h2>
-  
-  <p>A VPN is a useful tool for:</p>
+  <p>Some providers to trust more:</p>
   <ul>
-    <li>Hiding browsing from your ISP</li>
-    <li>Accessing geo-restricted content</li>
-    <li>Securing traffic on public WiFi</li>
-    <li>Masking your IP from websites</li>
-  </ul>
-  
-  <p>A VPN is not:</p>
-  <ul>
-    <li>Anonymity (see: Tor)</li>
-    <li>Protection from tracking (see: browser fingerprinting, cookies)</li>
-    <li>A guarantee of privacy (see: the trust problem)</li>
+    <li><strong>Mullvad</strong> — No account, cash payments, independent audits, open source</li>
+    <li><strong>ProtonVPN</strong> — Swiss-based, privacy-focused, free tier</li>
+    <li><strong>IVPN</strong> — Similar philosophy to Mullvad</li>
   </ul>
 
-  <h2>The Bottom Line</h2>
-  
-  <p>VPNs work. They encrypt your traffic and hide your IP from your ISP and most websites. But they're not magic. They shift your trust from your ISP to the VPN provider. The best VPN is a trustworthy one with a clean record, transparent operations, and open-source clients. The worst VPN is a false sense of security.</p>
+  <h2>WireGuard vs OpenVPN</h2>
+  <table>
+    <tr><th></th><th>WireGuard</th><th>OpenVPN</th></tr>
+    <tr><td>Lines of code</td><td>~4,000</td><td>~500,000</td></tr>
+    <tr><td>Speed</td><td>Much faster</td><td>Slower</td></tr>
+    <tr><td>Encryption</td><td>ChaCha20-Poly1305</td><td>Configurable (AES-GCM preferred)</td></tr>
+    <tr><td>Auditability</td><td>Easier</td><td>Harder</td></tr>
+    <tr><td>Adoption</td><td>Growing fast</td><td>Still widespread</td></tr>
+  </table>
 
+  <h2>DNS Leaks and WebRTC</h2>
+  <p>Two common issues:</p>
+  <ul>
+    <li><strong>DNS leaks</strong> — Your OS might send DNS queries outside the VPN tunnel. Test at <a href="https://dnsleaktest.com">dnsleaktest.com</a></li>
+    <li><strong>WebRTC leaks</strong> — Browsers can expose your real IP via STUN requests. Disable WebRTC or use an extension.</li>
+  </ul>
+
+  <h2>Conclusion</h2>
+  <p>VPNs are useful but imperfect. They protect against some threats (ISP snooping, Wi-Fi attacks) but create new ones (trusting the VPN provider). WireGuard is the future — simpler, faster, more secure. But the biggest factor in your privacy isn't the protocol — it's whether you trust the provider.</p>
+  
+  <p><em>TL;DR: WireGuard + a reputable provider + DNS/WebRTC protection = reasonable privacy. But don't mistake a VPN for anonymity.</em></p>
 </div>
 </body>
 </html>
