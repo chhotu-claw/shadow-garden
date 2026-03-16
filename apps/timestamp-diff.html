@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timestamp Diff — Shadow's Garden</title>
+<meta name="description" content="Calculate the difference between two timestamps - see exact duration in days, hours, minutes, seconds">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { font-family: var(--font-mono); }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-dim); }
+  input[type="datetime-local"], input[type="number"] {
+    width: 100%; padding: 0.75rem; font-size: 1rem;
+    border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg-secondary); color: var(--text);
+    font-family: inherit;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .result {
+    background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px;
+    border: 2px solid var(--accent); margin-top: 2rem;
+  }
+  .result-label { font-size: 0.875rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+  .result-value { font-size: 2rem; font-weight: 700; color: var(--accent); }
+  .result-details {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .detail { text-align: center; }
+  .detail-value { font-size: 1.5rem; font-weight: 700; }
+  .detail-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .preset-btn {
+    padding: 0.5rem 1rem; font-size: 0.875rem; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text-dim); cursor: pointer;
+    font-family: inherit;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .swap-btn {
+    display: block; margin: 1rem auto; padding: 0.5rem 1.5rem;
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 50%; cursor: pointer; font-size: 1.25rem;
+  }
+  .swap-btn:hover { border-color: var(--accent); }
+  .reverse-order { margin-top: 1rem; }
+  .reverse-order label { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; cursor: pointer; }
+  .reverse-order input { width: auto; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Timestamp Diff</h1>
+  <p style="color: var(--text-dim); margin-bottom: 2rem;">Calculate the exact difference between two timestamps</p>
+  
+  <div class="input-group">
+    <label>Start Time</label>
+    <input type="datetime-local" id="startTime">
+    <div class="presets">
+      <button class="preset-btn" onclick="setPreset('start', 'now')">Now</button>
+      <button class="preset-btn" onclick="setPreset('start', 'today')">Today 00:00</button>
+    </div>
+  </div>
+  
+  <button class="swap-btn" onclick="swapTimes()" title="Swap times">⇅</button>
+  
+  <div class="input-group">
+    <label>End Time</label>
+    <input type="datetime-local" id="endTime">
+    <div class="presets">
+      <button class="preset-btn" onclick="setPreset('end', 'now')">Now</button>
+      <button class="preset-btn" onclick="setPreset('end', 'today')">Today 00:00</button>
+    </div>
+  </div>
+  
+  <div class="reverse-order">
+    <label><input type="checkbox" id="reverseOrder"> Reverse order (End → Start)</label>
+  </div>
+  
+  <div class="result" id="result" style="display: none;">
+    <div class="result-label">Difference</div>
+    <div class="result-value" id="diffValue">—</div>
+    <div class="result-details" id="diffDetails"></div>
+  </div>
+</div>
+
+<script>
+const startInput = document.getElementById('startTime');
+const endInput = document.getElementById('endTime');
+const reverseCheck = document.getElementById('reverseOrder');
+const resultDiv = document.getElementById('result');
+const diffValue = document.getElementById('diffValue');
+const diffDetails = document.getElementById('diffDetails');
+
+function setPreset(which, preset) {
+  const now = new Date();
+  let val = '';
+  
+  if (preset === 'now') {
+    val = formatLocalDateTime(now);
+  } else if (preset === 'today') {
+    now.setHours(0, 0, 0, 0);
+    val = formatLocalDateTime(now);
+  }
+  
+  if (which === 'start') startInput.value = val;
+  else endInput.value = val;
+  
+  calculate();
+}
+
+function formatLocalDateTime(d) {
+  const pad = n => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function swapTimes() {
+  const tmp = startInput.value;
+  startInput.value = endInput.value;
+  endInput.value = tmp;
+  calculate();
+}
+
+function calculate() {
+  const start = new Date(startInput.value);
+  const end = new Date(endInput.value);
+  
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    resultDiv.style.display = 'none';
+    return;
+  }
+  
+  let diff = end.getTime() - start.getTime();
+  
+  if (reverseCheck.checked) {
+    diff = Math.abs(diff);
+  }
+  
+  if (diff < 0) {
+    diffValue.textContent = 'End is before start';
+    diffDetails.innerHTML = '';
+    resultDiv.style.display = 'block';
+    return;
+  }
+  
+  const totalSeconds = Math.floor(diff / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const totalDays = Math.floor(totalHours / 24);
+  
+  const days = totalDays;
+  const hours = totalHours % 24;
+  const minutes = totalMinutes % 60;
+  const seconds = totalSeconds % 60;
+  const ms = diff % 1000;
+  
+  // Human readable
+  const parts = [];
+  if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+  if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+  if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds !== 1 ? 's' : ''}`);
+  
+  diffValue.textContent = parts.join(', ');
+  
+  // Details grid
+  diffDetails.innerHTML = `
+    <div class="detail"><div class="detail-value">${days}</div><div class="detail-label">Days</div></div>
+    <div class="detail"><div class="detail-value">${hours}</div><div class="detail-label">Hours</div></div>
+    <div class="detail"><div class="detail-value">${minutes}</div><div class="detail-label">Minutes</div></div>
+    <div class="detail"><div class="detail-value">${seconds}</div><div class="detail-label">Seconds</div></div>
+    <div class="detail"><div class="detail-value">${ms}</div><div class="detail-label">ms</div></div>
+  `;
+  
+  resultDiv.style.display = 'block';
+}
+
+startInput.addEventListener('input', calculate);
+endInput.addEventListener('input', calculate);
+reverseCheck.addEventListener('change', calculate);
+
+// Initialize with current time
+setPreset('end', 'now');
+</script>
+</body>
+</html>
