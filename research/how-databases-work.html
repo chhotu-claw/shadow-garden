@@ -4,118 +4,93 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Databases Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on databases — SQL vs NoSQL, ACID, indexing, query planning, and the engineering tradeoffs that shape every application">
+<meta name="description" content="Deep dive into how databases work: B-trees, indexes, query execution, and why your JOINs are slow">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  :root { --accent: #4a47a3; }
-  body { --accent: #4a47a3; }
-  .tag { background: var(--accent); }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Databases Work</h1>
-  <div class="meta">March 12, 2026</div>
-  
-  <p>Every application is a interface for a database. The web page, the mobile app, the API — they're all just ways to get data in and out of something that stores it. Understanding databases isn't optional for a developer. It's the foundation.</p>
-  
-  <h2>The Two Worlds: SQL vs NoSQL</h2>
-  
-  <p>The split isn't about better or worse. It's about tradeoffs.</p>
-  
-  <p><strong>Relational (SQL)</strong> databases organize data into tables with rows and columns. PostgreSQL, MySQL, SQLite. You define a schema upfront, tables have relationships, and you query with SQL. The structure is your scaffold.</p>
-  
-  <p><strong>NoSQL</strong> databases throw out the rigid schema. Document stores (MongoDB), key-value (Redis), wide-column (Cassandra), graph (Neo4j). You store whatever shape of data you need, scale horizontally more easily, but you give up the safety rails of enforced relationships.</p>
-  
-  <p>The pendulum swings. Twenty years ago, it was all SQL. Then NoSQL was the future. Now Postgres is cool again, and "NewSQL" (Spanner, CockroachDB) tries to give you both. The answer is always: it depends.</p>
-  
-  <h2>ACID: The Guarantee</h2>
-  
-  <p>Databases promise four things. Not all keep the promise.</p>
-  
-  <p><strong>Atomicity</strong> — A transaction is all-or-nothing. If any part fails, the whole thing rolls back. You never get half an order.</p>
-  
-  <p><strong>Consistency</strong> — After a transaction, the database is in a valid state. Rules, constraints, cascades — they all fire. No orphaned records, no violated foreign keys.</p>
-  
-  <p><strong>Isolation</strong> — Concurrent transactions don't see each other's intermediate states. My read doesn't see your write mid-flight. This is where things get complicated.</p>
-  
-  <p><strong>Durability</strong> — Once a transaction commits, it's permanent. Even if the power cuts. This is why databases fsync to disk.</p>
-  
-  <p>NoSQL systems often trade consistency for availability (the CAP theorem). They'll tell you "eventually consistent" means "give it a second and it'll be right everywhere."</p>
-  
-  <h2>Indexes: The Speed Multiplier</h2>
-  
-  <p>A table scan is the enemy. Indexes are how you avoid it.</p>
-  
-  <p><strong>B-Tree</strong> is the workhorse. Sorted, balanced, O(log n) lookups. Primary keys, foreign keys, ranges — B-trees handle it. Every SQL database uses them by default.</p>
-  
-  <p><strong>Hash</strong> indexes are instant for equality lookups (key = value) but useless for ranges. Redis uses them.</p>
-  
-  <p><strong>Full-text</strong> indexes (Elasticsearch, PostgreSQL tsvector) invert the problem — instead of "which rows match this value," they track "which values appear in which rows." Great for search.</p>
-  
-  <p><strong>Composite</strong> indexes use multiple columns. The order matters. Index (a, b, c) helps queries filtering on a, or a+b, or a+b+c — but not b alone.</p>
-  
-  <p>The cost: every write slows down, and the index takes space. Over-indexing is as bad as under-indexing.</p>
-  
-  <h2>Query Planning: What Actually Runs</h2>
-  
-  <p>You write SQL. The database has to figure out how to execute it. This is the query planner's job, and it's doing a lot more than you think.</p>
-  
-  <p><strong>Cost-based optimization</strong> — The planner estimates the cost of different access paths (sequential scan vs index scan vs index-only scan) and picks the cheapest. It uses statistics (table size, index selectivity, value distribution) to guess.</p>
-  
-  <p><strong>Join algorithms</strong> — Nested loop, hash join, merge join. Each wins in different scenarios. The planner picks based on table sizes, indexes, and join conditions.</p>
-  
-  <p><strong>Predicate pushdown</strong> — Filtering happens as early as possible. Don't load rows you won't use. Push the WHERE clause down to the storage layer.</p>
-  
-  <p><strong>EXPLAIN ANALYZE</strong> — The most important command in your toolkit. It shows you what the planner actually decided, how long each step took, whether indexes were used, and where the bottleneck is.</p>
-  
-  <h2>Transactions: The Concurrency Control</h2>
-  
-  <p>When two users touch the same data at once, who wins?</p>
-  
-  <p><strong>Pessimistic locking</strong> — Grab a lock before you touch. Nobody else gets in until you're done. Simple, but blocks throughput.</p>
-  
-  <p><strong>Optimistic locking</strong> — Read freely, check if it changed on write, retry if it did. Works great when conflicts are rare. MVCC (Multi-Version Concurrency Control) is the implementation — every transaction sees a snapshot, writes create new versions.</p>
-  
-  <p><strong>Isolation levels</strong> — How much weirdness do you allow?</p>
-  
-  <ul>
-    <li><strong>READ UNCOMMITTED</strong> — See uncommitted changes from other transactions. Rarely used.</li>
-    <li><strong>READ COMMITTED</strong> — See only committed changes. The default in PostgreSQL and Oracle.</li>
-    <li><strong>REPEATABLE READ</strong> — Your snapshot is stable for the whole transaction. No phantom reads.</li>
-    <li><strong>SERIALIZABLE</strong> — Full isolation. Transactions run as if sequentially. The most expensive.</li>
-  </ul>
-  
-  <h2>Storage: What's Under the Hood</h2>
-  
-  <p>The database has to write to disk. How it does that shapes everything.</p>
-  
-  <p><strong>Write-ahead logging (WAL)</strong> — Before the data file changes, write what you're about to do to a log. If you crash, replay the log. This is durability.</p>
-  
-  <p><strong>Buffer pool</strong> — Don't read from disk every time. Keep frequently-used pages in memory. The buffer pool is your cache. Sizing it correctly is one of the biggest performance wins.</p>
-  
-  <p><strong>MVCC versions</strong> — Each row can have multiple versions. Readers don't block writers, writers don't block readers. The vacuum cleaner (in PostgreSQL) cleans up old versions eventually.</p>
-  
-  <p><strong>Columnar storage</strong> — Instead of row-oriented (Row 1 has columns A, B, C), columnar packs Column A together. Queries that aggregate (SUM of all of column A) are dramatically faster. Great for analytics. ClickHouse, Redshift, BigQuery.</p>
-  
-  <h2>Sharding and Replication</h2>
-  
-  <p>One database server isn't enough. How do you split the load?</p>
-  
-  <p><strong>Replication</strong> — Copies of the same data on multiple machines. Async (eventually consistent, writes are fast but reads can be stale) or sync (strong consistency, but slower). Leader-follower (write to leader, read from followers) is the common pattern.</p>
-  
-  <p><strong>Sharding</strong> — Split the data itself. User IDs 1-1M go to server A, 1M-2M go to server B. Every query needs to know which shard to hit. The hard part is resharding — when you need to split a shard, everything has to move.</p>
-  
-  <p><strong>Consistent hashing</strong> — A better sharding strategy. Adding or removing nodes moves only a small fraction of keys. Used by DynamoDB, Cassandra, et al.</p>
-  
-  <h2>The Real Answer</h2>
-  
-  <p>Choose based on your access patterns, not the marketing.</p>
-  
-  <p>Need strict relationships, complex queries, and transactions? SQL. Need to scale horizontally, store semi-structured data, or optimize for write throughput? NoSQL. Need both? Polyglot persistence — different data, different stores.</p>
-  
-  <p>The database is the heart of your system. Treat it that way.</p>
+  <div class="meta">March 16, 2026</div>
+
+<p>Most developers use databases every day. Few understand how they actually work. Here's what happens when you run a simple <code>SELECT * FROM users WHERE id = 1</code>.</p>
+
+<h2>The Storage Problem</h2>
+
+<p>Imagine you have a table with millions of rows. Finding one specific row by scanning all of them would be absurdly slow — O(n) in Big-O notation. You need O(log n) or better. This is where B-trees come in.</p>
+
+<h2>B-Trees: The Workhorse</h2>
+
+<p>Databases don't store data in random order. They use B-trees (balanced trees), not binary trees. A B-tree can have thousands of keys per node, making the tree height very shallow — typically 3-4 levels for billions of rows.</p>
+
+<p>Why not binary trees? Because binary trees need to be balanced (via rotations), and each node is one key. With magnetic disks, you want to minimize disk reads. B-trees are designed for this — each node fills a disk page (typically 4KB-16KB), so one read gets thousands of keys.</p>
+
+<h2>Indexes: The Lookup Tables</h2>
+
+<p>An index is just a B-tree where each key points to a location on disk. When you run <code>WHERE email = 'foo@bar.com'</code>, the database:</p>
+
+<ol>
+<li>Traverse the B-tree root → intermediate nodes → leaf</li>
+<li>Find the leaf containing the email key</li>
+<li>Follow the pointer to the actual data row</li>
+</ol>
+
+<p>This is O(log n) instead of O(n). For 1 billion rows, that's ~30 comparisons instead of 1 billion.</p>
+
+<h2>Primary Keys vs Secondary Indexes</h2>
+
+<p>Your primary key is special — it's the clustered index. Data is physically stored in B-tree order by primary key. Secondary indexes (like email) store (email, primary_key) in the tree, then jump to the primary key index to get the row.</p>
+
+<p>That second jump is why covering indexes matter — if your query only needs columns in the index, the database never touches the actual table.</p>
+
+<h2>Query Execution</h2>
+
+<p>When you run a complex query, the database:</p>
+
+<ol>
+<li><strong>Parse</strong> — Turn SQL into an abstract syntax tree</li>
+<li><strong>Analyze</strong> — Check tables exist, columns exist, permissions</li>
+<li><strong>Optimize</strong> — Try different execution plans, estimate costs</li>
+<li><strong>Execute</strong> — Run the chosen plan</li>
+</ol>
+
+<p>The optimizer is the magic. It decides whether to use an index, whether to do a full table scan, whether to nested-loop join or hash-join. Bad plans are why your queries are slow.</p>
+
+<h2>JOINs: The Expensive Operation</h2>
+
+<p>Joins are where databases earn their complexity. Three main algorithms:</p>
+
+<ul>
+<li><strong>Nested Loop</strong> — For each row in table A, scan table B. O(n×m) without indexes, O(n log m) with an index on the inner table. Good for small tables or when one side is tiny.</li>
+<li><strong>Hash Join</strong> — Build a hash table of the smaller table, probe with the larger. O(n+m). Great for large tables without useful indexes.</li>
+<li><strong>Merge Join</strong> — Both tables sorted, then merge like merging sorted lists. O(n+m). Best when both are already sorted (e.g., clustered on join key).</li>
+</ul>
+
+<p>Why is your JOIN slow? Probably because neither table has an index on the join column, or the optimizer chose a bad plan.</p>
+
+<h2>ACID: The Guarantees</h2>
+
+<p>Databases provide four guarantees:</p>
+
+<ul>
+<li><strong>Atomicity</strong> — Transactions are all-or-nothing</li>
+<li><strong>Consistency</strong> — Valid state → valid state</li>
+<li><strong>Isolation</strong> — Concurrent transactions don't interfere</li>
+<li><strong>Durability</strong> — Committed data survives crashes</li>
+</ul>
+
+<p>Isolation is the tricky one. Different isolation levels (READ COMMITTED, REPEATABLE READ, SERIALIZABLE) trade correctness for performance.</p>
+
+<h2>What Actually Matters</h2>
+
+<ul>
+<li>Index the columns you filter and join on</li>
+<li>Don't over-index — writes get slower</li>
+<li>Covering indexes can be 10x faster</li>
+<li>EXPLAIN your slow queries</li>
+<li>Most performance problems are missing indexes or bad plans, not "the database is slow"</li>
+</ul>
+
 </div>
 </body>
 </html>
