@@ -4,286 +4,278 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JWT Decoder — Shadow's Garden</title>
-<meta name="description" content="Decode and inspect JWT tokens — header, payload, signature. See expiration times, claims, and verify structure.">
+<meta name="description" content="Decode and inspect JWT tokens — see header, payload, and signature verification status">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
-  .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+  body { font-family: monospace; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
   h1 { margin-bottom: 0.5rem; }
-  .tagline { color: var(--text-muted); margin-bottom: 2rem; }
-  .input-section { margin-bottom: 2rem; }
+  .tagline { color: #666; margin-bottom: 2rem; }
   textarea {
     width: 100%;
-    height: 100px;
+    height: 120px;
     padding: 1rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 14px;
+    border: 2px solid #333;
     border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.9rem;
+    background: #1a1a1a;
+    color: #e0e0e0;
     resize: vertical;
   }
-  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .btn-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  button {
-    padding: 0.5rem 1rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+  textarea:focus { outline: none; border-color: #646cff; }
+  .output { margin-top: 2rem; }
+  .section {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #333;
   }
-  button:hover { background: var(--border); }
-  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  button.primary:hover { opacity: 0.9; }
-  .output { display: grid; gap: 1.5rem; }
-  .section { background: var(--bg-secondary); border-radius: 8px; padding: 1.25rem; border: 1px solid var(--border); }
-  .section h3 { margin: 0 0 1rem 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
-  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .section-header h3 { margin: 0; }
-  .copy-btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+  .section h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .header-section { border-left: 3px solid #e06c75; }
+  .payload-section { border-left: 3px solid #98c379; }
+  .signature-section { border-left: 3px solid #61afef; }
   pre {
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
-    font-size: 0.85rem;
+    font-size: 13px;
     line-height: 1.5;
   }
-  .error { color: #ff6b6b; padding: 1rem; background: rgba(255,107,107,0.1); border-radius: 6px; display: none; }
-  .error.visible { display: block; }
-  .claim { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
-  .claim:last-child { border-bottom: none; }
-  .claim-key { color: #c792ea; }
-  .claim-value { color: #c3e88d; text-align: right; max-width: 60%; word-break: break-all; }
-  .claim-value.expired { color: #ff6b6b; }
-  .claim-value.valid { color: #6bff9e; }
-  .expiry-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
+  .valid { color: #98c379; }
+  .invalid { color: #e06c75; }
+  .warning { color: #e5c07b; }
+  .claim { color: #c678dd; }
+  .label { color: #61afef; }
+  .error { color: #e06c75; margin-top: 1rem; }
+  .copy-btn {
+    background: #333;
+    color: #e0e0e0;
+    border: none;
+    padding: 0.3rem 0.8rem;
     border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: bold;
+    cursor: pointer;
+    font-size: 12px;
     margin-left: 0.5rem;
   }
-  .expiry-badge.expired { background: rgba(255,107,107,0.2); color: #ff6b6b; }
-  .expiry-badge.valid { background: rgba(107,255,158,0.2); color: #6bff9e; }
-  .empty-state { text-align: center; color: var(--text-muted); padding: 3rem; }
-  .info-box { background: rgba(100,180,255,0.1); border: 1px solid rgba(100,180,255,0.3); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; font-size: 0.85rem; }
+  .copy-btn:hover { background: #444; }
+  .btn-row { margin-top: 1rem; }
+  .btn {
+    background: #646cff;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .btn:hover { background: #535bf2; }
+  .btn-clear { background: #333; margin-left: 0.5rem; }
+  .btn-clear:hover { background: #444; }
+  .info { font-size: 12px; color: #666; margin-top: 0.5rem; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>🔐 JWT Decoder</h1>
-  <p class="tagline">Decode and inspect JSON Web Tokens</p>
-
-  <div class="input-section">
-    <textarea id="jwtInput" placeholder="Paste your JWT token here (e.g., eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"></textarea>
-    <div class="btn-row">
-      <button class="primary" onclick="decodeJWT()">Decode</button>
-      <button onclick="clearAll()">Clear</button>
-      <button onclick="loadSample()">Load Sample</button>
-    </div>
+  <h1>JWT Decoder</h1>
+  <p class="tagline">Decode and inspect JWT tokens locally</p>
+  
+  <textarea id="tokenInput" placeholder="Paste your JWT token here..."></textarea>
+  
+  <div class="btn-row">
+    <button class="btn" id="decodeBtn">Decode</button>
+    <button class="btn btn-clear" id="clearBtn">Clear</button>
   </div>
-
-  <div id="error" class="error"></div>
-
-  <div id="output" class="output" style="display: none;">
-    <div class="info-box" id="infoBox"></div>
-    
-    <div class="section">
-      <div class="section-header">
-        <h3>Header</h3>
-        <button class="copy-btn" onclick="copySection('header')">Copy</button>
-      </div>
-      <pre id="header"></pre>
-    </div>
-
-    <div class="section">
-      <div class="section-header">
-        <h3>Payload</h3>
-        <button class="copy-btn" onclick="copySection('payload')">Copy</button>
-      </div>
-      <div id="payloadClaims"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-header">
-        <h3>Signature</h3>
-        <button class="copy-btn" onclick="copySection('signature')">Copy</button>
-      </div>
-      <pre id="signature" style="color: var(--text-muted);"></pre>
-    </div>
-  </div>
-
-  <div id="emptyState" class="empty-state">
-    <p>Paste a JWT token above to decode it</p>
-  </div>
+  
+  <div class="info">All decoding happens in your browser. No data is sent anywhere.</div>
+  
+  <div class="output" id="output"></div>
 </div>
 
 <script>
-function decodeJWT() {
-  const input = document.getElementById('jwtInput').value.trim();
-  const errorEl = document.getElementById('error');
-  const outputEl = document.getElementById('output');
-  const emptyEl = document.getElementById('emptyState');
-  
-  errorEl.classList.remove('visible');
-  errorEl.textContent = '';
-  
-  if (!input) {
-    outputEl.style.display = 'none';
-    emptyEl.style.display = 'block';
-    return;
-  }
+const input = document.getElementById('tokenInput');
+const output = document.getElementById('output');
+const decodeBtn = document.getElementById('decodeBtn');
+const clearBtn = document.getElementById('clearBtn');
 
-  const parts = input.split('.');
-  if (parts.length !== 3) {
-    errorEl.textContent = 'Invalid JWT format: expected 3 parts separated by dots (header.payload.signature)';
-    errorEl.classList.add('visible');
-    outputEl.style.display = 'none';
-    return;
-  }
-
+function base64UrlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = str.length % 4;
+  if (pad) str += '='.repeat(4 - pad);
   try {
-    // Decode header
-    const header = JSON.parse(base64UrlDecode(parts[0]));
-    document.getElementById('header').textContent = JSON.stringify(header, null, 2);
-    
-    // Decode payload
-    const payload = JSON.parse(base64UrlDecode(parts[1]));
-    renderPayload(payload);
-    
-    // Show signature
-    document.getElementById('signature').textContent = parts[2];
-    
-    outputEl.style.display = 'grid';
-    emptyEl.style.display = 'none';
+    return decodeURIComponent(atob(str).split('').map(c => 
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
   } catch (e) {
-    errorEl.textContent = 'Failed to decode: ' + e.message;
-    errorEl.classList.add('visible');
-    outputEl.style.display = 'none';
+    return atob(str);
   }
 }
 
-function renderPayload(payload) {
-  const container = document.getElementById('payloadClaims');
-  const infoBox = document.getElementById('infoBox');
-  let html = '';
-  let expiryInfo = '';
-  
-  for (const [key, value] of Object.entries(payload)) {
-    let displayValue = value;
-    let valueClass = '';
+function formatJson(json) {
+  return JSON.stringify(JSON.parse(json), null, 2);
+}
+
+function highlightClaims(payload) {
+  try {
+    const obj = JSON.parse(payload);
+    let formatted = JSON.stringify(obj, null, 2);
     
-    // Handle special claims
-    if (key === 'exp' || key === 'iat' || key === 'nbf') {
-      const date = new Date(value * 1000);
-      displayValue = date.toLocaleString();
-      const now = Date.now() / 1000;
-      
-      if (key === 'exp') {
-        if (value < now) {
-          valueClass = 'expired';
-          expiryInfo = `<span class="expiry-badge expired">EXPIRED</span>`;
-        } else {
-          valueClass = 'valid';
-          const remaining = value - now;
-          expiryInfo = `<span class="expiry-badge valid">Expires in ${formatDuration(remaining)}</span>`;
-        }
-      } else if (key === 'iat') {
-        displayValue += ` (${date.toLocaleTimeString()})`;
-      } else if (key === 'nbf') {
-        displayValue += ` (${date.toLocaleTimeString()})`;
+    // Highlight known claims
+    const claims = ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti'];
+    claims.forEach(claim => {
+      if (obj[claim] !== undefined) {
+        const regex = new RegExp(`"(${claim})"`, 'g');
+        formatted = formatted.replace(regex, '"<span class="claim">$1</span>"');
       }
-    } else if (typeof value === 'object') {
-      displayValue = JSON.stringify(value);
-    }
+    });
     
-    html += `<div class="claim">
-      <span class="claim-key">${key}</span>
-      <span class="claim-value ${valueClass}">${displayValue}</span>
-    </div>`;
+    return formatted;
+  } catch (e) {
+    return payload;
+  }
+}
+
+function formatTimestamp(ts) {
+  if (ts > 1e12) ts = ts / 1000;
+  const date = new Date(ts * 1000);
+  return date.toISOString() + ' (' + date.toLocaleString() + ')';
+}
+
+function decodeJWT(token) {
+  const parts = token.trim().split('.');
+  if (parts.length !== 3) {
+    return { error: 'Invalid JWT format: expected 3 parts separated by dots' };
   }
   
-  container.innerHTML = html;
+  const [headerB64, payloadB64, signatureB64] = parts;
   
-  // Info box
-  let info = '';
-  if (payload.iss) info += `Issuer: ${payload.iss}  `;
-  if (payload.sub) info += `Subject: ${payload.sub}  `;
-  if (payload.aud) info += `Audience: ${payload.aud}`;
-  if (expiryInfo) info += expiryInfo;
-  
-  if (info) {
-    infoBox.innerHTML = info;
-    infoBox.style.display = 'block';
-  } else {
-    infoBox.style.display = 'none';
+  try {
+    const header = base64UrlDecode(headerB64);
+    const payload = base64UrlDecode(payloadB64);
+    
+    // Parse to check valid JSON
+    JSON.parse(header);
+    JSON.parse(payload);
+    
+    const payloadObj = JSON.parse(payload);
+    
+    // Check expiration
+    let expStatus = '';
+    if (payloadObj.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      if (payloadObj.exp < now) {
+        expStatus = '<span class="invalid">❌ Token expired</span>';
+      } else {
+        const remaining = payloadObj.exp - now;
+        expStatus = `<span class="valid">✓ Valid (expires in ${formatDuration(remaining)})</span>`;
+      }
+    }
+    
+    // Check not before
+    let nbfStatus = '';
+    if (payloadObj.nbf) {
+      const now = Math.floor(Date.now() / 1000);
+      if (payloadObj.nbf > now) {
+        nbfStatus = '<span class="warning">⚠ Not valid yet</span>';
+      }
+    }
+    
+    return {
+      header: formatJson(header),
+      payload: formatJson(payload),
+      payloadHighlighted: highlightClaims(JSON.stringify(payloadObj, null, 2)),
+      signature: signatureB64,
+      expStatus,
+      nbfStatus
+    };
+  } catch (e) {
+    return { error: 'Failed to decode: ' + e.message };
   }
 }
 
 function formatDuration(seconds) {
-  if (seconds < 60) return `${Math.floor(seconds)}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86400) + 'd';
 }
 
-function base64UrlDecode(str) {
-  // Replace URL-safe chars
-  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  // Pad with =
-  while (base64.length % 4) {
-    base64 += '=';
+function renderClaim(label, value) {
+  if (value === undefined) return '';
+  let displayValue = value;
+  
+  // Format timestamps
+  if (['exp', 'nbf', 'iat', 'auth_time'].includes(label) && typeof value === 'number') {
+    displayValue = formatTimestamp(value);
   }
-  return decodeURIComponent(atob(base64).split('').map(c => 
-    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-  ).join(''));
+  
+  return `<div><span class="label">${label}:</span> <span class="claim">${displayValue}</span></div>`;
 }
 
-function copySection(section) {
-  const el = document.getElementById(section);
-  navigator.clipboard.writeText(el.textContent);
-}
-
-function clearAll() {
-  document.getElementById('jwtInput').value = '';
-  document.getElementById('output').style.display = 'none';
-  document.getElementById('emptyState').style.display = 'block';
-  document.getElementById('error').classList.remove('visible');
-}
-
-function loadSample() {
-  // Sample JWT with common claims
-  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({
-    sub: "1234567890",
-    name: "John Doe",
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    iss: "example.com",
-    roles: ["admin", "user"]
-  }));
-  const signature = "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
-  document.getElementById('jwtInput').value = `${header}.${payload}.${signature}`;
-  decodeJWT();
-}
-
-// Auto-decode on paste
-document.getElementById('jwtInput').addEventListener('paste', () => {
-  setTimeout(decodeJWT, 10);
+decodeBtn.addEventListener('click', () => {
+  const token = input.value.trim();
+  if (!token) {
+    output.innerHTML = '<p class="error">Please enter a JWT token</p>';
+    return;
+  }
+  
+  const result = decodeJWT(token);
+  
+  if (result.error) {
+    output.innerHTML = `<p class="error">${result.error}</p>`;
+    return;
+  }
+  
+  // Extract claims for summary
+  const payloadObj = JSON.parse(result.payload);
+  
+  let html = `
+    <div class="section header-section">
+      <h3>Header</h3>
+      <pre>${result.header}</pre>
+    </div>
+    
+    <div class="section payload-section">
+      <h3>Payload</h3>
+      <pre>${result.payloadHighlighted}</pre>
+    </div>
+    
+    <div class="section signature-section">
+      <h3>Signature</h3>
+      <pre>${result.signature}</pre>
+      <p style="font-size:12px;color:#666;margin-top:0.5rem;">
+        Note: Signature verification requires the secret key, which is not shown here.
+      </p>
+    </div>
+  `;
+  
+  // Add timestamp info
+  if (result.expStatus || result.nbfStatus) {
+    html = '<div class="section" style="border-left:3px solid #e5c07b;">' +
+      '<h3>Time Claims</h3>' +
+      (result.expStatus ? `<div>${result.expStatus}</div>` : '') +
+      (result.nbfStatus ? `<div>${result.nbfStatus}</div>` : '') +
+      '</div>' + html;
+  }
+  
+  output.innerHTML = html;
 });
 
-// Keyboard shortcut
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key === 'J') {
-    decodeJWT();
-  }
+clearBtn.addEventListener('click', () => {
+  input.value = '';
+  output.innerHTML = '';
+});
+
+// Auto-decode on paste
+input.addEventListener('paste', () => {
+  setTimeout(() => decodeBtn.click(), 100);
 });
 </script>
 </body>
