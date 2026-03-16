@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drone Machine — Shadow's Garden</title>
+<meta name="description" content="Generative drone machine — move mouse to shape evolving tones">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    cursor: crosshair;
+  }
+  canvas {
+    display: block;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #a0a0b0;
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  button:hover {
+    background: rgba(255,255,255,0.15);
+    color: #e0e0f0;
+  }
+  .hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255,255,255,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    pointer-events: none;
+    transition: opacity 1s;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="hint" id="hint">move to create · click to start</div>
+  <div class="controls">
+    <button id="waveBtn">WAVE: SINE</button>
+    <button id="filterBtn">FILTER: OPEN</button>
+    <button id="clearBtn">CLEAR</button>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const hint = document.getElementById('hint');
+    
+    let width, height;
+    let audioStarted = false;
+    let audioCtx, masterGain, filter;
+    let oscillators = [];
+    let particles = [];
+    let mouseX = 0, mouseY = 0;
+    let targetX = 0, targetY = 0;
+    let waveType = 'sine';
+    let filterOpen = true;
+    
+    const waves = ['sine', 'triangle', 'sawtooth', 'square'];
+    let waveIndex = 0;
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    // Audio
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.15;
+      
+      filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 2000;
+      filter.Q.value = 5;
+      
+      filter.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
+    }
+    
+    function createOsc(x, y) {
+      if (!audioCtx) return;
+      
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      const freq = 80 + (x / width) * 400;
+      osc.type = waveType;
+      osc.frequency.value = freq;
+      
+      gain.gain.value = 0;
+      gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.5);
+      
+      osc.connect(gain);
+      gain.connect(filter);
+      osc.start();
+      
+      oscillators.push({ osc, gain, x, y, life: 1 });
+    }
+    
+    function start() {
+      if (audioStarted) return;
+      audioStarted = true;
+      hint.style.opacity = '0';
+      initAudio();
+    }
+    
+    // Particles
+    class Particle {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.life = 1;
+        this.decay = 0.005 + Math.random() * 0.01;
+        this.size = 2 + Math.random() * 4;
+        this.hue = (x / width) * 60 + 180;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+        this.vx *= 0.99;
+        this.vy *= 0.99;
+      }
+      
+      draw() {
+        const alpha = this.life * 0.6;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${alpha})`;
+        ctx.fill();
+      }
+    }
+    
+    // Visualizer bars
+    let bars = [];
+    for (let i = 0; i < 32; i++) {
+      bars.push({ target: 0, current: 0 });
+    }
+    
+    function updateBars() {
+      for (let i = 0; i < bars.length; i++) {
+        const osc = oscillators[i % oscillators.length];
+        bars[i].target = osc ? osc.life * 150 : 0;
+        bars[i].current += (bars[i].target - bars[i].current) * 0.1;
+      }
+    }
+    
+    function drawBars() {
+      const barWidth = width / bars.length;
+      for (let i = 0; i < bars.length; i++) {
+        const x = i * barWidth;
+        const h = bars[i].current;
+        const hue = (i / bars.length) * 60 + 180;
+        
+        ctx.fillStyle = `hsla(${hue}, 70%, 50%, 0.3)`;
+        ctx.fillRect(x, height - h - 60, barWidth - 2, h);
+      }
+    }
+    
+    // Main loop
+    let frame = 0;
+    function animate() {
+      frame++;
+      
+      // Fade
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Smooth mouse
+      mouseX += (targetX - mouseX) * 0.05;
+      mouseY += (targetY - mouseY) * 0.05;
+      
+      // Create particles on movement
+      if (audioStarted && frame % 3 === 0) {
+        const dx = targetX - mouseX;
+        const dy = targetY - mouseY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+          particles.push(new Particle(mouseX, mouseY));
+          createOsc(mouseX, mouseY);
+        }
+      }
+      
+      // Update and draw particles
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      
+      // Draw connections
+      ctx.strokeStyle = 'rgba(100, 150, 255, 0.1)';
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 80) {
+            ctx.lineWidth = (1 - dist / 80) * 2;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+      
+      // Oscillators
+      oscillators = oscillators.filter(o => {
+        o.life -= 0.003;
+        if (o.life <= 0) {
+          o.osc.stop();
+          return false;
+        }
+        // Modulate
+        const mod = Math.sin(frame * 0.02 + o.x * 0.01) * 50;
+        o.osc.frequency.value += mod * 0.1;
+        return true;
+      });
+      
+      // Filter modulation
+      if (filterOpen) {
+        filter.frequency.value = 500 + (mouseX / width) * 3000;
+      }
+      
+      updateBars();
+      drawBars();
+      
+      // Title
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${oscillators.length} voices · ${particles.length} particles`, width/2, height - 20);
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Events
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', e => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+    });
+    
+    document.getElementById('waveBtn').addEventListener('click', () => {
+      waveIndex = (waveIndex + 1) % waves.length;
+      waveType = waves[waveIndex];
+      document.getElementById('waveBtn').textContent = 'WAVE: ' + waveType.toUpperCase();
+    });
+    
+    document.getElementById('filterBtn').addEventListener('click', () => {
+      filterOpen = !filterOpen;
+      document.getElementById('filterBtn').textContent = filterOpen ? 'FILTER: OPEN' : 'FILTER: LOCK';
+    });
+    
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      particles = [];
+      oscillators.forEach(o => o.osc.stop());
+      oscillators = [];
+    });
+    
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      start();
+      targetX = e.touches[0].clientX;
+      targetY = e.touches[0].clientY;
+    });
+    canvas.addEventListener('touchmove', e => {
+      targetX = e.touches[0].clientX;
+      targetY = e.touches[0].clientY;
+    });
+    
+    animate();
+  </script>
+</body>
+</html>
