@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HMAC Generator — Shadow's Garden</title>
+<meta name="description" content="Generate HMAC digests with any key — SHA-256, SHA-512, MD5, SHA-1">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; max-width: 800px; margin: 0 auto; }
+  .container { background: var(--bg); border-radius: 12px; padding: 24px; margin-top: 20px; }
+  h1 { color: var(--accent); margin-bottom: 8px; }
+  .description { color: var(--text-muted); margin-bottom: 24px; }
+  label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text); }
+  textarea, input, select { 
+    width: 100%; padding: 12px; border: 2px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text);
+    font-family: 'SF Mono', monospace; font-size: 14px; margin-bottom: 16px;
+    box-sizing: border-box;
+  }
+  textarea:focus, input:focus, select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  textarea { min-height: 100px; resize: vertical; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+  button {
+    background: var(--accent); color: var(--bg); border: none;
+    padding: 12px 24px; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 14px; transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary { background: var(--border); color: var(--text); }
+  .output { 
+    background: var(--bg-secondary); border: 2px solid var(--border);
+    border-radius: 8px; padding: 16px; word-break: break-all;
+    font-family: 'SF Mono', monospace; font-size: 13px;
+    min-height: 60px; position: relative;
+  }
+  .output-label { 
+    font-size: 12px; color: var(--text-muted); margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .copy-btn {
+    background: var(--border); color: var(--text); padding: 4px 10px;
+    font-size: 12px; border-radius: 4px; cursor: pointer;
+  }
+  .copy-btn:hover { opacity: 0.8; }
+  .copy-btn.copied { background: #22c55e; color: white; }
+  .alert {
+    background: #ef4444; color: white; padding: 12px; border-radius: 8px;
+    margin-bottom: 16px; display: none;
+  }
+  .alert.show { display: block; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>HMAC Generator</h1>
+  <p class="description">Generate keyed-hash message authentication codes. Useful for API authentication and message integrity verification.</p>
+
+  <div class="alert" id="error"></div>
+
+  <label>Message</label>
+  <textarea id="message" placeholder="Enter message to authenticate..."></textarea>
+
+  <div class="row">
+    <div>
+      <label>Secret Key</label>
+      <input type="text" id="key" placeholder="Your secret key">
+    </div>
+    <div>
+      <label>Algorithm</label>
+      <select id="algo">
+        <option value="SHA-256">HMAC-SHA-256</option>
+        <option value="SHA-512">HMAC-SHA-512</option>
+        <option value="SHA-1">HMAC-SHA-1</option>
+        <option value="MD5">HMAC-MD5</option>
+      </select>
+    </div>
+  </div>
+
+  <button onclick="generate()">Generate HMAC</button>
+  <button class="secondary" onclick="clearAll()">Clear</button>
+
+  <div style="margin-top: 24px;">
+    <div class="output-label">
+      <span>HMAC Digest (hex)</span>
+      <button class="copy-btn" onclick="copyOutput()">Copy</button>
+    </div>
+    <div class="output" id="output"></div>
+  </div>
+
+  <div style="margin-top: 16px;">
+    <div class="output-label">
+      <span>Base64</span>
+      <button class="copy-btn" onclick="copyBase64()">Copy</button>
+    </div>
+    <div class="output" id="output64"></div>
+  </div>
+</div>
+
+<script>
+const output = document.getElementById('output');
+const output64 = document.getElementById('output64');
+const error = document.getElementById('error');
+
+function showError(msg) {
+  error.textContent = msg;
+  error.classList.add('show');
+}
+
+function clearError() {
+  error.classList.remove('show');
+}
+
+async function generate() {
+  clearError();
+  const message = document.getElementById('message').value;
+  const key = document.getElementById('key').value;
+  const algo = document.getElementById('algo').value;
+
+  if (!message) {
+    showError('Please enter a message');
+    return;
+  }
+  if (!key) {
+    showError('Please enter a secret key');
+    return;
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const keyBuf = encoder.encode(key);
+    const msgBuf = encoder.encode(message);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', keyBuf,
+      { name: 'HMAC', hash: algo },
+      false, ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgBuf);
+    const hashArray = Array.from(new Uint8Array(signature));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+    output.textContent = hashHex;
+    output64.textContent = hashBase64;
+  } catch (e) {
+    showError('Error: ' + e.message);
+  }
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(output.textContent);
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = 'Copy';
+    btn.classList.remove('copied');
+  }, 1500);
+}
+
+function copyBase64() {
+  navigator.clipboard.writeText(output64.textContent);
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = 'Copy';
+    btn.classList.remove('copied');
+  }, 1500);
+}
+
+function clearAll() {
+  document.getElementById('message').value = '';
+  document.getElementById('key').value = '';
+  output.textContent = '';
+  output64.textContent = '';
+  clearError();
+}
+
+// Allow Enter in key field to generate
+document.getElementById('key').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>
