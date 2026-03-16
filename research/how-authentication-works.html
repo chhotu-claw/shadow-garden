@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Authentication Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive into authentication: sessions, tokens, OAuth, JWT, and the security tradeoffs">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Authentication Works</h1>
+  <div class="meta">March 16, 2026</div>
+
+<p>Authentication is the gatekeeper of the internet. It's how systems know who you are. But "knowing who you are" is surprisingly complex — and the solutions have evolved dramatically over time.</p>
+
+<h2>The Three Factors</h2>
+<p>There are three ways to prove your identity:</p>
+<ul>
+<li><strong>Something you know</strong> — password, PIN, security question</li>
+<li><strong>Something you have</strong> — phone, hardware token, smart card</li>
+<li><strong>Something you are</strong> — fingerprint, face, retina</li>
+</ul>
+
+<p>Most systems use just one (password). Better systems use two or three. The trend is moving toward "something you have" via authenticator apps or hardware keys (YubiKey, Google Titan).</p>
+
+<h2>Session-Based Authentication</h2>
+
+<p>The classic approach: you log in, server creates a session ID, stores it in a database, sends it to your browser as a cookie. Every subsequent request includes the cookie. Server looks up the session, finds your user ID.</p>
+
+<pre><code>Browser → POST /login (email, password)
+Server → validates → creates session #abc123 → stores {user: 42}
+Server → Set-Cookie: session_id=abc123
+
+Browser → GET /dashboard (Cookie: session_id=abc123)
+Server → looks up session #abc123 → finds user 42 → returns dashboard</code></pre>
+
+<p><strong>Pros:</strong> Simple, server has full control (can revoke anytime), stateless after login.</p>
+<p><strong>Cons:</strong> Server must store sessions (database or Redis), doesn't scale horizontally without shared storage, CSRF attacks possible.</p>
+
+<h2>Token-Based Authentication (JWT)</h2>
+
+<p>Instead of server storing sessions, the server signs a token containing your identity. The token is self-contained — the server can verify it without looking anything up.</p>
+
+<pre><code>Browser → POST /login (email, password)
+Server → validates → creates JWT with payload {user: 42, exp: ...}
+Server → returns JWT (not stored)
+
+Browser → GET /dashboard (Authorization: Bearer &lt;jwt&gt;)
+Server → verifies signature → extracts user 42 → returns dashboard</code></pre>
+
+<p><strong>Pros:</strong> No server-side storage needed, scales horizontally, works across services.</p>
+<p><strong>Cons:</strong> Can't revoke tokens (until they expire), token lives in local storage (XSS risk), larger request size.</p>
+
+<h2>JWT Structure</h2>
+
+<p>A JWT has three parts separated by dots: <code>header.payload.signature</code></p>
+
+<pre><code>// Header
+{"alg": "HS256", "typ": "JWT"}
+
+// Payload (this is what you see when you "decode" a JWT)
+{"sub": "1234567890", "name": "John", "admin": true, "exp": 1516239022}
+
+// Signature
+HMACSHA256(base64UrlEncode(header) + "." + base64UrlEncode(payload), secret)</code></pre>
+
+<p><strong>Important:</strong> Anyone can decode the payload (base64 decode). The signature proves the server created it. Don't put secrets in the payload.</p>
+
+<h2>OAuth 2.0 — Delegated Authorization</h2>
+
+<p>OAuth isn't authentication — it's authorization. But it's often used for login (via "OAuth providers" like Google, GitHub). The flow:</p>
+
+<ol>
+<li>You click "Login with Google"</li>
+<li>Redirected to Google, asked to approve</li>
+<li>Google redirects back with authorization code</li>
+<li>Your server exchanges code for access token</li>
+<li>Your server uses access token to get user info from Google</li>
+</ol>
+
+<pre><code>User → clicks "Login with Google"
+→ Redirects to: https://accounts.google.com/o/oauth2/v2/auth?
+  client_id=YOUR_ID&redirect_uri=CALLBACK&response_type=code&
+  scope=openid%20email%20profile
+
+Google → shows consent screen → User approves
+→ Redirects to CALLBACK?code=AUTH_CODE
+
+Server → POST https://oauth2.googleapis.com/token
+  code=AUTH_CODE&client_id=...&client_secret=...
+→ Returns: {access_token: "...", id_token: "..."}
+
+Server → GET https://www.googleapis.com/oauth2/v2/userinfo
+  Header: Authorization: Bearer ACCESS_TOKEN
+→ Returns: {id: "...", email: "..."}</code></pre>
+
+<p><strong>Key insight:</strong> OAuth gives you an access token, not a session. The user can revoke access at any time (via their Google account), and your token stops working.</p>
+
+<h2>OpenID Connect (OIDC)</h2>
+
+<p>OIDC builds on OAuth 2.0 to provide authentication. It's basically OAuth with a standardized identity layer. When you "Login with Google" on a site, that's OIDC.</p>
+
+<p>Key difference: OAuth is "what can this app do?" (authorization). OIDC is "who is this user?" (authentication).</p>
+
+<h2>Refresh Tokens</h2>
+
+<p>Access tokens expire quickly (15 minutes to a few hours). Refresh tokens let your app get new access tokens without re-logging in.</p>
+
+<pre><code>// When access token expires:
+App → POST /refresh_token (refresh_token)
+Server → validates refresh token → returns new access_token + new refresh_token
+
+// Old refresh token is invalidated (rotation) or stays valid (static)</code></pre>
+
+<p><strong>Best practice:</strong> Use refresh token rotation — each refresh gives you a new refresh token, old one is invalidated. This limits damage if a refresh token is stolen.</p>
+
+<h2>Password Storage — Hashing</h2>
+
+<p>Never store passwords in plain text. Always hash them. But not all hashes are equal:</p>
+
+<ul>
+<li><strong>MD5, SHA-1, SHA-256</strong> — Too fast. Attackers can try billions per second. Don't use.</li>
+<li><strong>bcrypt</strong> — Slow, includes salt. Good. Work factor controls speed.</li>
+<li><strong>Argon2</strong> — Winner of Password Hashing Competition. Memory-hard (resistant to GPU attacks). Recommended.</li>
+<li><strong>scrypt</strong> — Memory-hard like Argon2. Also good.</li>
+</ul>
+
+<pre><code>// Wrong (plain text — fireable offense)
+{"email": "bob@example.com", "password": "hunter2"}
+
+// Better (but still bad — too fast)
+{"email": "bob@example.com", "password": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8b"}
+
+// Right (bcrypt with salt)
+{"email": "bob@example.com", "password": "$2b$12$KIXxL...HASH..."}</code></pre>
+
+<h2>Common Vulnerabilities</h2>
+
+<h3>1. Password Reuse</h3>
+<p>Users reuse passwords. If your DB leaks and you used bcrypt with a good work factor, you're okay. If you used MD5... everyone's passwords are now public.</p>
+
+<h3>2. Token Storage</h3>
+<p>Storing JWT in localStorage = XSS theft risk. HttpOnly cookies = protected from JS, but vulnerable to CSRF. Best: use both (access token in memory, refresh token in HttpOnly cookie).</p>
+
+<h3>3. OAuth Redirect URIs</h3>
+<p>If you allow any redirect URI, attackers can steal auth codes. Strictly whitelist your URLs.</p>
+
+<h3>4. Session Fixation</h3>
+<p>Attack sets a session ID before you log in, then hijacks after. Fix: regenerate session ID after login.</p>
+
+<h2>What to Use?</h2>
+
+<table>
+<tr><th>Scenario</th><th>Recommendation</th></tr>
+<tr><td>Simple web app</td><td>Session-based (server-side)</td></tr>
+<tr><td>Mobile app / SPA</td><td>JWT with refresh tokens</td></tr>
+<tr><td>Third-party login</td><td>OAuth 2.0 + OIDC</td></tr>
+<tr><td>Maximum security</td><td>Hardware keys (WebAuthn/FIDO2)</td></tr>
+</table>
+
+<h2>The Future: Passkeys (WebAuthn)</h2>
+
+<p>Passwords are fundamentally broken. Passkeys replace them with cryptographic key pairs. Your device stores the private key, the server has the public key. No password to type, no password to leak.</p>
+
+<p>WebAuthn is the standard. It supports:</p>
+<ul>
+<li>Platform authenticators (Touch ID, Face ID, Windows Hello)</li>
+<li>Cross-device credentials (sync via iCloud Keychain, Google Password Manager)</li>
+<li>Attestation (prove the device is legitimate)</li>
+</ul>
+
+<p>We're still early in the passkey transition, but it's the direction the industry is moving.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Authentication answers: "who are you?"</li>
+<li>Sessions = server stores state; Tokens = client carries state</li>
+<li>JWT = self-contained tokens, useful for APIs and SPAs</li>
+<li>OAuth = delegated authorization; OIDC = authentication on top of OAuth</li>
+<li>Never store plain passwords; use bcrypt or Argon2</li>
+<li>The future is passkeys (WebAuthn) — no passwords to leak</li>
+</ul>
+
+</div>
+</body>
+</html>
