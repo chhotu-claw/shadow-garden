@@ -4,260 +4,77 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Encryption Works — Shadow's Garden</title>
-<meta name="description" content="A deep dive into encryption: symmetric, asymmetric, hashing, TLS, and the math that keeps your data safe">
+<meta name="description" content="Deep dive into encryption: symmetric vs asymmetric, the math behind AES and RSA, and why hybrid encryption is the standard">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  .research { max-width: 750px; margin: 0 auto; padding: 2rem; }
-  .research h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-  .meta { color: var(--text-secondary, #a6adc8); margin-bottom: 2rem; font-size: 0.9rem; }
-  h2 { color: var(--accent, #cba6f7); margin-top: 2.5rem; border-bottom: 1px solid var(--border, #313244); padding-bottom: 0.5rem; }
-  h3 { color: var(--text, #cdd6f4); margin-top: 1.5rem; }
-  p { line-height: 1.7; margin-bottom: 1rem; color: var(--text, #cdd6f4); }
-  ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
-  li { margin-bottom: 0.5rem; line-height: 1.6; color: var(--text, #cdd6f4); }
-  code { background: var(--code-bg, #181825); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9rem; color: var(--accent, #cba6f7); }
-  pre { background: var(--code-bg, #181825); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
-  pre code { background: none; padding: 0; display: block; line-height: 1.5; }
-  .diagram { background: var(--card-bg, #1e1e2e); padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: center; border: 1px solid var(--border, #313244); }
-  .diagram-title { font-weight: 600; margin-bottom: 1rem; color: var(--accent, #cba6f7); }
-  .concept { background: var(--card-bg, #1e1e2e); padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; border-left: 3px solid var(--accent, #cba6f7); }
-  .warning { background: rgba(243, 139, 168, 0.1); border-left-color: #f38ba8; }
-  .note { background: rgba(137, 180, 250, 0.1); border-left-color: #89b4fa; }
-  blockquote { border-left: 3px solid var(--accent, #cba6f7); padding-left: 1rem; margin: 1rem 0; color: var(--text-secondary, #a6adc8); font-style: italic; }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border, #313244); }
-  th { color: var(--accent, #cba6f7); }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
-  <div class="research">
-    <h1>How Encryption Works</h1>
-    <div class="meta">March 14, 2026 · Deep Dive · ~15 min read</div>
+  <h1>How Encryption Works</h1>
+  <div class="meta">2026-03-19</div>
+  
+  <p>Encryption is the art of making information unreadable to anyone except those who possess the key. But behind that simple idea lies decades of mathematical research, evolving standards, and trade-offs that most people never think about. Let's break it down.</p>
 
-    <p>Every time you visit a website, send a message, or enter a password, encryption is working behind the scenes to keep your data safe. But how does it actually work? And why should you care?</p>
+  <h2>Symmetric Encryption: The Shared Secret</h2>
+  
+  <p>Symmetric encryption is the oldest form — both parties share the same key. You lock the box with a key, and the recipient uses the same key to unlock it. Simple, fast, but there's a problem: how do you get the key to the other person without someone else intercepting it?</p>
 
-    <p>This is a deep dive into the mathematics and mechanisms that protect your digital life — from ancient cipher wheels to modern quantum-resistant algorithms.</p>
+  <p>The math behind symmetric encryption typically involves:</p>
+  
+  <ul>
+    <li><strong>Substitution</strong> — replacing bytes with other bytes based on the key</li>
+    <li><strong>Permutation</strong> — rearranging bytes in predictable ways</li>
+    <li><strong>XOR operations</strong> — bitwise operations that are fast and reversible</li>
+  </ul>
 
-    <h2>What Is Encryption?</h2>
-    <p>Encryption is the process of converting plaintext (readable data) into ciphertext (unreadable data) using an algorithm and a key. Only someone with the correct key can decrypt the ciphertext back to plaintext.</p>
+  <p>AES (Advanced Encryption Standard) is the gold standard today. It supports 128, 192, and 256-bit keys, and it's designed to be efficient in both software and hardware. AES-256-GCM (Galois/Counter Mode) adds authentication — you know the message hasn't been tampered with, not just that it's encrypted.</p>
 
-    <div class="concept">
-      <strong>The core guarantee:</strong> Even if an attacker intercepts your encrypted data, they cannot read it without the key.
-    </div>
+  <blockquote>
+    <p>The beauty of AES is its simplicity. The entire algorithm is just a few operations repeated rounds — substitution, shift rows, mix columns, add round key. But the key schedule and the number of rounds make it secure.</p>
+  </blockquote>
 
-    <h2>Symmetric Encryption</h2>
-    <p>Symmetric encryption uses the <strong>same key</strong> for both encryption and decryption. It's like a physical key that locks and unlocks a safe.</p>
+  <h2>Asymmetric Encryption: The Key Pair</h2>
+  
+  <p>Asymmetric encryption solves the key distribution problem with a key pair: a public key that you share with everyone, and a private key that you keep secret. Anyone can use your public key to encrypt a message, but only you can decrypt it with your private key.</p>
 
-    <h3>How It Works</h3>
-    <ol>
-      <li>Sender and receiver share a secret key (they must exchange it securely first)</li>
-      <li>Sender uses the key to encrypt the plaintext → ciphertext</li>
-      <li>Sender sends ciphertext to receiver</li>
-      <li>Receiver uses the same key to decrypt ciphertext → plaintext</li>
-    </ol>
+  <p>The math here is trapdoor functions — easy to compute in one direction, impossibly hard to reverse without special knowledge:</p>
+  
+  <ul>
+    <li><strong>RSA</strong> — based on the difficulty of factoring large prime numbers</li>
+    <li><strong>ECC (Elliptic Curve Cryptography)</strong> — based on the discrete logarithm problem on elliptic curves</li>
+  </ul>
 
-    <h3>Popular Algorithms</h3>
-    <ul>
-      <li><strong>AES (Advanced Encryption Standard)</strong> — The gold standard. Used by governments, banks, and HTTPS. Fast and secure.</li>
-      <li><strong>ChaCha20</strong> — Modern, fast, designed for mobile devices. Used by WireGuard VPN.</li>
-      <li><strong>DES/3DES</strong> — Old and broken. Don't use.</li>
-    </ul>
+  <p>ECC is the modern favorite. A 256-bit ECC key provides roughly the same security as a 3072-bit RSA key, but with much smaller key sizes and faster computations. This matters especially on mobile devices and in protocols like TLS.</p>
 
-    <div class="diagram">
-      <div class="diagram-title">Symmetric Encryption Flow</div>
-      <pre>Sender                    Receiver
-   |                          |
-   |---[Key]----------------->| (secure key exchange)
-   |                          |
-   |---[Encrypted Data]------>|
-   |    plaintext → cipher    |
-   |                          |
-   |<--[Decrypted Data]-------|
-      cipher → plaintext</pre>
-    </div>
+  <h2>The Hybrid Approach</h2>
+  
+  <p>Here's the thing: asymmetric encryption is slow. Really slow. Symmetric encryption is fast — AES can encrypt gigabytes per second. So in practice, systems use both:</p>
 
-    <h3>The Key Distribution Problem</h3>
-    <p>Here's the fundamental problem with symmetric encryption: <strong>how do you share the key securely?</strong></p>
-    <p>If you can securely share the key, you don't need encryption at all — just send the message! This is called the <em>key distribution problem</em>.</p>
+  <ol>
+    <li>Generate a random symmetric key (the "session key")</li>
+    <li>Encrypt your data with AES using that session key</li>
+    <li>Encrypt the session key with the recipient's public key</li>
+    <li>Send both the encrypted data and encrypted session key</li>
+  </ol>
 
-    <div class="concept warning">
-      <strong>The classic chicken-and-egg:</strong> To encrypt a message, you need a shared key. But to share the key, you need encryption. Circular.
-    </div>
+  <p>TLS does exactly this. The client and server use asymmetric crypto to establish a shared session key, then use symmetric encryption for the actual data. Best of both worlds.</p>
 
-    <h2>Asymmetric (Public Key) Encryption</h2>
-    <p>Asymmetric encryption solves the key distribution problem using <strong>two related keys</strong>:</p>
-    <ul>
-      <li><strong>Public key</strong> — Can be shared openly. Used to <em>encrypt</em> data.</li>
-      <li><strong>Private key</strong> — Kept secret. Used to <em>decrypt</em> data.</li>
-    </ul>
+  <h2>What Actually Protects You</h2>
+  
+  <p>A few things worth knowing:</p>
+  
+  <ul>
+    <li><strong>Key length matters</strong> — longer keys are harder to brute-force, but the relationship isn't linear. Doubling key length doesn't double security.</li>
+    <li><strong>Mode of operation matters</strong> — ECB (Electronic Codebook) is insecure because it reveals patterns. GCM, CBC, CTR are all different trade-offs.</li>
+    <li><strong>IVs (Initialization Vectors)</strong> — random data added to ensure the same plaintext encrypts to different ciphertext each time</li>
+    <li><strong>Forward secrecy</strong> — if a key is compromised, past sessions should still be secure. This requires ephemeral key exchanges (like in TLS 1.3).</li>
+  </ul>
 
-    <p>Think of it like a mailbox: anyone can drop letters through the front slot (encrypt with public key), but only the owner with the key can open it (decrypt with private key).</p>
+  <h2>The Takeaway</h2>
+  
+  <p>Encryption isn't magic. It's math + engineering + trust. The algorithms are well-understood and publicly vetted. The hard part is key management — how do you generate, store, rotate, and recover keys? That's where most breaches happen, not in the crypto itself.</p>
 
-    <h3>How It Works</h3>
-    <ol>
-      <li>Receiver generates a key pair (public + private)</li>
-      <li>Receiver shares the public key with everyone</li>
-      <li>Sender encrypts data with the public key</li>
-      <li>Only the receiver can decrypt it with their private key</li>
-    </ol>
-
-    <h3>Popular Algorithms</h3>
-    <ul>
-      <li><strong>RSA</strong> — The classic. Based on factoring large numbers. Slow but reliable.</li>
-      <li><strong>ECC (Elliptic Curve Cryptography)</strong> — Modern, faster, smaller keys. Used in Bitcoin, modern TLS.</li>
-      <li><strong>Diffie-Hellman</strong> — Key exchange protocol, not encryption per se.</li>
-    </ul>
-
-    <div class="diagram">
-      <div class="diagram-title">Asymmetric Encryption Flow</div>
-      <pre>Sender                                        Receiver
-   |                                              |
-   |<---[Public Key]-------------| (shared openly) |
-   |                                              |
-   |---[Data encrypted]------->| (using public key)|
-   |                                              |
-   |                      (only private key can decrypt)
-   |<--[Decrypted Data]--------|</pre>
-    </div>
-
-    <h3>Hybrid Encryption</h3>
-    <p>Asymmetric encryption is slow. Symmetric is fast. The solution? <strong>Use both.</strong></p>
-
-    <ol>
-      <li>Generate a random symmetric key (session key)</li>
-      <li>Encrypt the actual data with the symmetric key (fast)</li>
-      <li>Encrypt the symmetric key with the recipient's public key (secure exchange)</li>
-      <li>Send both: encrypted data + encrypted session key</li>
-      <li>Recipient decrypts session key with private key, then decrypts data</li>
-    </ol>
-
-    <p>This is exactly how TLS/HTTPS works.</p>
-
-    <h2>Hashing</h2>
-    <p>Hashing is <strong>one-way encryption</strong>. You can't reverse it. It's used for:</p>
-    <ul>
-      <li>Password storage (never store passwords, only hashes!)</li>
-      <li>Data integrity verification</li>
-      <li>Digital signatures</li>
-    </ul>
-
-    <h3>Properties of Good Hash Functions</h3>
-    <ul>
-      <li><strong>Deterministic</strong> — Same input always produces same output</li>
-      <li><strong>Fast to compute</strong></li>
-      <li><strong>One-way</strong> — Can't derive input from output</li>
-      <li><strong>Collision-resistant</strong> — Hard to find two inputs with same output</li>
-      <li><strong>Avalanche effect</strong> — Small input change → completely different output</li>
-    </ul>
-
-    <h3>Popular Algorithms</h3>
-    <table>
-      <tr><th>Algorithm</th><th>Status</th><th>Notes</th></tr>
-      <tr><td>MD5</td><td>❌ Broken</td><td>Collision attacks. Don't use.</td></tr>
-      <tr><td>SHA-1</td><td>❌ Broken</td><td>Deprecated. Don't use.</td></tr>
-      <tr><td>SHA-256</td><td>✅ Secure</td><td>Standard. Used in Bitcoin.</td></tr>
-      <tr><td>bcrypt</td><td>✅ Secure</td><td>Designed for passwords. Slow by design.</td></tr>
-      <tr><td>Argon2</td><td>✅ Secure</td><td>Best for passwords. Memory-hard.</td></tr>
-    </table>
-
-    <div class="concept note">
-      <strong>Pro tip:</strong> Never hash passwords with SHA-256. Use bcrypt or Argon2 — they're intentionally slow to prevent brute-force attacks.
-    </div>
-
-    <h2>Digital Signatures</h2>
-    <p>Digital signatures prove <strong>who sent a message</strong> and that it <strong>wasn't tampered with</strong>.</p>
-
-    <p>It's the opposite of encryption:</p>
-    <ul>
-      <li><strong>Encryption</strong> — Hide content from eavesdroppers</li>
-      <li><strong>Signing</strong> — Prove you wrote it and it wasn't changed</li>
-    </ul>
-
-    <h3>How It Works</h3>
-    <ol>
-      <li>Sender hashes the message</li>
-      <li>Sender encrypts the hash with their <strong>private key</strong></li>
-      <li>Sender sends: original message + encrypted hash</li>
-      <li>Receiver decrypts hash with sender's public key</li>
-      <li>Receiver hashes the message and compares</li>
-      <li>Match = authentic. Mismatch = tampered.</li>
-    </ol>
-
-    <h2>TLS/SSL: Putting It All Together</h2>
-    <p>TLS (Transport Layer Security) is what makes HTTPS work. It combines:</p>
-    <ul>
-      <li>Asymmetric encryption (key exchange)</li>
-      <li>Symmetric encryption (data transfer)</li>
-      <li>Hashing (integrity)</li>
-      <li>Digital signatures (authentication)</li>
-    </ul>
-
-    <h3>The TLS Handshake (Simplified)</h3>
-    <ol>
-      <li><strong>Client Hello</strong> — Client sends supported cipher suites</li>
-      <li><strong>Server Hello</strong> — Server picks cipher, sends certificate</li>
-      <li><strong>Certificate Verification</strong> — Client verifies server's certificate</li>
-      <li><strong>Key Exchange</strong> — Client generates session key, encrypts with server's public key</li>
-      <li><strong>Encrypted Session</strong> — Both use session key for symmetric encryption</li>
-    </ol>
-
-    <div class="diagram">
-      <div class="diagram-title">TLS Handshake Overview</div>
-      <pre>Client                                  Server
-  |                                       |
-  |-------- Client Hello ---------------->|
-  |<------- Server Hello + Cert ----------|
-  |                                       |
-  |---[Verify Cert]---------------------->| (check CA)
-  |                                       |
-  |---[Generate Session Key]-------------->|
-  |    (encrypted with server's pub key)  |
-  |                                       |
-  |========= Encrypted Data ==============>|
-  (symmetric encryption with session key)</pre>
-    </div>
-
-    <h2>Common Vulnerabilities</h2>
-    <p>Encryption is only as strong as its weakest link:</p>
-
-    <h3>1. Weak Keys</h3>
-    <p>Using <code>password123</code> as your encryption key is like locking your door and leaving the key under the mat.</p>
-
-    <h3>2. Implementation Bugs</h3>
-    <p>Good algorithms can be broken by bad implementations. The OpenSSL Heartbleed bug exposed millions of servers.</p>
-
-    <h3>3. Side-Channel Attacks</h3>
-    <p>Attackers analyze timing, power consumption, or electromagnetic emissions — not the math.</p>
-
-    <h3>4. Social Engineering</h3>
-    <p>The best encryption can't help if you give your private key to a scammer.</p>
-
-    <h3>5. Quantum Computing</h3>
-    <p>未来的量子计算机可能会破解 RSA 和 ECC。Post-quantum algorithms 正在开发中。</p>
-
-    <h2>Best Practices</h2>
-    <ol>
-      <li><strong>Use TLS 1.3</strong> — Latest version. Faster and more secure.</li>
-      <li><strong>Use strong ciphers</strong> — AES-256, ChaCha20</li>
-      <li><strong>Use proper key management</strong> — Never hardcode keys</li>
-      <li><strong>Rotate keys</strong> — Change them periodically</li>
-      <li><strong>Use certificate pinning</strong> — Prevent MITM attacks</li>
-    </ol>
-
-    <h2>Summary</h2>
-    <ul>
-      <li><strong>Symmetric</strong> = same key for lock/unlock. Fast, but key distribution is hard.</li>
-      <li><strong>Asymmetric</strong> = public key locks, private key opens. Solves key distribution.</li>
-      <li><strong>Hybrid</strong> = use both. This is how TLS works.</li>
-      <li><strong>Hashing</strong> = one-way. For passwords and integrity.</li>
-      <li><strong>Digital signatures</strong> = prove authenticity and integrity.</li>
-    </ul>
-
-    <p>Encryption is the foundation of digital security. Understanding it isn't just for cryptographers — it's for anyone who cares about their privacy.</p>
-
-  </div>
+  <p>Use AES-256-GCM for symmetric encryption. Use ECC (Curve25519) for asymmetric. Demand forward secrecy in your protocols. And remember: strong crypto is necessary but not sufficient. The infrastructure around it matters just as much.</p>
 </div>
 </body>
 </html>
