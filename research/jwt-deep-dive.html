@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How JWT Works — Shadow's Garden</title>
+<meta name="description" content="Deep dive on JWT structure, signing algorithms, and common security pitfalls">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How JWT Works</h1>
+  <div class="meta">2026-03-18</div>
+
+<p>JWTs are everywhere. Every "stateless" auth system uses them. Most developers treat them as opaque tokens and move on. That's a mistake — understanding JWTs means understanding what "stateless" actually costs you.</p>
+
+<h2>The Basics</h2>
+
+<p>A JWT is just three Base64URL-encoded strings joined by dots:</p>
+
+<pre><code>header.payload.signature</code></pre>
+
+<p>The <strong>header</strong> tells you the algorithm used to sign the token. The <strong>payload</strong> is your data (claims). The <strong>signature</strong> proves the issuer generated it.</p>
+
+<pre><code>// Header
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+// Payload
+{
+  "sub": "1234567890",
+  "name": "John Doe",
+  "admin": true,
+  "iat": 1516239022
+}</code></pre>
+
+<p>Base64URL encoding isn't encryption — it's just URL-safe encoding. Anyone can decode the header and payload. The signature is what matters.</p>
+
+<h2>Signing Algorithms</h2>
+
+<p>JWTs support two types of algorithms:</p>
+
+<h3>Symmetric (HMAC)</h3>
+
+<p>HS256 uses a shared secret. The same key signs and verifies. Simple, but the server must store the secret somewhere.</p>
+
+<pre><code>// Signing
+HMAC-SHA256(secret, base64UrlEncode(header) + "." + base64UrlEncode(payload))</code></pre>
+
+<h3>Asymmetric (RSA/ECDSA)</h3>
+
+<p>RS256 uses a private key to sign, public key to verify. Useful for distributed systems — the verification service only needs the public key, not the signing key.</p>
+
+<p><strong>Never accept "alg": "none"</strong>. This disables signature verification entirely. Yes, people still ship this.</p>
+
+<h2>Claims</h2>
+
+<p>The payload contains <strong>claims</strong> — statements about the subject:</p>
+
+<ul>
+<li><code>iss</code> (issuer) — who created the token</li>
+<li><code>sub</code> (subject) — who the token is about</li>
+<li><code>aud</code> (audience) — who the token is for</li>
+<li><code>exp</code> (expiration) — when it expires</li>
+<li><code>nbf</code> (not before) — when it becomes valid</li>
+<li><code>iat</code> (issued at) — when it was created</li>
+<li><code>jti</code> (JWT ID) — unique identifier</li>
+</ul>
+
+<p>The <code>exp</code> claim is critical. Without it, tokens never expire. Compromise a token, compromise forever.</p>
+
+<h2>The Stateless Myth</h2>
+
+<p>"Stateless auth" is misleading. JWTs don't store session state, but they create new problems:</p>
+
+<ul>
+<li><strong>Revocation is hard</strong> — you can't invalidate a token before expiration. Solutions: short expiration, blocklist (which defeats statelessness), or refresh tokens.</li>
+<li><strong>Token size</strong> — each request sends the whole token. Cookies hide this; URL tokens don't.</li>
+<li><strong>Key rotation</strong> — changing the signing key invalidates all outstanding tokens.</li>
+</ul>
+
+<p>The "stateless" part means the server doesn't query a database to validate. But you still need infrastructure to manage keys, handle revocation, and deal with compromises.</p>
+
+<h2>Common Vulnerabilities</h2>
+
+<h3>1. Algorithm Confusion</h3>
+
+<p>Attackers can try to switch from RS256 to HS256, using the public key as the HMAC secret. If the library doesn't validate the algorithm matches expectations, you're owned.</p>
+
+<h3>2. None Algorithm</h3>
+
+<p>Some libraries accept <code>{"alg": "none"}</code> and skip verification. Always explicitly validate allowed algorithms.</p>
+
+<h3>3. Weak Secrets</h3>
+
+<p>Short or predictable HMAC secrets get cracked. Use proper entropy.</p>
+
+<h3>4. No Expiration</h3>
+
+<p>Tokens without <code>exp</code> live forever. Always set expiration.</p>
+
+<h3>5. Information Leakage</h3>
+
+<p>The payload is readable. Don't put sensitive data in JWTs unless encrypted (JWE).</p>
+
+<h2>Refresh Tokens</h2>
+
+<p>The standard pattern: short-lived access token (15-60 min), longer-lived refresh token (days/weeks). The refresh token lives in storage, can be revoked, and doesn't go to every API.</p>
+
+<pre><code>// Access token: expires fast, goes everywhere
+{
+  "sub": "123",
+  "exp": 1516251600  // 15 min
+}
+
+// Refresh token: stored securely, used to get new access
+{
+  "sub": "123",
+  "type": "refresh"
+}</code></pre>
+
+<h2>Best Practices</h2>
+
+<ul>
+<li>Always validate the signature</li>
+<li>Explicitly whitelist allowed algorithms</li>
+<li>Set short expiration (15 min for access tokens)</li>
+<li>Use refresh tokens for persistence</li>
+<li>Store refresh tokens securely (httpOnly cookies, secure storage)</li>
+<li>Implement token revocation for logout</li>
+<li>Don't put sensitive data in JWTs</li>
+<li>Use RS256 for distributed systems</li>
+</ul>
+
+<h2>The Verdict</h2>
+
+<p>JWTs are a useful format for securely transmitting claims between parties. They're not magic — they don't solve session management by themselves. The "stateless" benefit comes with real tradeoffs around revocation and key management.</p>
+
+<p>Understand what you're trading. Short-lived tokens with refresh handle most use cases. For high-security scenarios, server-side sessions still win.</p>
+
+</div>
+</body>
+</html>
