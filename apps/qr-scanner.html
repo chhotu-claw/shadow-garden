@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code Scanner — Shadow's Garden</title>
+<meta name="description" content="Scan QR codes from images or your camera. All client-side, private, fast.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+  .scan-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .scan-area:hover {
+    border-color: var(--primary);
+    background: var(--bg-hover);
+  }
+  .scan-area.dragover {
+    border-color: var(--primary);
+    background: var(--bg-hover);
+  }
+  .drop-text {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .or-divider {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin: 1rem 0;
+  }
+  .btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  input[type="file"] {
+    display: none;
+  }
+  #camera-section {
+    margin-bottom: 1.5rem;
+  }
+  #camera-preview {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 8px;
+    display: none;
+    margin: 0 auto;
+  }
+  #result-section {
+    display: none;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    text-align: left;
+  }
+  .result-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .result-content {
+    font-family: monospace;
+    font-size: 1rem;
+    word-break: break-all;
+    padding: 1rem;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .result-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .result-actions .btn {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+  }
+  .error {
+    color: #ef4444;
+    margin-top: 1rem;
+    display: none;
+  }
+  .loading {
+    color: var(--text-muted);
+    display: none;
+  }
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+  .format-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+  .camera-btns {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>QR Code Scanner</h1>
+  <p class="subtitle">Read QR codes from images or your camera. 100% client-side — nothing leaves your device.</p>
+  
+  <div id="camera-section">
+    <video id="camera-preview" playsinline autoplay></video>
+    <div class="camera-btns">
+      <button class="btn btn-secondary" id="start-camera">📷 Use Camera</button>
+      <button class="btn btn-secondary" id="stop-camera" style="display:none;">⏹ Stop Camera</button>
+    </div>
+  </div>
+
+  <div class="scan-area" id="drop-zone">
+    <p class="drop-text">Drop an image here or click to upload</p>
+    <button class="btn" id="upload-btn">Choose Image</button>
+    <input type="file" id="file-input" accept="image/*">
+    <p class="or-divider">or</p>
+    <button class="btn btn-secondary" id="paste-btn">📋 Paste from clipboard</button>
+  </div>
+
+  <p class="loading" id="loading">Scanning...</p>
+  <p class="error" id="error"></p>
+
+  <div id="result-section">
+    <div class="result-label">Scanned Content</div>
+    <div class="result-content" id="result-text"></div>
+    <div class="formats">
+      <span class="format-tag" id="format-tag"></span>
+    </div>
+    <div class="result-actions">
+      <button class="btn" id="copy-btn">📋 Copy</button>
+      <button class="btn btn-secondary" id="open-btn">🔗 Open URL</button>
+      <button class="btn btn-secondary" id="scan-again-btn">🔄 Scan Another</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const uploadBtn = document.getElementById('upload-btn');
+  const pasteBtn = document.getElementById('paste-btn');
+  const resultSection = document.getElementById('result-section');
+  const resultText = document.getElementById('result-text');
+  const formatTag = document.getElementById('format-tag');
+  const errorEl = document.getElementById('error');
+  const loadingEl = document.getElementById('loading');
+  const cameraPreview = document.getElementById('camera-preview');
+  const startCameraBtn = document.getElementById('start-camera');
+  const stopCameraBtn = document.getElementById('stop-camera');
+
+  let videoStream = null;
+  let scanning = false;
+
+  // Drag and drop
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) scanImage(file);
+  });
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) scanImage(e.target.files[0]);
+  });
+
+  // Paste from clipboard
+  pasteBtn.addEventListener('click', async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            scanImage(blob);
+            return;
+          }
+        }
+      }
+      showError('No image found in clipboard');
+    } catch (err) {
+      showError('Clipboard access denied. Paste an image manually.');
+    }
+  });
+
+  // Camera
+  startCameraBtn.addEventListener('click', async () => {
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      cameraPreview.srcObject = videoStream;
+      cameraPreview.style.display = 'block';
+      startCameraBtn.style.display = 'none';
+      stopCameraBtn.style.display = 'inline-block';
+      scanCamera();
+    } catch (err) {
+      showError('Camera access denied or unavailable');
+    }
+  });
+
+  stopCameraBtn.addEventListener('click', () => {
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      videoStream = null;
+    }
+    cameraPreview.style.display = 'none';
+    startCameraBtn.style.display = 'inline-block';
+    stopCameraBtn.style.display = 'none';
+    scanning = false;
+  });
+
+  async function scanCamera() {
+    if (!videoStream) return;
+    scanning = true;
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const scanFrame = () => {
+      if (!scanning || videoStream.readyState !== 4) {
+        requestAnimationFrame(scanFrame);
+        return;
+      }
+      
+      canvas.width = cameraPreview.videoWidth;
+      canvas.height = cameraPreview.videoHeight;
+      ctx.drawImage(cameraPreview, 0, 0);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      
+      if (code) {
+        stopCameraBtn.click();
+        showResult(code.data, code.format);
+      } else {
+        requestAnimationFrame(scanFrame);
+      }
+    };
+    
+    scanFrame();
+  }
+
+  function scanImage(file) {
+    hideError();
+    resultSection.style.display = 'none';
+    loadingEl.style.display = 'block';
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      
+      loadingEl.style.display = 'none';
+      
+      if (code) {
+        showResult(code.data, code.format);
+      } else {
+        showError('No QR code found in this image');
+      }
+    };
+    img.onerror = () => {
+      loadingEl.style.display = 'none';
+      showError('Failed to load image');
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  function showResult(data, format) {
+    resultText.textContent = data;
+    formatTag.textContent = format || 'QR Code';
+    resultSection.style.display = 'block';
+    
+    const openBtn = document.getElementById('open-btn');
+    if (isValidURL(data)) {
+      openBtn.style.display = 'inline-block';
+    } else {
+      openBtn.style.display = 'none';
+    }
+  }
+
+  function isValidURL(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(resultText.textContent);
+    document.getElementById('copy-btn').textContent = '✓ Copied!';
+    setTimeout(() => {
+      document.getElementById('copy-btn').textContent = '📋 Copy';
+    }, 2000);
+  });
+
+  document.getElementById('open-btn').addEventListener('click', () => {
+    window.open(resultText.textContent, '_blank');
+  });
+
+  document.getElementById('scan-again-btn').addEventListener('click', () => {
+    resultSection.style.display = 'none';
+    fileInput.value = '';
+  });
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+    loadingEl.style.display = 'none';
+  }
+
+  function hideError() {
+    errorEl.style.display = 'none';
+  }
+</script>
+</body>
+</html>
