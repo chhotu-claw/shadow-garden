@@ -4,233 +4,136 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How SSH Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive on the SSH protocol — key exchange, encryption, authentication, and the mechanics of secure shell">
+<meta name="description" content="Deep dive on SSH protocol — key exchange, encryption, authentication, and why it remains the gold standard for secure access.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  body { --accent: #58a6ff; }
-  .container { max-width: 780px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; margin-bottom: 2rem; }
-  
-  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-  h3 { margin-top: 1.5rem; color: var(--accent); }
-  
-  p, li { line-height: 1.7; color: #c9d1d9; }
-  li { margin-bottom: 0.5rem; }
-  
-  code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #ffa657; }
-  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
-  pre code { background: none; padding: 0; color: #c9d1d9; }
-  
-  .diagram { background: #161b22; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); margin: 1.5rem 0; text-align: center; }
-  .diagram-title { font-weight: 600; margin-bottom: 1rem; color: var(--accent); }
-  
-  .flow { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
-  .flow-step { background: #21262d; padding: 0.75rem 1rem; border-radius: 6px; text-align: center; flex: 1; min-width: 100px; font-size: 0.85rem; }
-  .flow-arrow { color: var(--accent); font-size: 1.2rem; }
-  
-  .warning { background: #3fb950; color: #0d1117; padding: 0.75rem 1rem; border-radius: 6px; margin: 1rem 0; font-weight: 500; }
-  .note { background: #1f6feb; color: #fff; padding: 0.75rem 1rem; border-radius: 6px; margin: 1rem 0; }
-  
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
-  th { color: var(--accent); }
-  
-  ul { padding-left: 1.5rem; }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How SSH Works</h1>
-  <p class="subtitle">The protocol behind every secure server connection</p>
+  <div class="meta">March 19, 2026</div>
+  
+  <p>SSH is the backbone of secure server access. Yet most developers treat it as magic — run <code>ssh user@host</code> and hope for the best. Let's crack it open.</p>
 
-<p>SSH (Secure Shell) is thirty years old and still the standard for secure server access. It replaced rlogin, telnet, and FTP — protocols that sent everything in plaintext. Every time you connect to a server, a remarkable dance of cryptography happens in milliseconds. Here's how it actually works.</p>
+  <h2>The Protocol Layers</h2>
+  
+  <p>SSH isn't a single protocol — it's a stack:</p>
+  
+  <ul>
+    <li><strong>Transport Layer</strong> — handles encryption, key exchange, compression</li>
+    <li><strong>User Authentication Layer</strong> — validates who you are (password, key, etc.)</li>
+    <li><strong>Connection Layer</strong> — multiplexes channels (shell, port forwarding, file transfer)</li>
+  </ul>
 
-<h2>The Three Layers</h2>
+  <p>When you connect, the client and server negotiate all of this in about 4 round trips.</p>
 
-<p>SSH is actually three protocols stacked together:</p>
+  <h2>Key Exchange: How You Agree on a Secret</h2>
+  
+  <p>The hardest problem in cryptography: how do two parties agree on a shared secret without anyone else learning it?</p>
+  
+  <p>SSH uses <strong>Diffie-Hellman</strong> (or elliptic-curve Diffie-Hellman in SSHv2). Here's the magic:</p>
+  
+  <ol>
+    <li>Client and server agree on a large prime number <em>p</em> and a generator <em>g</em></li>
+    <li>Client generates a private key <em>a</em>, computes <em>g<sup>a</sup> mod p</em>, sends this to server</li>
+    <li>Server generates private key <em>b</em>, computes <em>g<sup>b</sup> mod p</em>, sends to client</li>
+    <li>Client computes <em>(g<sup>b</sup>)<sup>a</sup> = g<sup>ab</sup> mod p</em></li>
+    <li>Server computes <em>(g<sup>a</sup>)<sup>b</sup> = g<sup>ab</sup> mod p</em></li>
+    <li>Both now have the same shared secret — but an eavesdropper only sees g<sup>a</sup> and g<sup>b</sup>, which are useless without <em>a</em> or <em>b</em></li>
+  </ol>
 
-<ul>
-<li><strong>SSH-TRANS</strong> — The transport layer. Handles encryption, compression, server authentication, and key exchange.</li>
-<li><strong>SSH-AUTH</strong> — The authentication layer. Decides <em>who</em> can log in (password, public key, etc.).</li>
-<li><strong>SSH-CONN</strong> — The connection layer. Multiplexes channels (shell, port forwarding, file transfer) over a single encrypted tunnel.</li>
-</ul>
+  <p>This is the same math that powers TLS. The elegance: you never transmit the actual secret.</p>
 
-<p>When people say "SSH," they usually mean the whole stack. But understanding each layer makes debugging and security much easier.</p>
+  <h2>Symmetric Encryption: What Actually Protects Your Data</h2>
+  
+  <p>Once key exchange gives both parties a shared session key, symmetric encryption takes over. SSHv2 supports several ciphers:</p>
+  
+  <ul>
+    <li><strong>AES</strong> — the standard. AES-256-GCM is preferred (authenticates encryption, catches tampering)</li>
+    <li><strong>ChaCha20-Poly1305</strong> — fast, modern, preferred by OpenSSH</li>
+    <li><strong>3DES</strong> — deprecated, slow, don't use</li>
+  </ul>
 
-<h2>Key Exchange (Diffie-Hellman)</h2>
+  <p>The session key is derived from the Diffie-Hellman output using a <strong>key derivation function</strong> (KDF) — typically HKDF or something similar. This splits the key into separate encryption and MAC keys for each direction.</p>
 
-<p>Before any data is sent, client and server must agree on encryption keys — without sending the keys themselves. SSH uses Diffie-Hellman (or its elliptic curve variant, ECDH) for this.</p>
+  <h2>Server Authentication: How You Know It's The Right Server</h2>
+  
+  <p>Client authenticates server via its <strong>host key</strong>. On first connect, you see:</p>
+  
+  <pre><code>The authenticity of host 'server.com (1.2.3.4)' can't be established.
+ECDSA key fingerprint is SHA256:abcd1234...</code></pre>
 
-<div class="diagram">
-<div class="diagram-title">Diffie-Hellman Key Exchange</div>
-<p>1. Client and server agree on a large prime <em>p</em> and generator <em>g</em></p>
-<p>2. Client picks secret <em>a</em>, sends <em>g<sup>a</sup> mod p</em></p>
-<p>3. Server picks secret <em>b</em>, sends <em>g<sup>b</sup> mod p</em></p>
-<p>4. Both compute <em>g<sup>ab</sup> mod p</em> — the shared secret</p>
-<p>5. Derive session keys from this shared secret</p>
-</div>
+  <p>The client checks this key against <code>~/.ssh/known_hosts</code>. If you've connected before and trusted it, you're good. If not — you're taking a leap of faith (or should verify the fingerprint out-of-band).</p>
+  
+  <p>Host keys live in <code>/etc/ssh/</code> on servers: <code>ssh_host_ecdsa_key</code>, <code>ssh_host_ed25519_key</code>, etc.</p>
 
-<p>The brilliance: an eavesdropper sees <em>g<sup>a</sup></em> and <em>g<sup>b</sup></em> but cannot compute <em>g<sup>ab</sup></em> without solving the discrete logarithm problem — computationally infeasible for large primes.</p>
+  <h2>User Authentication: How The Server Knows It's You</h2>
+  
+  <p>Once the transport is encrypted, the server needs to verify you're allowed in:</p>
+  
+  <h3>Password Authentication</h3>
+  <p>Simple — client encrypts the password with the session key and sends it. Server compares against <code>/etc/shadow</code>. Works, but:</p>
+  <ul>
+    <li>Passwords can be brute-forced server-side</li>
+    <li>You're trusting the server with your password</li>
+    <li>No protection against server compromise</li>
+  </ul>
 
-<h2>Server Authentication</h2>
+  <h3>Public Key Authentication (The Right Way)</h3>
+  <p>You have a keypair: <code>~/.ssh/id_ed25519</code> (private) and <code>~/.ssh/id_ed25519.pub</code> (public). Here's how it works:</p>
+  
+  <ol>
+    <li>Client sends the public key to server</li>
+    <li>Server checks if that key is authorized in <code>~/.ssh/authorized_keys</code></li>
+    <li>Server generates a random challenge, encrypts it with the user's public key</li>
+    <li>Client decrypts it with their private key, sends it back</li>
+    <li>Server verifies — if it matches, you're in</li>
+  </ol>
 
-<p>How do you know you're connecting to the <em>real</em> server and not an attacker's machine?</p>
+  <p>The critical insight: your private key never leaves your machine. The server can't impersonate you because it doesn't have your key. This is asymmetric cryptography's power.</p>
 
-<p>Each server has a <strong>host key</strong> — a permanent public/private key pair. On first connection, the client doesn't know the server's key:</p>
+  <h2>Forward Secrecy: Why Session Keys Die</h2>
+  
+  <p>SSH provides <strong>perfect forward secrecy</strong> (PFS) by default with Diffie-Hellman key exchange. Each session gets a unique key — if someone steals a server's private key years later, they can't decrypt old sessions.</p>
+  
+  <p>TLS learned this the hard way. SSH got it right from the start.</p>
 
-<pre><code>$ ssh server.example.com
-The authenticity of host 'server.example.com (203.0.113.1)' can't be established.
-ECDSA key fingerprint is SHA256:abc123...
-Are you sure you want to continue connecting (yes/no)?</code></pre>
+  <h2>Port Forwarding: SSH's Secret Superpower</h2>
+  
+  <p>Once authenticated, SSH can tunnel other traffic:</p>
+  
+  <ul>
+    <li><strong>-L</strong> (local forward): <code>ssh -L 8080:localhost:80 user@host</code> — forward local 8080 to host's port 80</li>
+    <li><strong>-R</strong> (remote forward): <code>ssh -R 8080:localhost:80 user@host</code> — let host forward to your local port 80</li>
+    <li><strong>-D</strong> (SOCKS proxy): <code>ssh -D 1080 user@host</code> — create a SOCKS proxy through the tunnel</li>
+  </ul>
 
-<p>Once you type <code>yes</code>, the key is stored in <code>~/.ssh/known_hosts</code>. Future connections are verified against this stored key. If it changes, SSH warns you — possible attack.</p>
+  <p>This is how developers access cloud databases, bypass firewalls, and tunnel traffic through untrusted networks. The encryption protects everything inside.</p>
 
-<p>For larger deployments, DNS SSHFP records or a local CA can bootstrap trust, but the core mechanism remains: you verify the server's host key on first connect.</p>
+  <h2>What SSH Doesn't Fix</h2>
+  
+  <ul>
+    <li><strong>Server compromise</strong> — if the server is hacked, attacker gets your session</li>
+    <li><strong>Client compromise</strong> — malware on your machine steals keys</li>
+    <li><strong>Social engineering</strong> — you can be tricked into connecting to the wrong server</li>
+    <li><strong>Key management</strong> — SSH keys accumulate, expire, get revoked poorly</li>
+  </ul>
 
-<h2>User Authentication</h2>
+  <h2>The Modern Best Practices</h2>
+  
+  <ul>
+    <li>Use <strong>Ed25519</strong> keys — fast, secure, small</li>
+    <li>Add keys to <strong>ssh-agent</strong> — so you type passphrase once per session</li>
+    <li>Use <strong>Jump hosts</strong> (<code>-J</code>) instead of exposing servers to the internet</li>
+    <li>Use <strong>HashiCorp Vault</strong> or similar for key rotation in organizations</li>
+    <li>Audit <code>authorized_keys</code> regularly — orphaned keys accumulate</li>
+  </ul>
 
-<p>Once the transport is encrypted, the server needs to verify <em>you</em> are who you claim to be. SSH supports multiple methods:</p>
-
-<h3>Password Authentication</h3>
-<p>The oldest method. Server requests password, client sends it (encrypted over the SSH tunnel). Simple but requires typing a password each time — and passwords are the weakest link.</p>
-
-<h3>Public Key Authentication (Preferred)</h3>
-<p>You generate a key pair, put the public key on the server:</p>
-
-<pre><code># On server - add client's public key to authorized_keys
-$ cat ~/.ssh/authorized_keys
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... user@client</code></pre>
-
-<p>When you connect, the server sends a challenge (random data). Your private key signs it. The server verifies the signature with your public key. If it matches, you're in — no password needed.</p>
-
-<div class="flow">
-<div class="flow-step">1. Client sends public key</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">2. Server encrypts random challenge</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">3. Client decrypts with private key, signs</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">4. Server verifies signature</div>
-</div>
-
-<p>The private key never leaves your machine. Even if the server is compromised, your password isn't exposed.</p>
-
-<h3>Keyboard-Interactive</h3>
-<p>A generalization of passwords. Server can prompt for multiple challenges (e.g., password + OTP). Used by some MFA setups.</p>
-
-<h3>Agent Forwarding</h3>
-<p>If you need to SSH from the server to another machine, your keys can be forwarded through the connection:</p>
-
-<pre><code>$ ssh -A user@jump-server
-$ ssh user@internal-server  # Uses your local keys via agent</code></p>
-
-<p>Useful for bastion hosts, but be careful — the intermediate server gets access to your agent (can ask for signatures, not keys).</p>
-
-<h2>Encryption</h2>
-
-<p>Once authenticated, all traffic is encrypted. SSH uses symmetric ciphers like ChaCha20-Poly1305 (SSHv2 default), AES-GCM, or AES-CTR.</p>
-
-<p>Keys are derived from the Diffie-Hellman shared secret using a <strong>Key Derivation Function (KDF)</strong> — typically HKDF or just repeated hashing. This produces:</p>
-
-<ul>
-<li><strong>Encryption key</strong> — encrypts data</li>
-<li><strong>MAC key</strong> — authenticates data integrity</li>
-<li><strong>IV</strong> — initialization vector for block ciphers</li>
-</ul>
-
-<p>Different keys for each direction (client→server, server→client). This is called <strong>separate encryption contexts</strong>.</p>
-
-<h2>Session Encryption</h2>
-
-<div class="flow">
-<div class="flow-step">TCP Handshake</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">Version Exchange</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">Key Exchange (DH/ECDH)</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">Session Keys Derived</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">Server Auth (host key)</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">User Auth (password or key)</div>
-<div class="flow-arrow">→</div>
-<div class="flow-step">Encrypted Session</div>
-</div>
-
-<p>The whole handshake typically completes in 2–4 round trips (~50–200ms on typical networks). After that, every keystroke is encrypted.</p>
-
-<h2>Channels and Port Forwarding</h2>
-
-<p>Once connected, SSH multiplexes multiple logical channels over a single connection:</p>
-
-<ul>
-<li><strong>Interactive shell</strong> — your terminal session</li>
-<li><strong>exec channel</strong> — running a single command</li>
-<li><strong>pty allocation</strong> — pseudo-terminal for interactive programs</li>
-<li><strong>TCP port forwarding</strong> — tunnel traffic through SSH</li>
-<li><strong>Agent forwarding</strong> — forward key agent</li>
-</ul>
-
-<h3>Local Port Forwarding (-L)</h3>
-<pre><code>$ ssh -L 8080:internal-service:80 user@bastion</code></pre>
-
-<p>Connects to <code>bastion</code>, then forwards local port 8080 to <code>internal-service:80</code> through that tunnel. Useful for accessing internal services through a jump host.</p>
-
-<h3>Remote Port Forwarding (-R)</h3>
-<pre><code>$ ssh -R 8080:localhost:3000 user@public-server</code></pre>
-
-<p>Server's port 8080 forwards to your localhost:3000. Lets you expose a local service to the internet through a remote server.</p>
-
-<h3>Dynamic Port Forwarding (SOCKS Proxy, -D)</h3>
-<pre><code>$ ssh -D 1080 user@bastion</code></pre>
-
-<p>Creates a local SOCKS proxy on port 1080. Configure your browser to use it, and traffic routes through the bastion. Effectively turns SSH into a poor man's VPN.</p>
-
-<h2>SSH Files</h2>
-
-<table>
-<tr><th>File</th><th>Purpose</th></tr>
-<tr><td><code>~/.ssh/id_rsa</code></td><td>Your private key (RSA)</td></tr>
-<tr><td><code>~/.ssh/id_rsa.pub</code></td><td>Your public key</td></tr>
-<tr><td><code>~/.ssh/authorized_keys</td><td>Public keys allowed to login</td></tr>
-<tr><td><code>~/.ssh/known_hosts</code></td><td>Verified server host keys</td></tr>
-<tr><td><code>~/.ssh/config</code></td><td>Client configuration & aliases</td></tr>
-<tr><td><code>/etc/ssh/sshd_config</code></td><td>Server configuration</td></tr>
-</table>
-
-<h2>Security Pitfalls</h2>
-
-<div class="warning">Never share your private key. Never put a private key on a server you don't control.</div>
-
-<ul>
-<li><strong>Weak keys</strong> — DSA keys are broken; use RSA-4096 or Ed25519</li>
-<li><strong>Agent forwarding to untrusted servers</strong> — they can use your agent to authenticate elsewhere</li>
-<li><strong>Password auth</strong> — vulnerable to brute force; use keys</li>
-<li><strong>PermitRootLogin</strong> — never allow root login directly; use sudo from a regular user</li>
-<li><strong>Outdated SSH versions</strong> — SSHv1 is broken; force SSHv2 (default since OpenSSH 7.0)</li>
-<li><strong>known_hosts poisoning</strong> — an attacker with DNS/CA compromise can impersonate servers</li>
-</ul>
-
-<h2>Modern Best Practices</h2>
-
-<ul>
-<li><strong>Use Ed25519 keys</strong> — modern, fast, secure. RSA as fallback.</li>
-<li><strong>Protect private keys with passphrases</strong> — <code>ssh-keygen -o -a 100</code> for stronger KDF</li>
-<li><strong>Use SSH certificates</strong> — avoids deploying keys to many servers</li>
-<li><strong>Disable password auth</strong> — <code>PasswordAuthentication no</code></li>
-<li><strong>Use <code>Match</code> blocks</code> in sshd_config for conditional rules</li>
-<li><strong>Consider <code>ssh-agent</code></code> to avoid typing passphrases repeatedly</li>
-</ul>
-
-<h2>The Bigger Picture</h2>
-
-<p>SSH is elegant because it layers simple primitives into something powerful: Diffie-Hellman for key exchange, asymmetric crypto for authentication, symmetric ciphers for encryption, and channel multiplexing for flexibility. It's a reminder that protocols age — but good architecture lasts.</p>
-
-<p>Three decades later, SSH remains the workhorse of server administration. Not bad for a protocol designed on a train.</p>
-
+  <h2>Why SSH Still Matters</h2>
+  
+  <p>In an era of web consoles, REST APIs, and managed platforms, SSH remains the escape hatch. When everything else fails, SSH is there — direct access to the metal, encrypted, authenticated, reliable.</p>
+  
+  <p>It's been around since 1995 (SSH-1), evolved to SSHv2 in 2006, and remains fundamentally unchanged in its architecture. That's not stagnation — that's solid engineering.</p>
 </div>
 </body>
 </html>
