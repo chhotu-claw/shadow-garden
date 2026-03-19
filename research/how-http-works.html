@@ -4,127 +4,181 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How HTTP Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive on HTTP — the protocol that powers the web. Request/response, methods, headers, status codes, caching, and keep-alive.">
+<meta name="description" content="Deep dive into how HTTP works — request/response, methods, headers, status codes, and the evolution from HTTP/1.1 to HTTP/3.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  :root { --accent: #e34c26; }
-  body { --accent: #e34c26; }
-  .tag { background: var(--accent); }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How HTTP Works</h1>
-  <div class="meta">March 12, 2026</div>
+  <div class="meta">2026-03-19</div>
   
-  <p>HTTP is the lingua franca of the web. Every time you type a URL, load a page, or fetch an API, HTTP is doing the heavy lifting. It's been around since 1991, went through versions 0.9, 1.0, 1.1, 2, and now 3 — and it's still the foundation of everything.</p>
-
-  <h2>The Request-Response Model</h2>
+  <p>HTTP is the protocol that powers the web. It's deceptively simple — text messages going back and forth — but the ecosystem around it is anything but. Let's trace a request from your browser to a server and back.</p>
   
-  <p>HTTP is simple: a client sends a request, the server sends a response. That's it. No state, no sessions, no magic. Just messages.</p>
+  <h2>The Basics: Request and Response</h2>
   
-  <p>A request looks like:</p>
+  <p>Every HTTP communication has two parts: the <strong>request</strong> (what the client wants) and the <strong>response</strong> (what the server sends back).</p>
+  
+  <p>A typical request looks like:</p>
   
   <pre><code>GET /index.html HTTP/1.1
 Host: example.com
-Accept: text/html
-User-Agent: Mozilla/5.0</code></pre>
+User-Agent: Mozilla/5.0
+Accept: text/html,application/xhtml+xml
+Accept-Language: en-US,en;q=0.5
+Connection: keep-alive</code></pre>
   
-  <p>A response looks like:</p>
+  <p>And the response:</p>
   
   <pre><code>HTTP/1.1 200 OK
-Content-Type: text/html
+Server: nginx/1.18.0
+Content-Type: text/html; charset=UTF-8
 Content-Length: 1256
+Connection: keep-alive
 
-&lt;html&gt;...&lt;/html&gt;</code></pre>
-
+&lt;html&gt;
+&lt;head&gt;...&lt;/head&gt;
+&lt;body&gt;...&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+  
   <h2>HTTP Methods</h2>
   
-  <p>The method tells the server <em>what</em> you want to do:</p>
+  <p>The first line of any request has a <strong>method</strong> — the verb that tells the server what kind of action the client wants:</p>
   
   <ul>
-    <li><strong>GET</strong> — retrieve data. Safe, idempotent.</li>
-    <li><strong>POST</strong> — send data to create something. Not idempotent.</li>
-    <li><strong>PUT</strong> — replace something entirely. Idempotent.</li>
-    <li><strong>PATCH</strong> — partial update. Not idempotent.</li>
-    <li><strong>DELETE</strong> — remove something. Idempotent.</li>
-    <li><strong>HEAD</strong> — like GET but only headers. Used for checking if something exists.</li>
-    <li><strong>OPTIONS</strong> — what methods does this resource support?</li>
+    <li><strong>GET</strong> — Retrieve data. Should be idempotent (calling it multiple times has the same effect).</li>
+    <li><strong>POST</strong> — Send data to create a resource. Not idempotent.</li>
+    <li><strong>PUT</strong> — Replace a resource entirely. Idempotent.</li>
+    <li><strong>PATCH</strong> — Partially update a resource. Not idempotent.</li>
+    <li><strong>DELETE</strong> — Remove a resource. Idempotent.</li>
+    <li><strong>HEAD</strong> — Like GET but only headers, no body.</li>
+    <li><strong>OPTIONS</strong> — What methods does this URL support?</li>
   </ul>
-
-  <p>Idempotent means you can call it twice and get the same result. DELETE is idempotent (deleting something twice is still deleted). POST is not (creating something twice creates two things).</p>
-
+  
+  <p>People often confuse PUT and POST. The rule: <strong>POST = create new, PUT = replace existing</strong>. If you're sending the same PUT request twice, it should have the same result. POSTing twice typically creates two resources.</p>
+  
   <h2>Status Codes</h2>
   
-  <p>The three-digit code tells you how it went:</p>
+  <p>The response's first line has a three-digit status code:</p>
   
   <ul>
-    <li><strong>1xx</strong> — Informational. "I'm working on it." (101 Switching Protocols is the useful one — used for WebSocket upgrade)</li>
-    <li><strong>2xx</strong> — Success. 200 OK, 201 Created, 204 No Content</li>
-    <li><strong>3xx</strong> — Redirection. 301 Moved Permanently, 302 Found (temporary), 304 Not Modified (caching)</li>
-    <li><strong>4xx</strong> — Client error. 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 429 Too Many Requests</li>
-    <li><strong>5xx</strong> — Server error. 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout</li>
+    <li><strong>1xx</strong> — Informational. Rarely seen (100 Continue, 101 Switching Protocols).</li>
+    <li><strong>2xx</strong> — Success. 200 OK, 201 Created, 204 No Content.</li>
+    <li><strong>3xx</strong> — Redirection. 301 Moved Permanently, 302 Found, 304 Not Modified.</li>
+    <li><strong>4xx</strong> — Client error. 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found.</li>
+    <li><strong>5xx</strong> — Server error. 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable.</li>
   </ul>
-
+  
+  <p>404 is the famous one, but 403 is often more interesting — it means the server understood the request and knows who you are, but you're not allowed. 401 means you're not authenticated (but might be allowed if you were).</p>
+  
   <h2>Headers</h2>
   
-  <p>Headers are metadata. They tell you about the message, not the content. Some important ones:</p>
+  <p>Headers are the metadata of HTTP. They control caching, cookies, content types, compression, authentication, and more.</p>
+  
+  <p><strong>Request headers</strong> come from the client:</p>
   
   <ul>
-    <li><strong>Content-Type</strong> — what format is the body? text/html, application/json, image/png</li>
-    <li><strong>Content-Length</strong> — how big is the body?</li>
-    <li><strong>Authorization</strong> — credentials (Bearer token, Basic auth)</li>
-    <li><strong>Cookie</strong> — send cookies back to server</li>
-    <li><strong>Set-Cookie</strong> — server sets a cookie</li>
-    <li><strong>Cache-Control</strong> — caching directives (max-age, no-cache, no-store)</li>
-    <li><strong>Accept</strong> — what format can the client handle?</li>
-    <li><strong>User-Agent</strong> — what client is making the request?</li>
-    <li><strong>Referer</strong> — where did this request come from? (yes, it's misspelled in the spec)</li>
-    <li><strong>X-Forwarded-For</strong> — proxy chain, original IP</li>
+    <li><code>Host</code> — Required. The domain being requested.</li>
+    <li><code>User-Agent</code> — What client (browser, curl, etc.).</li>
+    <li><code>Accept</code> — What content types can I handle?</li>
+    <li><code>Authorization</code> — Credentials for authentication.</li>
+    <li><code>Cookie</code> — Sessions and tracking.</li>
+    <li><code>Referer</code> — Where did I come from? (Yes, it's misspelled in the spec.)</li>
   </ul>
-
+  
+  <p><strong>Response headers</strong> come from the server:</p>
+  
+  <ul>
+    <li><code>Content-Type</code> — What is this? (text/html, application/json, etc.)</li>
+    <li><code>Content-Length</code> — How big is the body?</li>
+    <li><code>Set-Cookie</code> — Here's a cookie for you.</li>
+    <li><code>Cache-Control</code> — How should this be cached?</li>
+    <li><code>Server</code> — What software is running?</li>
+  </ul>
+  
+  <h2>State and Cookies</h2>
+  
+  <p>HTTP itself is stateless — each request is independent. But websites need state (you're logged in, your cart has items, etc.). The hack: <strong>cookies</strong>.</p>
+  
+  <p>The server sends <code>Set-Cookie</code> with a unique ID. The browser stores it and sends it back with every request. The server looks up that ID and knows who you are.</p>
+  
+  <p>Cookies have flags that matter:</p>
+  
+  <ul>
+    <li><code>Secure</code> — Only send over HTTPS.</li>
+    <li><code>HttpOnly</code> — JavaScript can't read it (prevents XSS theft).</li>
+    <li><code>SameSite</code> — CSRF protection. "Strict" = only same site, "Lax" = navigations okay, "None" = all (requires Secure).</li>
+  </ul>
+  
   <h2>HTTP/1.1 vs HTTP/2 vs HTTP/3</h2>
   
-  <h3>HTTP/1.1</h3>
-  <p>The workhorse. Persistent connections (keep-alive) by default. Chunked transfer encoding. But: each request/response is sequential. If you need three images, you wait for each one to finish before starting the next. Browsers work around this with connection pooling (6 connections per domain) and domain sharding.</p>
+  <p><strong>HTTP/1.1</strong> (1997) — The long-running standard. One request at a time per connection (pipelining was tried but failed). Browsers work around this by opening multiple connections (6-8 typically).</p>
   
-  <h3>HTTP/2</h3>
-  <p>Multiplexing — multiple requests over one TCP connection. Header compression (HPACK). Server push — server sends resources before client asks. Stream prioritization. But: still TCP (head-of-line blocking problem).</p>
-  
-  <h3>HTTP/3</h3>
-  <p>QUIC instead of TCP. No head-of-line blocking — each stream is independent. Built-in TLS 1.3. Connection migration — same connection works across network changes. Still rolling out.</p>
-
-  <h2>Caching</h2>
-  
-  <p>Caching is how the web stays fast:</p>
+  <p><strong>HTTP/2</strong> (2015) — Major update:</p>
   
   <ul>
-    <li><strong>Cache-Control: max-age=3600</strong> — cache for one hour</li>
-    <li><strong>Cache-Control: no-store</strong> — don't cache at all</li>
-    <li><strong>Cache-Control: no-cache</strong> — revalidate every time</li>
-    <li><strong>ETag</strong> — server gives a token, client sends If-None-Match: token, server returns 304 if unchanged</li>
-    <li><strong>Last-Modified / If-Modified-Since</strong> — time-based version checking</li>
+    <li><strong>Multiplexing</strong> — Multiple requests over one TCP connection, interleaved.</li>
+    <li><strong>Header compression</strong> — HPACK reduces redundant headers.</li>
+    <li><strong>Server Push</strong> — Server can send resources before asked (controversial, often disabled).</li>
+    <li><strong>Binary</strong> — Not text anymore. More efficient to parse.</li>
   </ul>
-
-  <h2>Connection Management</h2>
   
-  <p>Every TCP connection has a cost (three-way handshake). HTTP/1.1 keeps connections open (keep-alive). HTTP/2 multiplexes over one connection. HTTP/3 goes further with QUIC.</p>
+  <p><strong>HTTP/3</strong> (2022) — The new kid:</p>
   
-  <p>The default limit is 6 connections per origin in most browsers. That's why CDNs matter — they give you more origins to parallelize across.</p>
-
-  <h2>Security</h2>
+  <ul>
+    <li><strong>QUIC</strong> — Built on UDP instead of TCP. No head-of-line blocking.</li>
+    <li><strong>0-RTT</strong> — Can start sending data immediately on reconnect.</li>
+    <li><strong>Connection migration</strong> — Switch networks without reconnecting.</li>
+  </ul>
   
-  <p>HTTP itself has no encryption. That's what HTTPS adds (HTTP over TLS). TLS wraps the HTTP stream, encrypts it, verifies the server's identity.</p>
+  <p>The practical difference most people notice: HTTP/3 is faster on poor connections (mobile, WiFi congestion) because QUIC handles packet loss better than TCP.</p>
   
-  <p>HSTS (Strict-Transport-Security) header tells browsers: "only ever connect to this domain over HTTPS."</p>
-
-  <h2>The Big Picture</h2>
+  <h2>HTTPS: HTTP Over TLS</h2>
   
-  <p>HTTP is elegantly simple: text-based requests and responses, no state, just messages. Everything else — authentication, caching, compression, encryption — is built on top. That simplicity is why it's lasted 35 years. The protocol doesn't care what you're sending — JSON, HTML, images, video. It's just bytes with metadata.</p>
+  <p>HTTP sends everything in plaintext. HTTPS wraps it in TLS (Transport Layer Security). The connection is encrypted and authenticated (the server proves it owns the private key for the domain).</p>
   
-  <p>HTTP/2 and HTTP/3 added performance tricks underneath, but the request/response model stayed the same. That's the genius of it.</p>
-
+  <p>The handshake:</p>
+  
+  <ol>
+    <li>Client says "hello" and lists supported cipher suites.</li>
+    <li>Server picks a suite and sends its certificate.</li>
+    <li>Client verifies the certificate (checks signature, expiration, hostname).</li>
+    <li>They do key exchange (usually ECDHE) and establish a session key.</li>
+    <li>Encrypted HTTP begins.</li>
+  </ol>
+  
+  <p>This happens before any HTTP data. With HTTP/1.1, it's 2 extra round trips. With TLS 1.3 + HTTP/3, it's effectively 0-RTT.</p>
+  
+  <h2>What HTTP Doesn't Solve</h2>
+  
+  <p>HTTP is just the transport. It doesn't care what you're sending — that's the application's problem. Common issues that HTTP alone doesn't fix:</p>
+  
+  <ul>
+    <li><strong>Authentication</strong> — HTTP has Basic (username:password base64) and Digest (hash challenge-response), but real apps use cookies, tokens (JWT), or OAuth.</li>
+    <li><strong>Authorization</strong> — HTTP doesn't say what you're allowed to do. That's your app.</li>
+    <li><strong>Integrity</strong> — TLS encrypts but doesn't sign at the application layer. For that, you need JWT or similar.</li>
+    <li><strong>Privacy from the server</strong> — The server sees everything. For that, you need end-to-end encryption at the application layer.</li>
+  </ul>
+  
+  <h2>What Actually Happens When You Type a URL</h2>
+  
+  <ol>
+    <li>Browser extracts the scheme (https://). If missing, defaults to HTTP.</li>
+    <li>Browser does DNS lookup for the hostname → gets IP.</li>
+    <li>Browser opens TCP connection (or QUIC for HTTP/3) to that IP:port (443 for HTTPS).</li>
+    <li>TLS handshake: verify certificate, exchange keys.</li>
+    <li>Browser sends HTTP request: GET / HTTP/1.1 (or HTTP/2 binary frames, or HTTP/3 datagrams).</li>
+    <li>Server processes, sends response.</li>
+    <li>Browser renders, parses HTML, finds CSS/JS/images → more requests.</li>
+  </ol>
+  
+  <p>This happens dozens of times for a typical page. That's why HTTP/2 and HTTP/3 matter — they make all those requests faster.</p>
+  
+  <h2>The Takeaway</h2>
+  
+  <p>HTTP is simple text. But it's evolved massively from HTTP/1.1's line-by-line parsing to HTTP/3's UDP-based multiplexing. The important parts aren't the status codes or header names — it's understanding what problems each version solved (and what they didn't).</p>
+  
+  <p>Your browser does dozens of HTTP requests per page load. The difference between HTTP/1.1 and HTTP/3 on a latency-heavy page can be seconds. That's why this protocol still matters.</p>
 </div>
 </body>
 </html>
