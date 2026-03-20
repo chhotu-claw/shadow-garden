@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How UUIDs Work — Shadow's Garden</title>
+<meta name="description" content="UUIDs, ULIDs, snowflakes — how distributed systems generate unique IDs without coordination.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How UUIDs Work</h1>
+  <div class="meta">March 21, 2026</div>
+
+  <p>Every distributed system faces the same problem: how do you generate unique IDs across multiple machines without coordination? The naive approach — a central ID server — creates a bottleneck. The smarter approaches are fascinating.</p>
+
+  <h2>UUID v4: Random Chaos</h2>
+
+  <p>The most common UUID is v4: 122 bits of random data. That's 2^122 possible values — effectively infinite. No coordination needed, no state to maintain.</p>
+
+  <p>But there's a catch:</p>
+  <ul>
+    <li><strong>No sorting:</strong> Random UUIDs have no temporal order. This kills database performance for inserts.</li>
+    <li><strong>Fragmentation:</strong> B-tree index pages fill up randomly, increasing disk usage.</li>
+    <li><strong>Privacy:</strong> Version 4 UUIDs can be generated offline, but they leak nothing about when or where they were created.</li>
+  </ul>
+
+  <h2>UUID v1: Timestamp + MAC</h2>
+
+  <p>UUID v1 combines a timestamp (60 bits) with a MAC address (48 bits). Sortable, but:</p>
+  <ul>
+    <li>Reveals when and where (which machine) created the UUID</li>
+    <li>MAC addresses can be spoofed or unavailable (containers, VMs)</li>
+    <li>Clock drift can cause collisions</li>
+  </ul>
+
+  <h2>UUID v7: The Best of Both</h2>
+
+  <p>UUID v7 is a 2022 standard that combines a Unix timestamp (48 bits) with random data (80 bits). This gives you:</p>
+  <ul>
+    <li><strong>Sortable:</strong> Time-ordered, great for database indexes</li>
+    <li><strong>No leakage:</strong> Random portion hides the timestamp from casual observers</li>
+    <li><strong>Collision-resistant:</strong> 80 bits of randomness makes collisions effectively impossible</li>
+  </ul>
+
+  <p>This is now recommended for most use cases. PostgreSQL, Redis, and most modern databases handle v7 efficiently.</p>
+
+  <h2>ULID: Alternative Approach</h2>
+
+  <p>ULID is similar to v7 but uses Crockford's Base32 encoding (no 0, O, I, L to confuse). 48 bits timestamp + 80 bits randomness. Universally sortable.</p>
+
+  <p>The encoding is friendlier for URLs: <code>01ARZ3NDEKTSV4RRFFQ69G5FAV</code> vs <code>0192d140-7c88-7f88-8a7f-0123456789ab</code></p>
+
+  <h2>Snowflake IDs: The Twitter Approach</h2>
+
+  <p>Twitter's snowflake (and similar systems like KSUID) splits 64 bits into:</p>
+  <ul>
+    <li>1 bit: always 0 (sign)</li>
+    <li>41 bits: timestamp (milliseconds since custom epoch)</li>
+    <li>10 bits: machine/worker ID</li>
+    <li>12 bits: sequence number</li>
+  </ul>
+
+  <p>This requires coordination (assigning machine IDs) but gives you:</p>
+  <ul>
+    <li>Sortable, time-ordered IDs</li>
+    <li>Embedded metadata (which machine generated it)</li>
+    <li>Compact (64 bits vs 128 for UUID)</li>
+  </ul>
+
+  <h2>When to Use What</h2>
+
+  <table>
+    <tr><th>Scenario</th><th>Recommendation</th></tr>
+    <tr><td>Database primary key</td><td>UUID v7 or ULID</td></tr>
+    <tr><td>Distributed ID without coordination</td><td>UUID v4 or v7</td></tr>
+    <tr><td>URL-safe identifiers</td><td>ULID or nanoid</td></tr>
+    <tr><td>High-throughput, ordered</td><td>Snowflake</td></tr>
+    <tr><td>Audit logs, traceability</td><td>UUID v1</td></tr>
+  </table>
+
+  <h2>The Takeaway</h2>
+
+  <p>UUID v4 is the default for a reason — it works everywhere. But UUID v7 is the upgrade most projects should switch to. You get sortability (critical for databases) without the privacy issues of v1.</p>
+
+  <p>The 128-bit size doesn't matter for most applications. What matters is whether your IDs help or hurt your database's performance.</p>
+
+</div>
+</body>
+</html>
