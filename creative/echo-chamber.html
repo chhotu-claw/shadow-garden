@@ -4,237 +4,170 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="An interactive audio-visual experience where sounds create ripples of light"></meta>
+<meta name="description" content="A game you play against your past self.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
+  :root {
+    --glow: #00ff88;
+  }
   body {
-    margin: 0;
-    overflow: hidden;
-    background: #0a0a0f;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: #050508;
+    color: #ccc;
     font-family: 'Courier New', monospace;
   }
-  canvas {
-    display: block;
+  .container {
+    max-width: 500px;
+    text-align: center;
   }
-  .instructions {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #444;
-    font-size: 12px;
-    pointer-events: none;
-    transition: opacity 2s;
+  h1 {
+    font-size: 1rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #333;
+    margin-bottom: 3rem;
   }
-  .instructions.hidden {
-    opacity: 0;
-  }
-  .visualizer {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+  #message {
+    font-size: 1.4rem;
+    min-height: 120px;
     display: flex;
-    gap: 2px;
-    align-items: flex-end;
-    height: 60px;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.6;
+    color: var(--glow);
+    text-shadow: 0 0 20px var(--glow);
+    animation: pulse 4s ease-in-out infinite;
   }
-  .bar {
-    width: 3px;
-    background: linear-gradient(to top, #00ffaa, #00aaff);
-    transition: height 0.05s;
+  @keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+  .input-area {
+    margin-top: 3rem;
+  }
+  input {
+    width: 100%;
+    padding: 1rem;
+    background: transparent;
+    border: 1px solid #222;
+    color: #666;
+    font-family: inherit;
+    font-size: 1rem;
+    text-align: center;
+    outline: none;
+    transition: all 0.3s;
+  }
+  input:focus {
+    border-color: #333;
+    color: #888;
+  }
+  input::placeholder {
+    color: #333;
+  }
+  #submit {
+    margin-top: 1rem;
+    padding: 0.8rem 2rem;
+    background: transparent;
+    border: 1px solid #222;
+    color: #444;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    transition: all 0.3s;
+  }
+  #submit:hover {
+    border-color: var(--glow);
+    color: var(--glow);
+    box-shadow: 0 0 20px rgba(0,255,136,0.1);
+  }
+  .history {
+    margin-top: 3rem;
+    font-size: 0.7rem;
+    color: #222;
+  }
+  .history-item {
+    margin: 0.5rem 0;
+    transition: all 0.5s;
+  }
+  .history-item:nth-child(odd) {
+    color: #1a1a1a;
+  }
+  .history-item:nth-child(even) {
+    color: #0a0a0a;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <canvas id="canvas"></canvas>
-  <div class="instructions">click anywhere to create sound ripples</div>
-  <div class="visualizer" id="visualizer"></div>
-  
+  <div class="container">
+    <h1>Echo Chamber</h1>
+    <div id="message">what you say now<br>will echo back</div>
+    <div class="input-area">
+      <input type="text" id="input" placeholder="speak something true" maxlength="50">
+      <button id="submit">speak</button>
+    </div>
+    <div class="history" id="history"></div>
+  </div>
+
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const instructions = document.querySelector('.instructions');
-    const visualizer = document.getElementById('visualizer');
-    
-    let width, height;
-    let ripples = [];
-    let particles = [];
-    let hasInteracted = false;
-    let audioCtx;
-    
-    // Create visualizer bars
-    for (let i = 0; i < 32; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      bar.style.height = '2px';
-      visualizer.appendChild(bar);
-    }
-    const bars = visualizer.querySelectorAll('.bar');
-    
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-    resize();
-    window.addEventListener('resize', resize);
-    
-    class Ripple {
-      constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.radius = 0;
-        this.maxRadius = Math.max(width, height) * 0.6;
-        this.speed = 3;
-        this.opacity = 1;
-        this.color = color;
-        this.lineWidth = 2;
-      }
-      
-      update() {
-        this.radius += this.speed;
-        this.opacity = 1 - (this.radius / this.maxRadius);
-        this.lineWidth = Math.max(0.5, 3 * this.opacity);
-      }
-      
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = this.color.replace('1)', `${this.opacity})`);
-        ctx.lineWidth = this.lineWidth;
-        ctx.stroke();
-      }
-      
-      isDead() {
-        return this.opacity <= 0;
-      }
-    }
-    
-    class Particle {
-      constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 4;
-        this.vy = (Math.random() - 0.5) * 4;
-        this.life = 1;
-        this.decay = 0.015 + Math.random() * 0.01;
-        this.size = 2 + Math.random() * 3;
-        this.color = color;
-      }
-      
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.98;
-        this.vy *= 0.98;
-        this.life -= this.decay;
-      }
-      
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
-        ctx.fillStyle = this.color.replace('1)', `${this.life * 0.8})`);
-        ctx.fill();
-      }
-      
-      isDead() {
-        return this.life <= 0;
-      }
-    }
-    
-    const colors = [
-      'rgba(0, 255, 170, 1)',
-      'rgba(0, 170, 255, 1)',
-      'rgba(255, 100, 200, 1)',
-      'rgba(255, 200, 100, 1)',
-      'rgba(150, 100, 255, 1)'
+    const messages = [
+      "what you say now\nwill echo back",
+      "the silence between\ngrows louder",
+      "you are not the first\nto stand here",
+      "every word falls\ninto the same void",
+      "the walls listen\nbut do not hear",
+      "your voice is just\nechoes of echoes",
+      "nothing new under\nthis dead star",
+      "the chamber remembers\nwhat you forgot",
+      "you speak,\nyet nothing changes",
+      "the answer was always\nthe question"
     ];
-    
-    function createRipple(x, y) {
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      ripples.push(new Ripple(x, y, color));
-      
-      // Spawn particles
-      for (let i = 0; i < 15; i++) {
-        particles.push(new Particle(x, y, color));
-      }
-      
-      // Play sound
-      if (audioCtx) {
-        playTone(x / width);
-      }
-      
-      // Hide instructions after first interaction
-      if (!hasInteracted) {
-        hasInteracted = true;
-        instructions.classList.add('hidden');
-      }
+
+    const input = document.getElementById('input');
+    const submit = document.getElementById('submit');
+    const messageDiv = document.getElementById('message');
+    const historyDiv = document.getElementById('history');
+
+    function showRandomMessage() {
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      messageDiv.style.opacity = 0;
+      setTimeout(() => {
+        messageDiv.innerHTML = msg.replace(/\n/g, '<br>');
+        messageDiv.style.opacity = 1;
+      }, 500);
     }
-    
-    function playTone(freq) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(200 + freq * 600, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5);
-      
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-      
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.5);
-    }
-    
-    canvas.addEventListener('click', (e) => {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function speak() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add to history
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.textContent = text;
+      historyDiv.insertBefore(item, historyDiv.firstChild);
+
+      // Limit history
+      if (historyDiv.children.length > 10) {
+        historyDiv.removeChild(historyDiv.lastChild);
       }
-      createRipple(e.clientX, e.clientY);
+
+      input.value = '';
+      showRandomMessage();
+    }
+
+    submit.addEventListener('click', speak);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') speak();
     });
-    
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      const touch = e.touches[0];
-      createRipple(touch.clientX, touch.clientY);
-    });
-    
-    function animate() {
-      // Fade effect
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
-      ctx.fillRect(0, 0, width, height);
-      
-      // Update and draw ripples
-      ripples = ripples.filter(r => !r.isDead());
-      ripples.forEach(r => {
-        r.update();
-        r.draw();
-      });
-      
-      // Update and draw particles
-      particles = particles.filter(p => !p.isDead());
-      particles.forEach(p => {
-        p.update();
-        p.draw();
-      });
-      
-      // Update visualizer bars based on activity
-      const activity = Math.min(ripples.length + particles.length / 10, 32);
-      bars.forEach((bar, i) => {
-        const targetHeight = i < activity ? 10 + Math.random() * 50 : 2;
-        bar.style.height = (parseFloat(bar.style.height) || 2) * 0.8 + targetHeight * 0.2 + 'px';
-      });
-      
-      requestAnimationFrame(animate);
-    }
-    
-    animate();
+
+    // Random message on load
+    showRandomMessage();
   </script>
 </body>
 </html>
