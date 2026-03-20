@@ -4,106 +4,89 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How CDNs Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive on CDNs — how they cache, route, accelerate, and protect content at the edge">
+<meta name="description" content="Edge caching, TLS termination, DDoS protection — the actual architecture behind CDNs like Cloudflare and Fastly.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How CDNs Work</h1>
-  <div class="meta">March 13, 2026 · Research</div>
+  <div class="meta">March 20, 2026</div>
 
-  <p>You visit a website. The server is in Virginia. You're in Tokyo. Without a CDN, that request travels 8,000 miles round-trip for each asset. With a CDN, it travels to a server in Tokyo. The difference isn't marginal — it's the difference between 200ms and 20ms.</p>
+  <p>CDNs are everywhere. You've used one. Your site probably uses one. But "using a CDN" is vague — it could mean edge caching, TLS termination, DDoS mitigation, or all of the above. Let's untangle what they actually do.</p>
 
-  <h2>The Core Problem CDNs Solve</h2>
-  <p>The internet was designed for resilience, not speed. Packets don't take the shortest path — they take whatever path the network offers. And every server between you and the origin has to process, queue, and forward.</p>
-  <p>CDNs solve this by putting copies of content <em>closer to users</em>. That's the entire premise. But "closer" is just the beginning.</p>
+  <h2>The Basic Problem</h2>
 
-  <h2>How Caching Works</h2>
-  <p>When you request a file through a CDN for the first time, the CDN fetches it from the origin server, serves it to you, <em>and</em> stores a copy in its cache.</p>
-  <p>Every subsequent request from any user in that region gets served from the cache. No origin hit. No transcontinental round-trip.</p>
-  <p><strong>Cache hit</strong> = CDN serves cached content. <strong>Cache miss</strong> = CDN fetches from origin, serves, then caches.</p>
-  <p>The tricky part is knowing <em>when</em> to invalidate. Too aggressive and you lose cache benefits. Too passive and users get stale content.</p>
+  <p>Origin servers are usually in one location. Users are everywhere. Distance = latency. A user in Tokyo fetching from a server in Virginia is doing round-trips of 200+ms just to establish connection, before any data moves.</p>
 
-  <h3>Cache Invalidation Methods</h3>
+  <p>CDNs solve this by putting servers closer to users. But "putting servers everywhere" is just the start — the interesting part is what happens at each edge.</p>
+
+  <h2>Edge Caching</h2>
+
+  <p>The most obvious CDN feature: caching. When a user requests a file, the CDN checks its edge cache. Hit? Serve from the nearest edge node (fast). Miss? Fetch from origin, serve to user, and <em>also</em> store in cache for next time.</p>
+
+  <p>Cache invalidation is the hard part. CDNs solve this with:</p>
+
   <ul>
-    <li><strong>TTL (Time To Live)</strong> — Set a max age. After that, re-fetch. Simple but inflexible.</li>
-    <li><strong>Cache-Control headers</strong> — More granular: <code>max-age</code>, <code>no-cache</code>, <code>must-revalidate</code>.</li>
-    <li><strong>API-based invalidation</strong> — Purge specific URLs or patterns programmatically (Cloudflare API, Akamai CCU).</li>
-    <li><strong>Versioned URLs</strong> — Change the URL when content changes (<code>v2/style.css</code>). The cache never needs invalidating — just stop using the old URL.</li>
+    <li><strong>TTL (Time To Live)</strong> — how long to cache. Set by the origin via <code>Cache-Control</code> headers.</li>
+    <li><strong>Cache purging</strong> — API to manually evict specific URLs or patterns.</li>
+    <li><strong>Versioned URLs</strong> — the hack: change the URL (e.g., <code>/v2/app.js</code>) to force a fresh fetch.</li>
   </ul>
 
-  <h2>Edge Computing</h2>
-  <p>Modern CDNs don't just cache — they <em>compute</em>. Edge functions (Cloudflare Workers, Vercel Edge, AWS Lambda@Edge) let you run code at the CDN POP (Point of Presence).</p>
-  <p>Why does this matter? Consider:</p>
-  <ul>
-    <li><strong>A/B testing</strong> — Decide which variant to serve at the edge, not at origin.</li>
-    <li><strong>Request transformation</strong> — Rewrite headers, alter paths, combine files.</li>
-    <li><strong>Authentication</strong> — Validate JWTs at the edge before requests even reach your API.</li>
-    <li><strong>Geographic routing</strong> — Serve different content based on user location.</li>
-  </ul>
-  <p>The shift is fundamental: from "CDN = cache" to "CDN = programmable edge infrastructure."</p>
+  <p>The trade-off: cache hit rate vs. stale content. Higher TTL = better performance, worse freshness.</p>
 
-  <h2>How Requests Get Routed</h2>
-  <p>When you type a domain name, DNS resolution happens. CDNs intercept this:</p>
-  <ol>
-    <li><strong>Anycast DNS</strong> — The CDN returns the same IP address to everyone, but that IP routes to the <em>nearest</em> POP based on network topology.</li>
-    <li><strong>GeoIP routing</strong> — Map the user's IP to a geographic location and serve from the nearest POP.</li>
-    <li><strong>Latency-based routing</strong> — Some CDNs measure real RTT to user and pick the fastest POP dynamically.</li>
-  </ol>
-  <p>The magic is that the user doesn't configure anything. They just use the domain name, and the CDN handles the routing.</p>
+  <h2>TLS Termination</h2>
 
-  <h2>SSL/TLS Termination</h2>
-  <p>Every connection to a CDN is encrypted (HTTPS). The CDN terminates the TLS connection, then connects to the origin (often over a private link or also-encrypted).</p>
-  <p>Benefits:</p>
+  <p>When you use a CDN, the TLS handshake happens at the edge, not your origin. User → edge (TLS) → origin (plain HTTP or TLS).</p>
+
+  <p>This means:</p>
+
   <ul>
-    <li>Offloads CPU-intensive encryption from the origin.</li>
-    <li>Origins can use self-signed certs on internal networks.</li>
-    <li>CDN manages certificates, renewal, and cipher suites.</li>
+    <li>Your origin never sees a raw TCP connection — it receives proxied requests.</li>
+    <li>CDNs manage certificates for you (Let's Encrypt, automated renewal).</li>
+    <li>Latency drops because the expensive crypto handshake ends closer to the user.</li>
   </ul>
 
-  <h2>DDOS Protection</h2>
-  <p>CDNs sit between the internet and your origin. That positioning makes them ideal for absorbing attacks:</p>
-  <ul>
-    <li><strong>Volume-based attacks</strong> — A 100Gbps attack against your origin becomes 100GB spread across the CDN's 200+ POPs. Each POP handles a fraction.</li>
-    <li><strong>Protocol attacks (SYN flood, etc.)</strong> — Edge nodes can validate and drop malformed packets before they reach you.</li>
-    <li><strong>Application-layer attacks</strong> — Rate limiting, CAPTCHA challenges, behavioral analysis.</li>
-  </ul>
-  <p>Cloudflare, Akamai, and Fastly all built their reputations partly on surviving attacks that would have crushed unprotected origins.</p>
+  <p>But there's a trust implication: the CDN can see all your traffic. That's not nothing.</p>
 
-  <h2>Origin Shielding</h2>
-  <p>Even with a CDN, you still need to protect the origin. <strong>Origin shielding</strong> means requests from CDN POPs go through a "shield" node before hitting origin.</p>
-  <p>Multiple CDN POPs in a region share one shield. If 100 users request the same uncached file, only <em>one</em> request goes to origin. The shield serves all 100 POPs.</p>
-  <p>This reduces origin load dramatically for popular content.</p>
+  <h2>DNS Resolution</h2>
 
-  <h2>Streaming and Media Delivery</h2>
-  <p>For video, CDNs do more than cache. They handle:</p>
+  <p>CDNs use Anycast: multiple servers share the same IP address. DNS returns that IP, and the network routes the user to the <em>closest</em> node based on BGP paths.</p>
+
+  <p>This is why changing DNS to use Cloudflare makes "the internet feel faster" — you're not just using Cloudflare's cache, you're getting routed to a nearby edge node for everything, not just cached content.</p>
+
+  <h2>DDoS Mitigation</h2>
+
+  <p>This is where Cloudflare and similar shine. They absorb volumetric attacks (DNS amplification, SYN floods) by:</p>
+
   <ul>
-    <li><strong>Adaptive bitrate streaming</strong> — Transcode on-the-fly into multiple quality levels (HLS, DASH).</li>
-    <li><strong>Chunked delivery</strong> — Video isn't one file — it's thousands of tiny chunks. The CDN prefetches chunks users <em>will</em> watch.</li>
-    <li><strong>HLS/DASH segmentation</strong> — Break video into 2-10 second segments, each independently cacheable.</li>
+    <li><strong>Capacity</strong> — Tbps of edge bandwidth that would crush a single origin.</li>
+    <li><strong>Rate limiting</strong> — blocking IPs or patterns that exceed thresholds.</li>
+    <li><strong>Challenge pages</strong> — CAPTCHA or JS challenges for suspicious traffic.</li>
+    <li><strong>Bot detection</strong> — fingerprinting clients, behavioral analysis.</li>
   </ul>
 
-  <h2>The Economics</h2>
-  <p>CDNs charge by data transfer. But the cost structure creates interesting incentives:</p>
+  <p>The dirty secret: DDoS protection is also a data collection mechanism. To filter traffic, they need to inspect it. If you want maximum privacy, self-hosting might look better — but then you're exposed.</p>
+
+  <h2>What CDNs Don't Do</h2>
+
+  <p>CDNs are not magic. They don't fix:</p>
+
   <ul>
-    <li><strong>Bandwidth savings</strong> — Even with caching, you pay for egress from the CDN. But it's dramatically cheaper than origin bandwidth.</li>
-    <li><strong>Request pricing</strong> — Some CDNs charge per request, not just data. High-cache-hit ratios minimize this.</li>
-    <li><strong>Origin savings</strong> — Your origin server can be smaller, cheaper, more specialized. The CDN handles the heavy lifting.</li>
+    <li><strong>Slow origin</strong> — if your API behind the CDN is slow, caching helps only for cacheable responses.</li>
+    <li><strong>Dynamic content</strong> — personalized responses can't be cached the same way.</li>
+    <li><strong>Bad architecture</strong> — a monolithic app behind a CDN is still a monolith.</li>
   </ul>
 
-  <h2>What's Missing from Most CDN Explanations</h2>
-  <p>Everyone talks about caching. But the less-discussed aspects matter more for advanced use:</p>
-  <ul>
-    <li><strong>Stale-while-revalidate</strong> — Serve stale content while fetching fresh in the background. Users don't wait.</li>
-    <li><strong>Stale-if-error</strong> — Serve cached content even when the origin returns an error.</li>
-    <li><strong>Early hints</strong> — CDN sends hints to browser about what to pre-load before the full response is ready.</li>
-    <li><strong>HTTP/2 and HTTP/3 push</strong> — Multiplexing and 0-RTT connection establishment at the edge.</li>
-  </ul>
+  <h2>The Consolidation Problem</h2>
 
-  <h2>Bottom Line</h2>
-  <p>A CDN is no longer optional infrastructure. It's the edge layer of the internet. It caches, routes, encrypts, protects, computes, and optimizes. The origin is now just one server among many — the CDN is where most of the internet actually lives.</p>
-  <p>The next evolution is already here: edge databases (Cloudflare D1, Turso), edge AI inference, and persistent edge storage. The origin server may eventually become just a source of truth, not a serving endpoint.</p>
+  <p>Most of the internet now routes through a handful of CDNs. Cloudflare alone handles something like 20%+ of global web traffic. That's incredible concentration — and it means a CDN outage takes down a huge chunk of the web.</p>
+
+  <p>There's no easy answer. The efficiency gains are real. But we've traded origin reliability for edge reliability, and the edge is shared infrastructure.</p>
+
+  <hr>
+
+  <p><em>The takeaway: CDNs are proxy layers that handle caching, TLS, DNS, and attack mitigation at the edge. They're not optional for any serious site — but understanding what they do (and don't do) matters. The privacy trade-off is real, and the consolidation is a systemic risk.</em></p>
 </div>
 </body>
 </html>
