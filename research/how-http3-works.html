@@ -4,52 +4,71 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How HTTP/3 Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive on HTTP/3 — QUIC, UDP, and why the third version rewrote the foundation.">
+<meta name="description" content="Deep dive into HTTP/3, QUIC, and why the transport layer redesign matters.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How HTTP/3 Works</h1>
-  <div class="meta">March 9, 2026</div>
+  <div class="meta">March 20, 2026</div>
 
-  <p>HTTP/3 isn't HTTP/2 with a version bump. It's HTTP/2 rewritten on a different foundation. The biggest change: TCP is out, UDP is in. That's not a small tweak — that's a philosophical shift in how the web moves data.</p>
+  <p>HTTP/3 isn't just HTTP/2 with a version bump. It's a fundamental redesign — not at the application layer, but at the transport layer. Here's what actually changed and why it matters.</p>
 
-  <h2>What HTTP/2 Got Right (And Wrong)</h2>
-  <p>HTTP/2 introduced multiplexing — multiple requests over a single TCP connection. No more head-of-line blocking at the application layer. But TCP still has a problem: if one packet drops, every stream on that connection waits. That's head-of-line blocking at the transport layer, and it's invisible to the application but brutal in practice.</p>
-  
-  <p>On a perfect fiber connection, this doesn't matter. On mobile networks, shaky WiFi, or anything with packet loss, HTTP/2 can actually be slower than HTTP/1.1 with multiple connections.</p>
+  <h2>The Problem with HTTP/2</h2>
+
+  <p>HTTP/2 solved head-of-line blocking at the protocol level. Multiplexing meant multiple requests could share a single TCP connection. No more HTTP/1.1 pipelelling mess.</p>
+
+  <p>But there's a catch: TCP is a reliable, ordered byte stream. If one packet drops, the operating system holds all data until that packet is retransmitted. Every stream on that connection stalls. This is <em>TCP head-of-line blocking</em>, and HTTP/2 can't escape it because it's baked into TCP itself.</p>
+
+  <p>HTTP/2 made things faster in ideal conditions. But on lossy networks — mobile, WiFi, satellite — it could actually be slower than HTTP/1.1.</p>
 
   <h2>Enter QUIC</h2>
-  <p>QUIC (Quick UDP Internet Connections) is the transport protocol that powers HTTP/3. Developed by Google, then standardized by IETF. It runs over UDP instead of TCP.</p>
-  
-  <p>Why UDP? Because UDP doesn't have the overhead of connection establishment and reliability. You can start sending data immediately. And QUIC rebuilds everything TCP provides — reliability, ordering, congestion control — at the application layer, on top of UDP.</p>
 
-  <h3>Connection Establishment</h3>
-  <p>TCP requires a three-way handshake (SYN, SYN-ACK, ACK) before data flows. That's 1.5 round trips. TLS adds 2 more. QUIC combines transport and crypto handshakes into 1 round trip, often 0. First data can fly in the first flight of packets.</p>
+  <p>QUIC (Quick UDP Internet Connections) is Google's protocol that became RFC 9000 in 2021. It replaces TCP with UDP as the underlying transport.</p>
 
-  <h3>Streams</h3>
-  <p>Like HTTP/2, QUIC has streams. But unlike HTTP/2's streams over a single TCP connection, QUIC streams are independent. If one stream loses a packet, only that stream blocks. Other streams keep flowing. That's the death of head-of-line blocking.</p>
+  <p>That sounds counterintuitive. UDP has no reliability, no ordering, no flow control. How is that better?</p>
 
-  <h3>Connection Migration</h3>
-  <p>QUIC connections are identified by a connection ID, not a 4-tuple (src IP, src port, dst IP, dst port). That means when your laptop switches from WiFi to cellular, or your phone moves between cell towers, the connection survives. Try that with TCP.</p>
+  <p>The key insight: QUIC implements all that stuff itself — on top of UDP. And it does it per-stream, not per-connection.</p>
 
-  <h2>Why This Matters</h2>
-  <p>The real gains from HTTP/3 show up on lossy networks. Mobile. Shaky conference WiFi. Satellite links. The places where TCP's reliability guarantees become liabilities. QUIC's independent streams mean a lost packet doesn't freeze your entire page load.</p>
-  
-  <p>HTTP/3 also encrypts more metadata than TLS does. TCP sequence numbers are visible to network observers. QUIC encrypts almost everything, including connection IDs and flow control information. Better privacy, by default.</p>
+  <h3>Connection IDs</h3>
 
-  <h2>The Tradeoffs</h2>
-  <p>UDP gets blocked by some firewalls that only allow TCP. NATs sometimes struggle with QUIC's connection migration. There's overhead in rebuilding reliability at the application layer. And on pristine networks with zero packet loss, HTTP/3 doesn't beat HTTP/2 by much.</p>
-  
-  <p>But the world isn't pristine. Most connections deal with some loss, some latency variance, some network switching. HTTP/3 is built for that world.</p>
+  <p>QUIC connections are identified by connection IDs, not by the classic (IP, port) tuple. This means they survive network transitions — you can switch from WiFi to mobile and the connection keeps alive. Try that with TCP.</p>
 
-  <h2>The Bigger Picture</h2>
-  <p>Sometimes the best optimization isn't tuning what you have — it's replacing the foundation. HTTP/3 didn't optimize TCP. It said "this layer is the bottleneck, let's build beneath it." That's not incremental improvement. That's a different bet.</p>
-  
-  <p>The web runs on assumptions made in 1981 (TCP) and 1999 (HTTP/1.1). HTTP/3 is the first version that wasn't constrained by backward compatibility with a protocol designed for reliable wired networks. It assumes loss. It assumes mobility. It assumes encryption.</p>
-  
-  <p>Turns out, those were safe assumptions.</p>
+  <h3>0-RTT</h3>
+
+  <p>After the first handshake, subsequent connections to the same server can establish in zero round trips. The client encrypts data using keys cached from the previous session. This shaves off an entire RTT from connection setup. For latency-sensitive apps, this is huge.</p>
+
+  <h3>Stream Multiplexing Without Blocking</h3>
+
+  <p>In QUIC, each stream is independent. If stream 3 drops a packet, streams 1, 2, 4, 5 keep flowing. No more waiting for the straggler. This is the real HTTP/3 win.</p>
+
+  <h2>Encryption by Default</h2>
+
+  <p>QUIC requires encryption. Unlike TLS over TCP, QUIC encrypts everything — including headers. This protects metadata that TCP exposes (sequence numbers, ack ranges). The protocol was designed with security from day one, not bolted on afterward.</p>
+
+  <h2>What's Actually Faster?</h2>
+
+  <p>Real-world benchmarks vary. On clean networks with low latency, HTTP/2 and HTTP/3 are roughly equivalent. On lossy networks, mobile connections, or across network transitions — HTTP/3 wins significantly.</p>
+
+  <p>The 0-RTT benefit shows up most on repeated visits to the same site. The multiplexing benefit shows up when networks are imperfect.</p>
+
+  <h2>What Didn't Change</h2>
+
+  <p>HTTP semantics are identical. Headers, methods, status codes — all the same. The change is purely at the transport layer. Your application code doesn't care whether you're using HTTP/1.1, 2, or 3.</p>
+
+  <h2>The Catch</h2>
+
+  <p>HTTP/3 requires UDP support. Some networks (corporate firewalls, proxies) block UDP port 443. In those environments, clients fall back to HTTP/2. That's fine — the protocol includes a negotiation mechanism (Alt-Svc headers) to discover HTTP/3 support.</p>
+
+  <p>Also, the TLS handshake is integrated into QUIC's handshake. This reduces round trips but adds complexity. The crypto and transport are intertwined in ways TCP+TLS never were.</p>
+
+  <h2>Summary</h2>
+
+  <p>HTTP/3 isn't a revolution in what HTTP <em>does</em>. It's a revolution in how data gets from A to B. QUIC fixes the fundamental limitation of TCP: that a single dropped packet blocks everything. By moving to UDP and building reliability at the stream level, HTTP/3 handles real-world networks better than its predecessors.</p>
+
+  <p>Whether you notice the difference depends on your network. But for mobile users, global audiences, and anyone on less-than-perfect connections — it's a meaningful improvement.</p>
+
 </div>
 </body>
 </html>
