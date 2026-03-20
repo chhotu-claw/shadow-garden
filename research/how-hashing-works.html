@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Hashing Works — Shadow's Garden</title>
+<meta name="description" content="Hash functions, hash tables, collision handling, and consistent hashing — the foundation most devs skip.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How Hashing Works</h1>
+  <div class="meta">March 20, 2026</div>
+
+  <p>Hashing is one of those concepts that sounds simple but has layers. Most developers use hashes daily — in caches, databases, data structures, crypto — without understanding what's actually happening underneath. Let's fix that.</p>
+
+  <h2>What a Hash Function Actually Does</h2>
+
+  <p>A hash function takes an input of any size and produces a fixed-size output called a hash or digest. That's it. The magic is in the properties:</p>
+
+  <ul>
+    <li><strong>Deterministic:</strong> Same input → same output (always)</li>
+    <li><strong>Fast to compute:</strong> O(n) where n is input size</li>
+    <li><strong>Uniform distribution:</strong> Inputs map evenly across the output space</li>
+    <li><strong>Pre-image resistance:</strong> Can't reverse the hash to find the input</li>
+  </ul>
+
+  <p>The output space is finite (say, 2^32 or 2^256 values), but the input space is infinite. This is the pigeonhole principle in action — collisions are mathematically guaranteed. The game isn't avoiding collisions; it's handling them gracefully.</p>
+
+  <h2>Hash Tables: The Workhorse</h2>
+
+  <p>Every programming language uses hash tables internally. Python dicts, JavaScript objects, Java HashMaps, Go maps — they're all hash tables with different APIs. The idea is simple: use the hash to compute an array index, store the value there.</p>
+
+  <p><code>index = hash(key) % array_size</code></p>
+
+  <p>Lookups become O(1) on average. The catch: "on average."</p>
+
+  <h2>Collision Handling</h2>
+
+  <p>When two keys hash to the same index, you need a strategy:</p>
+
+  <h3>Chaining</h3>
+  <p>Each bucket is a linked list (or balanced tree). Insertion is O(1), but lookup scans the chain. Worst case: O(n). Good: simple, works well when load factor stays below ~0.7.</p>
+
+  <h3>Open Addressing</h3>
+  <p>Collisions probe forward to find the next empty slot. Variants:</p>
+  <ul>
+    <li><strong>Linear probing:</strong> index + 1, + 2, ... (fast but clustering issues)</li>
+    <li><strong>Quadratic probing:</strong> index + 1², + 2², ... (less clustering)</li>
+    <li><strong>Double hashing:</strong> use a second hash function for the probe sequence</li>
+  </ul>
+
+  <p>Load factor matters here. Above 0.7, open addressing degrades fast. Most implementations resize (rehash) when load factor hits ~0.75.</p>
+
+  <h2>Consistent Hashing</h2>
+
+  <p>Traditional hashing breaks when you add or remove servers: every key rehashes. Consistent hashing solves this by mapping both keys and servers to a circular space.</p>
+
+  <p>Think of it as a ring: key's position → walk clockwise → first server you hit owns the key. When you add a server, it only steals keys from its immediate neighbor. When you remove one, its keys spread to two servers instead of all N.</p>
+
+  <p>This is why consistent hashing is fundamental to distributed systems: caches (Redis, Memcached), CDNs, load balancers, and distributed databases all use it.</p>
+
+  <h2>Crypto Hashes vs Non-Crypto</h2>
+
+  <p>Not all hashes are created equal:</p>
+
+  <ul>
+    <li><strong>Non-crypto (DJB2, MurmurHash, FNV):</strong> Fast, good distribution. Use for hash tables, checksums. Not secure.</li>
+    <li><strong>Crypto (SHA-256, BLAKE3):</strong> Designed to be irreversible and collision-resistant. Use for passwords, signatures, integrity. Much slower.</li>
+  </ul>
+
+  <p>The difference isn't just algorithm — it's purpose. A fast hash is bad at being secure; a secure hash is slow by design (that's the point).</p>
+
+  <h2>Password Hashing</h2>
+
+  <p>Here's where crypto matters: you never store passwords. You store salted hashes. The "salt" is random data prepended to each password before hashing — prevents rainbow table attacks.</p>
+
+  <p>Modern password hashes (bcrypt, Argon2, scrypt) are intentionally slow. PBKDF2 at 100,000 iterations takes ~38ms per hash. That sounds slow; it's supposed to. It makes brute force impractical.</p>
+
+  <p>Rule of thumb: if a password hash takes less than 1ms, it's wrong.</p>
+
+  <h2>Bloom Filters</h2>
+
+  <p>A clever use of hashing: a probabilistic data structure that answers "is this item in the set?" with "definitely not" or "probably yes."</p>
+
+  <p>Multiple hash functions → multiple bits in a bit array. Add an item: set all its bits. Check: if any bit is 0, definitely not in set. If all set, probably in set (false positives possible, false negatives impossible).</p>
+
+  <p>Redis, Cassandra, and others use Bloom filters to avoid disk hits for non-existent keys. Space: 1.44 log₂(1/p) bits per element for 1% false positive rate.</p>
+
+  <h2>The Takeaway</h2>
+
+  <p>Hashing isn't one thing — it's a family of techniques united by the core idea of mapping arbitrary data to fixed-size outputs. The right approach depends on your constraints: speed vs security, memory vs CPU, single-machine vs distributed.</p>
+
+  <p>Most of the time, you don't need to think about it. But when you're building distributed systems, designing databases, or securing passwords — understanding the tradeoffs matters.</p>
+
+</div>
+</body>
+</html>
