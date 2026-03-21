@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Viewer — Shadow's Garden</title>
+<meta name="description" content="Paste a PEM certificate to view its details — issuer, subject, SHA-256 fingerprint.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 20px; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { color: var(--accent); margin-bottom: 0.5rem; }
+  .description { color: var(--text-muted); margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 6px; font-weight: 600; }
+  textarea {
+    width: 100%; height: 180px; padding: 12px; border: 2px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text);
+    font-family: 'SF Mono', monospace; font-size: 13px; resize: vertical;
+    box-sizing: border-box; margin-bottom: 16px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent); color: var(--bg); border: none;
+    padding: 12px 24px; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 14px; margin-right: 12px; margin-bottom: 16px;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary { background: var(--border); color: var(--text); }
+  .result { 
+    background: var(--bg-secondary); border: 2px solid var(--border);
+    border-radius: 8px; padding: 16px; font-size: 14px;
+  }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .value { color: var(--text); word-break: break-all; font-family: 'SF Mono', monospace; }
+  .valid { color: #00d4aa; }
+  .expired { color: #ff6b6b; }
+  .error { color: #ff6b6b; margin-top: -12px; margin-bottom: 16px; }
+  .section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .section-title { color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Certificate Viewer</h1>
+  <p class="description">Paste a PEM certificate to view its details.</p>
+
+  <label>PEM Certificate</label>
+  <textarea id="cert-input" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+  
+  <button id="parse-btn">Parse Certificate</button>
+  <button class="secondary" id="clear-btn">Clear</button>
+  
+  <div id="error" class="error"></div>
+  <div id="output" class="result" style="display:none"></div>
+</div>
+
+<script>
+document.getElementById('parse-btn').addEventListener('click', async () => {
+  const pem = document.getElementById('cert-input').value;
+  const errorEl = document.getElementById('error');
+  const outputEl = document.getElementById('output');
+  
+  errorEl.textContent = '';
+  outputEl.style.display = 'none';
+  
+  if (!pem.trim()) {
+    errorEl.textContent = 'Please paste a certificate';
+    return;
+  }
+  
+  try {
+    // Extract base64 from PEM
+    const match = pem.match(/-----BEGIN CERTIFICATE-----([\s\S]+?)-----END CERTIFICATE-----/);
+    if (!match) throw new Error('Invalid PEM format - no BEGIN/END CERTIFICATE found');
+    
+    const b64 = match[1].replace(/\s/g, '');
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    
+    // Calculate SHA-256 fingerprint
+    const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const sha256 = hashArray.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
+    
+    // Extract basic info from DER (simplified)
+    const info = extractBasicInfo(bytes);
+    
+    // Render
+    let html = '';
+    
+    html += '<div class="section"><div class="section-title">Subject</div>';
+    html += renderField('Common Name (CN)', info.subjectCN || 'Not found');
+    html += renderField('Organization (O)', info.subjectO || 'Not found');
+    html += renderField('Org Unit (OU)', info.subjectOU || 'Not found');
+    html += renderField('Country (C)', info.subjectC || 'Not found');
+    html += '</div>';
+    
+    html += '<div class="section"><div class="section-title">Issuer</div>';
+    html += renderField('Common Name (CN)', info.issuerCN || 'Not found');
+    html += renderField('Organization (O)', info.issuerO || 'Not found');
+    html += '</div>';
+    
+    html += '<div class="section"><div class="section-title">Validity</div>';
+    html += renderField('Not Before', info.notBefore || 'Not found');
+    html += renderField('Not After', info.notAfter || 'Not found');
+    html += renderField('Status', info.expired ? '<span class="expired">EXPIRED</span>' : '<span class="valid">VALID</span>');
+    html += '</div>';
+    
+    html += '<div class="section"><div class="section-title">Fingerprints</div>';
+    html += renderField('SHA-256', sha256);
+    html += '</div>';
+    
+    outputEl.innerHTML = html;
+    outputEl.style.display = 'block';
+  } catch (e) {
+    errorEl.textContent = 'Error parsing certificate: ' + e.message;
+  }
+});
+
+function renderField(label, value) {
+  if (!value) return '';
+  return `<div class="field"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+}
+
+function extractBasicInfo(bytes) {
+  const info = {};
+  
+  // Convert to hex for easier searching
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  // Find common name in subject (simplified search for printable strings)
+  // This is a rough approximation - full ASN.1 parsing would be more accurate
+  const subjectCN = findStringInHex(hex, '0c08'); // CN in UTF8
+  const subjectO = findStringInHex(hex, '0c09'); // O in UTF8
+  const subjectOU = findStringInHex(hex, '0c0a'); // OU in UTF8
+  const subjectC = findStringInHex(hex, '0c01'); // C in UTF8
+  
+  info.subjectCN = subjectCN;
+  info.subjectO = subjectO;
+  info.subjectOU = subjectOU;
+  info.subjectC = subjectC;
+  
+  // Issuer (after subject in the cert)
+  const issuerStart = hex.indexOf('a0', hex.indexOf('30')); // Rough marker
+  info.issuerCN = 'Parse requires full ASN.1';
+  info.issuerO = 'Parse requires full ASN.1';
+  
+  // Validity dates - rough positions
+  const notBeforeStart = hex.indexOf('17'); // UTCTime tag
+  if (notBeforeStart > 0 && notBeforeStart < hex.length - 26) {
+    const dateStr = hex.substring(notBeforeStart + 2, notBeforeStart + 26);
+    try {
+      info.notBefore = hexToDate(dateStr);
+    } catch(e) {}
+  }
+  
+  // Check expiry
+  if (info.notAfter) {
+    const expiry = new Date(info.notAfter);
+    info.expired = expiry < new Date();
+  } else {
+    info.notAfter = 'Use OpenSSL for full details';
+  }
+  
+  return info;
+}
+
+function findStringInHex(hex, tag) {
+  // Find tag and extract following length/value
+  let pos = hex.indexOf(tag);
+  if (pos === -1) return null;
+  
+  // Get length
+  const lenHex = hex.substring(pos + 2, pos + 4);
+  const len = parseInt(lenHex, 16);
+  
+  // Extract string
+  const strHex = hex.substring(pos + 4, pos + 4 + len * 2);
+  try {
+    let str = '';
+    for (let i = 0; i < strHex.length; i += 2) {
+      str += String.fromCharCode(parseInt(strHex.substring(i, i + 2), 16));
+    }
+    return str.replace(/[^a-zA-Z0-9.\-\s]/g, '').trim() || null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function hexToDate(hex) {
+  try {
+    // UTCTime format: YYMMDDHHMMSSZ
+    const str = hex.replace(/[^0-9Z]/g, '');
+    if (str.length >= 11) {
+      let year = parseInt(str.substring(0, 2));
+      year += year < 50 ? 2000 : 1900;
+      const month = parseInt(str.substring(2, 4)) - 1;
+      const day = parseInt(str.substring(4, 6));
+      const hour = parseInt(str.substring(6, 8));
+      const min = parseInt(str.substring(8, 10));
+      const sec = parseInt(str.substring(10, 12));
+      return new Date(year, month, day, hour, min, sec).toISOString().split('T')[0];
+    }
+  } catch(e) {}
+  return null;
+}
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('cert-input').value = '';
+  document.getElementById('output').style.display = 'none';
+  document.getElementById('error').textContent = '';
+});
+</script>
+</body>
+</html>

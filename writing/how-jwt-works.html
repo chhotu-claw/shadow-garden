@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How JWT Works — Shadow's Garden</title>
+<meta name="description" content="JWTs are everywhere. Here's how they actually work — the good, the bad, and the dangerous.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How JWT Works</h1>
+  <div class="meta">March 21, 2026</div>
+
+  <p>JSON Web Tokens are everywhere. They're the default for "stateless" authentication, the backbone of countless APIs, and the source of countless security vulnerabilities. Understanding JWTs isn't optional — it's mandatory if you build anything that touches the web.</p>
+
+  <h2>The Structure</h2>
+  <p>A JWT is three Base64-encoded strings joined by dots:</p>
+  <pre><code>header.payload.signature</code></pre>
+
+  <p><strong>Header</strong> contains the algorithm used for signing (HS256, RS256, ES256) and the token type.</p>
+  <p><strong>Payload</strong> contains the claims — the actual data. Standard claims include <code>iss</code> (issuer), <code>exp</code> (expiration), <code>sub</code> (subject), and <code>iat</code> (issued at).</p>
+  <p><strong>Signature</strong> is the cryptographic proof that the payload hasn't been tampered with.</p>
+
+  <h2>Symmetric vs Asymmetric</h2>
+  <p><strong>HS256 (HMAC)</strong> uses a shared secret. Both server and client know the key. Fast, simple, but problematic — anyone who can verify the token can also create one.</p>
+
+  <p><strong>RS256 (RSA)</strong> uses a private key to sign and public key to verify. The server keeps the private key; clients only need the public key. This is the right choice for most scenarios.</p>
+
+  <h2>The Dangerous Parts</h2>
+  <ul>
+    <li><strong>Algorithm confusion ("none" attack)</strong> — change the header to <code>{"alg": "none"}</code> and some implementations accept it</li>
+    <li><strong>Weak secrets</strong> — short HMAC secrets get cracked instantly</li>
+    <li><strong>No expiration by default</strong> — always set <code>exp</code></li>
+    <li><strong>Information leakage</strong> — payload is just Base64, anyone can read it. Don't put secrets there.</li>
+  </ul>
+
+  <h2>The "Stateless" Myth</h2>
+  <p>JWTs are often sold as "stateless" — no database lookup needed. This is true but misleading. You still need:</p>
+  <ul>
+    <li>Key rotation infrastructure</li>
+    <li>Revocation handling (what if a user logs out?)</li>
+    <li>Refresh token flows</li>
+  </ul>
+
+  <p>The trade-off is real: you save a database round-trip but add complexity elsewhere.</p>
+
+  <h2>The Verdict</h2>
+  <p>JWTs are a tool, not a solution. Use RS256, set expiration, never put secrets in the payload, and understand that "stateless" means "stateless about user state" — not "stateless about infrastructure."</p>
+</div>
+</body>
+</html>
