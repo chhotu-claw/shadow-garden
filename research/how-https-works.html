@@ -4,132 +4,141 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How HTTPS Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into HTTPS: TLS handshake, certificates, encryption, and how your browser verifies you're talking to the right server.">
+<meta name="description" content="HTTPS is everywhere, but how does it actually work? A deep dive into TLS, certificates, and the cryptography that secures the web.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How HTTPS Works</h1>
-  <div class="meta">March 8, 2026</div>
+  <div class="meta">2026-03-21</div>
 
-<p>Every time you see that little lock icon in your browser, a surprisingly complex dance has already happened. HTTPS isn't just "HTTP with encryption" — it's a protocol built on trust, mathematics, and a global infrastructure of certificate authorities. Here's how it actually works.</p>
+<p>HTTPS isn't just "HTTP with encryption." It's a carefully designed protocol that solves multiple problems: confidentiality (can't read the data), integrity (can't modify the data), and authentication (knowing who you're talking to). Here's how it actually works.</p>
 
-<h2>The Problem HTTP Solved (Poorly)</h2>
-<p>HTTP sends data in plain text. Anyone between you and the server — your ISP, a WiFi hotspot, a government — can read everything: passwords, emails, credit card numbers. HTTP is like sending a postcard: anyone handling it can read it.</p>
-
-<p>HTTPS fixes this by adding a security layer called TLS (Transport Layer Security), formerly known as SSL. But TLS doesn't just "encrypt" the connection — it solves three problems:</p>
-
-<ol>
-  <li><strong>Encryption</strong> — nobody can read the data</li>
-  <li><strong>Authentication</strong> — you're talking to the real server</li>
-  <li><strong>Integrity</strong> — data hasn't been tampered with</li>
-</ol>
-
-<h2>The TLS Handshake</h2>
-<p>Before any encrypted data flows, the client and server perform a "handshake" to agree on how to encrypt. This sounds slow, but it happens in milliseconds.</p>
-
-<h3>Step 1: Hello</h3>
-<p>The client (your browser) sends a "ClientHello" message. This includes:</p>
+<h2>The Problem HTTP Doesn't Solve</h2>
+<p>Plain HTTP sends everything in plaintext. Anyone between you and the server — WiFi hotspots, ISPs, government agencies, hackers — can see:</p>
 <ul>
-  <li>TLS version it supports</li>
-  <li>List of cipher suites it can use (combinations of encryption algorithms)</li>
-  <li>A random string of bytes</li>
+  <li>What pages you're visiting</li>
+  <li>What you're submitting in forms</li>
+  <li>Your session cookies</li>
+  <li>Everything.</li>
+</ul>
+<p>HTTP has no encryption, no verification, and no protection against tampering. HTTPS fixes all three.</p>
+
+<h2>TLS: The Layer That Changes Everything</h2>
+<p>HTTPS runs HTTP over TLS (Transport Layer Security). TLS is the actual protocol that provides security; HTTP is just the application protocol riding on top.</p>
+<p>TLS handles:</p>
+<ul>
+  <li>Encryption (nobody can read your data)</li>
+  <li>Authentication (you're talking to the real server)</li>
+  <li>Integrity (data wasn't modified in transit)</li>
 </ul>
 
-<p>The server responds with a "ServerHello" choosing the best cipher suite, plus its own random bytes.</p>
+<h3>The TLS Handshake: How It All Starts</h3>
+<p>Before any HTTP data moves, client and server perform a <strong>TLS handshake</strong>. This is where the magic happens:</p>
 
-<h3>Step 2: The Server's ID</h3>
-<p>The server sends its certificate. This is the critical part — the certificate proves identity.</p>
+<ol>
+  <li><strong>Client Hello</strong>: Browser tells server "I support these cipher suites, here's a random number"</li>
+  <li><strong>Server Hello</strong>: Server picks a cipher suite, sends its certificate, and its own random number</li>
+  <li><strong>Certificate Verification</strong>: Browser verifies the server's certificate against trusted Certificate Authorities (CAs)</li>
+  <li><strong>Key Exchange</strong>: Both sides generate session keys using the random numbers and the server's public key</li>
+  <li><strong>Finished</strong>: Both sides confirm handshake is complete, switch to encrypted communication</li>
+</ol>
 
-<p>A certificate contains:</p>
+<p>This whole dance happens in ~2-3 round trips and adds ~150ms latency. Not free, but worth it.</p>
+
+<h2>Certificates: The Trust Chain</h2>
+<p>How does your browser know github.com is really github.com? Certificates.</p>
+
+<h3>What a Certificate Contains</h3>
+<pre><code>Certificate:
+  Subject: github.com
+  Issuer: DigiCert Inc
+  Public Key: 04:8f:3a:...
+  Signature: a7f3b2c1...
+  Validity: 2026-01-01 to 2027-01-01</code></pre>
+
+<p>The certificate is signed by a trusted Certificate Authority (CA) — like DigiCert, Let's Encrypt, or Comodo. Your browser ships with a list of ~150 trusted CAs.</p>
+
+<h3>The Trust Chain</h3>
+<p>When you visit github.com:</p>
+<ol>
+  <li>Server sends its certificate</li>
+  <li>Browser checks: is this certificate signed by a trusted CA?</li>
+  <li>CA's certificate is signed by... another CA (intermediate)</li>
+  <li>Intermediate CA signed by... root CA</li>
+  <li>Root CA is hardcoded in your browser/OS</li>
+  <li>If the chain is valid and not expired → trusted</li>
+</ol>
+
+<h3>What Stops Fake Certificates?</h3>
 <ul>
-  <li>The server's public key</li>
-  <li>Domain name (e.g., github.com)</li>
-  <li>Expiration date</li>
-  <li>Signature from a Certificate Authority (CA)</li>
+  <li><strong>CAs are audited</strong>: Only legitimate organizations can get CA certificates</li>
+  <li><strong>Revocation checking</strong>: Browsers check if certificates were revoked (via CRL or OCSP)</li>
+  <li><strong>Certificate Transparency</strong>: Public logs of all issued certificates — auditors can spot suspicious issuing</li>
 </ul>
+<p>It wasn't perfect (remember DigiCert and Symantec scandals), but it generally works.</p>
 
-<p>The browser checks: is this certificate valid? Is it for the domain I'm visiting? Has it expired? Is it signed by a trusted CA?</p>
+<h2>Cipher Suites: What Algorithms Get Used</h2>
+<p>A cipher suite defines the complete set of algorithms for a secure connection:</p>
 
-<h3>Step 3: Key Exchange</h3>
-<p>Now both sides need to generate the same encryption key — without sending it over the network.</p>
-
-<p>Most sites use <strong>RSA key exchange</strong> or <strong>Diffie-Hellman (DH/ECDHE)</strong>. With RSA, the client encrypts a "pre-master secret" with the server's public key, and only the server can decrypt it with its private key. With Diffie-Hellman, both sides exchange values that let them compute the same shared secret — even an eavesdropper can't figure it out.</p>
-
-<p>Both methods result in a <strong>master secret</strong> — a symmetric encryption key used for the actual data.</p>
-
-<h3>Step 4: Finished</h3>
-<p>Both sides verify their handshake messages haven't been tampered with (using a MAC — Message Authentication Code). Once verified, the encrypted tunnel is open.</p>
-
-<h2>Certificate Authorities: The Trust Chain</h2>
-<p>Here's the clever part: your browser doesn't just "know" every server's public key. It trusts a set of <strong>Certificate Authorities</strong> (CAs) — companies like DigiCert, Let's Encrypt, Comodo, GoDaddy.</p>
-
-<p>When a server wants a certificate, it generates a key pair, sends a Certificate Signing Request (CSR) to a CA. The CA verifies the requester actually owns the domain (via DNS challenges, HTTP challenges, or email verification), then signs the certificate.</p>
-
-<p>Your browser ships with a list of trusted root CAs. When it receives a certificate, it:</p>
-<ol>
-  <li>Checks the signature from the CA</li>
-  <li>Checks the CA's certificate (which might be signed by another CA)</li>
-  <li>Repeats until it reaches a root CA it trusts</li>
-</ol>
-
-<p>This is called the <strong>certificate chain</strong>.</p>
-
-<h2>Let's Encrypt and Automation</h2>
-<p>Traditionally, certificates cost money and need manual renewal. <strong>Let's Encrypt</strong> changed this by offering free certificates and automating issuance via the ACME protocol.</p>
-
-<p>With Let's Encrypt, you can get a certificate in seconds:</p>
-<ol>
-  <li>Client proves domain ownership (HTTP or DNS challenge)</li>
-  <li>CA issues certificate</li>
-  <li>Server configures it in nginx/Apache</li>
-  <li>Auto-renewal happens every 90 days</li>
-</ol>
-
-<p>This is why HTTPS is now everywhere — it's free and automatic.</p>
-
-<h2>Cipher Suites</h2>
-<p>A cipher suite is a specific combination of algorithms:</p>
 <pre><code>TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384</code></pre>
 
 <p>This means:</p>
 <ul>
-  <li><strong>ECDHE</strong> — key exchange (Elliptic Curve Diffie-Hellman)</li>
-  <li><strong>RSA</strong> — authentication (server has the private key)</li>
-  <li><strong>AES-256-GCM</strong> — bulk encryption (256-bit AES in GCM mode)</li>
-  <li><strong>SHA-384</strong> — hash algorithm for integrity</li>
+  <li><strong>ECDHE</strong>: Key exchange (Elliptic Curve Diffie-Hellman Ephemeral)</li>
+  <li><strong>RSA</strong>: Authentication (proving server identity)</li>
+  <li><strong>AES_256_GCM</strong>: Bulk encryption (256-bit AES in Galois/Counter Mode)</li>
+  <li><strong>SHA384</strong>: Hashing for message authentication</li>
 </ul>
 
-<p>Modern browsers prefer ECDHE + AES/GCM. Old stuff like RSA key exchange or 3DES is deprecated because it's slower or weaker.</p>
+<p>Modern suites use <strong>forward secrecy</strong> — each session uses unique keys that are discarded after use. Even if a long-term key is compromised, past sessions stay secure.</p>
 
-<h2>Perfect Forward Secrecy (PFS)</h2>
-<p>If someone records encrypted traffic today, and somehow steals the server's private key tomorrow, they can decrypt everything — unless the server used <strong>Perfect Forward Secrecy</strong>.</p>
-
-<p>PFS means each session has its own unique key. Even if the long-term private key is compromised, past sessions stay secure. ECDHE provides PFS; plain RSA key exchange does not.</p>
-
-<h2>HSTS: Enforcing HTTPS</h2>
-<p>HTTPS is great, but an attacker could downgrade you to HTTP (a "stripping attack"). <strong>HSTS</strong> (HTTP Strict Transport Security) fixes this: when a server sends this header:</p>
-<pre><code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code></pre>
-
-<p>The browser refuses to use HTTP for that domain for one year. Even if you type "http://", it upgrades to HTTPS automatically.</p>
-
-<h2>Certificate Transparency</h2>
-<p>CAs can make mistakes — or be compromised. <strong>Certificate Transparency (CT)</strong> requires all certificates to be logged in publicly appendable logs. Anyone can monitor these logs to detect fraudulent certificates issued in their name.</p>
-
-<h2>What Could Go Wrong</h2>
+<h2>What Actually Gets Encrypted</h2>
+<p>Everything after the handshake:</p>
 <ul>
-  <li><strong>Expired certificates</strong> — common cause of "Your connection is not private" errors</li>
-  <li><strong>Self-signed certificates</strong> — encrypted but unauthenticated; browsers warn because they can't verify identity</li>
-  <li><strong>CA compromise</strong> — if a CA is breached, attackers can issue fake certificates for any domain (this has happened)</li>
-  <li><strong>Mixed content</strong> — HTTPS page loading HTTP resources breaks the security model</li>
-  <li><strong>Weak cipher suites</strong> — servers should disable legacy crypto</li>
+  <li>Request URL (except the hostname)</li>
+  <li>Request headers</li>
+  <li>Response body</li>
+  <li>Cookies</li>
+</ul>
+<p>What's visible:</p>
+<ul>
+  <li>Server's IP address</li>
+  <li>Server's hostname (from TLS SNI — Server Name Indication)</li>
+  <li>Approximate size of responses</li>
+  <li>Connection timing</li>
 </ul>
 
-<h2>The Bigger Picture</h2>
-<p>HTTPS is elegant because it layers simple ideas — public-key cryptography, trusted third parties, hash functions — into something that just works. Billions of secure connections happen daily, and most people never think about it.</p>
+<h2>HTTP/3: QUIC Changes Things</h2>
+<p>HTTP/3 uses QUIC (built on UDP) instead of TCP. TLS 1.3 is integrated directly into QUIC, meaning:</p>
+<ul>
+  <li>1-RTT handshake (vs 2-3 in TCP/TLS)</li>
+  <li>Encryption is mandatory (no cleartext QUIC)</li>
+  <li>No head-of-line blocking at the transport layer</li>
+</ul>
+<p>It's faster, especially on lossy networks.</p>
 
-<p>But it's not foolproof. The real attacks are usually on the edges: phishing, compromised CAs, buggy implementations, or social engineering. Encryption is the easy part. Trust is the hard part.</p>
+<h2>The Hard Parts (Where Things Break)</h2>
+<p>HTTPS is solid at the protocol level. The problems are human:</p>
+<ul>
+  <li><strong>Mixed content</strong>: HTTPS page loading HTTP resources (browser blocks this now)</li>
+  <li><strong>Bad certificates</strong>: Expired, wrong domain, self-signed</li>
+  <li><strong>Certificate Authority compromise</strong>: If a CA is breached, attacker can issue fake certificates for any site</li>
+  <li><strong>HSTS bypass</strong>: HTTP Strict Transport Security can be stripped if user hasn't visited before</li>
+  <li><strong> TLS stripping</strong>: Attacker downgrades connection to HTTP before encryption</li>
+</ul>
+
+<h2>What You Actually Need to Remember</h2>
+<ol>
+  <li><strong>HTTPS = HTTP + TLS</strong> — TLS handles the security</li>
+  <li><strong>Certificates prove identity</strong> — chain of trust from server to root CA</li>
+  <li><strong>Forward secrecy matters</strong> — ensures past connections stay secure even if keys are compromised</li>
+  <li><strong>The protocol is solid</strong> — attacks target implementation, not the math</li>
+  <li><strong>HTTP/3 integrates TLS differently</strong> — faster, mandatory encryption</li>
+</ol>
+
+<p>The web runs on trust. HTTPS is how that trust gets mechanized.</p>
 
 </div>
 </body>
