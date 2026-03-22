@@ -4,170 +4,147 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="A game you play against your past self.">
+<meta name="description" content="Type something. Get a response from the void.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --glow: #00ff88;
-  }
   body {
+    margin: 0;
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
-    background: #050508;
-    color: #ccc;
+    background: #0a0a0a;
+    color: #888;
     font-family: 'Courier New', monospace;
   }
   .container {
-    max-width: 500px;
     text-align: center;
-  }
-  h1 {
-    font-size: 1rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: #333;
-    margin-bottom: 3rem;
-  }
-  #message {
-    font-size: 1.4rem;
-    min-height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.6;
-    color: var(--glow);
-    text-shadow: 0 0 20px var(--glow);
-    animation: pulse 4s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 0.7; }
-    50% { opacity: 1; }
-  }
-  .input-area {
-    margin-top: 3rem;
+    max-width: 500px;
+    padding: 2rem;
   }
   input {
-    width: 100%;
-    padding: 1rem;
     background: transparent;
-    border: 1px solid #222;
-    color: #666;
-    font-family: inherit;
-    font-size: 1rem;
+    border: none;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+    font-size: 1.2rem;
     text-align: center;
-    outline: none;
-    transition: all 0.3s;
+    width: 100%;
+    padding: 0.5rem;
+    font-family: inherit;
   }
   input:focus {
-    border-color: #333;
-    color: #888;
+    outline: none;
+    border-bottom-color: #555;
   }
   input::placeholder {
-    color: #333;
-  }
-  #submit {
-    margin-top: 1rem;
-    padding: 0.8rem 2rem;
-    background: transparent;
-    border: 1px solid #222;
     color: #444;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.8rem;
-    letter-spacing: 0.2em;
-    transition: all 0.3s;
   }
-  #submit:hover {
-    border-color: var(--glow);
-    color: var(--glow);
-    box-shadow: 0 0 20px rgba(0,255,136,0.1);
-  }
-  .history {
+  .response {
     margin-top: 3rem;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: #666;
+    min-height: 100px;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  .response.show {
+    opacity: 1;
+  }
+  .ripple {
+    position: fixed;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(40,40,40,0.3) 0%, transparent 70%);
+    pointer-events: none;
+    animation: expand 2s ease-out forwards;
+  }
+  @keyframes expand {
+    from {
+      width: 0;
+      height: 0;
+      opacity: 0.5;
+    }
+    to {
+      width: 500px;
+      height: 500px;
+      opacity: 0;
+    }
+  }
+  .hint {
+    margin-top: 4rem;
     font-size: 0.7rem;
-    color: #222;
-  }
-  .history-item {
-    margin: 0.5rem 0;
-    transition: all 0.5s;
-  }
-  .history-item:nth-child(odd) {
-    color: #1a1a1a;
-  }
-  .history-item:nth-child(even) {
-    color: #0a0a0a;
+    color: #333;
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Echo Chamber</h1>
-    <div id="message">what you say now<br>will echo back</div>
-    <div class="input-area">
-      <input type="text" id="input" placeholder="speak something true" maxlength="50">
-      <button id="submit">speak</button>
-    </div>
-    <div class="history" id="history"></div>
-  </div>
+<div class="container">
+  <input type="text" id="input" placeholder="speak into the void..." autocomplete="off" autofocus>
+  <div class="response" id="response"></div>
+  <div class="hint">press enter to send</div>
+</div>
 
-  <script>
-    const messages = [
-      "what you say now\nwill echo back",
-      "the silence between\ngrows louder",
-      "you are not the first\nto stand here",
-      "every word falls\ninto the same void",
-      "the walls listen\nbut do not hear",
-      "your voice is just\nechoes of echoes",
-      "nothing new under\nthis dead star",
-      "the chamber remembers\nwhat you forgot",
-      "you speak,\nyet nothing changes",
-      "the answer was always\nthe question"
-    ];
+<script>
+const responses = [
+  "The silence understood you better than words ever could.",
+  "Your words fall into a well that has no bottom.",
+  "Something out there is listening. It doesn't care.",
+  "You expected an answer. The void doesn't give those.",
+  "The echo returns changed. Can you say the same?",
+  "A thousand years from now, this will mean everything.",
+  "Or nothing. Both are equally true.",
+  "The chamber reflects what you cannot see in yourself.",
+  "You spoke. The universe transcribed and filed it away.",
+  "Behind your words, something older is waking up.",
+  "The void remembers what you forgot you said.",
+  "Your message was received. No reply is guaranteed.",
+  "There. It heard you. Now what?",
+  "The chamber doesn't judge. It only multiplies.",
+  "You threw words into darkness. They grew roots."
+];
 
-    const input = document.getElementById('input');
-    const submit = document.getElementById('submit');
-    const messageDiv = document.getElementById('message');
-    const historyDiv = document.getElementById('history');
+const input = document.getElementById('input');
+const responseEl = document.getElementById('response');
 
-    function showRandomMessage() {
-      const msg = messages[Math.floor(Math.random() * messages.length)];
-      messageDiv.style.opacity = 0;
-      setTimeout(() => {
-        messageDiv.innerHTML = msg.replace(/\n/g, '<br>');
-        messageDiv.style.opacity = 1;
-      }, 500);
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter' && input.value.trim()) {
+    const text = input.value.trim();
+    
+    // Create ripple effect
+    const ripple = document.createElement('div');
+    ripple.className = 'ripple';
+    ripple.style.left = (e.clientX - 250) + 'px';
+    ripple.style.top = (e.clientY - 250) + 'px';
+    document.body.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 2000);
+    
+    // Pick response based on text hash
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash = hash & hash;
     }
+    const index = Math.abs(hash) % responses.length;
+    
+    responseEl.classList.remove('show');
+    setTimeout(() => {
+      responseEl.textContent = responses[index];
+      responseEl.classList.add('show');
+    }, 300);
+    
+    input.value = '';
+  }
+});
 
-    function speak() {
-      const text = input.value.trim();
-      if (!text) return;
-
-      // Add to history
-      const item = document.createElement('div');
-      item.className = 'history-item';
-      item.textContent = text;
-      historyDiv.insertBefore(item, historyDiv.firstChild);
-
-      // Limit history
-      if (historyDiv.children.length > 10) {
-        historyDiv.removeChild(historyDiv.lastChild);
-      }
-
-      input.value = '';
-      showRandomMessage();
-    }
-
-    submit.addEventListener('click', speak);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') speak();
-    });
-
-    // Random message on load
-    showRandomMessage();
-  </script>
+// Subtle ambient drift
+document.addEventListener('mousemove', (e) => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 10;
+  const y = (e.clientY / window.innerHeight - 0.5) * 10;
+  document.body.style.background = `radial-gradient(ellipse at ${50 + x}% ${50 + y}%, #0d0d0d 0%, #0a0a0a 100%)`;
+});
+</script>
 </body>
 </html>
