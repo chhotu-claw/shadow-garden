@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duration Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate the duration between two dates. Get years, months, days, total days, and total hours between any two dates.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 500px) {
+    .input-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .input-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
+  }
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  button.secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 2px solid var(--border);
+  }
+  .error {
+    color: #e74c3c;
+    margin-top: 1rem;
+    display: none;
+  }
+  .error.show {
+    display: block;
+  }
+  .result {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--card);
+    border-radius: 12px;
+    display: none;
+  }
+  .result.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .duration-display {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .duration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+  .duration-item {
+    padding: 1rem;
+    background: var(--bg);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .duration-item .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .duration-item .label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+  .swap-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1.5rem;
+    padding: 0.5rem;
+    align-self: center;
+    transition: color 0.2s;
+  }
+  .swap-btn:hover {
+    color: var(--text);
+  }
+  @media (max-width: 500px) {
+    .swap-btn {
+      justify-self: center;
+      grid-column: 1 / -1;
+    }
+  }
+  .input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+  .input-row .input-group {
+    flex: 1;
+  }
+  .input-row input[type="time"] {
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    width: 110px;
+  }
+  .input-row input[type="time"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .presets {
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .presets button {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  .presets button:hover {
+    background: var(--border);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Duration Calculator</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Calculate the time between two dates.</p>
+  
+  <div class="presets">
+    <button onclick="setPreset('today')">Today</button>
+    <button onclick="setPreset('week')">Past week</button>
+    <button onclick="setPreset('month')">Past month</button>
+    <button onclick="setPreset('year')">Past year</button>
+  </div>
+  
+  <div class="input-grid">
+    <div>
+      <div class="input-group">
+        <label for="startDate">From</label>
+        <div class="input-row">
+          <input type="date" id="startDate">
+          <input type="time" id="startTime" value="00:00">
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="input-group">
+        <label for="endDate">To</label>
+        <div class="input-row">
+          <input type="date" id="endDate">
+          <input type="time" id="endTime" value="00:00">
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <button onclick="calculateDuration()">Calculate</button>
+    <button class="secondary" onclick="swapDates()">Swap</button>
+  </div>
+  
+  <div class="error" id="error"></div>
+  
+  <div class="result" id="result">
+    <div class="duration-display" id="durationDisplay"></div>
+    <div class="duration-grid">
+      <div class="duration-item">
+        <div class="value" id="years">0</div>
+        <div class="label">Years</div>
+      </div>
+      <div class="duration-item">
+        <div class="value" id="months">0</div>
+        <div class="label">Months</div>
+      </div>
+      <div class="duration-item">
+        <div class="value" id="days">0</div>
+        <div class="label">Days</div>
+      </div>
+      <div class="duration-item">
+        <div class="value" id="totalDays">0</div>
+        <div class="label">Total Days</div>
+      </div>
+      <div class="duration-item">
+        <div class="value" id="totalHours">0</div>
+        <div class="label">Total Hours</div>
+      </div>
+      <div class="duration-item">
+        <div class="value" id="totalMinutes">0</div>
+        <div class="label">Total Minutes</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function setPreset(type) {
+    const today = new Date();
+    const startInput = document.getElementById('startDate');
+    const endInput = document.getElementById('endDate');
+    
+    endInput.value = today.toISOString().split('T')[0];
+    document.getElementById('endTime').value = today.toTimeString().slice(0, 5);
+    
+    const start = new Date(today);
+    switch(type) {
+      case 'today':
+        start.setDate(today.getDate() - 1);
+        break;
+      case 'week':
+        start.setDate(today.getDate() - 7);
+        break;
+      case 'month':
+        start.setMonth(today.getMonth() - 1);
+        break;
+      case 'year':
+        start.setFullYear(today.getFullYear() - 1);
+        break;
+    }
+    
+    startInput.value = start.toISOString().split('T')[0];
+    document.getElementById('startTime').value = start.toTimeString().slice(0, 5);
+    
+    calculateDuration();
+  }
+  
+  function calculateDuration() {
+    const startDate = document.getElementById('startDate').value;
+    const startTime = document.getElementById('startTime').value || '00:00';
+    const endDate = document.getElementById('endDate').value;
+    const endTime = document.getElementById('endTime').value || '00:00';
+    
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
+    
+    errorEl.classList.remove('show');
+    resultEl.classList.remove('show');
+    
+    if (!startDate || !endDate) {
+      errorEl.textContent = 'Please enter both dates.';
+      errorEl.classList.add('show');
+      return;
+    }
+    
+    const start = new Date(`${startDate}T${startTime}`);
+    const end = new Date(`${endDate}T${endTime}`);
+    
+    if (start > end) {
+      errorEl.textContent = 'Start date must be before end date.';
+      errorEl.classList.add('show');
+      return;
+    }
+    
+    const diffMs = end - start;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const totalDays = diffMs / 86400000;
+    const totalDaysInt = Math.floor(totalDays);
+    
+    // Calculate years, months, days (calendar)
+    let years = end.getFullYear() - start.getFullYear();
+    let months = end.getMonth() - start.getMonth();
+    let days = end.getDate() - start.getDate();
+    
+    if (days < 0) {
+      months--;
+      const prevMonth = new Date(end.getFullYear(), end.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    
+    // Display
+    document.getElementById('durationDisplay').textContent = `${years}y ${months}m ${days}d`;
+    document.getElementById('years').textContent = years;
+    document.getElementById('months').textContent = months;
+    document.getElementById('days').textContent = days;
+    document.getElementById('totalDays').textContent = totalDaysInt.toLocaleString();
+    document.getElementById('totalHours').textContent = diffHours.toLocaleString();
+    document.getElementById('totalMinutes').textContent = diffMinutes.toLocaleString();
+    
+    resultEl.classList.add('show');
+  }
+  
+  function swapDates() {
+    const startDate = document.getElementById('startDate').value;
+    const startTime = document.getElementById('startTime').value;
+    const endDate = document.getElementById('endDate').value;
+    const endTime = document.getElementById('endTime').value;
+    
+    document.getElementById('startDate').value = endDate;
+    document.getElementById('startTime').value = endTime;
+    document.getElementById('endDate').value = startDate;
+    document.getElementById('endTime').value = startTime;
+    
+    if (endDate && startDate) {
+      calculateDuration();
+    }
+  }
+  
+  // Set defaults: past month
+  setPreset('month');
+</script>
+</body>
+</html>
