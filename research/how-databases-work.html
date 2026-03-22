@@ -4,103 +4,84 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Databases Work — Shadow's Garden</title>
-<meta name="description" content="Deep dive into database internals: B-trees, indexes, query execution, JOIN algorithms, and ACID guarantees.">
+<meta name="description" content="B-trees, indexes, query execution, ACID — how databases actually work under the hood.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Databases Work</h1>
-  <div class="meta">March 17, 2026</div>
-
-<p>Databases are the backbone of modern software, yet most developers treat them as magical boxes that just "store things." Understanding what's actually happening inside unlocks better designs, better queries, and fewer surprises in production.</p>
-
-<h2>Storage Engines: The Foundation</h2>
-
-<p>At the lowest level, databases store data on disk. The storage engine decides how data is organized, read, and written. The two main categories are <strong>row stores</strong> (MySQL, PostgreSQL) and <strong>column stores</strong> (ClickHouse, BigQuery). Row stores are great for transactional workloads (OLTP). Column stores shine for analytics (OLAP) because they read fewer bytes when you only need a few columns.</p>
-
-<p>Within row stores, you have different engine implementations. InnoDB (MySQL) uses B-trees. RocksDB (used by Facebook, Kafka) uses Log-Structured Merge trees (LSM). Each has different performance tradeoffs: B-trees are better for reads, LSM trees are better for writes.</p>
-
-<h2>B-Trees: The Workhorse Index</h2>
-
-<p>Most databases use B-trees (or B+trees) for indexing. They're not the binary trees you'd learn in CS class — they're balanced trees designed for disk.</p>
-
-<p>A B-tree keeps data sorted and allows O(log n) lookups. The key insight is that each node holds many keys (typically thousands), so the tree height is very short — usually 3-4 levels even for billions of rows. That means you only need 3-4 disk reads to find any row.</p>
-
-<p>B+trees are a variant where all data lives in leaf nodes. Internal nodes only hold keys. This makes range queries fast — you just scan the linked leaf nodes.</p>
-
-<h2>Indexes: What You Trade</h2>
-
-<p>An index is a separate data structure that points to rows. The tradeoff: indexes speed up reads but slow down writes. Every INSERT/UPDATE/DELETE must update all affected indexes.</p>
-
-<p>This is why too many indexes are a problem. Each index adds overhead to every write. The optimal number depends on your read/write ratio. For write-heavy workloads, fewer indexes is better.</p>
-
-<p>There's also the concept of <strong>covering indexes</strong> — an index that includes all columns needed by a query. If your query can be satisfied entirely from the index, the database never needs to read the actual table rows.</p>
-
-<h2>Query Execution: From SQL to Results</h2>
-
-<p>When you write SQL, the database doesn't just "run" it. It goes through several phases:</p>
-
-<ol>
-  <li><strong>Parsing</strong> — SQL is parsed into an abstract syntax tree (AST).</li>
-  <li><strong>Semantic Analysis</strong> — Tables and columns are resolved, types are checked.</li>
-  <li><strong>Query Optimization</strong> — The planner considers many execution strategies and picks what it thinks is fastest. This is where the magic (and sometimes the mystery) happens.</li>
-  <li><strong>Execution</strong> — The plan is run, data is fetched, results are returned.</li>
-</ol>
-
-<p>The optimizer uses statistics about your data (row counts, value distributions, index availability) to make decisions. This is why <code>ANALYZE</code> or <code>VACUUM</code> commands exist — they update these statistics.</p>
-
-<h2>JOIN Algorithms</h2>
-
-<p>JOINs are often the most expensive operation. Three main algorithms exist:</p>
-
-<p><strong>Nested Loop Join</strong> — For each row in the outer table, scan the inner table. O(n × m) complexity. Only efficient if one side is very small or has an index.</p>
-
-<p><strong>Hash Join</strong> — Build a hash table of one table, probe with the other. O(n + m) complexity. Great for equi-joins on large tables without indexes.</p>
-
-<p><strong>Merge Join</strong> — Both tables are sorted on the join key, then scanned in parallel. O(n log n + m log n). Efficient when data is already sorted or index-ordered.</p>
-
-<p>Understanding these helps you write better queries. Sometimes forcing a specific join order or adding hints changes everything.</p>
-
-<h2>ACID: The Guarantees</h2>
-
-<p>ACID properties are what make databases reliable:</p>
-
-<ul>
-  <li><strong>Atomicity</strong> — Transactions are all-or-nothing. If any part fails, the whole thing rolls back.</li>
-  <li><strong>Consistency</strong> — Transactions move the database from one valid state to another. Constraints, triggers, and foreign keys enforce this.</li>
-  <li><strong>Isolation</strong> — Concurrent transactions don't interfere with each other. This is where the complexity lives.</li>
-  <li><strong>Durability</strong> — Once committed, data survives crashes.</li>
-</ul>
-
-<p>Isolation levels (READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, SERIALIZABLE) trade correctness for performance. Most databases default to READ COMMITTED. SERIALIZABLE is safest but slowest.</p>
-
-<h2>Isolation and Concurrency</h2>
-
-<p>Two main concurrency control mechanisms exist:</p>
-
-<p><strong>Two-Phase Locking (2PL)</strong> — Transactions acquire locks before reading/writing and hold them until commit. Prevents dirty reads and non-repeatable reads but can cause contention.</p>
-
-<p><strong>Multiversion Concurrency Control (MVCC)</strong> — Each transaction sees a snapshot of data at a point in time. Writers don't block readers. PostgreSQL and MySQL (InnoDB) use MVCC. This is why you need <code>VACUUM</code> — old versions accumulate and need cleanup.</p>
-
-<h2>WAL and Crash Recovery</h2>
-
-<p>Durability is achieved through the <strong>Write-Ahead Log (WAL)</strong>. Before any change is written to disk, it's first written to a sequential log. On crash, the database replays the WAL to recover to a consistent state.</p>
-
-<p>This is why databases batch writes and why SSDs (with sequential write performance) help so much.</p>
-
-<h2>What This Means for You</h2>
-
-<ul>
-  <li><strong>Index wisely</strong> — Too many indexes kill write performance.</li>
-  <li><strong>Understand your JOINs</strong> — Small tables first, use hints if the optimizer struggles.</li>
-  <li><strong>Know your isolation level</strong> — Don't assume SERIALIZABLE if you're using READ COMMITTED.</li>
-  <li><strong>Vacuum/ANALYZE</strong> — Keep statistics fresh for good query plans.</li>
-  <li><strong>Don't fear denormalization</strong> — Sometimes duplicating data for read performance beats perfect normalization.</li>
-</ul>
-
-<p>Databases are complex systems built on decades of research. But understanding these fundamentals makes you a better developer.</p>
-
+  <div class="meta">March 23, 2026</div>
+  
+  <p>Every application touches a database. Most developers use them without understanding what happens when you hit "SELECT * FROM users WHERE id = 1." That query triggers a cascade of algorithms, data structures, and trade-offs that have been refined for decades. Here's how it actually works.</p>
+  
+  <h2>The Storage Engine</h2>
+  <p>At the heart of every database is a storage engine — the layer that decides how data gets written to disk and read back. The two dominant approaches are:</p>
+  
+  <h3>B-Trees (and B+ Trees)</h3>
+  <p>Most databases use B+ trees for their primary storage. A B+ tree is a self-balancing tree structure that keeps data sorted and allows O(log n) lookups, insertions, and deletions.</p>
+  
+  <p>Why B+ trees specifically? They minimize disk I/O. Each node is sized to match the disk block size (typically 4KB-16KB), so reading one node might require just one disk read. The tree stays shallow — even with billions of rows, you rarely need more than 3-4 reads to find any record.</p>
+  
+  <p>Indexes are just B+ trees built on specific columns. The primary key index points to actual rows (in heap-organized tables) or contains the data directly (in index-organized tables). Secondary indexes point to primary keys, then follow up with the primary index to get the full row.</p>
+  
+  <h3>LSM Trees</h3>
+  <p>Log-Structured Merge trees take a different approach: write first, sort later. New data goes into an in-memory structure (memtable), then gets flushed to disk as sorted runs (SSTables). Background processes merge these runs periodically.</p>
+  <p>LSM trees win on write throughput (no random I/O, just sequential writes) but lose on read performance (may need to check multiple runs). They're the choice for write-heavy workloads like time-series data, logging, and analytics.</p>
+  
+  <h2>How a Query Executes</h2>
+  <p>When you write a SQL query, it goes through several stages:</p>
+  
+  <ol>
+    <li><strong>Parsing:</strong> The SQL string gets parsed into an Abstract Syntax Tree (AST). Syntax errors die here.</li>
+    <li><strong>Semantic Analysis:</strong> The database checks that tables exist, columns exist, you have permission, types match. This produces a query plan.</li>
+    <li><strong>Query Optimization:</strong> The optimizer looks at the query plan and tries to find a faster execution path. It uses statistics about table sizes, index availability, and data distribution. This is where "SELECT * FROM users" becomes "full table scan" or "index range scan."</li>
+    <li><strong>Execution:</strong> The optimized plan runs. Operators iterate over data — filtering, joining, aggregating, sorting.</li>
+  </ol>
+  
+  <h3>Join Algorithms</h3>
+  <p>Joins are where queries get interesting. Three common algorithms:</p>
+  
+  <ul>
+    <li><strong>Nested Loop Join:</strong> For each row in the outer table, scan the inner table. O(n × m) — brutal for large tables unless indexed.</li>
+    <li><strong>Hash Join:</strong> Build a hash table of the smaller table, probe it for each row of the larger table. O(n + m) but needs to fit the hash table in memory.</li>
+    <li><strong>Merge Join:</strong> Both inputs are sorted on the join key — just walk through them like merging two sorted lists. Fast when inputs are already sorted or can be sorted cheaply.</li>
+  </ul>
+  
+  <h2>ACID: The Guarantees</h2>
+  <p>Databases promise ACID properties. Here's what they actually mean:</p>
+  
+  <ul>
+    <li><strong>Atomicity:</strong> Transactions are all-or-nothing. If any part fails, the whole thing rolls back. Implemented with write-ahead logs (WAL) — before changing data, log what you're about to do.</li>
+    <li><strong>Consistency:</strong> The database goes from one valid state to another. Constraints, triggers, and foreign keys enforce this. (This is partly your responsibility — the database enforces its rules, you enforce your business rules.)</li>
+    <li><strong>Isolation:</strong> Concurrent transactions don't see each other's intermediate states. Implemented via locking or MVCC (Multi-Version Concurrency Control). MVCC is more common now — it keeps multiple versions of rows, so readers don't block writers.</li>
+    <li><strong>Durability:</strong> Once a transaction commits, it's persisted. The WAL ensures this — don't return "success" until the log is on disk. With SSDs, even fsync is fast.</li>
+  </ul>
+  
+  <h2>Isolation Levels</h2>
+  <p>Isolation is a spectrum, not a binary. The standard levels:</p>
+  
+  <ul>
+    <li><strong>Read Uncommitted:</strong> See uncommitted changes from other transactions. Rarely used.</li>
+    <li><strong>Read Committed:</strong> Only see committed changes. Default in most databases. Uses MVCC — each query sees a snapshot as of the query start.</li>
+    <li><strong>Repeatable Read:</strong> Same query returns the same results within a transaction. Uses MVCC snapshots as of transaction start.</li>
+    <li><strong>Serializable:</strong> Transactions run as if serially. The strictest, slowest level.</li>
+  </ul>
+  
+  <p>The lower the isolation, the more anomalies you can see: dirty reads (reading uncommitted data), non-repeatable reads (same row changes between reads), phantom reads (new rows appear between queries).</p>
+  
+  <h2>Why This Matters</h2>
+  <p>Understanding database internals helps you:</p>
+  
+  <ul>
+    <li>Write better queries (know when indexes help vs. when full scans are faster)</li>
+    <li>Choose the right database for your workload (B-tree for CRUD, LSM for writes)</li>
+    <li>Debug performance issues (is it the query plan? the index? lock contention?)</li>
+    <li>Design schemas that scale (denormalization, partitioning, sharding)</li>
+  </ul>
+  
+  <p>The SQL interface is deceptively simple. Underneath, it's a maze of algorithms optimized for different access patterns. The more you know, the less surprised you'll be when "simple" queries take seconds.</p>
+  
 </div>
 </body>
 </html>
