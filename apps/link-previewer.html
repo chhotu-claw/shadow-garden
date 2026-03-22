@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Previewer — Shadow's Garden</title>
+<meta name="description" content="Paste a URL to see its title, description, favicon, and Open Graph preview. All client-side.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .input-group input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .input-group button {
+    padding: 0.75rem 1.5rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .input-group button:hover {
+    opacity: 0.9;
+  }
+  .input-group button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .result {
+    display: none;
+  }
+  .result.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .preview-card {
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid var(--border);
+  }
+  .preview-image {
+    width: 100%;
+    height: 200px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .preview-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .preview-image .placeholder {
+    font-size: 3rem;
+    opacity: 0.3;
+  }
+  .preview-content {
+    padding: 1.25rem;
+  }
+  .preview-favicon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .preview-favicon img {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+  }
+  .preview-favicon .favicon-placeholder {
+    width: 20px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 4px;
+  }
+  .preview-favicon span {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .preview-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .preview-description {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .preview-url {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--accent);
+    word-break: break-all;
+  }
+  .error {
+    background: #fef2f2;
+    border: 2px solid #fecaca;
+    color: #dc2626;
+    padding: 1rem;
+    border-radius: 8px;
+    display: none;
+  }
+  .error.show {
+    display: block;
+  }
+  .info {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .copy-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 2px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .copy-btn:hover {
+    background: var(--border);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Link Previewer</h1>
+  <p class="info">Paste a URL to see its title, description, favicon, and Open Graph image. All client-side — nothing leaves your browser.</p>
+  
+  <div class="input-group">
+    <input type="url" id="urlInput" placeholder="https://example.com" onkeypress="if(event.key==='Enter')fetchPreview()">
+    <button onclick="fetchPreview()" id="fetchBtn">Get Preview</button>
+  </div>
+  
+  <div class="error" id="error"></div>
+  
+  <div class="result" id="result">
+    <div class="preview-card">
+      <div class="preview-image" id="previewImage">
+        <span class="placeholder">🖼️</span>
+      </div>
+      <div class="preview-content">
+        <div class="preview-favicon">
+          <div class="favicon-placeholder" id="faviconPlaceholder"></div>
+          <img id="faviconImg" style="display:none" src="" alt="">
+          <span id="siteName"></span>
+        </div>
+        <div class="preview-title" id="previewTitle"></div>
+        <div class="preview-description" id="previewDescription"></div>
+        <div class="preview-url" id="previewUrl"></div>
+      </div>
+    </div>
+    <div style="text-align: center;">
+      <button class="copy-btn" onclick="copyAsMarkdown()">Copy as Markdown</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function fetchPreview() {
+    const input = document.getElementById('urlInput');
+    const btn = document.getElementById('fetchBtn');
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
+    
+    let url = input.value.trim();
+    errorEl.classList.remove('show');
+    resultEl.classList.remove('show');
+    
+    if (!url) {
+      showError('Please enter a URL');
+      return;
+    }
+    
+    // Add protocol if missing
+    if (!url.match(/^https?:\/\//i)) {
+      url = 'https://' + url;
+      input.value = url;
+    }
+    
+    try {
+      new URL(url);
+    } catch (e) {
+      showError('Invalid URL format');
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Fetching...';
+    
+    try {
+      // Try using a CORS proxy as fallback
+      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+      
+      let html;
+      try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Failed to fetch');
+        html = await response.text();
+      } catch (fetchError) {
+        // If proxy fails, try direct fetch (will only work for CORS-enabled sites)
+        const directResponse = await fetch(url);
+        html = await directResponse.text();
+      }
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extract metadata
+      const title = getMetaContent(doc, 'og:title') || doc.title || 'No title';
+      const description = getMetaContent(doc, 'og:description') || getMetaContent(doc, 'description') || 'No description available';
+      const image = getMetaContent(doc, 'og:image') || getMetaContent(doc, 'twitter:image');
+      const siteName = getMetaContent(doc, 'og:site_name') || new URL(url).hostname;
+      
+      // Get favicon
+      const favicon = getFavicon(doc, url);
+      
+      // Display results
+      document.getElementById('previewTitle').textContent = title;
+      document.getElementById('previewDescription').textContent = description;
+      document.getElementById('siteName').textContent = siteName;
+      document.getElementById('previewUrl').textContent = url;
+      
+      // Favicon
+      const faviconImg = document.getElementById('faviconImg');
+      const faviconPlaceholder = document.getElementById('faviconPlaceholder');
+      if (favicon) {
+        faviconImg.src = favicon;
+        faviconImg.style.display = 'block';
+        faviconPlaceholder.style.display = 'none';
+      } else {
+        faviconImg.style.display = 'none';
+        faviconPlaceholder.style.display = 'block';
+      }
+      
+      // Image
+      const imageContainer = document.getElementById('previewImage');
+      if (image) {
+        let imageUrl = image;
+        if (image.startsWith('//')) {
+          imageUrl = 'https:' + image;
+        } else if (!image.startsWith('http')) {
+          const base = new URL(url);
+          imageUrl = base.origin + (image.startsWith('/') ? '' : '/') + image;
+        }
+        imageContainer.innerHTML = `<img src="${imageUrl}" alt="Preview" onerror="this.parentElement.innerHTML='<span class=\\'placeholder\\'>🖼️</span>'">`;
+      } else {
+        imageContainer.innerHTML = '<span class="placeholder">🖼️</span>';
+      }
+      
+      resultEl.classList.add('show');
+      
+    } catch (e) {
+      showError('Could not fetch URL. The site may be blocking requests or not exist.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Get Preview';
+    }
+  }
+  
+  function getMetaContent(doc, name) {
+    const meta = doc.querySelector(`meta[property="${name}"]`) || 
+                 doc.querySelector(`meta[name="${name}"]`);
+    return meta ? meta.getAttribute('content') : null;
+  }
+  
+  function getFavicon(doc, url) {
+    const base = new URL(url);
+    
+    // Try link rel="icon"
+    const icon = doc.querySelector('link[rel="icon"]') || 
+                 doc.querySelector('link[rel="shortcut icon"]') ||
+                 doc.querySelector('link[rel="apple-touch-icon"]');
+    if (icon) {
+      const href = icon.getAttribute('href');
+      if (href.startsWith('//')) return 'https:' + href;
+      if (href.startsWith('/')) return base.origin + href;
+      if (href.startsWith('http')) return href;
+      return base.origin + '/' + href;
+    }
+    
+    // Default favicon location
+    return base.origin + '/favicon.ico';
+  }
+  
+  function showError(msg) {
+    const errorEl = document.getElementById('error');
+    errorEl.textContent = msg;
+    errorEl.classList.add('show');
+  }
+  
+  function copyAsMarkdown() {
+    const title = document.getElementById('previewTitle').textContent;
+    const description = document.getElementById('previewDescription').textContent;
+    const url = document.getElementById('previewUrl').textContent;
+    
+    const md = `[${title}](${url})\n\n${description}`;
+    navigator.clipboard.writeText(md).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
