@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Text Storm — Shadow's Garden</title>
-<meta name="description" content="Type words and watch them collide in a particle storm"></meta>
+<meta name="description" content="Type to create particles. An interactive visual experience where your words become physics.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
@@ -14,80 +14,77 @@
     background: #0a0a0f;
     font-family: 'Courier New', monospace;
   }
-  #canvas {
+  canvas {
     display: block;
     position: fixed;
     top: 0;
     left: 0;
   }
-  #input-area {
+  .input-area {
     position: fixed;
-    bottom: 30px;
+    bottom: 2rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 100;
-    display: flex;
-    gap: 10px;
+    width: 90%;
+    max-width: 600px;
+    z-index: 10;
   }
-  #text-input {
+  input {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1.2rem;
     background: rgba(20, 20, 30, 0.9);
-    border: 1px solid #334;
-    color: #8af;
-    padding: 12px 20px;
-    font-size: 16px;
-    font-family: 'Courier New', monospace;
-    width: 300px;
-    border-radius: 4px;
+    border: 1px solid #333;
+    border-radius: 12px;
+    color: #e0e0e0;
+    font-family: inherit;
     outline: none;
-    transition: border-color 0.3s;
+    transition: border-color 0.3s, box-shadow 0.3s;
   }
-  #text-input:focus {
-    border-color: #6af;
+  input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
   }
-  #speak-btn {
-    background: rgba(20, 20, 30, 0.9);
-    border: 1px solid #334;
-    color: #8af;
-    padding: 12px 20px;
-    font-size: 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.3s;
-  }
-  #speak-btn:hover {
-    background: rgba(100, 150, 255, 0.2);
-    border-color: #6af;
-  }
-  #hint {
+  .hint {
     position: fixed;
-    top: 20px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    color: #445;
-    font-size: 12px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    transform: translate(-50%, -50%);
+    color: #444;
+    font-size: 1.5rem;
+    pointer-events: none;
+    transition: opacity 0.5s;
+  }
+  .hint.hidden {
+    opacity: 0;
+  }
+  .stats {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    color: #555;
+    font-size: 0.8rem;
+    z-index: 10;
   }
 </style>
 </head>
 <body data-page-type="app">
+<div class="hint">type something...</div>
+<div class="stats" id="stats">particles: 0</div>
 <canvas id="canvas"></canvas>
-<div id="hint">type something...</div>
-<div id="input-area">
-  <input type="text" id="text-input" placeholder="type words..." autocomplete="off">
-  <button id="speak-btn">🎤</button>
+<div class="input-area">
+  <input type="text" id="input" placeholder="type to create..." autocomplete="off" autofocus>
 </div>
+
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const input = document.getElementById('text-input');
-const speakBtn = document.getElementById('speak-btn');
+const input = document.getElementById('input');
+const hint = document.querySelector('.hint');
+const stats = document.getElementById('stats');
 
-let width, height;
 let particles = [];
-let targetWords = [];
-
-const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181', '#aa96da', '#fcbad3', '#a8d8ea'];
+let width, height;
 
 function resize() {
   width = canvas.width = window.innerWidth;
@@ -97,117 +94,59 @@ resize();
 window.addEventListener('resize', resize);
 
 class Particle {
-  constructor(x, y, char, color) {
+  constructor(x, y, char) {
     this.x = x;
     this.y = y;
     this.char = char;
-    this.color = color;
-    this.vx = (Math.random() - 0.5) * 2;
-    this.vy = (Math.random() - 0.5) * 2;
+    this.vx = (Math.random() - 0.5) * 8;
+    this.vy = (Math.random() - 0.5) * 8 - 2;
     this.life = 1;
-    this.decay = 0.003 + Math.random() * 0.005;
+    this.decay = 0.008 + Math.random() * 0.008;
     this.size = 14 + Math.random() * 12;
-    this.angle = Math.random() * Math.PI * 2;
-    this.spin = (Math.random() - 0.5) * 0.1;
+    this.hue = Math.random() * 60 + 220;
   }
   
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vx *= 0.99;
-    this.vy *= 0.99;
+    this.vy += 0.15;
     this.life -= this.decay;
-    this.angle += this.spin;
-    
-    // Slight gravity
-    this.vy += 0.02;
-    
-    // Edge bounce
-    if (this.x < 0 || this.x > width) this.vx *= -0.8;
-    if (this.y > height) {
-      this.y = height;
-      this.vy *= -0.5;
-    }
+    this.size *= 0.995;
   }
   
   draw() {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
+    ctx.font = `${this.size}px "Courier New", monospace`;
     ctx.globalAlpha = this.life;
-    ctx.font = `${this.size}px Courier New`;
-    ctx.fillStyle = this.color;
-    ctx.fillText(this.char, 0, 0);
-    ctx.restore();
+    ctx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
+    ctx.fillText(this.char, this.x, this.y);
+    ctx.globalAlpha = 1;
   }
 }
 
-function spawnWord(word) {
-  const chars = word.split('');
-  const startX = width / 2 + (Math.random() - 0.5) * 200;
+function spawnParticles(text) {
+  const chars = text.split('');
+  const startX = width / 2;
   const startY = height / 2;
   
   chars.forEach((char, i) => {
     setTimeout(() => {
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      particles.push(new Particle(
-        startX + i * 15,
-        startY,
-        char,
-        color
-      ));
-    }, i * 50);
+      const x = startX + (Math.random() - 0.5) * 100;
+      const y = startY + (Math.random() - 0.5) * 50;
+      particles.push(new Particle(x, y, char));
+    }, i * 30);
   });
 }
 
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && input.value.trim()) {
-    const words = input.value.trim().split(/\s+/);
-    words.forEach((word, i) => {
-      setTimeout(() => spawnWord(word), i * 300);
-    });
-    input.value = '';
+input.addEventListener('input', (e) => {
+  if (e.target.value.length > 0) {
+    hint.classList.add('hidden');
+    spawnParticles(e.target.value);
+    e.target.value = '';
   }
 });
 
-// Voice input
-let recognition;
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = false;
-  
-  recognition.onresult = (event) => {
-    const last = event.results.length - 1;
-    const transcript = event.results[last][0].transcript.trim();
-    if (transcript) {
-      const words = transcript.split(/\s+/);
-      words.forEach((word, i) => {
-        setTimeout(() => spawnWord(word), i * 300);
-      });
-    }
-  };
-  
-  recognition.onerror = () => {
-    speakBtn.textContent = '🎤';
-  };
-  
-  speakBtn.addEventListener('click', () => {
-    if (recognition && recognition.recording) {
-      recognition.stop();
-      speakBtn.textContent = '🎤';
-    } else {
-      recognition.start();
-      speakBtn.textContent = '🛑';
-    }
-  });
-} else {
-  speakBtn.style.display = 'none';
-}
-
 function animate() {
-  ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
   ctx.fillRect(0, 0, width, height);
   
   particles = particles.filter(p => p.life > 0);
@@ -216,11 +155,16 @@ function animate() {
     p.draw();
   });
   
+  stats.textContent = `particles: ${particles.length}`;
   requestAnimationFrame(animate);
 }
+
 animate();
 
-input.focus();
+// Initial burst
+setTimeout(() => {
+  spawnParticles('shadow');
+}, 500);
 </script>
 </body>
 </html>
