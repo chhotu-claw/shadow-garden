@@ -3,261 +3,325 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Business Date Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate business days between dates, add/subtract working days, skip weekends and holidays">
+<title>Business Days Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate working days between two dates. Exclude weekends and optionally add holidays.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: 'IBM Plex Mono', monospace; }
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { color: #0ff; margin-bottom: 0.5rem; }
-  .card {
-    background: #111;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
   }
-  label { display: block; color: #888; margin-bottom: 0.5rem; font-size: 0.85rem; }
-  input, select {
+  h1 { margin-bottom: 0.5rem; }
+  .input-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .input-group > div {
+    flex: 1;
+    min-width: 200px;
+  }
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .input-group input {
     width: 100%;
     padding: 0.75rem;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 4px;
-    color: #fff;
-    font-family: inherit;
+    border: 2px solid var(--border);
+    border-radius: 8px;
     font-size: 1rem;
-    margin-bottom: 1rem;
+    background: var(--bg);
+    color: var(--text);
     box-sizing: border-box;
   }
-  input:focus, select:focus {
+  .input-group input:focus {
     outline: none;
-    border-color: #0ff;
+    border-color: var(--accent);
   }
-  .row { display: flex; gap: 1rem; }
-  .row > div { flex: 1; }
-  button {
-    width: 100%;
-    padding: 0.75rem;
-    background: #0ff;
-    color: #000;
-    border: none;
-    border-radius: 4px;
-    font-weight: bold;
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .checkbox-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+  }
+  .checkbox-group label {
+    color: var(--text);
     cursor: pointer;
-    font-family: inherit;
   }
-  button:hover { background: #0cc; }
-  #result {
-    background: #0a0a0a;
-    border: 1px solid #0ff;
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
     border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: scale(0.98); }
+  .result {
+    margin-top: 2rem;
     padding: 1.5rem;
+    background: var(--card);
+    border-radius: 12px;
+    display: none;
+  }
+  .result.show { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .result-main {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .result-detail {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .result-detail .item {
+    padding: 1rem;
+    background: var(--bg);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .result-detail .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .result-detail .label {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .error {
+    color: #e74c3c;
     margin-top: 1rem;
     display: none;
   }
-  #result.show { display: block; }
-  .result-label { color: #666; font-size: 0.8rem; margin-bottom: 0.25rem; }
-  .result-value { color: #0ff; font-size: 1.5rem; font-weight: bold; }
-  .result-detail { color: #888; margin-top: 0.5rem; font-size: 0.9rem; }
-  .holidays-list {
-    margin-top: 1rem;
+  .error.show { display: block; }
+  .holidays-input {
+    display: none;
+    margin-bottom: 1.5rem;
+  }
+  .holidays-input.show { display: block; }
+  .holidays-input textarea {
+    width: 100%;
+    min-height: 100px;
     padding: 0.75rem;
-    background: #1a1a1a;
-    border-radius: 4px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: var(--bg);
+    color: var(--text);
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: monospace;
   }
-  .holidays-list label { margin-bottom: 0.5rem; }
-  .checkbox-group { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-  .checkbox-group label {
+  .holidays-input textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .presets {
     display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    color: #aaa;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .presets button {
+    background: var(--card);
+    color: var(--text);
+    border: 2px solid var(--border);
+    padding: 0.5rem 1rem;
     font-size: 0.85rem;
-    cursor: pointer;
   }
-  .checkbox-group input[type="checkbox"] { width: auto; margin: 0; }
-  .preset-btns { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-  .preset-btn {
-    padding: 0.4rem 0.75rem;
-    background: #222;
-    color: #888;
-    border: 1px solid #333;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
+  .presets button:hover {
+    background: var(--border);
   }
-  .preset-btn:hover { border-color: #0ff; color: #0ff; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>📅 Business Date Calculator</h1>
-  <p style="color: #666; margin-bottom: 1.5rem;">Calculate working days, skip weekends and holidays</p>
+  <h1>Business Days Calculator</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Calculate working days between two dates, excluding weekends.</p>
   
-  <div class="card">
-    <label>Operation</label>
-    <select id="operation">
-      <option value="diff">Days Between Dates</option>
-      <option value="add">Add Business Days</option>
-      <option value="sub">Subtract Business Days</option>
-    </select>
-
-    <div class="row">
-      <div>
-        <label>Start Date</label>
-        <input type="date" id="startDate">
-      </div>
-      <div>
-        <label>End Date / Days</label>
-        <input type="date" id="endDate">
-        <input type="number" id="daysNum" placeholder="Number of days" style="display:none">
-      </div>
+  <div class="input-group">
+    <div>
+      <label for="startDate">Start Date</label>
+      <input type="date" id="startDate">
     </div>
-
-    <label>Weekend Days to Skip</label>
-    <div class="checkbox-group">
-      <label><input type="checkbox" value="0" checked> Sun</label>
-      <label><input type="checkbox" value="1" checked> Mon</label>
-      <label><input type="checkbox" value="2" checked> Tue</label>
-      <label><input type="checkbox" value="3" checked> Wed</label>
-      <label><input type="checkbox" value="4" checked> Thu</label>
-      <label><input type="checkbox" value="5" checked> Fri</label>
-      <label><input type="checkbox" value="6" checked> Sat</label>
+    <div>
+      <label for="endDate">End Date</label>
+      <input type="date" id="endDate">
     </div>
-
-    <label>Preset Ranges</label>
-    <div class="preset-btns">
-      <button class="preset-btn" onclick="setRange(7)">7 days</button>
-      <button class="preset-btn" onclick="setRange(14)">14 days</button>
-      <button class="preset-btn" onclick="setRange(30)">30 days</button>
-      <button class="preset-btn" onclick="setRange(90)">90 days</button>
-      <button class="preset-btn" onclick="setRange(365)">1 year</button>
-    </div>
-
-    <button onclick="calculate()">Calculate</button>
   </div>
-
-  <div id="result">
-    <div class="result-label">Result</div>
-    <div class="result-value" id="resultValue"></div>
-    <div class="result-detail" id="resultDetail"></div>
+  
+  <div class="presets">
+    <button onclick="setPreset('week')">Past Week</button>
+    <button onclick="setPreset('month')">Past Month</button>
+    <button onclick="setPreset('quarter')">Past Quarter</button>
+    <button onclick="setPreset('year')">Past Year</button>
+  </div>
+  
+  <div class="checkbox-group">
+    <input type="checkbox" id="excludeHolidays">
+    <label for="excludeHolidays">Exclude US Federal Holidays</label>
+  </div>
+  
+  <button onclick="calculate()">Calculate</button>
+  
+  <div class="error" id="error"></div>
+  
+  <div class="result" id="result">
+    <div class="result-main" id="resultMain"></div>
+    <div class="result-detail">
+      <div class="item">
+        <div class="value" id="totalDays">0</div>
+        <div class="label">Total Days</div>
+      </div>
+      <div class="item">
+        <div class="value" id="weekendDays">0</div>
+        <div class="label">Weekend Days</div>
+      </div>
+      <div class="item">
+        <div class="value" id="holidayDays">0</div>
+        <div class="label">Holidays Excluded</div>
+      </div>
+      <div class="item">
+        <div class="value" id="workingDays">0</div>
+        <div class="label">Working Days</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-  // Set default dates
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
+  // US Federal Holidays for 2025-2027
+  const usHolidays = [
+    // 2025
+    '2025-01-01', '2025-01-20', '2025-02-17', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-10-13', '2025-11-11', '2025-11-27', '2025-12-25',
+    // 2026
+    '2026-01-01', '2026-01-20', '2026-02-16', '2026-05-25', '2026-06-19', '2026-07-03', '2026-07-04', '2026-09-07', '2026-10-12', '2026-11-11', '2026-11-26', '2026-12-25',
+    // 2027
+    '2027-01-01', '2027-01-18', '2027-02-15', '2027-05-31', '2027-06-18', '2027-07-04', '2027-09-06', '2027-10-11', '2027-11-11', '2027-11-25', '2027-12-24', '2027-12-25',
+  ];
   
-  document.getElementById('startDate').value = formatDate(today);
-  document.getElementById('endDate').value = formatDate(nextWeek);
-
-  document.getElementById('operation').addEventListener('change', function() {
+  function setPreset(type) {
+    const today = new Date();
+    const startDate = document.getElementById('startDate');
     const endDate = document.getElementById('endDate');
-    const daysNum = document.getElementById('daysNum');
-    if (this.value === 'diff') {
-      endDate.style.display = 'block';
-      daysNum.style.display = 'none';
-    } else {
-      endDate.style.display = 'none';
-      daysNum.style.display = 'block';
-    }
-  });
-
-  function formatDate(d) {
-    return d.toISOString().split('T')[0];
-  }
-
-  function setRange(days) {
-    document.getElementById('operation').value = 'diff';
-    const start = new Date(document.getElementById('startDate').value);
-    const end = new Date(start);
-    end.setDate(start.getDate() + days);
-    document.getElementById('endDate').value = formatDate(end);
-    calculate();
-  }
-
-  function getWeekendDays() {
-    const checkboxes = document.querySelectorAll('.checkbox-group input:checked');
-    return Array.from(checkboxes).map(cb => parseInt(cb.value));
-  }
-
-  function isWorkingDay(date, weekendDays) {
-    const day = date.getDay();
-    return weekendDays.includes(day);
-  }
-
-  function calculate() {
-    const operation = document.getElementById('operation').value;
-    const startStr = document.getElementById('startDate').value;
-    const endStr = document.getElementById('endDate').value;
-    const daysNum = parseInt(document.getElementById('daysNum').value) || 0;
-    const weekendDays = getWeekendDays();
     
-    if (!startStr) {
-      alert('Please select a start date');
+    endDate.value = formatDate(today);
+    
+    const start = new Date(today);
+    switch(type) {
+      case 'week':
+        start.setDate(start.getDate() - 7);
+        break;
+      case 'month':
+        start.setMonth(start.getMonth() - 1);
+        break;
+      case 'quarter':
+        start.setMonth(start.getMonth() - 3);
+        break;
+      case 'year':
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+    }
+    startDate.value = formatDate(start);
+  }
+  
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+  
+  function isWeekend(date) {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  }
+  
+  function isHoliday(dateStr) {
+    return usHolidays.includes(dateStr);
+  }
+  
+  function calculate() {
+    const startInput = document.getElementById('startDate').value;
+    const endInput = document.getElementById('endDate').value;
+    const excludeHolidays = document.getElementById('excludeHolidays').checked;
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
+    
+    errorEl.classList.remove('show');
+    resultEl.classList.remove('show');
+    
+    if (!startInput || !endInput) {
+      errorEl.textContent = 'Please select both start and end dates.';
+      errorEl.classList.add('show');
       return;
     }
-
-    const start = new Date(startStr);
-    start.setHours(0, 0, 0, 0);
     
-    const resultDiv = document.getElementById('result');
-    const resultValue = document.getElementById('resultValue');
-    const resultDetail = document.getElementById('resultDetail');
+    let start = new Date(startInput);
+    let end = new Date(endInput);
     
-    let businessDays = 0;
-    let totalDays = 0;
-    let current = new Date(start);
-    
-    if (operation === 'diff') {
-      if (!endStr) {
-        alert('Please select an end date');
-        return;
-      }
-      const end = new Date(endStr);
-      end.setHours(0, 0, 0, 0);
-      
-      const direction = end > start ? 1 : -1;
-      
-      while (current.getTime() !== end.getTime()) {
-        totalDays++;
-        if (isWorkingDay(current, weekendDays)) {
-          businessDays++;
-        }
-        current.setDate(current.getDate() + direction);
-      }
-      
-      resultValue.textContent = businessDays + ' business days';
-      resultDetail.textContent = `Total calendar days: ${totalDays} (${direction > 0 ? 'forward' : 'backward'})`;
-      
-    } else if (operation === 'add' || operation === 'sub') {
-      if (!daysNum || daysNum <= 0) {
-        alert('Please enter number of days');
-        return;
-      }
-      
-      let remaining = daysNum;
-      const direction = operation === 'add' ? 1 : -1;
-      
-      while (remaining > 0) {
-        current.setDate(current.getDate() + direction);
-        if (isWorkingDay(current, weekendDays)) {
-          remaining--;
-        }
-        totalDays++;
-      }
-      
-      const resultDate = formatDate(current);
-      resultValue.textContent = resultDate;
-      resultDetail.textContent = `${operation === 'add' ? 'Added' : 'Subtracted'} ${daysNum} business days from ${formatDate(start)}`;
+    // Swap if needed
+    if (start > end) {
+      [start, end] = [end, start];
     }
     
-    resultDiv.classList.add('show');
+    let totalDays = 0;
+    let weekendDays = 0;
+    let holidayDays = 0;
+    let workingDays = 0;
+    
+    let current = new Date(start);
+    while (current <= end) {
+      const dateStr = formatDate(current);
+      totalDays++;
+      
+      if (isWeekend(current)) {
+        weekendDays++;
+      } else if (excludeHolidays && isHoliday(dateStr)) {
+        holidayDays++;
+      } else {
+        workingDays++;
+      }
+      
+      current.setDate(current.getDate() + 1);
+    }
+    
+    document.getElementById('resultMain').textContent = `${workingDays} working days`;
+    document.getElementById('totalDays').textContent = totalDays;
+    document.getElementById('weekendDays').textContent = weekendDays;
+    document.getElementById('holidayDays').textContent = excludeHolidays ? holidayDays : 'N/A';
+    document.getElementById('workingDays').textContent = workingDays;
+    
+    resultEl.classList.add('show');
   }
+  
+  // Set defaults
+  const today = new Date();
+  const lastMonth = new Date(today);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  
+  document.getElementById('startDate').value = formatDate(lastMonth);
+  document.getElementById('endDate').value = formatDate(today);
 </script>
 </body>
 </html>
