@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fortune Teller — Shadow's Garden</title>
+<meta name="description" content="Input text, receive a cryptic fortune. The void speaks.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 2rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 1rem;
+    background: var(--card);
+    color: var(--text);
+    resize: vertical;
+    font-family: inherit;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea::placeholder {
+    color: var(--muted);
+  }
+  button {
+    margin-top: 1.5rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  .fortune {
+    margin-top: 2.5rem;
+    padding: 2rem;
+    background: var(--card);
+    border-radius: 16px;
+    display: none;
+    animation: reveal 0.5s ease;
+  }
+  .fortune.show {
+    display: block;
+  }
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fortune-text {
+    font-size: 1.4rem;
+    line-height: 1.6;
+    color: var(--text);
+    font-style: italic;
+  }
+  .fortune-symbol {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .seed-info {
+    margin-top: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .shimmer {
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Fortune Teller</h1>
+  <p class="subtitle">The void knows. Feed it words.</p>
+  
+  <textarea id="input" placeholder="Speak your question to the void... (or just type anything)"></textarea>
+  
+  <br>
+  <button onclick="readFortune()">Consult the Oracle</button>
+  
+  <div class="fortune" id="fortune">
+    <div class="fortune-symbol" id="symbol">🔮</div>
+    <div class="fortune-text" id="fortuneText"></div>
+    <div class="seed-info" id="seedInfo"></div>
+  </div>
+</div>
+
+<script>
+  const fortunes = [
+    "The path you seek has already been walked. Turn back.",
+    "What you lost was never yours to keep.",
+    "A door closes. Three more open. You are looking at the wrong one.",
+    "Patience is not waiting. It is trusting the process while others rush.",
+    "The answer lives in the question you did not ask.",
+    "You will remember this moment in three years and laugh.",
+    "Your shadow knows more than you do. Listen to it.",
+    "The risk you didn't take will haunt you. The one you did will free you.",
+    "Someone is thinking of you right now. They won't admit it.",
+    "The end is not the end. It's where you start again.",
+    "What you call failure, the universe calls course correction.",
+    "Your hands are full. Open them.",
+    "The truth hurts because it's true. But it heals too.",
+    "You're closer than you think. The hill is the last mile.",
+    "Let go of what was. It's preventing what could be.",
+    "The message is in the silence between the noise.",
+    "You are not lost. You are exactly where you need to be — for now.",
+    "A stranger becomes a friend. A friend becomes family. Watch carefully.",
+    "The money you seek is blocking the wealth you need.",
+    "Stop looking for answers. Start asking better questions.",
+    "Something you used to love will return to you. In a new form.",
+    "The thing you fear most is the thing you must do.",
+    "You're thinking too much. The heart knows. Listen.",
+    "Tomorrow is a lie. Today is the only truth.",
+    "The best things said were never said. Write them down.",
+    "Your name will be remembered in a context you don't expect.",
+    "The gap between what you want and what you have is desire. Dissolve it.",
+    "A conversation will change your direction. Pay attention.",
+    "What you build alone, build together. What you build together, finish alone.",
+    "The answer you reject is the answer you need.",
+    "You're due for a break. The universe will force one on you.",
+    "Something old becomes new again. Look in the attic.",
+    "The fear is smaller than you remember. Measure it.",
+    "Your next step is obvious. You're pretending it's not.",
+    "A chance meeting will shift your worldview. Be present.",
+    "The more you chase, the further it runs. Stand still.",
+    "What you neglect will demand your attention. Eventually.",
+    "Your intuition is right. Trust it this time.",
+    "The story you're telling yourself has plot holes. Fix them.",
+    "Something clicks this week. You'll know when it happens."
+  ];
+  
+  const symbols = ["🔮", "🌙", "⭐", "🪞", "🕯️", "🌀", "🌊", "🔥", "🪶", "🗝️", "👁️", "🎭", "⏳", "🌑", "⚡"];
+  
+  function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash);
+  }
+  
+  function seededRandom(seed) {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  }
+  
+  function readFortune() {
+    const input = document.getElementById('input').value.trim();
+    const fortuneEl = document.getElementById('fortune');
+    
+    if (!input) {
+      document.getElementById('input').focus();
+      return;
+    }
+    
+    const hash = hashCode(input);
+    const fortuneIndex = Math.floor(seededRandom(hash) * fortunes.length);
+    const symbolIndex = Math.floor(seededRandom(hash + 1) * symbols.length);
+    
+    document.getElementById('symbol').textContent = symbols[symbolIndex];
+    document.getElementById('fortuneText').textContent = fortunes[fortuneIndex];
+    document.getElementById('seedInfo').textContent = `Seeded from: "${input.substring(0, 30)}${input.length > 30 ? '...' : ''}"`;
+    
+    fortuneEl.classList.remove('show');
+    setTimeout(() => fortuneEl.classList.add('show'), 10);
+  }
+  
+  document.getElementById('input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      readFortune();
+    }
+  });
+</script>
+
+</body>
+</html>
