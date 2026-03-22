@@ -3,165 +3,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Age Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate age in years, months, days from birthdate. Or find age on any specific date.">
+<title>Age & Birthday Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate your age in years, months, days. Find days until your next birthday and the day of the week you were born.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-  .mode-toggle button {
-    flex: 1; padding: 0.75rem; border: 2px solid var(--border);
-    background: var(--bg); color: var(--text); border-radius: 8px;
-    cursor: pointer; font-size: 1rem; transition: all 0.2s;
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
   }
-  .mode-toggle button.active {
-    background: var(--accent); border-color: var(--accent); color: white;
+  h1 {
+    margin-bottom: 0.5rem;
   }
-  .input-group { margin-bottom: 1.5rem; }
-  label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
-  input[type="date"] {
-    width: 100%; padding: 0.75rem; font-size: 1.1rem;
-    border: 2px solid var(--border); border-radius: 8px;
-    background: var(--bg); color: var(--text);
+  .input-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
   }
-  input[type="date"]:focus { outline: none; border-color: var(--accent); }
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .input-group input, .input-group select {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .input-group input:focus, .input-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
   .result {
-    background: var(--card); padding: 1.5rem; border-radius: 12px;
-    text-align: center; margin-top: 1.5rem;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--card);
+    border-radius: 12px;
+    display: none;
   }
-  .result-value { font-size: 2.5rem; font-weight: 700; color: var(--accent); }
-  .result-label { color: var(--muted); margin-top: 0.25rem; }
-  .result-detail { 
-    margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
-    color: var(--muted); font-size: 0.9rem;
+  .result.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .age-display {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .age-detail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    text-align: center;
+  }
+  .age-detail .item {
+    padding: 1rem;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .age-detail .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .age-detail .label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+  .birthday-info {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .birthday-info .days-left {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .birthday-info .day-of-week {
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+  .error {
+    color: #e74c3c;
+    margin-top: 1rem;
+    display: none;
+  }
+  .error.show {
+    display: block;
   }
   .copy-btn {
-    margin-top: 1rem; padding: 0.5rem 1rem;
-    background: var(--border); border: none; border-radius: 6px;
-    cursor: pointer; color: var(--text);
+    background: var(--card);
+    color: var(--text);
+    border: 2px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    margin-top: 1rem;
   }
-  .copy-btn:hover { background: var(--accent); color: white; }
-  .hidden { display: none; }
+  .copy-btn:hover {
+    background: var(--border);
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Age Calculator</h1>
-    <p style="color: var(--muted); margin-bottom: 1.5rem;">Calculate age in years, months, days</p>
-    
-    <div class="mode-toggle">
-      <button id="mode-current" class="active" onclick="setMode('current')">Age Today</button>
-      <button id="mode-specific" onclick="setMode('specific')">Age on Date</button>
-    </div>
-    
-    <div class="input-group">
-      <label for="birthdate">Date of Birth</label>
-      <input type="date" id="birthdate" onchange="calculate()">
-    </div>
-    
-    <div class="input-group hidden" id="specific-date-group">
-      <label for="specific-date">Calculate age on</label>
-      <input type="date" id="specific-date" onchange="calculate()">
-    </div>
-    
-    <div class="result hidden" id="result">
-      <div class="result-value" id="result-years">—</div>
-      <div class="result-label">years old</div>
-      <div class="result-detail" id="result-detail"></div>
-      <button class="copy-btn" onclick="copyResult()">Copy</button>
-    </div>
-    
-    <div class="result hidden" id="result-exact">
-      <div class="result-value" id="result-exact-value">—</div>
-      <div class="result-label">exact age</div>
-      <div class="result-detail" id="result-exact-detail"></div>
+<div class="container">
+  <h1>Age & Birthday Calculator</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Enter your birth date to calculate your age and more.</p>
+  
+  <div class="input-group">
+    <div>
+      <label for="birthDate">Birth Date</label>
+      <input type="date" id="birthDate" required>
     </div>
   </div>
+  
+  <button onclick="calculateAge()">Calculate</button>
+  
+  <div class="error" id="error"></div>
+  
+  <div class="result" id="result">
+    <div class="age-display" id="ageDisplay"></div>
+    <div class="age-detail">
+      <div class="item">
+        <div class="value" id="years">0</div>
+        <div class="label">Years</div>
+      </div>
+      <div class="item">
+        <div class="value" id="months">0</div>
+        <div class="label">Months</div>
+      </div>
+      <div class="item">
+        <div class="value" id="days">0</div>
+        <div class="label">Days</div>
+      </div>
+      <div class="item">
+        <div class="value" id="totalDays">0</div>
+        <div class="label">Total Days</div>
+      </div>
+    </div>
+    
+    <div class="birthday-info">
+      <div class="days-left" id="daysUntilBirthday"></div>
+      <div class="day-of-week" id="dayOfWeek"></div>
+    </div>
+    
+    <div style="text-align: center;">
+      <button class="copy-btn" onclick="copyResult()">Copy Result</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    let mode = 'current';
+<script>
+  function calculateAge() {
+    const birthInput = document.getElementById('birthDate').value;
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
     
-    function setMode(m) {
-      mode = m;
-      document.getElementById('mode-current').classList.toggle('active', m === 'current');
-      document.getElementById('mode-specific').classList.toggle('active', m === 'specific');
-      document.getElementById('specific-date-group').classList.toggle('hidden', m !== 'specific');
-      calculate();
+    errorEl.classList.remove('show');
+    resultEl.classList.remove('show');
+    
+    if (!birthInput) {
+      errorEl.textContent = 'Please enter your birth date.';
+      errorEl.classList.add('show');
+      return;
     }
     
-    function calculate() {
-      const birthStr = document.getElementById('birthdate').value;
-      if (!birthStr) return;
-      
-      const birth = new Date(birthStr);
-      const today = mode === 'current' ? new Date() : new Date(document.getElementById('specific-date').value);
-      
-      if (!today || isNaN(today.getTime())) return;
-      
-      if (birth > today) {
-        showError('Birth date is in the future');
-        return;
-      }
-      
-      let years = today.getFullYear() - birth.getFullYear();
-      let months = today.getMonth() - birth.getMonth();
-      let days = today.getDate() - birth.getDate();
-      
-      if (days < 0) {
-        months--;
-        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-        days += prevMonth.getDate();
-      }
-      
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
-      
-      const totalDays = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
-      
-      document.getElementById('result').classList.remove('hidden');
-      document.getElementById('result-exact').classList.remove('hidden');
-      
-      if (years === 0 && months === 0) {
-        document.getElementById('result-years').textContent = totalDays;
-        document.getElementById('result-label').textContent = 'days old';
-      } else if (years === 0) {
-        document.getElementById('result-years').textContent = months;
-        document.getElementById('result-label').textContent = months === 1 ? 'month old' : 'months old';
-      } else {
-        document.getElementById('result-years').textContent = years;
-        document.getElementById('result-label').textContent = 'years old';
-      }
-      
-      let detail = [];
-      if (years > 0) detail.push(`${years} year${years !== 1 ? 's' : ''}`);
-      if (months > 0) detail.push(`${months} month${months !== 1 ? 's' : ''}`);
-      if (days > 0) detail.push(`${days} day${days !== 1 ? 's' : ''}`);
-      document.getElementById('result-detail').textContent = detail.join(', ');
-      
-      // Exact breakdown
-      const totalMonths = years * 12 + months;
-      document.getElementById('result-exact-value').textContent = `${totalMonths} months`;
-      document.getElementById('result-exact-detail').textContent = `or ${totalDays.toLocaleString()} total days`;
+    const birthDate = new Date(birthInput);
+    const today = new Date();
+    
+    if (birthDate > today) {
+      errorEl.textContent = 'Birth date cannot be in the future.';
+      errorEl.classList.add('show');
+      return;
     }
     
-    function showError(msg) {
-      document.getElementById('result').classList.add('hidden');
-      document.getElementById('result-exact').classList.add('hidden');
-      alert(msg);
+    // Calculate age
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+    
+    if (days < 0) {
+      months--;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
     }
     
-    function copyResult() {
-      const years = document.getElementById('result-years').textContent;
-      const detail = document.getElementById('result-detail').textContent;
-      const text = `${years} years old (${detail})`;
-      navigator.clipboard.writeText(text);
-      document.querySelector('.copy-btn').textContent = 'Copied!';
-      setTimeout(() => document.querySelector('.copy-btn').textContent = 'Copy', 2000);
+    if (months < 0) {
+      years--;
+      months += 12;
     }
-  </script>
+    
+    // Total days alive
+    const totalDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
+    
+    // Days until next birthday
+    let nextBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+    if (nextBirthday < today) {
+      nextBirthday = new Date(today.getFullYear() + 1, birthDate.getMonth(), birthDate.getDate());
+    }
+    const daysUntilBirthday = Math.floor((nextBirthday - today) / (1000 * 60 * 60 * 24));
+    
+    // Day of week born
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = daysOfWeek[birthDate.getDay()];
+    
+    // Display results
+    document.getElementById('ageDisplay').textContent = `${years} years old`;
+    document.getElementById('years').textContent = years;
+    document.getElementById('months').textContent = months;
+    document.getElementById('days').textContent = days;
+    document.getElementById('totalDays').textContent = totalDays.toLocaleString();
+    
+    if (daysUntilBirthday === 0) {
+      document.getElementById('daysUntilBirthday').textContent = '🎂 Happy Birthday!';
+    } else if (daysUntilBirthday === 1) {
+      document.getElementById('daysUntilBirthday').textContent = '🎂 Tomorrow is your birthday!';
+    } else {
+      document.getElementById('daysUntilBirthday').textContent = `${daysUntilBirthday} days until your birthday`;
+    }
+    
+    document.getElementById('dayOfWeek').textContent = `You were born on a ${dayOfWeek}`;
+    
+    resultEl.classList.add('show');
+  }
+  
+  function copyResult() {
+    const birthInput = document.getElementById('birthDate').value;
+    const birthDate = new Date(birthInput);
+    const today = new Date();
+    
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+    
+    if (days < 0) { months--; days += 30; }
+    if (months < 0) { years--; months += 12; }
+    
+    const totalDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
+    
+    let nextBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+    if (nextBirthday < today) nextBirthday = new Date(today.getFullYear() + 1, birthDate.getMonth(), birthDate.getDate());
+    const daysUntilBirthday = Math.floor((nextBirthday - today) / (1000 * 60 * 60 * 24));
+    
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = daysOfWeek[birthDate.getDay()];
+    
+    let text = `Age: ${years} years, ${months} months, ${days} days\n`;
+    text += `Total days lived: ${totalDays.toLocaleString()}\n`;
+    text += `Days until birthday: ${daysUntilBirthday}\n`;
+    text += `Born on: ${dayOfWeek}`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy Result', 2000);
+    });
+  }
+  
+  // Set default to today - 25 years
+  const defaultDate = new Date();
+  defaultDate.setFullYear(defaultDate.getFullYear() - 25);
+  document.getElementById('birthDate').value = defaultDate.toISOString().split('T')[0];
+</script>
+
 </body>
 </html>
