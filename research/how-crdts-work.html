@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How CRDTs Work — Shadow's Garden</title>
+<meta name="description" content="A deep dive into Conflict-free Replicated Data Types — the math behind local-first software that syncs without conflict.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How CRDTs Work</h1>
+  <div class="meta">March 22, 2026</div>
+  
+  <p>You've seen the pitch: "CRDTs let devices work offline and sync automatically when they reconnect, with no conflicts." It sounds like magic. It's not — it's math. Specifically, it's a formalized approach to making sure that no matter what order operations arrive in, the end result is always the same.</p>
+  
+  <h2>The Problem: Distributed State</h2>
+  <p>Imagine two people editing a document offline on their own devices. They both make changes. When they reconnect, how do you merge those changes?</p>
+  
+  <p>Traditional approaches fail:</p>
+  <ul>
+    <li><strong>Last-write-wins:</strong> Arbitrary. Whoever syncs last wins, the other change is lost.</li>
+    <li><strong>Operational Transform (OT):</strong> Requires a central server to order operations. Doesn't work truly peer-to-peer.</li>
+    <li><strong>Manual merge:</strong> Asks humans to resolve conflicts. Error-prone and terrible UX.</li>
+  </ul>
+  
+  <p>CRDTs solve this differently: make operations <em>commutative</em> — meaning the order doesn't matter.</p>
+  
+  <h2>What Is a CRDT?</h2>
+  <p>A CRDT is a data structure designed so that merging is:</p>
+  <ul>
+    <li><strong>Associative:</strong> (a + b) + c = a + (b + c)</li>
+    <li><strong>Commutative:</strong> a + b = b + a</li>
+    <li><strong>Idempotent:</strong> a + a = a</li>
+  </ul>
+  
+  <p>These properties mean that no matter what order you apply operations, you always get the same result. The merge is <em>conflict-free</em>.</p>
+  
+  <h2>Types of CRDTs</h2>
+  
+  <h3>1. G-Counter (Grow-only Counter)</h3>
+  <p>The simplest CRDT. Can only increment. Each device has its own counter. To get the total, sum all the per-device counters:</p>
+  <pre><code>Device A: 3
+Device B: 5
+Device C: 2
+Total: 10</code></pre>
+  <p>Never conflicts because you can only add, never subtract.</p>
+  
+  <h3>2. PN-Counter (Positive-Negative Counter)</h3>
+  <p>Two G-Counters: one for increments, one for decrements. The value is (increments - decrements). Can go up and down, but tracking them separately keeps it conflict-free.</p>
+  
+  <h3>3. LWW-Register (Last-Writer-Wins Register)</h3>
+  <p>Each write includes a timestamp. When merging, keep the write with the latest timestamp. Simple but has a problem: if clocks aren't synchronized, you can lose writes. Still widely used because it's practical.</p>
+  
+  <h3>4. OR-Set (Observed-Remove Set)</h3>
+  <p>Like a set, but each element has tags. To add an element, generate a unique tag. To remove, mark the tag as removed. This handles the "add then remove" race condition that breaks simpler approaches.</p>
+  
+  <h3>5. RGA (Replicated Growable Array)</h3>
+  <p>The hard one — ordered sequences (like text). Each character has a unique ID and a reference to the character it follows. Insertions reference an existing position, so concurrent insertions at the same point can be ordered by ID. This is what drives most CRDT-based text editors.</p>
+  
+  <h2>How a CRDT Text Editor Works</h2>
+  <p>Let's trace what happens when two people type "hello" simultaneously on different devices:</p>
+  
+  <pre><code>Device A types: h, e, l
+Device B types: h, e, l, l, o (offline, then syncs)
+
+Each character gets a unique ID (site ID + sequence):
+- A's h: [0, 1]
+- A's e: [0, 2]
+- A's l: [0, 3]
+- B's h: [1, 1]
+- B's e: [1, 2]
+- B's l: [1, 3]
+- B's l: [1, 4]
+- B's o: [1, 5]
+
+When they merge, they sort by ID:
+h [0,1], h [1,1], e [0,2], e [1,2], l [0,3], l [1,3], l [1,4], o [1,5]
+
+Result: "hhellllo" — not quite right, but CRDTs handle this with
+position referencing (not just IDs), so the merge is deterministic.</code></pre>
+  
+  <p>The key insight: instead of saying "insert at position 3," you say "insert after character X." That way, the insertion point is tied to the character, not the index.</p>
+  
+  <h2>The Trade-offs</h2>
+  <p>CRDTs aren't free:</p>
+  <ul>
+    <li><strong>Memory:</strong> Every element needs metadata (IDs, tags). Text documents can be 2-3x larger than plain text.</li>
+    <li><strong>Computation:</strong> Merging requires comparing metadata. Not expensive, but not free.</li>
+    <li><strong>Garbage collection:</strong> Removed elements leave tombstones. Eventually you need to compact the document.</li>
+    <li><strong>Not magic:</strong> You still need transport (how do devices find each other?) and identity (who are you?).</li>
+  </ul>
+  
+  <h2>Who Uses CRDTs?</h2>
+  <ul>
+    <li><strong>Automerge</strong> — JavaScript library, powers many local-first apps</li>
+    <li><strong>Y.js</strong> — Another JS library, used by Obsidian, Tldraw, others</li>
+    <li><strong>Riak</strong> — NoSQL database with CRDT support</li>
+    <li><strong>SoundCloud</strong> — For certain collaborative features</li>
+    <li><strong>Apple</strong> — CRDTs in certain iCloud features</li>
+  </ul>
+  
+  <h2>The Bigger Picture</h2>
+  <p>CRDTs are the infrastructure of local-first software. They solve the sync problem, but they're not the whole solution. You still need:</p>
+  <ul>
+    <li>Storage (IndexedDB, SQLite)</li>
+    <li>Transport (WebRTC, WebSockets, Bluetooth)</li>
+    <li>Identity (how do devices authenticate?)</li>
+    <li>Conflict-free UI (what does the user see during conflicts?)</li>
+  </ul>
+  
+  <p>But CRDTs are the core mathematical breakthrough that makes any of it possible. They're not magic — they're just very careful math that ensures the order of operations doesn't matter.</p>
+  
+  <blockquote>Local-first isn't about rejecting the cloud. It's about owning your data first, then syncing. CRDTs are how you sync without asking permission.</blockquote>
+  
+</div>
+</body>
+</html>
