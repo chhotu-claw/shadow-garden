@@ -4,320 +4,322 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>World Clock — Shadow's Garden</title>
-<meta name="description" content="Track time across multiple cities worldwide. Add and remove locations, see time differences at a glance.">
+<meta name="description" content="Track time across multiple cities with live updates and timezone comparisons">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
+  :root {
+    --bg-card: #1a1a2e;
+    --text-primary: #eee;
+    --accent: #00d9ff;
+    --accent-dim: #00d9ff33;
+  }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+    min-height: 100vh;
+    color: var(--text-primary);
+    padding: 20px;
+  }
   .container {
-    max-width: 700px;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 2rem 1rem;
   }
   h1 {
-    margin-bottom: 0.5rem;
+    text-align: center;
+    margin-bottom: 10px;
+    color: var(--accent);
+    font-size: 1.8rem;
   }
-  .subtitle {
-    color: var(--muted);
-    margin-bottom: 1.5rem;
+  .current-time {
+    text-align: center;
+    font-size: 3rem;
+    font-weight: bold;
+    margin: 30px 0;
+    text-shadow: 0 0 20px var(--accent-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .current-date {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #888;
+    margin-bottom: 40px;
   }
   .add-city {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    gap: 10px;
+    margin-bottom: 30px;
     flex-wrap: wrap;
+    justify-content: center;
   }
-  .add-city select {
-    flex: 1;
-    min-width: 200px;
-    padding: 0.75rem;
-    border: 2px solid var(--border);
-    border-radius: 8px;
+  .add-city select, .add-city button {
+    padding: 12px 20px;
     font-size: 1rem;
-    background: var(--bg);
-    color: var(--text);
-  }
-  .add-city select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  button {
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600;
+    border: 2px solid var(--accent);
+    background: var(--bg-card);
+    color: var(--text-primary);
     border-radius: 8px;
     cursor: pointer;
-    transition: transform 0.1s, opacity 0.2s;
+    font-family: inherit;
   }
-  button:hover {
-    opacity: 0.9;
+  .add-city button {
+    background: var(--accent);
+    color: #000;
+    font-weight: bold;
   }
-  button:active {
-    transform: scale(0.98);
-  }
-  .remove-btn {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-  }
-  .remove-btn:hover {
-    color: #e74c3c;
-    border-color: #e74c3c;
+  .add-city button:hover {
+    box-shadow: 0 0 15px var(--accent-dim);
   }
   .clock-grid {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
   }
-  .clock-card {
-    background: var(--card);
+  .city-card {
+    background: var(--bg-card);
+    border: 1px solid #333;
     border-radius: 12px;
-    padding: 1.25rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    animation: fadeIn 0.3s ease;
+    padding: 20px;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .clock-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  .city-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15);
+    border-color: var(--accent);
   }
   .city-name {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--accent);
   }
-  .city-timezone {
-    font-size: 0.85rem;
-    color: var(--muted);
-  }
-  .clock-time {
-    text-align: right;
-  }
-  .time-display {
+  .city-time {
     font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent);
     font-variant-numeric: tabular-nums;
+    margin: 10px 0;
   }
-  .date-display {
+  .city-date {
     font-size: 0.9rem;
-    color: var(--muted);
+    color: #666;
   }
-  .diff-display {
-    font-size: 0.85rem;
-    color: var(--muted);
-    margin-top: 0.25rem;
+  .city-diff {
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #333;
   }
-  .diff-display.today {
-    color: #27ae60;
+  .remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 5px;
   }
-  .diff-display.ahead {
-    color: var(--accent);
-  }
-  .diff-display.behind {
-    color: #e74c3c;
-  }
-  .empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: var(--muted);
+  .remove-btn:hover {
+    color: #ff4444;
   }
   .local-badge {
+    display: inline-block;
     background: var(--accent);
-    color: var(--bg);
+    color: #000;
     font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
+    padding: 2px 8px;
     border-radius: 4px;
-    margin-left: 0.5rem;
-    font-weight: 600;
+    margin-left: 8px;
+    font-weight: bold;
+  }
+  @media (max-width: 600px) {
+    .current-time { font-size: 2rem; }
+    .city-time { font-size: 1.5rem; }
+    .add-city { flex-direction: column; }
+    .add-city select, .add-city button { width: 100%; }
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>World Clock</h1>
-  <p class="subtitle">Track time across multiple cities worldwide.</p>
-  
-  <div class="add-city">
-    <select id="citySelect">
-      <option value="">Select a city...</option>
-      <option value="America/New_York">New York (EST/EDT)</option>
-      <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
-      <option value="America/Chicago">Chicago (CST/CDT)</option>
-      <option value="America/Denver">Denver (MST/MDT)</option>
-      <option value="America/Toronto">Toronto (EST/EDT)</option>
-      <option value="America/Vancouver">Vancouver (PST/PDT)</option>
-      <option value="America/Sao_Paulo">São Paulo (BRT)</option>
-      <option value="America/Mexico_City">Mexico City (CST)</option>
-      <option value="Europe/London">London (GMT/BST)</option>
-      <option value="Europe/Paris">Paris (CET/CEST)</option>
-      <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-      <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
-      <option value="Europe/Madrid">Madrid (CET/CEST)</option>
-      <option value="Europe/Rome">Rome (CET/CEST)</option>
-      <option value="Europe/Stockholm">Stockholm (CET/CEST)</option>
-      <option value="Europe/Moscow">Moscow (MSK)</option>
-      <option value="Asia/Dubai">Dubai (GST)</option>
-      <option value="Asia/Kolkata">Mumbai/Delhi (IST)</option>
-      <option value="Asia/Bangkok">Bangkok (ICT)</option>
-      <option value="Asia/Singapore">Singapore (SGT)</option>
-      <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
-      <option value="Asia/Shanghai">Shanghai (CST)</option>
-      <option value="Asia/Tokyo">Tokyo (JST)</option>
-      <option value="Asia/Seoul">Seoul (KST)</option>
-      <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
-      <option value="Australia/Melbourne">Melbourne (AEST/AEDT)</option>
-      <option value="Pacific/Auckland">Auckland (NZST/NZDT)</option>
-    </select>
-    <button onclick="addCity()">Add City</button>
-  </div>
-  
-  <div class="clock-grid" id="clockGrid">
-    <div class="empty-state">Add cities to see their times here.</div>
-  </div>
-</div>
-
-<script>
-  const cityNames = {
-    'America/New_York': 'New York',
-    'America/Los_Angeles': 'Los Angeles',
-    'America/Chicago': 'Chicago',
-    'America/Denver': 'Denver',
-    'America/Toronto': 'Toronto',
-    'America/Vancouver': 'Vancouver',
-    'America/Sao_Paulo': 'São Paulo',
-    'America/Mexico_City': 'Mexico City',
-    'Europe/London': 'London',
-    'Europe/Paris': 'Paris',
-    'Europe/Berlin': 'Berlin',
-    'Europe/Amsterdam': 'Amsterdam',
-    'Europe/Madrid': 'Madrid',
-    'Europe/Rome': 'Rome',
-    'Europe/Stockholm': 'Stockholm',
-    'Europe/Moscow': 'Moscow',
-    'Asia/Dubai': 'Dubai',
-    'Asia/Kolkata': 'Mumbai',
-    'Asia/Bangkok': 'Bangkok',
-    'Asia/Singapore': 'Singapore',
-    'Asia/Hong_Kong': 'Hong Kong',
-    'Asia/Shanghai': 'Shanghai',
-    'Asia/Tokyo': 'Tokyo',
-    'Asia/Seoul': 'Seoul',
-    'Australia/Sydney': 'Sydney',
-    'Australia/Melbourne': 'Melbourne',
-    'Pacific/Auckland': 'Auckland'
-  };
-
-  let cities = JSON.parse(localStorage.getItem('worldClockCities') || '["Asia/Dubai","America/New_York","Europe/London"]');
-  
-  function saveCities() {
-    localStorage.setItem('worldClockCities', JSON.stringify(cities));
-  }
-
-  function getLocalTimezone() {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  }
-
-  function formatTime(date, timezone) {
-    return date.toLocaleTimeString('en-US', {
-      timeZone: timezone,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-  }
-
-  function formatDate(date, timezone) {
-    return date.toLocaleDateString('en-US', {
-      timeZone: timezone,
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  }
-
-  function getTimeDiff(tz1, tz2) {
-    const now = new Date();
-    const t1 = new Date(now.toLocaleString('en-US', { timeZone: tz1 }));
-    const t2 = new Date(now.toLocaleString('en-US', { timeZone: tz2 }));
-    const diffMs = t1 - t2;
-    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  <div class="container">
+    <h1>🌍 World Clock</h1>
+    <div class="current-time" id="mainTime">--:--:--</div>
+    <div class="current-date" id="mainDate">---</div>
     
-    if (diffHours === 0) return { text: 'Same time', class: 'today' };
-    if (diffHours > 0) return { text: `+${diffHours}h from your time`, class: 'ahead' };
-    return { text: `${diffHours}h from your time`, class: 'behind' };
-  }
-
-  function renderClocks() {
-    const grid = document.getElementById('clockGrid');
-    const localTz = getLocalTimezone();
+    <div class="add-city">
+      <select id="timezoneSelect">
+        <option value="">Select timezone...</option>
+      </select>
+      <button onclick="addCity()">+ Add City</button>
+    </div>
     
+    <div class="clock-grid" id="clockGrid"></div>
+  </div>
+
+  <script>
+    const commonTimezones = [
+      { name: 'New York', tz: 'America/New_York' },
+      { name: 'London', tz: 'Europe/London' },
+      { name: 'Paris', tz: 'Europe/Paris' },
+      { name: 'Dubai', tz: 'Asia/Dubai' },
+      { name: 'Mumbai', tz: 'Asia/Kolkata' },
+      { name: 'Singapore', tz: 'Asia/Singapore' },
+      { name: 'Tokyo', tz: 'Asia/Tokyo' },
+      { name: 'Sydney', tz: 'Australia/Sydney' },
+      { name: 'Los Angeles', tz: 'America/Los_Angeles' },
+      { name: 'Chicago', tz: 'America/Chicago' },
+      { name: 'Toronto', tz: 'America/Toronto' },
+      { name: 'Berlin', tz: 'Europe/Berlin' },
+      { name: 'Hong Kong', tz: 'Asia/Hong_Kong' },
+      { name: 'Seoul', tz: 'Asia/Seoul' },
+      { name: 'Moscow', tz: 'Europe/Moscow' },
+      { name: 'Shanghai', tz: 'Asia/Shanghai' },
+      { name: 'São Paulo', tz: 'America/Sao_Paulo' },
+      { name: 'Cairo', tz: 'Africa/Cairo' },
+      { name: 'Johannesburg', tz: 'Africa/Johannesburg' },
+      { name: 'Bangkok', tz: 'Asia/Bangkok' },
+    ];
+
+    let cities = [];
+    
+    // Load from localStorage
+    const saved = localStorage.getItem('worldClockCities');
+    if (saved) {
+      try {
+        cities = JSON.parse(saved);
+      } catch (e) {
+        cities = [];
+      }
+    }
+    
+    // If empty, add some defaults
     if (cities.length === 0) {
-      grid.innerHTML = '<div class="empty-state">Add cities to see their times here.</div>';
-      return;
+      cities = [
+        { name: 'New York', tz: 'America/New_York' },
+        { name: 'London', tz: 'Europe/London' },
+        { name: 'Dubai', tz: 'Asia/Dubai' },
+        { name: 'Tokyo', tz: 'Asia/Tokyo' },
+      ];
     }
 
-    grid.innerHTML = cities.map((tz, index) => {
-      const now = new Date();
-      const time = formatTime(now, tz);
-      const date = formatDate(now, tz);
-      const diff = getTimeDiff(localTz, tz);
-      const cityName = cityNames[tz] || tz.split('/').pop().replace(/_/g, ' ');
-      const isLocal = tz === localTz;
+    // Populate select
+    const select = document.getElementById('timezoneSelect');
+    commonTimezones.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz.tz;
+      opt.textContent = tz.name;
+      select.appendChild(opt);
+    });
+
+    function saveCities() {
+      localStorage.setItem('worldClockCities', JSON.stringify(cities));
+    }
+
+    function addCity() {
+      const tz = select.value;
+      if (!tz) return;
+      const tzData = commonTimezones.find(t => t.tz === tz);
+      if (!tzData) return;
       
-      return `
-        <div class="clock-card">
-          <div class="clock-info">
-            <div class="city-name">
-              ${cityName}
-              ${isLocal ? '<span class="local-badge">LOCAL</span>' : ''}
-            </div>
-            <div class="city-timezone">${tz}</div>
-          </div>
-          <div class="clock-time">
-            <div class="time-display">${time}</div>
-            <div class="date-display">${date}</div>
-            ${!isLocal ? `<div class="diff-display ${diff.class}">${diff.text}</div>` : ''}
-          </div>
-          <button class="remove-btn" onclick="removeCity(${index})">✕</button>
-        </div>
-      `;
-    }).join('');
-  }
+      // Check if already exists
+      if (cities.some(c => c.tz === tz)) return;
+      
+      cities.push(tzData);
+      saveCities();
+      renderCities();
+      select.value = '';
+    }
 
-  function addCity() {
-    const select = document.getElementById('citySelect');
-    const tz = select.value;
-    if (!tz || cities.includes(tz)) return;
-    cities.push(tz);
-    saveCities();
-    renderClocks();
-    select.value = '';
-  }
+    function removeCity(tz) {
+      cities = cities.filter(c => c.tz !== tz);
+      saveCities();
+      renderCities();
+    }
 
-  function removeCity(index) {
-    cities.splice(index, 1);
-    saveCities();
-    renderClocks();
-  }
+    function getTimeInTz(tz) {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+      const time = formatter.format(now);
+      const date = dateFormatter.format(now);
+      return { time, date };
+    }
 
-  // Auto-refresh every second
-  setInterval(renderClocks, 1000);
-  
-  // Initial render
-  renderClocks();
-</script>
+    function getOffset(tz) {
+      const now = new Date();
+      const tzDate = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+      const localDate = new Date(now.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+      const diffMs = tzDate - localDate;
+      const diffHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+      const diffMins = Math.floor((Math.abs(diffMs) % (1000 * 60 * 60)) / (1000 * 60));
+      const sign = diffMs >= 0 ? '+' : '-';
+      if (diffMs === 0) return 'Same time';
+      return `UTC${sign}${diffHours}${diffMins ? ':' + String(diffMins).padStart(2, '0') : ''}`;
+    }
+
+    function renderCities() {
+      const grid = document.getElementById('clockGrid');
+      grid.innerHTML = '';
+      
+      const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      cities.forEach(city => {
+        const { time, date } = getTimeInTz(city.tz);
+        const diff = getOffset(city.tz);
+        const isLocal = city.tz === localTz;
+        
+        const card = document.createElement('div');
+        card.className = 'city-card';
+        card.innerHTML = `
+          <button class="remove-btn" onclick="removeCity('${city.tz}')">×</button>
+          <div class="city-name">${city.name}${isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
+          <div class="city-time">${time}</div>
+          <div class="city-date">${date}</div>
+          <div class="city-diff">${diff}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function updateMainTime() {
+      const now = new Date();
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      document.getElementById('mainTime').textContent = timeFormatter.format(now);
+      document.getElementById('mainDate').textContent = dateFormatter.format(now);
+    }
+
+    function tick() {
+      updateMainTime();
+      renderCities();
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  </script>
 </body>
 </html>
