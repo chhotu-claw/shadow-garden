@@ -3,162 +3,287 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JSON to CSV — Shadow's Garden</title>
-<meta name="description" content="Convert JSON arrays to CSV format instantly. Client-side, private, no server.">
+<title>JSON to CSV Converter — Shadow's Garden</title>
+<meta name="description" content="Convert JSON arrays to CSV format instantly. Paste your JSON, get downloadable CSV.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 20px; max-width: 1200px; margin: 0 auto; }
-  .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: calc(100vh - 120px); }
-  .panel { display: flex; flex-direction: column; }
-  h2 { margin: 0 0 10px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
-  textarea { flex: 1; padding: 15px; font-family: 'JetBrains Mono', monospace; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; resize: none; background: var(--bg-secondary); color: var(--text); }
-  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .output-area { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: 'JetBrains Mono', monospace; font-size: 13px; overflow: auto; white-space: pre; flex: 1; color: var(--text); }
-  .controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
-  button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
-  .btn-primary { background: var(--accent); color: white; }
-  .btn-primary:hover { filter: brightness(1.1); }
-  .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: var(--accent); }
-  .stats { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
-  .error { color: #ff6b6b; font-size: 13px; margin-top: 10px; display: none; }
-  .options { display: flex; gap: 15px; margin-bottom: 15px; }
-  .option label { font-size: 13px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  input[type="checkbox"] { accent-color: var(--accent); }
-  @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+  body { min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  
+  .converter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  @media (max-width: 700px) {
+    .converter-grid { grid-template-columns: 1fr; }
+  }
+  
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  
+  textarea {
+    width: 100%;
+    height: 350px;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+  }
+  
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  
+  .actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: var(--accent-dark);
+  }
+  
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+  
+  .btn-secondary:hover {
+    background: var(--text-muted);
+    color: white;
+  }
+  
+  .error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 6px;
+    display: none;
+  }
+  
+  .error.show { display: block; }
+  
+  .preview-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+  
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1rem;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .stat { color: var(--text-muted); }
+  .stat strong { color: var(--text); }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>JSON to CSV Converter</h1>
-  <div class="options">
-    <div class="option"><label><input type="checkbox" id="hasHeader" checked> First row is header</label></div>
-    <div class="option"><label><input type="checkbox" id="flatten" checked> Flatten nested objects</label></div>
-  </div>
-  <div class="controls">
-    <button class="btn-primary" onclick="convert()">Convert</button>
-    <button class="btn-secondary" onclick="copyOutput()">Copy</button>
-    <button class="btn-secondary" onclick="downloadCSV()">Download</button>
-    <button class="btn-secondary" onclick="clearAll()">Clear</button>
-    <span class="stats" id="stats"></span>
-  </div>
-  <div class="error" id="error"></div>
   <div class="container">
-    <div class="panel">
-      <h2>JSON Input</h2>
-      <textarea id="input" placeholder='[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]'></textarea>
+    <h1>JSON to CSV Converter</h1>
+    <p class="subtitle">Turn JSON arrays into CSV. Paste, convert, download.</p>
+    
+    <div class="converter-grid">
+      <div class="panel">
+        <label for="jsonInput">JSON Input</label>
+        <textarea id="jsonInput" placeholder='[
+  {"name": "Alice", "age": 30, "city": "NYC"},
+  {"name": "Bob", "age": 25, "city": "LA"}
+]'></textarea>
+      </div>
+      <div class="panel">
+        <label for="csvOutput">CSV Output</label>
+        <textarea id="csvOutput" readonly placeholder="CSV will appear here..."></textarea>
+      </div>
     </div>
-    <div class="panel">
-      <h2>CSV Output</h2>
-      <div class="output-area" id="output"></div>
+    
+    <div class="error" id="error"></div>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <span class="stat">Rows: <strong id="rowCount">0</strong></span>
+      <span class="stat">Columns: <strong id="colCount">0</strong></span>
+    </div>
+    
+    <div class="actions">
+      <button class="btn-primary" onclick="convertJsonToCsv()">Convert to CSV</button>
+      <button class="btn-secondary" onclick="copyToClipboard()">Copy CSV</button>
+      <button class="btn-secondary" onclick="downloadCsv()">Download CSV</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
     </div>
   </div>
+
   <script>
-    const inputEl = document.getElementById('input');
-    const outputEl = document.getElementById('output');
-    const errorEl = document.getElementById('error');
-    const statsEl = document.getElementById('stats');
+    const jsonInput = document.getElementById('jsonInput');
+    const csvOutput = document.getElementById('csvOutput');
+    const error = document.getElementById('error');
+    const stats = document.getElementById('stats');
+    const rowCount = document.getElementById('rowCount');
+    const colCount = document.getElementById('colCount');
 
-    function escapeCSV(val) {
-      if (val === null || val === undefined) return '';
-      const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return '"' + str.replace(/"/g, '""') + '"';
-      }
-      return str;
-    }
-
-    function flatten(obj, prefix = '') {
-      const result = {};
-      for (const [key, value] of Object.entries(obj)) {
-        const newKey = prefix ? `${prefix}.${key}` : key;
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          Object.assign(result, flatten(value, newKey));
-        } else if (Array.isArray(value)) {
-          result[newKey] = JSON.stringify(value);
-        } else {
-          result[newKey] = value;
-        }
-      }
-      return result;
-    }
-
-    function convert() {
-      errorEl.style.display = 'none';
-      const jsonStr = inputEl.value.trim();
-      if (!jsonStr) {
-        outputEl.textContent = '';
-        statsEl.textContent = '';
+    function convertJsonToCsv() {
+      error.classList.remove('show');
+      const input = jsonInput.value.trim();
+      
+      if (!input) {
+        showError('Please enter some JSON');
         return;
       }
+
       try {
-        let data = JSON.parse(jsonStr);
+        let data = JSON.parse(input);
+        
+        // Handle both array and object with array property
         if (!Array.isArray(data)) {
-          if (typeof data === 'object' && data !== null) {
-            data = [data];
+          // Check if it's an object with an array property
+          const arrayProp = Object.values(data).find(v => Array.isArray(v));
+          if (arrayProp) {
+            data = arrayProp;
           } else {
-            throw new Error('Input must be a JSON array or object');
+            // Single object - wrap in array
+            data = [data];
           }
         }
-        const flattenNested = document.getElementById('flatten').checked;
-        const useHeader = document.getElementById('hasHeader').checked;
-        
-        const processed = flattenNested ? data.map(item => flatten(item)) : data;
-        const allKeys = new Set();
-        processed.forEach(item => Object.keys(item).forEach(k => allKeys.add(k)));
-        const headers = Array.from(allKeys);
-        
-        let csv = '';
-        if (useHeader) {
-          csv = headers.map(escapeCSV).join(',') + '\n';
+
+        if (data.length === 0) {
+          showError('JSON array is empty');
+          return;
         }
-        processed.forEach(row => {
-          csv += headers.map(h => escapeCSV(row[h])).join(',') + '\n';
+
+        // Collect all unique keys from all objects
+        const headers = new Set();
+        data.forEach(obj => {
+          if (typeof obj === 'object' && obj !== null) {
+            Object.keys(obj).forEach(k => headers.add(k));
+          }
         });
+
+        const headerArray = Array.from(headers);
         
-        outputEl.textContent = csv;
-        statsEl.textContent = `${processed.length} rows × ${headers.length} columns`;
+        // Build CSV
+        const csvLines = [headerArray.join(',')];
+        
+        data.forEach(obj => {
+          if (typeof obj !== 'object' || obj === null) {
+            csvLines.push(String(obj));
+            return;
+          }
+          
+          const row = headerArray.map(h => {
+            let val = obj[h];
+            if (val === undefined || val === null) return '';
+            if (typeof val === 'object') val = JSON.stringify(val);
+            val = String(val);
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+              val = '"' + val.replace(/"/g, '""') + '"';
+            }
+            return val;
+          });
+          csvLines.push(row.join(','));
+        });
+
+        csvOutput.value = csvLines.join('\n');
+        
+        // Update stats
+        rowCount.textContent = data.length;
+        colCount.textContent = headerArray.length;
+        stats.style.display = 'flex';
+        
       } catch (e) {
-        errorEl.textContent = 'Error: ' + e.message;
-        errorEl.style.display = 'block';
-        statsEl.textContent = '';
+        showError('Invalid JSON: ' + e.message);
       }
     }
 
-    function copyOutput() {
-      if (outputEl.textContent) {
-        navigator.clipboard.writeText(outputEl.textContent);
-        const btn = event.target;
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy', 1500);
-      }
+    function showError(msg) {
+      error.textContent = msg;
+      error.classList.add('show');
+      stats.style.display = 'none';
     }
 
-    function downloadCSV() {
-      if (outputEl.textContent) {
-        const blob = new Blob([outputEl.textContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'data.csv';
-        a.click();
-        URL.revokeObjectURL(url);
+    function copyToClipboard() {
+      if (!csvOutput.value) {
+        showError('No CSV to copy - convert first');
+        return;
       }
+      csvOutput.select();
+      document.execCommand('copy');
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = originalText, 1500);
+    }
+
+    function downloadCsv() {
+      if (!csvOutput.value) {
+        showError('No CSV to download - convert first');
+        return;
+      }
+      const blob = new Blob([csvOutput.value], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'data.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     function clearAll() {
-      inputEl.value = '';
-      outputEl.textContent = '';
-      statsEl.textContent = '';
-      errorEl.style.display = 'none';
+      jsonInput.value = '';
+      csvOutput.value = '';
+      error.classList.remove('show');
+      stats.style.display = 'none';
     }
 
-    inputEl.addEventListener('input', () => {
-      if (inputEl.value.trim()) convert();
+    // Auto-convert on input change (debounced)
+    let debounceTimer;
+    jsonInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (jsonInput.value.trim()) convertJsonToCsv();
+      }, 800);
     });
-
-    document.getElementById('flatten').addEventListener('change', convert);
-    document.getElementById('hasHeader').addEventListener('change', convert);
   </script>
 </body>
 </html>
