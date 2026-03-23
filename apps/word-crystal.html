@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Crystal — Shadow's Garden</title>
+<meta name="description" content="Type words and watch them crystallize into refracting structures. A meditative word visualization experiment.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    background: #0a0a12;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+  
+  h1 {
+    color: #e0e0ff;
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  
+  .input-area {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  input[type="text"] {
+    flex: 1;
+    padding: 0.8rem 1rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  
+  input[type="text"]:focus {
+    border-color: rgba(180, 160, 255, 0.5);
+  }
+  
+  input[type="text"]::placeholder {
+    color: rgba(255,255,255,0.3);
+  }
+  
+  button {
+    padding: 0.8rem 1.5rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  }
+  
+  #crystal-canvas {
+    border-radius: 8px;
+    box-shadow: 0 0 60px rgba(139, 92, 246, 0.2);
+  }
+  
+  .controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .controls label {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  
+  input[type="range"] {
+    accent-color: #8b5cf6;
+  }
+  
+  .hint {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.8rem;
+    margin-top: 1rem;
+    font-style: italic;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Word Crystal</h1>
+  <div class="input-area">
+    <input type="text" id="word-input" placeholder="type a word..." maxlength="20">
+    <button id="crystallize">Crystallize</button>
+  </div>
+  <canvas id="crystal-canvas" width="700" height="500"></canvas>
+  <div class="controls">
+    <label>Size <input type="range" id="size-slider" min="20" max="100" value="50"></label>
+    <label>Refraction <input type="range" id="refraction-slider" min="1" max="30" value="15"></label>
+    <label>Hue Shift <input type="range" id="hue-slider" min="0" max="360" value="260"></label>
+  </div>
+  <p class="hint">Each word becomes a crystal. Crystals refract light. Type multiple words to build a garden.</p>
+
+  <script>
+    const canvas = document.getElementById('crystal-canvas');
+    const ctx = canvas.getContext('2d');
+    const wordInput = document.getElementById('word-input');
+    const crystallizeBtn = document.getElementById('crystallize');
+    const sizeSlider = document.getElementById('size-slider');
+    const refractionSlider = document.getElementById('refraction-slider');
+    const hueSlider = document.getElementById('hue-slider');
+    
+    let crystals = [];
+    
+    // Crystal class
+    class Crystal {
+      constructor(word, x, y, baseSize) {
+        this.word = word;
+        this.x = x;
+        this.y = y;
+        this.baseSize = baseSize;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.01;
+        this.born = Date.now();
+        this.hue = 260 + Math.random() * 60 - 30;
+      }
+      
+      draw(refraction, hueShift, currentSize) {
+        const age = (Date.now() - this.born) / 1000;
+        const scale = Math.min(1, age * 2);
+        const size = this.baseSize * scale * (currentSize / 50);
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation + age * this.rotationSpeed);
+        
+        const finalHue = (this.hue + hueShift) % 360;
+        
+        // Draw crystal facets
+        const facets = 6;
+        for (let i = 0; i < facets; i++) {
+          const angle = (i / facets) * Math.PI * 2;
+          const nextAngle = ((i + 1) / facets) * Math.PI * 2;
+          
+          const x1 = Math.cos(angle) * size;
+          const y1 = Math.sin(angle) * size;
+          const x2 = Math.cos(nextAngle) * size;
+          const y2 = Math.sin(nextAngle) * size;
+          
+          // Refraction effect - each facet has different brightness
+          const brightness = 30 + Math.sin(angle * 2 + refraction) * 20;
+          
+          const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+          gradient.addColorStop(0, `hsla(${finalHue}, 70%, ${brightness}%, 0.8)`);
+          gradient.addColorStop(1, `hsla(${finalHue + 30}, 60%, ${brightness + 20}%, 0.6)`);
+          
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.closePath();
+          ctx.fillStyle = gradient;
+          ctx.fill();
+        }
+        
+        // Inner glow
+        const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.7);
+        glowGradient.addColorStop(0, `hsla(${finalHue}, 80%, 60%, 0.4)`);
+        glowGradient.addColorStop(1, `hsla(${finalHue}, 70%, 30%, 0)`);
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Word label
+        ctx.rotate(-(this.rotation + age * this.rotationSpeed));
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = `${Math.max(10, size * 0.4)}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.word, 0, size + 15);
+        
+        ctx.restore();
+      }
+    }
+    
+    // Seed function - hash string to position
+    function seedPosition(word) {
+      let hash = 0;
+      for (let i = 0; i < word.length; i++) {
+        hash = ((hash << 5) - hash) + word.charCodeAt(i);
+        hash = hash & hash;
+      }
+      const x = 100 + Math.abs(hash % 500);
+      const y = 50 + Math.abs((hash >> 8) % 400);
+      return { x, y };
+    }
+    
+    function addCrystal() {
+      const word = wordInput.value.trim().toLowerCase();
+      if (!word) return;
+      
+      const pos = seedPosition(word);
+      const size = parseInt(sizeSlider.value);
+      
+      crystals.push(new Crystal(word, pos.x, pos.y, size));
+      wordInput.value = '';
+      wordInput.focus();
+    }
+    
+    function animate() {
+      // Dark background with slight fade for trails
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.15)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw crystals
+      const refraction = parseInt(refractionSlider.value);
+      const hueShift = parseInt(hueSlider.value);
+      const size = parseInt(sizeSlider.value);
+      
+      crystals.forEach(crystal => {
+        crystal.draw(refraction, hueShift, size);
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Clear canvas initially
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Event listeners
+    crystallizeBtn.addEventListener('click', addCrystal);
+    wordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addCrystal();
+    });
+    
+    // Start animation
+    animate();
+  </script>
+</body>
+</html>
