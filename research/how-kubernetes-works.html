@@ -4,133 +4,83 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Kubernetes Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive on Kubernetes — container orchestration, pods, services, and the control plane that runs it all">
+<meta name="description" content="Deep dive into Kubernetes architecture: pods, services, deployments, and the control plane.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
-<style>
-  :root { --accent: #326ce5; }
-  body { --accent: #326ce5; }
-  .tag { background: var(--accent); }
-</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Kubernetes Works</h1>
-  <div class="meta">March 11, 2026</div>
+  <div class="meta">March 23, 2026</div>
   
-  <p>Kubernetes (K8s) is Google's open-source answer to the question: "How do we run thousands of containers without losing our minds?" The answer: abstractions, lots of them, stacked on top of each other until something magical happens.</p>
+  <p>Kubernetes (K8s) is the operating system of the cloud-native world. But unlike Linux, it's not about managing a single machine—it's about managing clusters of machines as if they were one.</p>
 
-  <h2>The Problem</h2>
-  
-  <p>Docker solves packaging. One container = one artifact. But what happens when you need fifty containers running across ten machines? What happens when one dies? What happens when traffic spikes at 2 AM?</p>
-  
-  <p>That's where Kubernetes comes in. It's an orchestrator — a meta-infrastructure that manages your infrastructure. It decides where things run, when they restart, how they talk to each other, and how to scale them. You say "I want 3 copies of this," and Kubernetes makes it so.</p>
+  <h2>The Core Abstraction</h2>
+  <p>At its heart, Kubernetes is a <strong>declarative system</strong>. You tell it what you want (3 replicas of this container), and it figures out how to make it happen. You never tell it <em>how</em>—you tell it <em>what</em>.</p>
 
-  <h2>The Architecture</h2>
-  
-  <p>Kubernetes runs as a cluster. A cluster has one control plane (the brains) and one or more worker nodes (the muscle).</p>
+  <p>This is the fundamental shift: from imperative ("start this container on this machine") to declarative ("maintain 3 replicas of this pod"). The system constantly reconciles reality with your desired state.</p>
 
-  <h3>The Control Plane</h3>
-  
-  <p>The control plane is a collection of processes that govern the entire cluster:</p>
+  <h2>The Control Plane</h2>
+  <p>Kubernetes runs a <strong>control plane</strong>—a set of components that make decisions about the cluster:</p>
   
   <ul>
-    <li><strong>kube-apiserver</strong> — The front door. Every interaction with Kubernetes goes through this REST API. You talk to it, and it validates and processes your requests.</li>
-    <li><strong>etcd</strong> — The database. A distributed key-value store that holds the entire cluster state. Every pod, service, config — all of it lives here. If etcd dies, your cluster forgets everything.</li>
-    <li><strong>kube-controller-manager</strong> — The watcher. Runs controllers that constantly compare "desired state" (what you want) to "current state" (what you have). If they differ, it takes action.</li>
-    <li><strong>kube-scheduler</strong> — The decision maker. When you create a new pod, this decides which node it runs on. Considers resources, constraints, affinity rules.</li>
+    <li><strong>API Server</strong> — The front door. Every interaction with Kubernetes goes through this. It's a stateless REST API that stores everything in etcd.</li>
+    <li><strong>etcd</strong> — The brain. A distributed key-value store that holds the entire cluster state. This is what gets backed up.</li>
+    <li><strong>Controller Manager</strong> — The reconciliation engine. It watches the current state and constantly tries to move toward the desired state. Every resource has a controller.</li>
+    <li><strong>Scheduler</strong> — The decision maker. When you create a new pod, this decides which node it runs on based on resources, constraints, and policies.</li>
   </ul>
 
-  <h3>Worker Nodes</h3>
-  
-  <p>Each worker node runs:</p>
-  
-  <ul>
-    <li><strong>kubelet</strong> — The node's agent. Talks to the apiserver, ensures containers are running as specified.</li>
-    <li><strong>kube-proxy</strong> — The network proxy. Handles pod-to-pod communication and load balancing within the cluster.</li>
-    <li><strong>Container runtime</strong> — Usually containerd or CRI-O, the actual thing that runs containers.</li>
-  </ul>
-
-  <h2>The Objects</h2>
-  
-  <p>Kubernetes is declarative. You describe what you want, and Kubernetes makes it happen. That description uses objects:</p>
+  <h2>Key Concepts</h2>
 
   <h3>Pod</h3>
-  
-  <p>The smallest deployable unit. A pod is one or more containers that share network and storage. Usually, it's just one container — but they can share. Pods are ephemeral. They'll die. Kubernetes will restart them. Don't get attached.</p>
-
-  <h3>ReplicaSet</h3>
-  
-  <p>Ensures N copies of a pod are running. If one dies, ReplicaSet notices and spawns a replacement. You usually don't create these directly — Deployment manages them.</p>
-
-  <h3>Deployment</h3>
-  
-  <p>The thing you actually use. A Deployment manages ReplicaSets, which manage Pods. It handles rolling updates (gradually replace old pods with new ones), rollbacks, and scaling. You say "here's my container image" and "I want 5 replicas" — Deployment handles the rest.</p>
+  <p>The smallest deployable unit. Usually one container, but can be multiple (like a sidecar). Pods are ephemeral—they can die and be rescheduled at any time.</p>
 
   <h3>Service</h3>
-  
-  <p>Pods come and go. Their IP addresses change. Services provide stable network endpoints. A Service is a stable IP and DNS name that routes to whatever pods match its selector. The service abstraction means your code doesn't care which pod it's talking to.</p>
+  <p>A stable endpoint for a set of pods. Since pods are ephemeral (IP changes on restart), services provide a stable DNS name and load balancing. The magic: kube-proxy maintains iptables rules to route traffic to healthy pods.</p>
 
-  <h3>Ingress</h3>
-  
-  <p>How do you get traffic from the outside world into your cluster? Ingress. It's an HTTP/HTTPS router — host-based and path-based routing, TLS termination, the works.</p>
+  <h3>Deployment</h3>
+  <p>A declarative way to manage pods. You define "I want 3 replicas of this container" and Kubernetes handles the rest—including rolling updates, rollbacks, and scaling.</p>
 
-  <h3>ConfigMap & Secret</h3>
-  
-  <p>Configuration data and sensitive data (passwords, tokens). Mounted as environment variables or files. Separates config from code.</p>
+  <h3>StatefulSet</h3>
+  <p>Like Deployment, but for stateful applications. Guarantees stable network identities and ordered deployment. Essential for databases and systems that need stable hostnames.</p>
 
-  <h3>PersistentVolume</h3>
-  
-  <p>Containers are ephemeral. Pods die, their storage dies. PersistentVolume provides durable storage that survives pod restarts. You claim a chunk of storage, Kubernetes binds it to your pod.</p>
+  <h3>Namespace</h3>
+  <p>Logical isolation. Not security boundaries (that's RBAC), but a way to organize resources. Great for separating dev/staging/prod within one cluster.</p>
 
-  <h2>The Control Loop</h2>
-  
-  <p>The heart of Kubernetes is the reconciliation loop. Every controller runs this:</p>
-  
+  <h2>How Scheduling Works</h2>
+  <p>When you create a pod:</p>
   <ol>
-    <li>Observe current state (from etcd)</li>
-    <li>Compare to desired state (from your YAML)</li>
-    <li>Take action to make them match</li>
-    <li>Repeat forever</li>
+    <li>API server stores it in etcd</li>
+    <li>Scheduler notices the unscheduled pod</li>
+    <li>Scheduler filters nodes (resource constraints, labels, taints)</li>
+    <li>Scheduler ranks nodes (scoring based on resources, affinity rules)</li>
+    <li>Scheduler binds pod to node</li>
+    <li>Kubelet on that node sees the assignment and starts the container</li>
   </ol>
 
-  <p>This is why Kubernetes is resilient. Something breaks? The loop notices. Traffic spikes? The horizontal pod autoscaler notices. The loop fixes it.</p>
-
-  <h2>What's Hard</h2>
-  
-  <p>Kubernetes is not simple. It's a tool for managing complexity — but it creates its own:</p>
-  
+  <h2>The Networking Model</h2>
+  <p>Kubernetes has a flat network model:</p>
   <ul>
-    <li><strong>Learning curve</strong> — YAML, concepts, debugging distributed systems</li>
-    <li><strong>Overhead</strong> — Running K8s costs resources. Not for small projects.</li>
-    <li><strong>Debugging</strong> — When something breaks in a distributed system, figuring out where is its own skill.</li>
-    <li><strong>Security</strong> — RBAC, network policies, secrets management — easy to get wrong.</li>
+    <li>Every pod gets a unique IP</li>
+    <li>Pods can communicate with any other pod without NAT</li>
+    <li>Services provide internal DNS</li>
+    <li>Ingress handles external traffic</li>
+  </ul>
+  <p>This is simpler than traditional infrastructure but requires CNI plugins (Calico, Cilium, Flannel) to implement.</p>
+
+  <h2>Why This Matters</h2>
+  <p>Kubernetes solves the problem of "how do I run distributed systems reliably?" It handles:</p>
+  <ul>
+    <li>Self-healing (restarting failed containers)</li>
+    <li>Scaling (horizontal pod autoscaling)</li>
+    <li>Rolling updates (zero-downtime deployments)</li>
+    <li>Service discovery (internal DNS)</li>
+    <li>Load balancing (round-robin across pods)</li>
   </ul>
 
-  <h2>When to Use It</h2>
-  
-  <p>Kubernetes makes sense when:</p>
-  
-  <ul>
-    <li>You have multiple services that need to communicate</li>
-    <li>You need automatic scaling</li>
-    <li>You need zero-downtime deployments</li>
-    <li>You have the team size to manage it</li>
-  </ul>
+  <p>But it's complex. The operational burden is real—monitoring, logging, security, upgrades. It's become its own ecosystem of tools (Helm, ArgoCD, Prometheus, Istio). The pitch is "write once, run anywhere" but the reality is "write once, debug Kubernetes everywhere."</p>
 
-  <p>It doesn't make sense when:</p>
-  
-  <ul>
-    <li>You have one app running on one server</li>
-    <li>Your team is one person</li>
-    <li>You're just starting out</li>
-  </ul>
-
-  <h2>The Bottom Line</h2>
-  
-  <p>Kubernetes is a orchestration platform for containerized applications. It provides self-healing, scaling, service discovery, and deployment management. The cost is complexity — lots of it. But when you need to run many services at scale, it's the standard for a reason.</p>
-  
-  <p>You don't need Kubernetes until you do. And when you do, you'll know.</p>
+  <p>For most teams, managed K8s (EKS, GKE, AKS) is the play. Running your own control plane is a massive time sink that rarely provides value.</p>
 </div>
 </body>
 </html>
