@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Path Finder — Shadow's Garden</title>
+<meta name="description" content="Query JSON with a dot-notation path selector. Find values, keys, and nested data instantly.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { background: #0d1117; color: #e6edf3; font-family: 'JetBrains Mono', monospace; }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+  h1 { color: #58a6ff; font-size: 1.8rem; margin-bottom: 8px; }
+  .subtitle { color: #8b949e; font-size: 0.9rem; margin-bottom: 30px; }
+  .input-group { margin-bottom: 20px; }
+  label { display: block; color: #8b949e; margin-bottom: 8px; font-size: 0.85rem; }
+  textarea, input[type="text"] {
+    width: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    color: #e6edf3; padding: 12px; font-family: inherit; font-size: 0.9rem; box-sizing: border-box;
+  }
+  textarea { min-height: 200px; resize: vertical; }
+  textarea:focus, input:focus { outline: none; border-color: #58a6ff; }
+  .path-input { font-size: 1.1rem; padding: 14px; }
+  .results {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px;
+    min-height: 60px; max-height: 300px; overflow-y: auto;
+  }
+  .result-item {
+    padding: 8px 12px; margin: 4px 0; background: #21262d; border-radius: 4px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .result-key { color: #7ee787; }
+  .result-value { color: #a5d6ff; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-type { color: #8b949e; font-size: 0.75rem; margin-left: 12px; }
+  .error { color: #f85149; }
+  .path-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .preset-btn {
+    background: #21262d; border: 1px solid #30363d; color: #58a6ff; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s;
+  }
+  .preset-btn:hover { background: #30363d; border-color: #58a6ff; }
+  .hint { color: #8b949e; font-size: 0.8rem; margin-top: 6px; }
+  code { background: #21262d; padding: 2px 6px; border-radius: 3px; color: #f0883e; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>JSON Path Finder</h1>
+  <div class="subtitle">Query JSON with dot notation. Find values deep in nested structures.</div>
+  
+  <div class="input-group">
+    <label>JSON Input</label>
+    <textarea id="jsonInput" placeholder='{"users": [{"name": "Alice", "address": {"city": "NYC"}}, {"name": "Bob"}]}'>
+{
+  "users": [
+    {"name": "Alice", "age": 30, "address": {"city": "New York", "zip": "10001"}},
+    {"name": "Bob", "age": 25, "address": {"city": "LA", "zip": "90001"}}
+  ],
+  "version": "1.0",
+  "active": true
+}</textarea>
+  </div>
+  
+  <div class="input-group">
+    <label>Path (dot notation)</label>
+    <input type="text" id="pathInput" class="path-input" placeholder="e.g. users.0.name" value="users.0.name">
+    <div class="path-presets">
+      <button class="preset-btn" data-path="users">users</button>
+      <button class="preset-btn" data-path="users.0">users.0</button>
+      <button class="preset-btn" data-path="users.0.name">users.0.name</button>
+      <button class="preset-btn" data-path="users.*.name">users.*.name</button>
+      <button class="preset-btn" data-path="users.*.address.city">users.*.address.city</button>
+    </div>
+  </div>
+  
+  <div class="input-group">
+    <label>Results</label>
+    <div id="results" class="results">
+      <div class="result-item">
+        <span class="result-value">Alice</span>
+        <span class="result-type">string</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const jsonInput = document.getElementById('jsonInput');
+const pathInput = document.getElementById('pathInput');
+const results = document.getElementById('results');
+
+function getNestedValue(obj, path) {
+  if (!path) return obj;
+  const parts = path.split('.').filter(p => p !== '');
+  let current = obj;
+  
+  for (const part of parts) {
+    if (current === undefined || current === null) return undefined;
+    
+    // Handle array index or wildcard
+    if (part === '*') {
+      if (Array.isArray(current)) {
+        return current;
+      }
+      return undefined;
+    }
+    
+    // Check if it's an array index
+    const isArrayAccess = /^\d+$/.test(part) || /^\[\d+\]$/.test(part);
+    const index = isArrayAccess ? parseInt(part.replace(/[\[\]]/g, '')) : part;
+    
+    if (Array.isArray(current) && !isNaN(index)) {
+      current = current[index];
+    } else if (typeof current === 'object' && current !== null) {
+      current = current[part];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
+function formatValue(val) {
+  if (val === null) return 'null';
+  if (val === undefined) return 'undefined';
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+}
+
+function getType(val) {
+  if (val === null) return 'null';
+  if (val === undefined) return 'undefined';
+  if (Array.isArray(val)) return 'array';
+  return typeof val;
+}
+
+function resolveWildcard(obj, path) {
+  const parts = path.split('.');
+  let current = obj;
+  const results = [];
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    
+    if (part === '*') {
+      if (Array.isArray(current)) {
+        // Collect all results from wildcard
+        const remainingPath = parts.slice(i + 1).join('.');
+        for (const item of current) {
+          if (remainingPath) {
+            results.push(...resolveWildcard(item, remainingPath));
+          } else {
+            results.push(item);
+          }
+        }
+        return results;
+      }
+      return [];
+    }
+    
+    // Handle array index
+    const isArrayIndex = /^\d+$/.test(part);
+    if (isArrayIndex && Array.isArray(current)) {
+      current = current[parseInt(part)];
+    } else if (current && typeof current === 'object') {
+      current = current[part];
+    } else {
+      return [];
+    }
+  }
+  
+  return [current];
+}
+
+function query() {
+  const json = jsonInput.value.trim();
+  const path = pathInput.value.trim();
+  
+  if (!json) {
+    results.innerHTML = '<div class="error">Enter JSON first</div>';
+    return;
+  }
+  
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch (e) {
+    results.innerHTML = '<div class="error">Invalid JSON: ' + e.message + '</div>';
+    return;
+  }
+  
+  if (!path) {
+    results.innerHTML = '<div class="result-item"><span class="result-value">Use dot notation: users.0.name or users.*.email</span></div>';
+    return;
+  }
+  
+  try {
+    // Check for wildcard
+    if (path.includes('.*') || path.endsWith('.*')) {
+      const values = resolveWildcard(parsed, path);
+      if (values.length === 0) {
+        results.innerHTML = '<div class="error">No matches found</div>';
+        return;
+      }
+      results.innerHTML = values.map(v => `
+        <div class="result-item">
+          <span class="result-value">${formatValue(v)}</span>
+          <span class="result-type">${getType(v)}</span>
+        </div>
+      `).join('');
+    } else {
+      const value = getNestedValue(parsed, path);
+      if (value === undefined) {
+        results.innerHTML = '<div class="error">Path not found: ' + path + '</div>';
+        return;
+      }
+      
+      if (Array.isArray(value)) {
+        results.innerHTML = value.map((v, i) => `
+          <div class="result-item">
+            <span class="result-key">[${i}]</span>
+            <span class="result-value">${formatValue(v)}</span>
+            <span class="result-type">${getType(v)}</span>
+          </div>
+        `).join('');
+      } else if (typeof value === 'object' && value !== null) {
+        results.innerHTML = Object.entries(value).map(([k, v]) => `
+          <div class="result-item">
+            <span class="result-key">${k}:</span>
+            <span class="result-value">${formatValue(v)}</span>
+            <span class="result-type">${getType(v)}</span>
+          </div>
+        `).join('');
+      } else {
+        results.innerHTML = `
+          <div class="result-item">
+            <span class="result-value">${formatValue(value)}</span>
+            <span class="result-type">${getType(value)}</span>
+          </div>
+        `;
+      }
+    }
+  } catch (e) {
+    results.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+  }
+}
+
+// Event listeners
+jsonInput.addEventListener('input', query);
+pathInput.addEventListener('input', query);
+
+// Preset buttons
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    pathInput.value = btn.dataset.path;
+    query();
+  });
+});
+
+// Initial query
+query();
+</script>
+</body>
+</html>
