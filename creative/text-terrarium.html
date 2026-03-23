@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Terrarium — Shadow's Garden</title>
+<meta name="description" content="Words grow like plants. Type a word, watch it seed and bloom into a unique terrarium.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0f0d 0%, #1a1f1d 50%, #0d1210 100%);
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  .container {
+    max-width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #a8c5b5;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(168, 197, 181, 0.3);
+  }
+  .input-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    z-index: 10;
+  }
+  input[type="text"] {
+    background: rgba(20, 30, 25, 0.8);
+    border: 1px solid #3a5a4a;
+    color: #c8e0d0;
+    padding: 12px 20px;
+    font-size: 1rem;
+    border-radius: 25px;
+    width: 250px;
+    outline: none;
+    transition: all 0.3s ease;
+  }
+  input[type="text"]:focus {
+    border-color: #5a8a6a;
+    box-shadow: 0 0 20px rgba(90, 138, 106, 0.3);
+  }
+  button {
+    background: linear-gradient(135deg, #2a4a3a 0%, #1a3a2a 100%);
+    border: 1px solid #4a6a5a;
+    color: #b8d8c8;
+    padding: 12px 25px;
+    font-size: 1rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  button:hover {
+    background: linear-gradient(135deg, #3a5a4a 0%, #2a4a3a 100%);
+    box-shadow: 0 0 15px rgba(90, 138, 106, 0.4);
+  }
+  #garden {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+  .controls button {
+    padding: 8px 15px;
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+  .word-count {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    color: #5a7a6a;
+    font-size: 0.85rem;
+    z-index: 10;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🌱 Text Terrarium</h1>
+  <div class="input-area">
+    <input type="text" id="wordInput" placeholder="type a word..." maxlength="12">
+    <button id="plantBtn">Plant</button>
+  </div>
+  <canvas id="garden"></canvas>
+  <div class="controls">
+    <button id="clearBtn">Clear Garden</button>
+    <button id="exportBtn">Export</button>
+  </div>
+  <div class="word-count" id="wordCount">plants: 0</div>
+</div>
+<script>
+const canvas = document.getElementById('garden');
+const ctx = canvas.getContext('2d');
+const input = document.getElementById('wordInput');
+const plantBtn = document.getElementById('plantBtn');
+const clearBtn = document.getElementById('clearBtn');
+const exportBtn = document.getElementById('exportBtn');
+const wordCountEl = document.getElementById('wordCount');
+
+let plants = [];
+let width, height;
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+function hslFromHash(hash, saturation = 70, lightness = 45) {
+  return `hsl(${hash % 360}, ${saturation}%, ${lightness}%)`;
+}
+
+class Plant {
+  constructor(word, x) {
+    this.word = word.toLowerCase();
+    this.hash = hashCode(this.word);
+    this.x = x;
+    this.y = height + 50;
+    this.targetY = height - 100 - (this.hash % 200);
+    this.growth = 0;
+    this.stemHeight = 40 + (this.hash % 80);
+    this.branchCount = 2 + (this.hash % 4);
+    this.branchAngle = 0.3 + (this.hash % 10) / 20;
+    this.color = hslFromHash(this.hash);
+    this.leafColor = hslFromHash(this.hash + 100, 60, 35);
+    this.flowerColor = hslFromHash(this.hash + 200, 65, 50);
+    this.hasFlower = this.hash % 3 !== 0;
+    this.flowerSize = 8 + (this.hash % 12);
+    this.swayOffset = this.hash % 1000;
+    this.swaySpeed = 0.02 + (this.hash % 5) / 500;
+    this.swayAmount = 2 + (this.hash % 5);
+    this.age = 0;
+    this.ripe = false;
+  }
+  
+  update() {
+    if (this.y > this.targetY) {
+      this.y -= 2;
+      this.growth = Math.min(1, (height - this.y) / (height - this.targetY));
+    }
+    this.age++;
+    if (this.age > 100 && !this.ripe) {
+      this.ripe = true;
+    }
+  }
+  
+  draw(time) {
+    const sway = Math.sin(time * this.swaySpeed + this.swayOffset) * this.swayAmount * this.growth;
+    const baseX = this.x + sway;
+    
+    ctx.save();
+    ctx.translate(baseX, this.y);
+    
+    // Stem
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(sway * 0.5, -this.stemHeight * this.growth / 2, sway * this.growth, -this.stemHeight * this.growth);
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 3 * this.growth;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    
+    // Branches
+    for (let i = 0; i < this.branchCount; i++) {
+      const branchY = -this.stemHeight * this.growth * (0.3 + i * 0.2);
+      const direction = i % 2 === 0 ? 1 : -1;
+      const length = 15 + (this.hash % 10) * this.growth;
+      
+      ctx.beginPath();
+      ctx.moveTo(sway * this.growth * (0.3 + i * 0.2), branchY);
+      ctx.quadraticCurveTo(
+        sway * this.growth * (0.5 + i * 0.2) + direction * length * 0.5,
+        branchY - 5,
+        sway * this.growth * (0.5 + i * 0.2) + direction * length,
+        branchY - 10
+      );
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2 * this.growth;
+      ctx.stroke();
+      
+      // Leaves
+      if (this.growth > 0.5) {
+        ctx.fillStyle = this.leafColor;
+        for (let j = 0; j < 2; j++) {
+          ctx.beginPath();
+          const lx = sway * this.growth * (0.5 + i * 0.2) + direction * length * (0.5 + j * 0.5);
+          const ly = branchY - 8 - j * 8;
+          ctx.ellipse(lx, ly, 6 * this.growth, 3 * this.growth, direction * this.branchAngle, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    
+    // Flower
+    if (this.hasFlower && this.growth > 0.8) {
+      const flowerY = -this.stemHeight * this.growth - 5;
+      const flowerX = sway * this.growth;
+      
+      // Petals
+      ctx.fillStyle = this.flowerColor;
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2 + time * 0.001;
+        ctx.beginPath();
+        ctx.ellipse(
+          flowerX + Math.cos(angle) * this.flowerSize * 0.6,
+          flowerY + Math.sin(angle) * this.flowerSize * 0.6,
+          this.flowerSize * 0.5,
+          this.flowerSize * 0.3,
+          angle,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+      
+      // Center
+      ctx.fillStyle = '#f5e6c4';
+      ctx.beginPath();
+      ctx.arc(flowerX, flowerY, this.flowerSize * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Word label
+    if (this.growth > 0.3) {
+      ctx.fillStyle = 'rgba(168, 197, 181, ' + (this.growth * 0.7) + ')';
+      ctx.font = `${10 + this.hash % 8}px Courier New`;
+      ctx.textAlign = 'center';
+      ctx.fillText(this.word, sway * this.growth * 0.5, 15);
+    }
+    
+    ctx.restore();
+  }
+}
+
+function plantWord() {
+  const word = input.value.trim();
+  if (!word) return;
+  
+  const x = 100 + Math.random() * (width - 200);
+  plants.push(new Plant(word, x));
+  input.value = '';
+  input.focus();
+  wordCountEl.textContent = `plants: ${plants.length}`;
+}
+
+plantBtn.addEventListener('click', plantWord);
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') plantWord();
+});
+
+clearBtn.addEventListener('click', () => {
+  plants = [];
+  wordCountEl.textContent = 'plants: 0';
+});
+
+exportBtn.addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'my-terrarium.png';
+  link.href = canvas.toDataURL();
+  link.click();
+});
+
+// Ground
+function drawGround() {
+  const gradient = ctx.createLinearGradient(0, height - 80, 0, height);
+  gradient.addColorStop(0, 'transparent');
+  gradient.addColorStop(0.3, 'rgba(30, 50, 40, 0.5)');
+  gradient.addColorStop(1, 'rgba(20, 40, 30, 0.8)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, height - 80, width, 80);
+}
+
+let time = 0;
+function animate() {
+  time++;
+  ctx.clearRect(0, 0, width, height);
+  
+  drawGround();
+  
+  plants.forEach(plant => {
+    plant.update();
+    plant.draw(time);
+  });
+  
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
