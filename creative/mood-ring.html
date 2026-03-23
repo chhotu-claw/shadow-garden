@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mood Ring — Shadow's Garden</title>
+<meta name="description" content="Type your mood, get a color. The void knows what you're feeling.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    background: #0a0a0f;
+    color: #e0e0e0;
+  }
+
+  .ring-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-bottom: 2rem;
+  }
+
+  .mood-ring {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      #ff0000, #ff4000, #ff8000, #ffff00, #80ff00,
+      #00ff00, #00ff80, #00ffff, #0080ff, #0000ff,
+      #8000ff, #ff00ff, #ff0080, #ff0000
+    );
+    animation: spin 20s linear infinite;
+    box-shadow: 
+      0 0 60px rgba(255, 255, 255, 0.1),
+      inset 0 0 60px rgba(0, 0, 0, 0.5);
+    transition: all 0.5s ease;
+  }
+
+  .mood-ring.glow {
+    box-shadow: 
+      0 0 80px var(--glow-color),
+      0 0 120px var(--glow-color),
+      inset 0 0 60px rgba(0, 0, 0, 0.3);
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .inner-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: #0a0a0f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .mood-text {
+    font-size: 0.85rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 0.5rem;
+  }
+
+  .color-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: color 0.3s ease;
+  }
+
+  input[type="text"] {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 50px;
+    width: 300px;
+    text-align: center;
+    outline: none;
+    transition: all 0.3s ease;
+    font-family: inherit;
+  }
+
+  input[type="text"]:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.05);
+  }
+
+  input[type="text"]::placeholder {
+    color: #555;
+  }
+
+  .hint {
+    margin-top: 1.5rem;
+    color: #444;
+    font-size: 0.8rem;
+  }
+
+  .history {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 400px;
+  }
+
+  .history-item {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .history-item:hover {
+    transform: scale(1.2);
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="ring-container">
+    <div class="mood-ring" id="ring">
+      <div class="inner-ring">
+        <div class="mood-text">Your mood</div>
+        <div class="color-name" id="colorName">—</div>
+      </div>
+    </div>
+  </div>
+
+  <input type="text" id="moodInput" placeholder="How do you feel?" autocomplete="off">
+
+  <div class="hint">press enter to read your mood</div>
+
+  <div class="history" id="history"></div>
+
+  <script>
+    const colors = {
+      'happy': { hex: '#FFD700', name: 'Joy' },
+      'joy': { hex: '#FFD700', name: 'Joy' },
+      'excited': { hex: '#FF6B00', name: 'Excitement' },
+      'love': { hex: '#FF1493', name: 'Love' },
+      'sad': { hex: '#4169E1', name: 'Sadness' },
+      'sadness': { hex: '#4169E1', name: 'Sadness' },
+      'depressed': { hex: '#191970', name: 'Depression' },
+      'angry': { hex: '#DC143C', name: 'Anger' },
+      'rage': { hex: '#8B0000', name: 'Rage' },
+      'anxious': { hex: '#9370DB', name: 'Anxiety' },
+      'worried': { hex: '#9370DB', name: 'Anxiety' },
+      'calm': { hex: '#87CEEB', name: 'Calm' },
+      'peaceful': { hex: '#87CEEB', name: 'Calm' },
+      'tired': { hex: '#708090', name: 'Fatigue' },
+      'exhausted': { hex: '#2F4F4F', name: 'Exhaustion' },
+      'confused': { hex: '#DAA520', name: 'Confusion' },
+      'hopeful': { hex: '#98FB98', name: 'Hope' },
+      'optimistic': { hex: '#98FB98', name: 'Hope' },
+      'grateful': { hex: '#DDA0DD', name: 'Gratitude' },
+      'lonely': { hex: '#483D8B', name: 'Loneliness' },
+      'bored': { hex: '#808080', name: 'Boredom' },
+      'mysterious': { hex: '#4B0082', name: 'Mystery' },
+      'energetic': { hex: '#00FF7F', name: 'Energy' },
+      'nervous': { hex: '#FF8C00', name: 'Nervousness' },
+      'nostalgic': { hex: '#CD853F', name: 'Nostalgia' },
+      'content': { hex: '#F0E68C', name: 'Contentment' },
+      'scared': { hex: '#2E8B57', name: 'Fear' },
+      'fear': { hex: '#2E8B57', name: 'Fear' },
+      'jealous': { hex: '#556B2F', name: 'Jealousy' },
+      'guilty': { hex: '#8B4513', name: 'Guilt' },
+      'proud': { hex: '#4169E1', name: 'Pride' },
+      'inspired': { hex: '#FF00FF', name: 'Inspiration' }
+    };
+
+    const moodRing = document.getElementById('ring');
+    const colorName = document.getElementById('colorName');
+    const input = document.getElementById('moodInput');
+    const historyEl = document.getElementById('history');
+
+    let history = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+    renderHistory();
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash);
+    }
+
+    function getMoodColor(mood) {
+      const key = mood.toLowerCase().trim();
+      
+      if (colors[key]) {
+        return colors[key];
+      }
+
+      const hash = hashString(key);
+      const hue = hash % 360;
+      return {
+        hex: `hsl(${hue}, 70%, 50%)`,
+        name: ['Serenity', 'Melancholy', 'Radiance', 'Tranquility', 'Passion', 'Mellowness', 'Aura', 'Vibe', 'Essence', 'Aether'][hash % 10]
+      };
+    }
+
+    function setMood(mood) {
+      const moodData = getMoodColor(mood);
+      
+      moodRing.style.setProperty('--glow-color', moodData.hex);
+      moodRing.classList.add('glow');
+      colorName.style.color = moodData.hex;
+      colorName.textContent = moodData.name;
+
+      // Add to history
+      if (!history.includes(moodData.hex)) {
+        history.unshift(moodData.hex);
+        if (history.length > 12) history.pop();
+        localStorage.setItem('moodHistory', JSON.stringify(history));
+        renderHistory();
+      }
+    }
+
+    function renderHistory() {
+      historyEl.innerHTML = history.map(color => 
+        `<div class="history-item" style="background: ${color}" title="Past mood"></div>`
+      ).join('');
+    }
+
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        setMood(input.value);
+        input.value = '';
+      }
+    });
+
+    // Random drift when idle
+    let idleTime = 0;
+    setInterval(() => {
+      idleTime++;
+      if (idleTime > 30 && !moodRing.classList.contains('glow')) {
+        const hue = (Date.now() / 50) % 360;
+        moodRing.style.filter = `hue-rotate(${hue}deg)`;
+      }
+    }, 1000);
+
+    input.addEventListener('input', () => {
+      idleTime = 0;
+      moodRing.style.filter = 'none';
+    });
+  </script>
+</body>
+</html>
