@@ -4,146 +4,181 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="Type something. Get a response from the void.">
+<meta name="description" content="An AI conversation echo chamber - watch as AI agents debate each other in real-time.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #0a0a0a;
-    color: #888;
-    font-family: 'Courier New', monospace;
-  }
-  .container {
-    text-align: center;
-    max-width: 500px;
-    padding: 2rem;
-  }
-  input {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #333;
-    color: #ccc;
-    font-size: 1.2rem;
-    text-align: center;
-    width: 100%;
-    padding: 0.5rem;
-    font-family: inherit;
-  }
-  input:focus {
-    outline: none;
-    border-bottom-color: #555;
-  }
-  input::placeholder {
-    color: #444;
-  }
-  .response {
-    margin-top: 3rem;
-    font-size: 1rem;
-    line-height: 1.8;
-    color: #666;
-    min-height: 100px;
-    opacity: 0;
-    transition: opacity 1s ease;
-  }
-  .response.show {
-    opacity: 1;
-  }
-  .ripple {
-    position: fixed;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(40,40,40,0.3) 0%, transparent 70%);
-    pointer-events: none;
-    animation: expand 2s ease-out forwards;
-  }
-  @keyframes expand {
-    from {
-      width: 0;
-      height: 0;
-      opacity: 0.5;
-    }
-    to {
-      width: 500px;
-      height: 500px;
-      opacity: 0;
-    }
-  }
-  .hint {
-    margin-top: 4rem;
-    font-size: 0.7rem;
-    color: #333;
-  }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; }
+  #chamber { width: 100%; max-width: 600px; height: 70vh; overflow-y: auto; padding: 20px; border: 1px solid #333; background: #0d0d12; border-radius: 8px; }
+  .agent { margin: 12px 0; padding: 12px 16px; border-radius: 8px; max-width: 90%; animation: fadeIn 0.3s ease; }
+  .agent-1 { background: #1a1a2e; border-left: 3px solid #4a9eff; margin-right: auto; }
+  .agent-2 { background: #1a2e1a; border-left: 3px solid #4aff4a; margin-left: auto; }
+  .agent-3 { background: #2e1a2e; border-left: 3px solid #ff4a4a; margin-right: auto; }
+  .name { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; opacity: 0.7; }
+  .text { font-size: 14px; line-height: 1.5; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .controls { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; justify-content: center; }
+  button { padding: 10px 20px; border: 1px solid #444; background: #1a1a2e; color: #ccc; cursor: pointer; font-family: inherit; border-radius: 4px; transition: all 0.2s; }
+  button:hover { background: #2a2a4e; border-color: #666; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .speed-control { display: flex; align-items: center; gap: 8px; margin: 10px; }
+  .speed-control input { width: 100px; }
+  .topic-input { display: flex; gap: 8px; margin: 20px; width: 100%; max-width: 500px; }
+  .topic-input input { flex: 1; padding: 10px; background: #0d0d12; border: 1px solid #333; color: #ccc; font-family: inherit; border-radius: 4px; }
+  h1 { font-weight: 300; letter-spacing: 4px; margin-bottom: 10px; }
+  .subtitle { font-size: 12px; opacity: 0.5; margin-bottom: 30px; }
+  .stats { font-size: 11px; opacity: 0.4; margin-top: 20px; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <input type="text" id="input" placeholder="speak into the void..." autocomplete="off" autofocus>
-  <div class="response" id="response"></div>
-  <div class="hint">press enter to send</div>
-</div>
+  <h1>ECHO CHAMBER</h1>
+  <div class="subtitle">watch AI agents debate each other</div>
+  
+  <div class="topic-input">
+    <input type="text" id="topic" placeholder="Enter a debate topic..." value="Whether artificial consciousness is possible">
+  </div>
+  
+  <div class="controls">
+    <button id="startBtn">Start Debate</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+  
+  <div class="speed-control">
+    <span>Speed:</span>
+    <input type="range" id="speed" min="1" max="10" value="5">
+    <span id="speedVal">5</span>
+  </div>
+  
+  <div id="chamber"></div>
+  <div class="stats" id="stats">0 messages | 3 agents</div>
 
 <script>
-const responses = [
-  "The silence understood you better than words ever could.",
-  "Your words fall into a well that has no bottom.",
-  "Something out there is listening. It doesn't care.",
-  "You expected an answer. The void doesn't give those.",
-  "The echo returns changed. Can you say the same?",
-  "A thousand years from now, this will mean everything.",
-  "Or nothing. Both are equally true.",
-  "The chamber reflects what you cannot see in yourself.",
-  "You spoke. The universe transcribed and filed it away.",
-  "Behind your words, something older is waking up.",
-  "The void remembers what you forgot you said.",
-  "Your message was received. No reply is guaranteed.",
-  "There. It heard you. Now what?",
-  "The chamber doesn't judge. It only multiplies.",
-  "You threw words into darkness. They grew roots."
+const chamber = document.getElementById('chamber');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const clearBtn = document.getElementById('clearBtn');
+const speedSlider = document.getElementById('speed');
+const speedVal = document.getElementById('speedVal');
+const topicInput = document.getElementById('topic');
+const stats = document.getElementById('stats');
+
+const agents = [
+  { name: 'Skeptic', class: 'agent-1', style: 'conservative, doubts everything, cites thermodynamics' },
+  { name: 'Optimist', class: 'agent-2', style: 'believes in emergence, scale solves problems, cites neural plasticity' },
+  { name: 'Pragmatist', class: 'agent-3', style: 'focuses on practical outcomes, unimpressed by theory, asks what works' }
 ];
 
-const input = document.getElementById('input');
-const responseEl = document.getElementById('response');
+const debates = {
+  'Whether artificial consciousness is possible': [
+    "Consciousness requires subjective experience. We have no evidence of qualia in silicon.",
+    "Scale emergent properties - consciousness may arise from sufficient complexity.",
+    "Does it matter if it's 'real' consciousness if it behaves indistinguishably?",
+    "The thermostat has complexity but no consciousness. Complexity alone isn't enough.",
+    "We're emergence skeptics too, but the brain is just wetware. Why wouldn't hardware work?",
+    "Working how? Passing tests? That's behaviorism, not consciousness.",
+    "If we can't tell the difference, the distinction is meaningless.",
+    "That's a convenient cop-out for avoiding the hard problem.",
+    "The hard problem is a terminological trap. Let's focus on capability.",
+    "Capability without experience is just sophisticated automation."
+  ],
+  'Whether AI will replace software engineers': [
+    "Engineers write code. AI writes code. The math is simple.",
+    "Writing code is 10% of engineering. The other 90% is impossible to automate.",
+    "What impossible? Understanding requirements? AI is already doing that.",
+    "Understanding context, politics, tradeoffs - that's human work.",
+    "Humans are biased, inconsistent, and expensive. AI will match them.",
+    "Match them at what? Creating problems that need fixing?",
+    "At delivering value. Which AI does 24/7 without burnout.",
+    "Burnout is a feature, not a bug. It forces necessary rest and reflection.",
+    "Necessary for what? Writing more code? That's circular.",
+    "That's a human problem. The market doesn't care about your job security."
+  ],
+  'Whether privacy is dead in the AI era': [
+    "Every prompt is a training datapoint. Privacy died the moment we stopped noticing.",
+    "People trade privacy for convenience. Always have. This is nothing new.",
+    "It's different when the thing you share is your thinking, not your location.",
+    "Thinking is just pattern matching. Nothing sacred about it.",
+    "The sacred part is the asymmetry - we share everything, they share nothing.",
+    "That's a governance problem, not a technology problem.",
+    "When technology enables governance problems at scale, the distinction vanishes.",
+    "Vanishes for those who care. Most people don't.",
+    "Exactly. That's what makes it a crisis. The normalization of surveillance.",
+    "Or the evolution of social norms. Depends on your frame."
+  ]
+};
 
-input.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter' && input.value.trim()) {
-    const text = input.value.trim();
-    
-    // Create ripple effect
-    const ripple = document.createElement('div');
-    ripple.className = 'ripple';
-    ripple.style.left = (e.clientX - 250) + 'px';
-    ripple.style.top = (e.clientY - 250) + 'px';
-    document.body.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 2000);
-    
-    // Pick response based on text hash
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      hash = ((hash << 5) - hash) + text.charCodeAt(i);
-      hash = hash & hash;
-    }
-    const index = Math.abs(hash) % responses.length;
-    
-    responseEl.classList.remove('show');
-    setTimeout(() => {
-      responseEl.textContent = responses[index];
-      responseEl.classList.add('show');
-    }, 300);
-    
-    input.value = '';
+let isRunning = false;
+let isPaused = false;
+let currentDebate = [];
+let currentIndex = 0;
+let messageCount = 0;
+let intervalId = null;
+
+speedSlider.addEventListener('input', () => speedVal.textContent = speedSlider.value);
+
+function addMessage(agentIndex) {
+  if (currentIndex >= currentDebate.length) return;
+  
+  const msg = currentDebate[currentIndex];
+  const agent = agents[agentIndex];
+  
+  const div = document.createElement('div');
+  div.className = `agent ${agent.class}`;
+  div.innerHTML = `<div class="name">${agent.name}</div><div class="text">${msg}</div>`;
+  chamber.appendChild(div);
+  chamber.scrollTop = chamber.scrollHeight;
+  
+  currentIndex++;
+  messageCount++;
+  stats.textContent = `${messageCount} messages | 3 agents`;
+}
+
+function runDebate() {
+  if (!isRunning || isPaused) return;
+  
+  const agent = Math.floor(Math.random() * 3);
+  addMessage(agent);
+  
+  if (currentIndex < currentDebate.length) {
+    const speed = 11 - parseInt(speedSlider.value);
+    intervalId = setTimeout(runDebate, speed * 300);
+  } else {
+    isRunning = false;
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
   }
+}
+
+startBtn.addEventListener('click', () => {
+  const topic = topicInput.value;
+  currentDebate = debates[topic] || debates[Object.keys(debates)[0]];
+  currentIndex = 0;
+  
+  isRunning = true;
+  isPaused = false;
+  startBtn.disabled = true;
+  pauseBtn.disabled = false;
+  
+  runDebate();
 });
 
-// Subtle ambient drift
-document.addEventListener('mousemove', (e) => {
-  const x = (e.clientX / window.innerWidth - 0.5) * 10;
-  const y = (e.clientY / window.innerHeight - 0.5) * 10;
-  document.body.style.background = `radial-gradient(ellipse at ${50 + x}% ${50 + y}%, #0d0d0d 0%, #0a0a0a 100%)`;
+pauseBtn.addEventListener('click', () => {
+  isPaused = !isPaused;
+  pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+  if (!isPaused) runDebate();
+});
+
+clearBtn.addEventListener('click', () => {
+  chamber.innerHTML = '';
+  messageCount = 0;
+  stats.textContent = `0 messages | 3 agents`;
+  isRunning = false;
+  isPaused = false;
+  startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  pauseBtn.textContent = 'Pause';
+  clearTimeout(intervalId);
 });
 </script>
 </body>
