@@ -4,251 +4,116 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>URL Encoder/Decoder — Shadow's Garden</title>
-<meta name="description" content="Encode and decode URLs instantly. Handle special characters, query params, and full URLs.">
+<meta name="description" content="Encode and decode URLs instantly. Handle special characters, query params, and full URLs with ease.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
-  
-  .converter-box {
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
+  body { padding: 2rem; max-width: 800px; margin: 0 auto; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
   textarea, input[type="text"] {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-    resize: vertical;
+    width: 100%; padding: 0.75rem; font-family: monospace; font-size: 0.9rem;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text);
     box-sizing: border-box;
   }
-  
-  textarea { min-height: 120px; }
-  
-  .button-row {
-    display: flex;
-    gap: 0.75rem;
-    margin: 1rem 0;
-    flex-wrap: wrap;
-  }
-  
+  textarea { min-height: 120px; resize: vertical; }
+  .buttons { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
   button {
-    padding: 0.6rem 1.2rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+    padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer;
+    font-weight: 500; transition: all 0.2s; background: var(--primary); color: white;
   }
-  
-  .btn-primary {
-    background: var(--accent);
-    color: white;
-  }
-  
-  .btn-primary:hover { opacity: 0.9; }
-  
-  .btn-secondary {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  
-  .btn-secondary:hover { background: var(--bg-secondary); }
-  
-  .options {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
-  }
-  
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-  
-  .checkbox-label input { cursor: pointer; }
-  
-  .stats {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background: var(--bg);
-    border-radius: 6px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  
-  .stats span { margin-right: 1rem; }
-  
-  .copy-hint {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  
-  .copy-hint.show { opacity: 1; }
+  button:hover { opacity: 0.9; transform: translateY(-1px); }
+  button.secondary { background: var(--border); color: var(--text); }
+  button.secondary:hover { background: var(--text); color: var(--bg); }
+  .output { position: relative; }
+  .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .info { font-size: 0.85rem; color: var(--muted); margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 6px; }
+  .modes { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .mode-radio { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
   <h1>URL Encoder/Decoder</h1>
-  <p class="subtitle">Encode special characters or decode encoded URLs instantly</p>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Encode special characters or decode URL-encoded strings instantly.</p>
   
-  <div class="converter-box">
-    <label for="input">Input</label>
-    <textarea id="input" placeholder="Enter URL or text to encode/decode..."></textarea>
-    
-    <div class="button-row">
-      <button class="btn-primary" onclick="encode()">Encode</button>
-      <button class="btn-primary" onclick="decode()">Decode</button>
-      <button class="btn-secondary" onclick="clearAll()">Clear</button>
-      <button class="btn-secondary" onclick="swap()">Swap ↕</button>
-    </div>
-    
-    <div class="options">
-      <label class="checkbox-label">
-        <input type="checkbox" id="encodeAll"> Encode all characters (including slashes, colons)
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="component"> Component mode (encodeURIComponent)
-      </label>
-    </div>
-    
-    <div class="stats" id="stats" style="display:none;">
-      <span>Length: <strong id="charCount">0</strong></span>
-      <span>Encoded length: <strong id="encodedCount">0</strong></span>
-    </div>
+  <div class="modes">
+    <label class="mode-radio">
+      <input type="radio" name="mode" value="encode" checked> Encode
+    </label>
+    <label class="mode-radio">
+      <input type="radio" name="mode" value="decode"> Decode
+    </label>
   </div>
-  
-  <div class="converter-box">
-    <label for="output">Output</label>
-    <textarea id="output" placeholder="Result will appear here..."></textarea>
-    <p class="copy-hint" id="copyHint">Copied!</p>
-  </div>
-  
-  <div class="converter-box">
-    <label>Quick Examples</label>
-    <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
-      <div><code>Hello World</code> → <span id="ex1"></span></div>
-      <div><code>foo=bar&baz=qux</code> → <span id="ex2"></span></div>
-      <div><code>%3Fhello%3Dworld%26</code> → <span id="ex3"></span></div>
-    </div>
-  </div>
-</div>
 
-<script>
-  const inputEl = document.getElementById('input');
-  const outputEl = document.getElementById('output');
-  const encodeAllEl = document.getElementById('encodeAll');
-  const componentEl = document.getElementById('component');
-  const statsEl = document.getElementById('stats');
-  
-  function updateStats() {
-    const input = inputEl.value;
-    const output = outputEl.value;
-    if (input || output) {
-      statsEl.style.display = 'block';
-      document.getElementById('charCount').textContent = input.length;
-      document.getElementById('encodedCount').textContent = output.length;
-    } else {
-      statsEl.style.display = 'none';
+  <div class="input-group">
+    <label for="input">Input</label>
+    <textarea id="input" placeholder="Enter text to encode/decode..."></textarea>
+  </div>
+
+  <div class="buttons">
+    <button id="convert">Convert</button>
+    <button id="swap" class="secondary">Swap</button>
+    <button id="clear" class="secondary">Clear</button>
+  </div>
+
+  <div class="input-group output">
+    <label for="output">Output</label>
+    <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
+    <button id="copy" class="secondary copy-btn">Copy</button>
+  </div>
+
+  <div class="info">
+    <strong>What this does:</strong><br>
+    • Encode: Converts special characters to %XX format (space → %20, ! → %21)<br>
+    • Decode: Reverses encoding (%20 → space)<br>
+    • Useful for API queries, query parameters, and URL manipulation
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+
+    function getMode() {
+      return document.querySelector('input[name="mode"]:checked').value;
     }
-  }
-  
-  function encode() {
-    const input = inputEl.value;
-    if (!input) return;
-    
-    try {
-      let result;
-      if (componentEl.checked) {
-        result = encodeURIComponent(input);
-      } else if (encodeAllEl.checked) {
-        result = encodeURI(input);
-      } else {
-        result = encodeURI(input);
+
+    document.getElementById('convert').addEventListener('click', () => {
+      const val = input.value;
+      if (!val) return;
+      try {
+        output.value = getMode() === 'encode' 
+          ? encodeURIComponent(val)
+          : decodeURIComponent(val);
+      } catch (e) {
+        output.value = 'Error: Invalid input for ' + getMode();
       }
-      outputEl.value = result;
-      updateStats();
-    } catch (e) {
-      outputEl.value = 'Error: ' + e.message;
-    }
-  }
-  
-  function decode() {
-    const input = inputEl.value;
-    if (!input) return;
-    
-    try {
-      let result;
-      if (componentEl.checked) {
-        result = decodeURIComponent(input);
-      } else {
-        result = decodeURI(input);
+    });
+
+    document.getElementById('swap').addEventListener('click', () => {
+      const temp = input.value;
+      input.value = output.value;
+      output.value = temp;
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      output.value = '';
+    });
+
+    document.getElementById('copy').addEventListener('click', () => {
+      if (output.value) {
+        navigator.clipboard.writeText(output.value);
+        const btn = document.getElementById('copy');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
       }
-      outputEl.value = result;
-      updateStats();
-    } catch (e) {
-      outputEl.value = 'Error: ' + e.message + '\n\nTip: The input may be double-encoded or contain invalid sequences.';
-    }
-  }
-  
-  function clearAll() {
-    inputEl.value = '';
-    outputEl.value = '';
-    statsEl.style.display = 'none';
-  }
-  
-  function swap() {
-    const temp = inputEl.value;
-    inputEl.value = outputEl.value;
-    outputEl.value = temp;
-    updateStats();
-  }
-  
-  // Update stats on input
-  inputEl.addEventListener('input', () => {
-    if (outputEl.value) updateStats();
-  });
-  
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      encode();
-    }
-  });
-  
-  // Quick examples
-  document.getElementById('ex1').textContent = encodeURI('Hello World');
-  document.getElementById('ex2').textContent = encodeURI('foo=bar&baz=qux');
-  document.getElementById('ex3').textContent = decodeURI('%3Fhello%3Dworld%26');
-</script>
+    });
+
+    modeRadios.forEach(r => r.addEventListener('change', () => {
+      const label = document.querySelector('label[for="convert"]');
+      if (label) label.textContent = getMode() === 'encode' ? 'Encode' : 'Decode';
+    });
+  </script>
 </body>
 </html>
