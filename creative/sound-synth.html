@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sound Synth — Shadow's Garden</title>
+<meta name="description" content="Browser-based sound synthesizer with oscillators, filters, and envelope controls.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { background: #0a0a0f; color: #e0e0e0; font-family: 'JetBrains Mono', monospace; }
+  .synth-container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+  h1 { color: #ff6b9d; text-align: center; margin-bottom: 0.5rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 2rem; }
+  .synth { background: linear-gradient(145deg, #12121a, #0d0d12); border-radius: 16px; padding: 2rem; border: 1px solid #2a2a3a; }
+  .oscillators { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+  .osc { background: #1a1a24; border-radius: 12px; padding: 1.5rem; border: 1px solid #2a2a3a; }
+  .osc h3 { margin: 0 0 1rem 0; color: #7df9ff; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; }
+  .osc select, .osc input[type="range"] { width: 100%; margin-bottom: 0.5rem; }
+  .osc select { background: #0a0a0f; color: #e0e0e0; border: 1px solid #333; padding: 0.5rem; border-radius: 6px; }
+  .slider-row { display: flex; align-items: center; gap: 0.5rem; }
+  .slider-row label { font-size: 0.7rem; color: #888; width: 30px; }
+  .slider-row input[type="range"] { flex: 1; }
+  .slider-row span { font-size: 0.7rem; color: #666; width: 35px; text-align: right; }
+  .filter-section { background: #1a1a24; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid #2a2a3a; }
+  .filter-section h3 { margin: 0 0 1rem 0; color: #c792ea; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; }
+  .filter-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .envelope { background: #1a1a24; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid #2a2a3a; }
+  .envelope h3 { margin: 0 0 1rem 0; color: #c3e88d; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; }
+  .env-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .controls { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+  .btn { background: #ff6b9d; color: #0a0a0f; border: none; padding: 1rem 2rem; border-radius: 8px; font-size: 1rem; cursor: pointer; font-family: inherit; font-weight: bold; transition: all 0.2s; }
+  .btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+  .btn:active { transform: scale(0.98); }
+  .btn.off { background: #444; }
+  .visualizer { background: #0a0a0f; border-radius: 12px; padding: 1rem; height: 150px; border: 1px solid #2a2a3a; }
+  canvas { width: 100%; height: 100%; }
+  input[type="range"] { -webkit-appearance: none; background: #333; height: 6px; border-radius: 3px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #ff6b9d; border-radius: 50%; cursor: pointer; }
+  .waveform-display { text-align: center; margin-top: 1rem; color: #666; font-size: 0.8rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="synth-container">
+  <h1>Sound Synth</h1>
+  <p class="subtitle">Browser-based synthesizer with oscillators, filters & ADSR envelopes</p>
+  
+  <div class="synth">
+    <div class="oscillators">
+      <div class="osc">
+        <h3>OSC 1</h3>
+        <select id="wave1">
+          <option value="sine">Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth" selected>Sawtooth</option>
+          <option value="triangle">Triangle</option>
+        </select>
+        <div class="slider-row">
+          <label>FREQ</label>
+          <input type="range" id="freq1" min="20" max="2000" value="220">
+          <span id="freq1val">220</span>
+        </div>
+        <div class="slider-row">
+          <label>GAIN</label>
+          <input type="range" id="gain1" min="0" max="100" value="50">
+          <span id="gain1val">50%</span>
+        </div>
+      </div>
+      <div class="osc">
+        <h3>OSC 2</h3>
+        <select id="wave2">
+          <option value="sine" selected>Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth">Sawtooth</option>
+          <option value="triangle">Triangle</option>
+        </select>
+        <div class="slider-row">
+          <label>FREQ</label>
+          <input type="range" id="freq2" min="20" max="2000" value="330">
+          <span id="freq2val">330</span>
+        </div>
+        <div class="slider-row">
+          <label>GAIN</label>
+          <input type="range" id="gain2" min="0" max="100" value="30">
+          <span id="gain2val">30%</span>
+        </div>
+      </div>
+      <div class="osc">
+        <h3>OSC 3</h3>
+        <select id="wave3">
+          <option value="sine">Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth">Sawtooth</option>
+          <option value="triangle" selected>Triangle</option>
+        </select>
+        <div class="slider-row">
+          <label>FREQ</label>
+          <input type="range" id="freq3" min="20" max="2000" value="440">
+          <span id="freq3val">440</span>
+        </div>
+        <div class="slider-row">
+          <label>GAIN</label>
+          <input type="range" id="gain3" min="0" max="100" value="20">
+          <span id="gain3val">20%</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="filter-section">
+      <h3>Filter</h3>
+      <div class="filter-controls">
+        <div class="slider-row">
+          <label>TYPE</label>
+          <select id="filterType" style="width:auto;flex:1;">
+            <option value="lowpass" selected>Lowpass</option>
+            <option value="highpass">Highpass</option>
+            <option value="bandpass">Bandpass</option>
+          </select>
+        </div>
+        <div class="slider-row">
+          <label>FREQ</label>
+          <input type="range" id="filterFreq" min="20" max="10000" value="2000">
+          <span id="filterFreqVal">2k</span>
+        </div>
+        <div class="slider-row">
+          <label>RES</label>
+          <input type="range" id="filterRes" min="0" max="30" value="5">
+          <span id="filterResVal">5</span>
+        </div>
+        <div class="slider-row">
+          <label>ENV</label>
+          <input type="range" id="filterEnv" min="-5000" max="5000" value="0">
+          <span id="filterEnvVal">0</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="envelope">
+      <h3>ADSR Envelope</h3>
+      <div class="env-controls">
+        <div class="slider-row">
+          <label>A</label>
+          <input type="range" id="attack" min="0" max="2000" value="10">
+          <span id="attackVal">10ms</span>
+        </div>
+        <div class="slider-row">
+          <label>D</label>
+          <input type="range" id="decay" min="0" max="2000" value="100">
+          <span id="decayVal">100ms</span>
+        </div>
+        <div class="slider-row">
+          <label>S</label>
+          <input type="range" id="sustain" min="0" max="100" value="70">
+          <span id="sustainVal">70%</span>
+        </div>
+        <div class="slider-row">
+          <label>R</label>
+          <input type="range" id="release" min="0" max="5000" value="500">
+          <span id="releaseVal">500ms</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button class="btn" id="playBtn">▶ PLAY</button>
+      <button class="btn off" id="stopBtn">■ STOP</button>
+    </div>
+    
+    <div class="visualizer">
+      <canvas id="scope"></canvas>
+    </div>
+    
+    <p class="waveform-display">Click PLAY and adjust the oscillators. Use headphones.</p>
+  </div>
+</div>
+
+<script>
+  let audioCtx = null;
+  let oscillators = [];
+  let gains = [];
+  let filter = null;
+  let masterGain = null;
+  let analyser = null;
+  let isPlaying = false;
+  let noteOn = false;
+  
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    
+    filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 5;
+    
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.3;
+    
+    filter.connect(masterGain);
+    masterGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+  
+  function startOscillators() {
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const waves = [
+      document.getElementById('wave1').value,
+      document.getElementById('wave2').value,
+      document.getElementById('wave3').value
+    ];
+    const freqs = [
+      parseFloat(document.getElementById('freq1').value),
+      parseFloat(document.getElementById('freq2').value),
+      parseFloat(document.getElementById('freq3').value)
+    ];
+    const vols = [
+      parseFloat(document.getElementById('gain1').value) / 100,
+      parseFloat(document.getElementById('gain2').value) / 100,
+      parseFloat(document.getElementById('gain3').value) / 100
+    ];
+    
+    // Stop existing
+    stopOscillators();
+    
+    const now = audioCtx.currentTime;
+    const attack = parseFloat(document.getElementById('attack').value) / 1000;
+    const decay = parseFloat(document.getElementById('decay').value) / 1000;
+    const sustain = parseFloat(document.getElementById('sustain').value) / 100;
+    const release = parseFloat(document.getElementById('release').value) / 1000;
+    
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.3, now + attack);
+    masterGain.gain.linearRampToValueAtTime(0.3 * sustain, now + attack + decay);
+    
+    for (let i = 0; i < 3; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = waves[i];
+      osc.frequency.value = freqs[i];
+      gain.gain.value = vols[i];
+      
+      osc.connect(gain);
+      gain.connect(filter);
+      
+      osc.start(now);
+      oscillators.push(osc);
+      gains.push(gain);
+    }
+    
+    isPlaying = true;
+    drawWaveform();
+  }
+  
+  function stopOscillators() {
+    if (!audioCtx || oscillators.length === 0) return;
+    
+    const now = audioCtx.currentTime;
+    const release = parseFloat(document.getElementById('release').value) / 1000;
+    
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.linearRampToValueAtTime(0, now + release);
+    
+    oscillators.forEach(osc => {
+      osc.stop(now + release);
+    });
+    
+    oscillators = [];
+    gains = [];
+    isPlaying = false;
+  }
+  
+  // UI Bindings
+  document.getElementById('playBtn').addEventListener('click', startOscillators);
+  document.getElementById('stopBtn').addEventListener('click', stopOscillators);
+  
+  // Slider displays
+  ['freq1', 'freq2', 'freq3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      document.getElementById(id + 'val').textContent = el.value;
+      if (isPlaying && oscillators.length > 0) {
+        const idx = parseInt(id.slice(-1)) - 1;
+        if (oscillators[idx]) oscillators[idx].frequency.value = parseFloat(el.value);
+      }
+    });
+  });
+  
+  ['gain1', 'gain2', 'gain3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      document.getElementById(id + 'val').textContent = el.value + '%';
+      if (isPlaying && gains.length > 0) {
+        const idx = parseInt(id.slice(-1)) - 1;
+        if (gains[idx]) gains[idx].gain.value = parseFloat(el.value) / 100;
+      }
+    });
+  });
+  
+  document.getElementById('filterFreq').addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    document.getElementById('filterFreqVal').textContent = val >= 1000 ? (val/1000).toFixed(1) + 'k' : val;
+    if (filter) filter.frequency.value = val;
+  });
+  
+  document.getElementById('filterRes').addEventListener('input', (e) => {
+    document.getElementById('filterResVal').textContent = e.target.value;
+    if (filter) filter.Q.value = parseFloat(e.target.value);
+  });
+  
+  document.getElementById('filterType').addEventListener('change', (e) => {
+    if (filter) filter.type = e.target.value;
+  });
+  
+  ['attack', 'decay', 'sustain', 'release'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      const suffix = id === 'sustain' ? '%' : 'ms';
+      document.getElementById(id + 'Val').textContent = el.value + suffix;
+    });
+  });
+  
+  // Waveform visualizer
+  function drawWaveform() {
+    if (!isPlaying || !analyser) return;
+    
+    const canvas = document.getElementById('scope');
+    const ctx = canvas.getContext('2d');
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    canvas.width = canvas.offsetWidth * 2;
+    canvas.height = canvas.offsetHeight * 2;
+    
+    function draw() {
+      if (!isPlaying) return;
+      requestAnimationFrame(draw);
+      
+      analyser.getByteTimeDomainData(dataArray);
+      
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ff6b9d';
+      ctx.beginPath();
+      
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        
+        x += sliceWidth;
+      }
+      
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+    
+    draw();
+  }
+  
+  // Keyboard control
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !e.repeat) {
+      e.preventDefault();
+      if (!isPlaying) startOscillators();
+    }
+  });
+  
+  document.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (isPlaying) stopOscillators();
+    }
+  });
+</script>
+</body>
+</html>
