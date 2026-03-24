@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON to CSV Converter — Shadow's Garden</title>
+<meta name="description" content="Convert JSON arrays to CSV format instantly. Paste your JSON, get downloadable CSV.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter { max-width: 800px; margin: 0 auto; padding: 2rem; }
+  .input-output { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  textarea { width: 100%; height: 300px; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-family: monospace; font-size: 0.875rem; background: var(--surface); color: var(--text); resize: vertical; }
+  .buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  button { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: opacity 0.2s; }
+  button:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-download { background: #22c55e; color: white; }
+  .error { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; display: none; }
+  .info { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; }
+  @media (max-width: 600px) { .input-output { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-page-type="app">
+<div class="converter">
+  <h1>JSON to CSV Converter</h1>
+  <p class="info">Paste a JSON array of objects, get CSV. Handles nested objects and arrays by flattening to JSON strings.</p>
+  
+  <div class="buttons">
+    <button class="btn-primary" onclick="convert()">Convert JSON → CSV</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    <button class="btn-download" onclick="downloadCSV()" id="downloadBtn" disabled>Download CSV</button>
+  </div>
+  
+  <div class="input-output">
+    <div>
+      <label style="display:block;margin-bottom:0.5rem;font-weight:500;">JSON Input</label>
+      <textarea id="jsonInput" placeholder='[{"name":"Alice","age":30},{"name":"Bob","age":25}]'></textarea>
+    </div>
+    <div>
+      <label style="display:block;margin-bottom:0.5rem;font-weight:500;">CSV Output</label>
+      <textarea id="csvOutput" readonly placeholder="name,age&#10;Alice,30&#10;Bob,25"></textarea>
+    </div>
+  </div>
+  
+  <div class="error" id="error"></div>
+</div>
+
+<script>
+let csvData = '';
+
+function convert() {
+  const jsonInput = document.getElementById('jsonInput').value.trim();
+  const errorEl = document.getElementById('error');
+  const downloadBtn = document.getElementById('downloadBtn');
+  
+  errorEl.style.display = 'none';
+  downloadBtn.disabled = true;
+  
+  if (!jsonInput) {
+    showError('Please paste some JSON');
+    return;
+  }
+  
+  let data;
+  try {
+    data = JSON.parse(jsonInput);
+  } catch (e) {
+    showError('Invalid JSON: ' + e.message);
+    return;
+  }
+  
+  if (!Array.isArray(data)) {
+    showError('JSON must be an array of objects');
+    return;
+  }
+  
+  if (data.length === 0) {
+    showError('Array is empty');
+    return;
+  }
+  
+  // Get all unique keys from all objects
+  const allKeys = new Set();
+  data.forEach(obj => {
+    if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach(k => allKeys.add(k));
+    }
+  });
+  
+  const headers = Array.from(allKeys);
+  const rows = data.map(obj => {
+    return headers.map(header => {
+      const value = obj[header];
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    });
+  });
+  
+  // Escape CSV values
+  const escapeCSV = (val) => {
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+  
+  const csvLines = [headers.map(escapeCSV).join(',')];
+  rows.forEach(row => {
+    csvLines.push(row.map(escapeCSV).join(','));
+  });
+  
+  csvData = csvLines.join('\n');
+  document.getElementById('csvOutput').value = csvData;
+  downloadBtn.disabled = false;
+}
+
+function showError(msg) {
+  const errorEl = document.getElementById('error');
+  errorEl.textContent = msg;
+  errorEl.style.display = 'block';
+}
+
+function clearAll() {
+  document.getElementById('jsonInput').value = '';
+  document.getElementById('csvOutput').value = '';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('downloadBtn').disabled = true;
+  csvData = '';
+}
+
+function downloadCSV() {
+  if (!csvData) return;
+  const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'data.csv';
+  link.click();
+}
+</script>
+</body>
+</html>
