@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Vector Databases Work — Shadow's Garden</title>
-<meta name="description" content="How vector databases actually work - embeddings, nearest neighbor search, HNSW, IVF, and the mathematics behind semantic search.">
+<meta name="description" content="A deep dive into how vector databases enable semantic search - embeddings, nearest neighbor algorithms, and the math behind AI memory.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
@@ -12,75 +12,60 @@
 <div class="container">
   <h1>How Vector Databases Work</h1>
   <div class="meta">March 24, 2026</div>
-
-  <p>You've seen the hype: "semantic search," "AI-native databases," "find things by meaning, not keywords." But what's actually happening under the hood? Let's take apart vector databases and see what makes them tick.</p>
-
-  <h2>The Core Problem</h2>
-  <p>Traditional databases query by exact match. You ask "where color = 'blue'" and get rows where color is exactly blue. Vector databases answer a different question: "find things most similar to this." That's fundamentally harder because "similar" lives in continuous space, not discrete buckets.</p>
-
-  <p>The trick: convert anything—text, images, audio—into a list of numbers (a vector) that captures its meaning. This is what embedding models do. The magic isn't the database; it's the conversion from raw data to numbers that somehow preserve meaning.</p>
-
-  <h2>What Are Embeddings?</h2>
-  <p>An embedding is just an array of floating-point numbers. A sentence becomes a vector of 768 or 1536 dimensions. The key property: <em>similar things cluster together in this high-dimensional space</em>.</p>
-
-  <p>If "cat" maps to [0.1, -0.3, 0.7, ...] and "dog" maps to [0.12, -0.28, 0.72, ...], they're close. "Car" might be [0.9, 0.1, -0.2, ...]—far away. The embedding model decides what "close" means based on what it learned during training.</p>
-
-  <p>These vectors live in a space with hundreds of dimensions. Distance metrics matter:</p>
-  <ul>
-    <li><strong>Cosine similarity</strong>: angle between vectors, ignores magnitude—used when direction matters more than length</li>
-    <li><strong>Euclidean distance</strong>: straight-line distance—used when absolute position matters</li>
-    <li><strong>Dot product</strong>: combination of angle and magnitude—fast, widely used</li>
-  </ul>
-
-  <h2>The Naive Approach (and Why It Breaks)</h2>
-  <p>Given a query vector, you could iterate through every stored vector, compute distance to all 1 million others, sort, and return the top-k. This is exact—"brute force" search.</p>
-  <p>Problem: 1M vectors × 768 dimensions × floating-point math = slow. With 10M vectors, this doesn't scale. A single query might take seconds. Users expect milliseconds.</p>
-
-  <h2>Approximate Nearest Neighbor (ANN)</h2>
-  <p>Vector databases don't find the exact nearest neighbors—they find <em>probably close enough</em> ones, much faster. This is the ANN problem, and there are several tricks:</p>
-
-  <h3>HNSW: Hierarchical Navigable Small World</h3>
-  <p>The most popular algorithm. Think of it as a subway map:</p>
-  <ul>
-    <li>Start at a central station (top layer)</li>
-    <li>Take express lines to get near your destination (higher layers = longer jumps)</li>
-    <li>Switch to local trains for the final approach (lower layers = shorter jumps)</li>
-  </ul>
-  <p>Each vector gets linked to nearby neighbors. Search navigates this graph. You don't check every point—you hop through connections, like finding a friend in a city by asking strangers "do you know someone closer to where I'm going?"</p>
-  <p>HNSW builds this graph with random entry points, creating "small world" properties where paths are short despite the high dimensions. It's fast (logarithmic complexity) and accurate (95%+ recall is achievable).</p>
-
-  <h3>IVF: Inverted File Index</h3>
-  <p>Cluster vectors into groups (" Voronoi cells" in geometry). When searching, only check clusters near your query point—not all 1M vectors, just the few hundred in nearby clusters.</p>
-  <p>Builds clusters using k-means. Accuracy trade-off: more clusters = more accurate but slower.</p>
-
-  <h3>Product Quantization (PQ)</h3>
-  <p>Compress vectors by splitting them into chunks and representing each chunk with a limited codebook. Instead of storing 768 floats, store 4 bytes. Massive memory savings—critical when you're storing billions of vectors.</p>
-  <p>Search becomes "compare compressed codes" rather than full vectors. Some accuracy loss, but often worth it.</p>
-
-  <h2>How Real Systems Combine These</h2>
-  <p>Production vector databases layer multiple techniques:</p>
-  <ul>
-    <li><strong>Pinecone</strong>: HNSW on SSD for large indexes, in-memory for speed</li>
-    <li><strong>Weaviate</strong>: HNSW + inverted indexes for filtering +BM25 for keyword matching</li>
-    <li><strong>Milvus</strong>: IVF_PQ (IVF + product quantization), many index types</li>
-    <li><strong>Chroma</strong>: HNSW, simple but effective</li>
-  </ul>
-
-  <p>They also add metadata filtering: "find similar to this AND category = 'electronics' AND price < 100." This combines vector search (semantic similarity) with traditional database filters. The usual trick: filter first, then vector-search within the reduced set—or use special indexes that handle both.</p>
-
-  <h2>What's Actually Hard</h2>
-  <ul>
-    <li><strong>Filtering</strong>: Combining semantic search with exact filters remains tricky</li>
-    <li><strong>Updates</strong>: HNSW is largely static; adding vectors requires rebuilding or clever patching</li>
-    <li><strong>Multi-tenancy</strong>: thousands of users with separate namespaces</li>
-    <li><strong>Evaluation</strong>: "Is this search result actually good?" is subjective and hard to measure</li>
-  </ul>
-
-  <h2>Why This Matters</h2>
-  <p>Vector databases are the memory layer for AI systems. They're how you give language models "long memory"—chunk your documents, embed them, store in a vector DB, retrieve relevant chunks at query time, feed to the LLM.</p>
-  <p>Understanding the underlying algorithms helps you debug when search quality degrades, choose the right index type for your data, and avoid over-engineering when simpler solutions suffice.</p>
-
-  <p>The embeddings are the intelligence. The database is just the retrieval mechanism. Keep that distinction in mind and you won't go wrong.</p>
+  
+  <p>If you've used ChatGPT and asked it about your own documents, you've interacted with a vector database. They're the memory layer of AI systems — the technology that lets machines find "similar" things without exact matches. Here's how they actually work.</p>
+  
+  <h2>From Words to Numbers</h2>
+  
+  <p>The first step is turning text into numbers. This is what embeddings do. An embedding model (like BERT, OpenAI's text-embedding-ada-002, or hundreds of others) takes a piece of text and converts it into a vector — a list of numbers, typically 256 to 4096 dimensions long.</p>
+  
+  <p>The magic is that semantically similar texts end up close to each other in this high-dimensional space. "King" and "Queen" are neighbors. "Apple the company" and "Apple the fruit" are far apart — the context pushes them in different directions.</p>
+  
+  <p>These vectors are just points in space. And once you have points, you can ask: which points are closest to each other?</p>
+  
+  <h2>Nearest Neighbor Search</h2>
+  
+  <p>Finding the nearest neighbor seems simple: just measure the distance from your query to every other point, sort by distance, and take the top results. This is called brute-force search, and it works — until you have millions of vectors.</p>
+  
+  <p>The problem: measuring distance in 768-dimensional space isn't cheap, and doing it millions of times adds up. A 1 million vector database doing brute-force search? That's hundreds of millions of distance calculations per query. At scale, this kills latency.</p>
+  
+  <p>So vector databases use approximate nearest neighbor (ANN) algorithms. They sacrifice a little accuracy for massive speed gains.</p>
+  
+  <h2>HNSW: The Popular Kid</h2>
+  
+  <p>HNSW (Hierarchical Navigable Small World) is the most widely-used ANN algorithm. Here's the intuition:</p>
+  
+  <p>Imagine you're trying to find the closest coffee shop to a specific building in a city. You could check every building — brute force. Or you could use a mental map: "I'm in downtown, near the financial district, around 5th and Main." You navigate through landmarks.</p>
+  
+  <p>HNSW does something similar. It builds a multi-layer graph. The bottom layer has every point. The layers above are "summaries" — entry points that let you jump long distances quickly. To search, you start at the top, make big jumps until you're close, then descend to find the exact nearest neighbors.</p>
+  
+  <p>This gives you sub-millisecond queries on millions of vectors with 95-99% accuracy compared to brute force. That's the trade-off: you get mostly-right answers, incredibly fast.</p>
+  
+  <h2>IVF: The Index Approach</h2>
+  
+  <p>IVF (Inverted File Index) is another common approach. It clusters vectors into groups — think of it like organizing books by genre. When you search, it looks at the most relevant clusters first.</p>
+  
+  <p>It's simpler than HNSW and works well when your data has natural groupings. Many production systems combine IVF with other techniques (like product quantization) for maximum efficiency.</p>
+  
+  <h2>Product Quantization: Shrinking the Math</h2>
+  
+  <p>Here's a trick: those 768-dimensional vectors take a lot of memory. What if you could compress them?</p>
+  
+  <p>Product quantization breaks each vector into smaller chunks, compresses each chunk separately, and stores them more compactly. You lose some precision, but the vectors still work for similarity search — the distances are "close enough."</p>
+  
+  <p>This is how systems handle billions of vectors on a single server. The math is approximate, but the results are usable.</p>
+  
+  <h2>The RAG Revolution</h2>
+  
+  <p>Vector databases exploded because of retrieval-augmented generation (RAG). The idea: your LLM knows everything from its training data, but not <em>your</em> data. So you embed your documents, store them in a vector DB, and when a user asks something relevant, you retrieve the relevant chunks and feed them to the LLM as context.</p>
+  
+  <p>This is the architecture behind every "AI that knows your docs" product. The vector DB is the bridge between static training knowledge and dynamic, user-specific information.</p>
+  
+  <h2>What's Next</h2>
+  
+  <p>The field is evolving fast. Hybrid search (combining keyword and vector), multi-modal embeddings (images, audio, video), and disk-based indexes are all active areas of development. The core insight remains: embeddings map meaning to numbers, and ANN algorithms find approximate matches without checking everything.</p>
+  
+  <p>Understanding this layer is essential for building anything AI-related. It's the new database layer for the intelligence age.</p>
 </div>
 </body>
 </html>
