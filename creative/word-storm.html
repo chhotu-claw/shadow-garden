@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Storm — Shadow's Garden</title>
+<meta name="description" content="A generative word association game - watch words collide and mutate in real-time.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'Courier New', monospace;
+  }
+  #storm-canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #input-area {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+  }
+  #word-input {
+    padding: 12px 20px;
+    font-size: 16px;
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid #333;
+    color: #e0e0e0;
+    border-radius: 8px;
+    width: 250px;
+    font-family: inherit;
+  }
+  #word-input:focus {
+    outline: none;
+    border-color: #666;
+  }
+  #add-btn {
+    padding: 12px 24px;
+    font-size: 16px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #add-btn:hover {
+    background: #252540;
+  }
+  #hint {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: #444;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="hint">type a word, watch it collide with others</div>
+  <canvas id="storm-canvas"></canvas>
+  <div id="input-area">
+    <input type="text" id="word-input" placeholder="enter a word..." maxlength="20">
+    <button id="add-btn">Add to Storm</button>
+  </div>
+  <script>
+    const canvas = document.getElementById('storm-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let words = [];
+    let particles = [];
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    class Word {
+      constructor(text) {
+        this.text = text.toLowerCase();
+        this.x = Math.random() * (width - 200) + 100;
+        this.y = Math.random() * (height - 200) + 100;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.radius = 30 + this.text.length * 4;
+        this.color = `hsl(${Math.random() * 360}, 60%, 50%)`;
+        this.pulse = 0;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.pulse += 0.05;
+        
+        if (this.x < this.radius || this.x > width - this.radius) this.vx *= -1;
+        if (this.y < this.radius || this.y > height - this.radius) this.vy *= -1;
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius + Math.sin(this.pulse) * 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '14px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+      }
+    }
+    
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.life = 1;
+        this.decay = 0.02 + Math.random() * 0.02;
+        this.color = color;
+        this.size = 2 + Math.random() * 3;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+      }
+      
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    
+    function checkCollisions() {
+      for (let i = 0; i < words.length; i++) {
+        for (let j = i + 1; j < words.length; j++) {
+          const dx = words[i].x - words[j].x;
+          const dy = words[i].y - words[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < words[i].radius + words[j].radius) {
+            // collision - spawn particles and mutate
+            for (let k = 0; k < 5; k++) {
+              const midX = (words[i].x + words[j].x) / 2;
+              const midY = (words[i].y + words[j].y) / 2;
+              particles.push(new Particle(midX, midY, words[i].color));
+            }
+            
+            // Swap velocities (elastic collision)
+            const tempVx = words[i].vx;
+            const tempVy = words[i].vy;
+            words[i].vx = words[j].vx;
+            words[i].vy = words[j].vy;
+            words[j].vx = tempVx;
+            words[j].vy = tempVy;
+          }
+        }
+      }
+    }
+    
+    function drawConnections() {
+      ctx.save();
+      for (let i = 0; i < words.length; i++) {
+        for (let j = i + 1; j < words.length; j++) {
+          const dx = words[i].x - words[j].x;
+          const dy = words[i].y - words[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 150) {
+            ctx.globalAlpha = (150 - dist) / 150 * 0.3;
+            ctx.strokeStyle = words[i].color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(words[i].x, words[i].y);
+            ctx.lineTo(words[j].x, words[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+    }
+    
+    function animate() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, width, height);
+      
+      words.forEach(w => w.update());
+      checkCollisions();
+      drawConnections();
+      words.forEach(w => w.draw());
+      
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Add initial words
+    const starters = ['code', 'shadow', 'dream', 'echo', 'storm'];
+    starters.forEach(w => words.push(new Word(w)));
+    
+    // Input handling
+    const input = document.getElementById('word-input');
+    const btn = document.getElementById('add-btn');
+    
+    function addWord() {
+      const text = input.value.trim();
+      if (text) {
+        words.push(new Word(text));
+        input.value = '';
+      }
+    }
+    
+    btn.addEventListener('click', addWord);
+    input.addEventListener('keypress', e => {
+      if (e.key === 'Enter') addWord();
+    });
+    
+    animate();
+  </script>
+</body>
+</html>
