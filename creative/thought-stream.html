@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thought Stream — Shadow's Garden</title>
+<meta name="description" content="Type freely and watch your thoughts visualized as a flowing stream of words.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; }
+  #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+  .input-area { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; z-index: 10; }
+  #thought-input { width: 100%; padding: 1rem 1.5rem; font-size: 1.1rem; background: rgba(20, 20, 30, 0.9); border: 1px solid #333; border-radius: 30px; color: #e0e0e0; font-family: inherit; outline: none; transition: all 0.3s; }
+  #thought-input:focus { border-color: #6cb6ff; box-shadow: 0 0 20px rgba(108, 182, 255, 0.2); }
+  #thought-input::placeholder { color: #555; }
+  .hint { text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #444; }
+  .stats { position: fixed; top: 1rem; right: 1rem; font-size: 0.75rem; color: #333; }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="input-area">
+    <input type="text" id="thought-input" placeholder="Let thoughts flow..." autocomplete="off" autofocus>
+    <div class="hint">Press Enter to release • Words float upward and fade</div>
+  </div>
+  <div class="stats" id="stats">words: 0</div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('thought-input');
+    const stats = document.getElementById('stats');
+    
+    let words = [];
+    let wordId = 0;
+    let lastTime = 0;
+    
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    const colors = [
+      '#6cb6ff', '#7af782', '#f77a7a', '#bb9af7', '#f7f77a', 
+      '#7af2f7', '#ff9f43', '#a55eea', '#26de81', '#fd79a8'
+    ];
+    
+    class Word {
+      constructor(text) {
+        this.id = wordId++;
+        this.text = text;
+        this.x = Math.random() * (canvas.width - 100) + 50;
+        this.y = canvas.height - 80;
+        this.targetY = Math.random() * (canvas.height * 0.6) + 50;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = -2 - Math.random() * 2;
+        this.size = 14 + Math.random() * 12;
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        this.opacity = 1;
+        this.characters = text.split('').map((char, i) => ({
+          char,
+          offsetX: 0,
+          offsetY: 0,
+          phase: Math.random() * Math.PI * 2
+        }));
+        this.settled = false;
+      }
+      
+      update(time) {
+        if (this.settled) {
+          this.opacity -= 0.003;
+          return this.opacity > 0;
+        }
+        
+        // Move toward target
+        const dy = this.targetY - this.y;
+        if (Math.abs(dy) > 5) {
+          this.vy += dy * 0.002;
+        } else {
+          this.settled = true;
+          this.vy = 0;
+        }
+        
+        this.vx *= 0.99;
+        this.vy *= 0.98;
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Wiggle characters
+        this.characters.forEach((c, i) => {
+          c.offsetX = Math.sin(time * 0.002 + c.phase) * 2;
+          c.offsetY = Math.cos(time * 0.003 + c.phase) * 1;
+        });
+        
+        return true;
+      }
+      
+      draw(ctx, time) {
+        ctx.font = `${this.size}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let x = this.x;
+        this.characters.forEach((c, i) => {
+          const charWidth = ctx.measureText(c.char).width;
+          ctx.globalAlpha = this.opacity;
+          ctx.fillStyle = this.color;
+          ctx.fillText(c.char, x + c.offsetX, this.y + c.offsetY);
+          x += charWidth;
+        });
+      }
+    }
+    
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        const text = input.value.trim();
+        // Split into words, create each as separate entity
+        const wordTexts = text.split(/\s+/).filter(w => w);
+        wordTexts.forEach(w => {
+          words.push(new Word(w));
+        });
+        input.value = '';
+        updateStats();
+      }
+    });
+    
+    function updateStats() {
+      stats.textContent = `words: ${words.length}`;
+    }
+    
+    function animate(time) {
+      const dt = time - lastTime;
+      lastTime = time;
+      
+      // Dark trail effect
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Update and draw words
+      words = words.filter(w => {
+        const alive = w.update(time);
+        if (alive) w.draw(ctx, time);
+        return alive;
+      });
+      
+      updateStats();
+      requestAnimationFrame(animate);
+    }
+    
+    // Start with a prompt word
+    setTimeout(() => {
+      words.push(new Word('begin'));
+      updateStats();
+    }, 500);
+    
+    requestAnimationFrame(animate);
+    input.focus();
+  </script>
+</body>
+</html>
