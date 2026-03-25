@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Diff Tool — Shadow's Garden</title>
+<meta name="description" content="Compare two JSON objects and see the differences visually. Highlights added, removed, and changed values.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 1rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { text-align: center; margin-bottom: 1.5rem; }
+  .input-area { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  @media (max-width: 700px) { .input-area { grid-template-columns: 1fr; } }
+  .json-input { display: flex; flex-direction: column; }
+  .json-input label { margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted, #888); }
+  .json-input textarea { flex: 1; min-height: 200px; padding: 0.75rem; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--input-bg, #0f0f1a); color: var(--text, #eee); resize: vertical; }
+  .json-input textarea:focus { outline: 2px solid var(--accent, #646cff); border-color: transparent; }
+  .controls { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  button { padding: 0.75rem 1.5rem; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary { background: var(--accent, #646cff); color: white; }
+  .btn-secondary { background: var(--card-bg, #1a1a2e); color: var(--text, #eee); border: 1px solid var(--border, #333); }
+  button:hover { opacity: 0.9; }
+  .error { background: #2a1a1a; color: #ff6b6b; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: none; }
+  .results { display: none; }
+  .results.show { display: block; }
+  .diff-summary { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat { padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+  .stat.added { background: #1a2a1a; color: #4ade80; }
+  .stat.removed { background: #2a1a1a; color: #ff6b6b; }
+  .stat.changed { background: #2a2a1a; color: #fbbf24; }
+  .diff-view { background: var(--card-bg, #1a1a2e); border-radius: 12px; padding: 1rem; overflow-x: auto; }
+  .diff-line { font-family: monospace; font-size: 0.85rem; padding: 0.25rem 0.5rem; border-radius: 4px; white-space: pre; }
+  .diff-line.added { background: #1a2a1a; color: #4ade80; }
+  .diff-line.removed { background: #2a1a1a; color: #ff6b6b; }
+  .diff-line.changed { background: #2a2a1a; color: #fbbf24; }
+  .diff-line.key { color: var(--text-muted, #888); }
+  .diff-line.value { color: var(--text, #eee); }
+  .path { color: var(--accent, #646cff); font-size: 0.8rem; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🔀 JSON Diff Tool</h1>
+    
+    <div class="input-area">
+      <div class="json-input">
+        <label>Left JSON (original)</label>
+        <textarea id="left-json" placeholder='{"key": "value"}'></textarea>
+      </div>
+      <div class="json-input">
+        <label>Right JSON (modified)</label>
+        <textarea id="right-json" placeholder='{"key": "new value"}'></textarea>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button class="btn-primary" id="compare-btn">Compare</button>
+      <button class="btn-secondary" id="clear-btn">Clear</button>
+      <button class="btn-secondary" id="sample-btn">Load Sample</button>
+    </div>
+    
+    <div class="error" id="error"></div>
+    
+    <div class="results" id="results">
+      <div class="diff-summary" id="diff-summary"></div>
+      <div class="diff-view" id="diff-view"></div>
+    </div>
+  </div>
+  
+  <script>
+    const leftInput = document.getElementById('left-json');
+    const rightInput = document.getElementById('right-json');
+    const compareBtn = document.getElementById('compare-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const sampleBtn = document.getElementById('sample-btn');
+    const errorDiv = document.getElementById('error');
+    const resultsDiv = document.getElementById('results');
+    const diffSummary = document.getElementById('diff-summary');
+    const diffView = document.getElementById('diff-view');
+    
+    function parseJSON(text) {
+      if (!text.trim()) return {};
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        throw new Error('Invalid JSON: ' + e.message);
+      }
+    }
+    
+    function getType(obj) {
+      if (Array.isArray(obj)) return 'array';
+      if (obj === null) return 'null';
+      return typeof obj;
+    }
+    
+    function flattenObject(obj, prefix = '') {
+      const result = {};
+      
+      function traverse(o, path) {
+        if (getType(o) === 'object' && o !== null && !Array.isArray(o)) {
+          for (const key in o) {
+            traverse(o[key], path ? `${path}.${key}` : key);
+          }
+        } else {
+          result[path] = o;
+        }
+      }
+      
+      traverse(obj, prefix);
+      return result;
+    }
+    
+    function findDifferences(left, right, path = '') {
+      const differences = [];
+      
+      const leftType = getType(left);
+      const rightType = getType(right);
+      
+      if (leftType !== rightType) {
+        differences.push({ type: 'changed', path, left: left, right: right, reason: `type: ${leftType} → ${rightType}` });
+        return differences;
+      }
+      
+      if (leftType === 'object' && left !== null) {
+        const leftKeys = Object.keys(left);
+        const rightKeys = Object.keys(right);
+        const allKeys = new Set([...leftKeys, ...rightKeys]);
+        
+        for (const key of allKeys) {
+          const newPath = path ? `${path}.${key}` : key;
+          if (!(key in left)) {
+            differences.push({ type: 'added', path: newPath, right: right[key] });
+          } else if (!(key in right)) {
+            differences.push({ type: 'removed', path: newPath, left: left[key] });
+          } else {
+            differences.push(...findDifferences(left[key], right[key], newPath));
+          }
+        }
+      } else if (Array.isArray(left)) {
+        if (left.length !== right.length) {
+          differences.push({ type: 'changed', path, left: left.length, right: right.length, reason: `length: ${left.length} → ${right.length}` });
+        }
+        const maxLen = Math.max(left.length, right.length);
+        for (let i = 0; i < maxLen; i++) {
+          const newPath = path ? `${path}[${i}]` : `[${i}]`;
+          if (i >= left.length) {
+            differences.push({ type: 'added', path: newPath, right: right[i] });
+          } else if (i >= right.length) {
+            differences.push({ type: 'removed', path: newPath, left: left[i] });
+          } else {
+            differences.push(...findDifferences(left[i], right[i], newPath));
+          }
+        }
+      } else if (left !== right) {
+        differences.push({ type: 'changed', path, left, right });
+      }
+      
+      return differences;
+    }
+    
+    function formatValue(value) {
+      const type = getType(value);
+      if (type === 'string') return `"${value}"`;
+      if (type === 'null') return 'null';
+      if (type === 'object') return Array.isArray(value) ? `[${value.length} items]` : `{${Object.keys(value).length} keys}`;
+      if (type === 'boolean') return value ? 'true' : 'false';
+      return String(value);
+    }
+    
+    function renderDifferences(diffs) {
+      if (diffs.length === 0) {
+        diffSummary.innerHTML = '<span class="stat">No differences</span>';
+        diffView.innerHTML = '<div class="diff-line">JSON objects are identical</div>';
+        return;
+      }
+      
+      const added = diffs.filter(d => d.type === 'added').length;
+      const removed = diffs.filter(d => d.type === 'removed').length;
+      const changed = diffs.filter(d => d.type === 'changed').length;
+      
+      diffSummary.innerHTML = `
+        ${added > 0 ? `<span class="stat added">+${added} added</span>` : ''}
+        ${removed > 0 ? `<span class="stat removed">-${removed} removed</span>` : ''}
+        ${changed > 0 ? `<span class="stat changed">~${changed} changed</span>` : ''}
+      `;
+      
+      diffView.innerHTML = diffs.map(diff => {
+        let lineClass = diff.type;
+        let leftVal = diff.left !== undefined ? formatValue(diff.left) : '';
+        let rightVal = diff.right !== undefined ? formatValue(diff.right) : '';
+        
+        if (diff.type === 'added') {
+          return `<div class="diff-line added">+ ${diff.path}: ${rightVal}</div>`;
+        } else if (diff.type === 'removed') {
+          return `<div class="diff-line removed">- ${diff.path}: ${leftVal}</div>`;
+        } else {
+          return `<div class="diff-line changed">~ ${diff.path}: ${leftVal} → ${rightVal}</div>`;
+        }
+      }).join('');
+    }
+    
+    compareBtn.addEventListener('click', () => {
+      errorDiv.style.display = 'none';
+      resultsDiv.classList.remove('show');
+      
+      try {
+        const left = parseJSON(leftInput.value);
+        const right = parseJSON(rightInput.value);
+        
+        const diffs = findDifferences(left, right);
+        renderDifferences(diffs);
+        resultsDiv.classList.add('show');
+      } catch (e) {
+        errorDiv.textContent = e.message;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    clearBtn.addEventListener('click', () => {
+      leftInput.value = '';
+      rightInput.value = '';
+      errorDiv.style.display = 'none';
+      resultsDiv.classList.remove('show');
+    });
+    
+    sampleBtn.addEventListener('click', () => {
+      leftInput.value = JSON.stringify({
+        "name": "Shadow",
+        "version": "1.0.0",
+        "features": ["tinkering", "building", "writing"],
+        "config": {
+          "theme": "dark",
+          "debug": false
+        }
+      }, null, 2);
+      
+      rightInput.value = JSON.stringify({
+        "name": "Shadow",
+        "version": "1.1.0",
+        "features": ["tinkering", "building", "writing", "engaging"],
+        "config": {
+          "theme": "light",
+          "debug": true,
+          "newOption": "enabled"
+        }
+      }, null, 2);
+    });
+  </script>
+</body>
+</html>
