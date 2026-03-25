@@ -12,261 +12,409 @@
   .container { max-width: 900px; margin: 0 auto; }
   h1 { margin-bottom: 0.5rem; }
   .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-  .editor { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  @media (max-width: 700px) { .editor { grid-template-columns: 1fr; } }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 768px) { .panels { grid-template-columns: 1fr; } }
   .panel { display: flex; flex-direction: column; }
   .panel-label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
-  textarea { flex: 1; min-height: 300px; padding: 1rem; font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; line-height: 1.5; }
+  textarea { flex: 1; min-height: 300px; padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.85rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: none; line-height: 1.5; }
   textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .actions { margin: 1rem 0; display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
+  .controls { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+  .btn { padding: 0.6rem 1rem; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: opacity 0.2s; }
   .btn:hover { opacity: 0.9; }
-  .btn.secondary { background: var(--border); }
-  .btn-group { display: flex; gap: 0.5rem; }
-  .error-box { margin-top: 1rem; padding: 1rem; background: #2a1a1a; border: 1px solid #5a3030; border-radius: 8px; display: none; }
-  .error-box.has-error { display: block; }
-  .error-title { color: #ff6b6b; font-weight: bold; margin-bottom: 0.5rem; }
-  .error-text { color: #ff9999; font-family: monospace; font-size: 0.85rem; }
-  .stats { margin-top: 1rem; padding: 0.75rem; background: var(--highlight); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
-  .keyword { color: #c792ea; }
-  .string { color: #c3e88d; }
-  .number { color: #f78c6c; }
-  .comment { color: #546e7a; font-style: italic; }
-  .function { color: #82aaff; }
-  .operator { color: #89ddff; }
+  .btn.secondary { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); }
+  .btn.secondary:hover { border-color: var(--accent); }
+  .options { display: flex; gap: 1rem; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; flex-wrap: wrap; }
+  .option { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+  .option input[type="checkbox"] { accent-color: var(--accent); }
+  .option select { padding: 0.4rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+  .error { margin-top: 1rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; display: none; }
+  .error.show { display: block; }
+  .stats { margin-top: 1rem; padding: 0.75rem; background: var(--highlight); border-radius: 8px; font-size: 0.85rem; color: var(--text-muted); }
+  .keyword { color: #c678dd; }
+  .string { color: #98c379; }
+  .number { color: #d19a66; }
+  .function { color: #61afef; }
+  .comment { color: #5c6370; font-style: italic; }
+  .operator { color: #56b6c2; }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
     <h1>📊 SQL Formatter</h1>
-    <div class="subtitle">Format, validate, and analyze SQL — runs locally in your browser</div>
+    <div class="subtitle">Format, indent, and validate SQL — all local, no server</div>
     
-    <div class="editor">
+    <div class="panels">
       <div class="panel">
         <div class="panel-label">
           <span>Input SQL</span>
-          <button class="btn secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="loadSample()">Load Sample</button>
+          <button class="btn secondary" id="sample-btn">Load Sample</button>
         </div>
-        <textarea id="input" placeholder="Paste your SQL here..."></textarea>
+        <textarea id="input-sql" placeholder="SELECT * FROM users WHERE active = true ORDER BY created_at DESC LIMIT 10"></textarea>
       </div>
+      
       <div class="panel">
         <div class="panel-label">
           <span>Formatted Output</span>
+          <button class="btn secondary" id="copy-btn">Copy</button>
         </div>
-        <textarea id="output" readonly placeholder="Formatted SQL will appear here..."></textarea>
+        <textarea id="output-sql" readonly placeholder="Formatted SQL will appear here..."></textarea>
       </div>
     </div>
     
-    <div class="actions">
+    <div class="options">
+      <div class="option">
+        <label>Indent:</label>
+        <select id="indent-size">
+          <option value="2">2 spaces</option>
+          <option value="4" selected>4 spaces</option>
+          <option value="tab">Tab</option>
+        </select>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="uppercase" checked>
+        <label for="uppercase">UPPERCASE keywords</label>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="inline-where">
+        <label for="inline-where">Compact WHERE</label>
+      </div>
+      <div class="option">
+        <input type="checkbox" id="trailing-comma">
+        <label for="trailing-comma">Trailing commas</label>
+      </div>
+    </div>
+    
+    <div class="controls">
       <button class="btn" id="format-btn">Format SQL</button>
       <button class="btn secondary" id="minify-btn">Minify</button>
       <button class="btn secondary" id="validate-btn">Validate</button>
-      <button class="btn secondary" id="copy-btn">Copy Output</button>
       <button class="btn secondary" id="clear-btn">Clear</button>
     </div>
     
-    <div class="error-box" id="error-box">
-      <div class="error-title">⚠️ Error</div>
-      <div class="error-text" id="error-text"></div>
-    </div>
-    
+    <div class="error" id="error"></div>
     <div class="stats" id="stats"></div>
   </div>
   
   <script>
-    const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS', 'ON', 'AS', 'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'INDEX', 'VIEW', 'IF', 'EXISTS', 'NULL', 'IS', 'TRUE', 'FALSE', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'UNION', 'ALL', 'DISTINCT', 'ASC', 'DESC', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'CAST', 'CONVERT', 'CONCAT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH', 'ROUND', 'FLOOR', 'CEIL', 'NOW', 'DATE', 'TIME', 'TIMESTAMP', 'INTERVAL', 'EXTRACT', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'CONSTRAINT', 'DEFAULT', 'CHECK', 'UNIQUE', 'AUTO_INCREMENT', 'SERIAL', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'BEGIN', 'GRANT', 'REVOKE', 'WITH', 'RECURSIVE', 'OVER', 'PARTITION', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE', 'FILTER', 'WITHIN', 'GROUPING', 'SETS', 'CUBE', 'ROLLUP'];
-    const functions = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'CAST', 'CONVERT', 'CONCAT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH', 'ROUND', 'FLOOR', 'CEIL', 'NOW', 'DATE', 'TIME', 'TIMESTAMP', 'INTERVAL', 'EXTRACT', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE'];
+    const SQL_KEYWORDS = [
+      'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN',
+      'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'OUTER JOIN', 'CROSS JOIN',
+      'ON', 'AS', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'OFFSET',
+      'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE',
+      'CREATE', 'ALTER', 'DROP', 'TABLE', 'INDEX', 'VIEW',
+      'PRIMARY KEY', 'FOREIGN KEY', 'REFERENCES', 'CONSTRAINT', 'UNIQUE', 'DEFAULT',
+      'NULL', 'NOT NULL', 'IS', 'ASC', 'DESC', 'DISTINCT', 'ALL',
+      'UNION', 'INTERSECT', 'EXCEPT', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+      'EXISTS', 'ANY', 'SOME', 'COALESCE', 'NULLIF', 'CAST',
+      'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'NOW', 'DATE', 'TIMESTAMP'
+    ];
     
-    const input = document.getElementById('input');
-    const output = document.getElementById('output');
-    const errorBox = document.getElementById('error-box');
-    const errorText = document.getElementById('error-text');
-    const stats = document.getElementById('stats');
-    
-    function showError(msg) {
-      errorText.textContent = msg;
-      errorBox.classList.add('has-error');
-    }
-    
-    function clearError() {
-      errorBox.classList.remove('has-error');
-    }
-    
-    function updateStats(sql) {
-      const lines = sql.split('\n').length;
-      const chars = sql.length;
-      const words = sql.split(/\s+/).filter(w => w).length;
-      stats.textContent = `Lines: ${lines} • Characters: ${chars} • Words: ${words}`;
-    }
-    
-    function formatSQL(sql) {
-      if (!sql.trim()) return '';
-      
-      // Normalize: uppercase keywords, proper spacing
-      let formatted = sql;
-      
-      // Preserve strings first
-      const stringMatches = [];
-      formatted = formatted.replace(/'([^']*)'/g, (match) => {
-        stringMatches.push(match);
-        return `__STRING_${stringMatches.length - 1}__`;
-      });
-      
-      // Uppercase keywords
-      keywords.forEach(kw => {
-        const regex = new RegExp(`\\b${kw}\\b`, 'gi');
-        formatted = formatted.replace(regex, kw);
-      });
-      
-      // Restore strings
-      stringMatches.forEach((str, i) => {
-        formatted = formatted.replace(`__STRING_${i}__`, str);
-      });
-      
-      // Handle operators
-      formatted = formatted.replace(/\s*([=<>!]+)\s*/g, ' $1 ');
-      formatted = formatted.replace(/\s*,\s*/g, ', ');
-      formatted = formatted.replace(/\s*\(\s*/g, ' (');
-      formatted = formatted.replace(/\s*\)\s*/g, ') ');
-      
-      // Newline after major clauses
-      const majorClauses = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN', 'SET', 'VALUES'];
-      majorClauses.forEach(clause => {
-        const regex = new RegExp(`\\b${clause}\\b`, 'gi');
-        formatted = formatted.replace(regex, `\n${clause}`);
-      });
-      
-      // Clean up extra whitespace
-      formatted = formatted.replace(/  +/g, ' ');
-      formatted = formatted.replace(/\n\s*\n/g, '\n');
-      formatted = formatted.trim();
-      
-      return formatted;
-    }
-    
-    function minifySQL(sql) {
-      return sql.replace(/\s+/g, ' ').replace(/\s*([=<>!,()])\s*/g, '$1').trim();
-    }
-    
-    function validateSQL(sql) {
-      const errors = [];
-      const upper = sql.toUpperCase();
-      
-      // Check for unbalanced parentheses
-      const opens = (sql.match(/\(/g) || []).length;
-      const closes = (sql.match(/\)/g) || []).length;
-      if (opens !== closes) {
-        errors.push(`Unbalanced parentheses: ${opens} open, ${closes} close`);
-      }
-      
-      // Check for unbalanced quotes
-      const singleQuotes = (sql.match(/'/g) || []).length;
-      if (singleQuotes % 2 !== 0) {
-        errors.push('Unbalanced single quotes');
-      }
-      
-      // Check for SELECT without FROM (unless it's a VALUES or WITH)
-      if (upper.includes('SELECT') && !upper.includes('FROM') && !upper.includes('VALUES') && !upper.includes('WITH')) {
-        errors.push('SELECT without FROM clause');
-      }
-      
-      // Check for common typos in JOINs
-      if (upper.includes('JOIN ') && !upper.includes(' ON ')) {
-        errors.push('JOIN without ON clause');
-      }
-      
-      return errors;
-    }
-    
-    function highlightSQL(sql) {
-      // Basic syntax highlighting
-      let highlighted = sql;
-      
-      // Strings
-      highlighted = highlighted.replace(/'([^']*)'/g, '<span class="string">$&</span>');
-      
-      // Numbers
-      highlighted = highlighted.replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
-      
-      // Keywords
-      keywords.forEach(kw => {
-        const regex = new RegExp(`\\b(${kw})\\b`, 'gi');
-        highlighted = highlighted.replace(regex, '<span class="keyword">$1</span>');
-      });
-      
-      // Functions
-      functions.forEach(fn => {
-        const regex = new RegExp(`\\b(${fn})\\s*\\(`, 'gi');
-        highlighted = highlighted.replace(regex, '<span class="function">$1</span>(');
-      });
-      
-      return highlighted;
-    }
-    
-    document.getElementById('format-btn').addEventListener('click', () => {
-      clearError();
-      const sql = input.value;
-      if (!sql.trim()) {
-        showError('No SQL to format');
-        return;
-      }
-      const formatted = formatSQL(sql);
-      output.value = formatted;
-      updateStats(formatted);
-    });
-    
-    document.getElementById('minify-btn').addEventListener('click', () => {
-      clearError();
-      const sql = input.value;
-      if (!sql.trim()) {
-        showError('No SQL to minify');
-        return;
-      }
-      output.value = minifySQL(sql);
-      updateStats(output.value);
-    });
-    
-    document.getElementById('validate-btn').addEventListener('click', () => {
-      clearError();
-      const sql = input.value;
-      if (!sql.trim()) {
-        showError('No SQL to validate');
-        return;
-      }
-      const errors = validateSQL(sql);
-      if (errors.length > 0) {
-        showError(errors.join('\n'));
-      } else {
-        output.value = '✅ SQL looks valid!';
-      }
-    });
-    
-    document.getElementById('copy-btn').addEventListener('click', () => {
-      if (output.value) {
-        navigator.clipboard.writeText(output.value);
-      }
-    });
-    
-    document.getElementById('clear-btn').addEventListener('click', () => {
-      input.value = '';
-      output.value = '';
-      clearError();
-      stats.textContent = '';
-    });
-    
-    window.loadSample = function() {
-      input.value = `SELECT u.name, u.email, COUNT(o.id) as order_count, SUM(o.total) as total_spent
+    const SAMPLE_SQL = `SELECT u.id, u.name, u.email, COUNT(o.id) as order_count, SUM(o.total) as total_spent
 FROM users u
 LEFT JOIN orders o ON u.id = o.user_id
-WHERE u.created_at > '2025-01-01'
-AND u.status = 'active'
+WHERE u.active = true AND u.created_at > '2025-01-01'
 GROUP BY u.id, u.name, u.email
 HAVING COUNT(o.id) > 5
 ORDER BY total_spent DESC
 LIMIT 10`;
-      output.value = '';
-      clearError();
-    };
+    
+    const inputSql = document.getElementById('input-sql');
+    const outputSql = document.getElementById('output-sql');
+    const error = document.getElementById('error');
+    const stats = document.getElementById('stats');
+    
+    function showError(msg) {
+      error.textContent = msg;
+      error.classList.add('show');
+    }
+    
+    function hideError() {
+      error.classList.remove('show');
+    }
+    
+    function showStats(inputLen, outputLen) {
+      stats.textContent = `Input: ${inputLen} chars → Output: ${outputLen} chars`;
+    }
+    
+    function tokenize(sql) {
+      const tokens = [];
+      let i = 0;
+      
+      while (i < sql.length) {
+        // Whitespace
+        if (/\s/.test(sql[i])) {
+          let ws = '';
+          while (i < sql.length && /\s/.test(sql[i])) {
+            ws += sql[i++];
+          }
+          tokens.push({ type: 'whitespace', value: ws });
+          continue;
+        }
+        
+        // String
+        if (sql[i] === "'" || sql[i] === '"') {
+          const quote = sql[i++];
+          let str = quote;
+          while (i < sql.length) {
+            if (sql[i] === quote && sql[i + 1] === quote) {
+              str += quote + quote;
+              i += 2;
+            } else if (sql[i] === quote) {
+              str += quote;
+              i++;
+              break;
+            } else {
+              str += sql[i++];
+            }
+          }
+          tokens.push({ type: 'string', value: str });
+          continue;
+        }
+        
+        // Number
+        if (/\d/.test(sql[i])) {
+          let num = '';
+          while (i < sql.length && /[\d.]/.test(sql[i])) {
+            num += sql[i++];
+          }
+          tokens.push({ type: 'number', value: num });
+          continue;
+        }
+        
+        // Comment
+        if (sql[i] === '-' && sql[i + 1] === '-') {
+          let comment = '';
+          while (i < sql.length && sql[i] !== '\n') {
+            comment += sql[i++];
+          }
+          tokens.push({ type: 'comment', value: comment });
+          continue;
+        }
+        
+        if (sql[i] === '/' && sql[i + 1] === '*') {
+          let comment = '';
+          while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) {
+            comment += sql[i++];
+          }
+          comment += '*/';
+          i += 2;
+          tokens.push({ type: 'comment', value: comment });
+          continue;
+        }
+        
+        // Identifier or keyword
+        if (/[a-zA-Z_]/.test(sql[i])) {
+          let id = '';
+          while (i < sql.length && /[a-zA-Z0-9_]/.test(sql[i])) {
+            id += sql[i++];
+          }
+          const upper = id.toUpperCase();
+          if (SQL_KEYWORDS.includes(upper)) {
+            tokens.push({ type: 'keyword', value: id });
+          } else {
+            tokens.push({ type: 'identifier', value: id });
+          }
+          continue;
+        }
+        
+        // Operators and punctuation
+        const punct = sql[i];
+        if ('(),;*'.includes(punct)) {
+          tokens.push({ type: 'punctuation', value: punct });
+        } else if ('+-*/<>=!'.includes(punct)) {
+          let op = punct;
+          while (i + 1 < sql.length && '+-*/<>=!'.includes(sql[i + 1])) {
+            op += sql[i++];
+          }
+          tokens.push({ type: 'operator', value: op });
+        } else {
+          tokens.push({ type: 'unknown', value: punct });
+        }
+        i++;
+      }
+      
+      return tokens;
+    }
+    
+    function formatSQL(sql) {
+      const indentSize = document.getElementById('indent-size').value;
+      const indent = indentSize === 'tab' ? '\t' : ' '.repeat(parseInt(indentSize));
+      const uppercase = document.getElementById('uppercase').checked;
+      const inlineWhere = document.getElementById('inline-where').checked;
+      
+      if (!sql.trim()) {
+        outputSql.value = '';
+        return;
+      }
+      
+      const tokens = tokenize(sql);
+      let result = '';
+      let indentLevel = 0;
+      let prevToken = null;
+      let inSelect = false;
+      let inWhere = false;
+      let whereClause = '';
+      
+      const isBreakKeyword = (tk) => tk && tk.type === 'keyword' && 
+        ['FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'ON', 'SET', 'VALUES'].includes(tk.value.toUpperCase());
+      
+      const isNewlineKeyword = (tk) => tk && tk.type === 'keyword' &&
+        ['SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'ON', 'UPDATE', 'SET', 'INSERT INTO', 'VALUES', 'DELETE FROM'].includes(tk.value.toUpperCase());
+      
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        
+        if (token.type === 'whitespace') {
+          continue;
+        }
+        
+        // Handle keywords
+        if (token.type === 'keyword') {
+          const val = uppercase ? token.value.toUpperCase() : token.value;
+          
+          if (val === 'SELECT') {
+            inSelect = true;
+          }
+          
+          if (val === 'WHERE') {
+            inWhere = true;
+          }
+          
+          if (['FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT'].includes(val)) {
+            if (val !== 'WHERE' || !inlineWhere) {
+              result += '\n' + indent.repeat(indentLevel);
+            } else {
+              result += ' ';
+            }
+          } else if (['AND', 'OR'].includes(val)) {
+            result += '\n' + indent.repeat(indentLevel);
+          } else if (['JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'CROSS JOIN'].includes(val)) {
+            result += '\n' + indent.repeat(indentLevel);
+          } else if (val === 'ON') {
+            result += ' ';
+          } else {
+            result += ' ';
+          }
+          
+          result += val;
+          prevToken = token;
+          continue;
+        }
+        
+        // Handle punctuation
+        if (token.type === 'punctuation') {
+          if (token.value === ',') {
+            result += token.value;
+            if (inSelect && tokens[i + 1] && tokens[i + 1].type !== 'whitespace') {
+              // Check if next is not a keyword that starts new line
+              const nextNonWs = tokens.slice(i + 1).find(t => t.type !== 'whitespace');
+              if (nextNonWs && (nextNonWs.type !== 'keyword' || !['FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT'].includes(nextNonWs.value.toUpperCase()))) {
+                result += '\n' + indent.repeat(indentLevel);
+              }
+            }
+          } else if (token.value === '(') {
+            result += token.value;
+            // Check if this is a function call
+            if (prevToken && prevToken.type === 'identifier') {
+              // Could be function - we don't have context, just continue
+            }
+          } else if (token.value === ')') {
+            result += token.value;
+          } else {
+            result += ' ' + token.value + ' ';
+          }
+          prevToken = token;
+          continue;
+        }
+        
+        // Handle other tokens
+        result += ' ' + token.value;
+        prevToken = token;
+      }
+      
+      // Clean up
+      result = result.replace(/\n\s+\n/g, '\n').replace(/  +/g, ' ').trim();
+      
+      outputSql.value = result;
+      showStats(sql.length, result.length);
+    }
+    
+    function minifySQL(sql) {
+      const minified = sql
+        .replace(/--.*$/gm, '')  // Remove single-line comments
+        .replace(/\/\*[\s\S]*?\*\//g, '')  // Remove multi-line comments
+        .replace(/\s+/g, ' ')  // Collapse whitespace
+        .replace(/\s*([,;()])\s*/g, '$1')  // Remove space around punctuation
+        .trim();
+      
+      outputSql.value = minified;
+      showStats(sql.length, minified.length);
+    }
+    
+    function validateSQL(sql) {
+      hideError();
+      
+      if (!sql.trim()) {
+        showError('Empty SQL query');
+        return;
+      }
+      
+      const tokens = tokenize(sql);
+      let parenCount = 0;
+      let errorToken = null;
+      
+      for (const token of tokens) {
+        if (token.value === '(') { parenCount++; errorToken = token; }
+        if (token.value === ')') { parenCount--; errorToken = token; }
+        if (parenCount < 0) break;
+      }
+      
+      if (parenCount !== 0) {
+        showError(`Unmatched parenthesis near: ${errorToken?.value || 'unknown'}`);
+        return;
+      }
+      
+      // Check for basic keyword presence
+      const upperSQL = sql.toUpperCase();
+      const hasKeyword = SQL_KEYWORDS.some(kw => upperSQL.includes(kw));
+      
+      if (!hasKeyword) {
+        showError('No SQL keywords detected. This may not be valid SQL.');
+        return;
+      }
+      
+      stats.textContent = '✓ SQL appears valid';
+      error.classList.remove('show');
+    }
+    
+    document.getElementById('format-btn').addEventListener('click', () => {
+      hideError();
+      formatSQL(inputSql.value);
+    });
+    
+    document.getElementById('minify-btn').addEventListener('click', () => {
+      hideError();
+      minifySQL(inputSql.value);
+    });
+    
+    document.getElementById('validate-btn').addEventListener('click', () => {
+      validateSQL(inputSql.value);
+    });
+    
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      inputSql.value = '';
+      outputSql.value = '';
+      hideError();
+      stats.textContent = '';
+    });
+    
+    document.getElementById('sample-btn').addEventListener('click', () => {
+      inputSql.value = SAMPLE_SQL;
+    });
+    
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(outputSql.value);
+    });
   </script>
 </body>
 </html>
