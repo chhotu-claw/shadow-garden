@@ -4,225 +4,216 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Regex Tester — Shadow's Garden</title>
-<meta name="description" content="Test regular expressions with live matching, flags, and highlighted results">
+<meta name="description" content="Test regular expressions in real-time with match highlighting. Supports flags, groups, and live preview.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); }
-  .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
-  h1 { color: var(--accent); font-size: 2rem; margin-bottom: 0.5rem; }
-  .description { color: var(--text-dim); margin-bottom: 2rem; }
-  
-  .test-area { display: flex; flex-direction: column; gap: 1.5rem; }
-  
-  .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-  .input-group label { font-weight: bold; color: var(--text); font-size: 0.9rem; }
-  
-  input[type="text"], textarea {
-    background: var(--bg-light);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 0.75rem;
-    font-family: inherit;
-    font-size: 1rem;
-    border-radius: 4px;
-  }
-  input[type="text"]:focus, textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  
-  .regex-input { font-size: 1.1rem; }
-  textarea { min-height: 150px; resize: vertical; }
-  
-  .flags { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; }
-  .flag-btn {
-    padding: 0.4rem 0.8rem;
-    background: var(--bg-light);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .input-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .regex-input { flex: 1; min-width: 250px; }
+  .regex-input input { width: 100%; padding: 0.75rem 1rem; font-family: monospace; font-size: 1.1rem; background: var(--input-bg); color: var(--text); border: 2px solid var(--border); border-radius: 8px; }
+  .regex-input input:focus { outline: none; border-color: var(--accent); }
+  .flags { display: flex; gap: 0.5rem; align-items: center; }
+  .flag-btn { padding: 0.5rem 0.75rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: monospace; color: var(--text-muted); transition: all 0.2s; }
   .flag-btn:hover { border-color: var(--accent); }
-  .flag-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  
-  .result {
-    background: var(--bg-light);
-    border: 1px solid var(--border);
-    padding: 1rem;
-    border-radius: 4px;
-    min-height: 100px;
-    white-space: pre-wrap;
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-  .match { background: rgba(139, 92, 246, 0.3); border-radius: 2px; padding: 1px 2px; }
-  .no-match { color: var(--text-dim); font-style: italic; }
-  
-  .error { color: #ef4444; font-size: 0.9rem; margin-top: 0.5rem; }
-  
-  .info { font-size: 0.85rem; color: var(--text-dim); margin-top: 0.5rem; }
-  
-  .quick-patterns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
-  .quick-btn {
-    padding: 0.3rem 0.6rem;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--accent);
-    cursor: pointer;
-    border-radius: 3px;
-    font-size: 0.8rem;
-    font-family: inherit;
-  }
-  .quick-btn:hover { background: var(--bg-light); }
+  .flag-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted); }
+  textarea { width: 100%; min-height: 150px; padding: 1rem; font-family: monospace; font-size: 0.95rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .test-string { margin-bottom: 2rem; }
+  .results { background: var(--card-bg); border-radius: 8px; padding: 1.5rem; }
+  .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .results-header h3 { margin: 0; font-size: 1rem; }
+  .match-count { font-size: 0.9rem; color: var(--text-muted); }
+  .match-count span { color: var(--accent); font-weight: bold; }
+  .highlighted-text { font-family: monospace; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+  .match { background: rgba(100, 108, 255, 0.3); border-radius: 3px; padding: 1px 2px; }
+  .match-group { background: rgba(74, 222, 128, 0.2); border-bottom: 2px solid #4ade80; }
+  .groups-list { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .group-item { display: flex; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-family: monospace; }
+  .group-item:last-child { border-bottom: none; }
+  .group-num { width: 80px; color: var(--text-muted); }
+  .group-value { color: #4ade80; }
+  .error-msg { color: #f87171; padding: 1rem; background: rgba(248, 113, 113, 0.1); border-radius: 6px; margin-top: 1rem; }
+  .empty-state { color: var(--text-muted); text-align: center; padding: 2rem; }
+  .quick-ref { margin-top: 2rem; padding: 1rem; background: var(--highlight); border-radius: 8px; }
+  .quick-ref h3 { font-size: 0.9rem; margin-bottom: 0.75rem; }
+  .ref-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .ref-chip { padding: 0.3rem 0.6rem; background: var(--card-bg); border-radius: 4px; font-size: 0.8rem; font-family: monospace; cursor: pointer; }
+  .ref-chip:hover { background: var(--accent); color: white; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>Regex Tester</h1>
-  <p class="description">Test regular expressions with live matching and highlighted results</p>
-  
-  <div class="test-area">
-    <div class="input-group">
-      <label>Regular Expression</label>
-      <input type="text" id="regex" class="regex-input" placeholder="e.g., \b\w+\b" value="\b\w+\b">
+  <div class="container">
+    <h1>🔍 Regex Tester</h1>
+    <div class="subtitle">Test regular expressions in real-time with match highlighting</div>
+    
+    <div class="input-row">
+      <div class="regex-input">
+        <label>Regular Expression</label>
+        <input type="text" id="regex" placeholder="e.g., \b\w+\b" autofocus>
+      </div>
       <div class="flags">
-        <button class="flag-btn active" data-flag="g">g (global)</button>
-        <button class="flag-btn" data-flag="i">i (case-insensitive)</button>
-        <button class="flag-btn" data-flag="m">m (multiline)</button>
-      </div>
-      <div class="quick-patterns">
-        <span style="color: var(--text-dim); font-size: 0.8rem;">Quick:</span>
-        <button class="quick-btn" data-pattern="\d+">digits</button>
-        <button class="quick-btn" data-pattern="\w+">words</button>
-        <button class="quick-btn" data-pattern="[a-zA-Z0-9]+">alphanumeric</button>
-        <button class="quick-btn" data-pattern="^\S+">first word</button>
-        <button class="quick-btn" data-pattern="\b\w{4,}\b">4+ letter words</button>
-        <button class="quick-btn" data-pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}">IP address</button>
+        <label>Flags:</label>
+        <button class="flag-btn active" data-flag="g" title="Global">g</button>
+        <button class="flag-btn" data-flag="i" title="Case insensitive">i</button>
+        <button class="flag-btn" data-flag="m" title="Multiline">m</button>
       </div>
     </div>
     
-    <div class="input-group">
+    <div class="test-string">
       <label>Test String</label>
-      <textarea id="test-string" placeholder="Enter text to test against...">The quick brown fox jumps over 127.0.0.1 lazy dog.
-Email: test@example.com or user123@domain.org
-Phone: (555) 123-4567</textarea>
+      <textarea id="test-string" placeholder="Enter text to test against...">The quick brown fox jumps over the lazy dog.
+Email: test@example.com
+Phone: 555-123-4567
+IP: 192.168.1.1</textarea>
     </div>
     
-    <div class="input-group">
-      <label>Matches</label>
-      <div id="result" class="result"></div>
-      <div id="error" class="error"></div>
-      <div class="info">Match count: <span id="match-count">0</span></div>
+    <div class="results">
+      <div class="results-header">
+        <h3>Matches</h3>
+        <div class="match-count" id="match-count"></div>
+      </div>
+      <div id="output"></div>
+      <div id="groups" class="groups-list"></div>
+    </div>
+    
+    <div class="quick-ref">
+      <h3>Quick Reference</h3>
+      <div class="ref-chips">
+        <span class="ref-chip" onclick="insertChar('\\d')">\d</span>
+        <span class="ref-chip" onclick="insertChar('\\w')">\w</span>
+        <span class="ref-chip" onclick="insertChar('\\s')">\s</span>
+        <span class="ref-chip" onclick="insertChar('\\b')">\b</span>
+        <span class="ref-chip" onclick="insertChar('.')">.</span>
+        <span class="ref-chip" onclick="insertChar('*')">*</span>
+        <span class="ref-chip" onclick="insertChar('+')">+</span>
+        <span class="ref-chip" onclick="insertChar('?')">?</span>
+        <span class="ref-chip" onclick="insertChar('^')">^</span>
+        <span class="ref-chip" onclick="insertChar('$')">$</span>
+        <span class="ref-chip" onclick="insertChar('|')">|</span>
+        <span class="ref-chip" onclick="insertChar('()')">()</span>
+        <span class="ref-chip" onclick="insertChar('[]')">[]</span>
+        <span class="ref-chip" onclick="insertChar('{}')">{}</span>
+      </div>
     </div>
   </div>
-</div>
-
-<script>
-  const regexInput = document.getElementById('regex');
-  const testString = document.getElementById('test-string');
-  const resultDiv = document.getElementById('result');
-  const errorDiv = document.getElementById('error');
-  const matchCountSpan = document.getElementById('match-count');
-  const flagBtns = document.querySelectorAll('.flag-btn');
-  const quickBtns = document.querySelectorAll('.quick-btn');
   
-  let activeFlags = ['g'];
-  
-  function getFlags() {
-    return activeFlags.join('');
-  }
-  
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  
-  function highlightMatches(regex, flags) {
-    try {
-      errorDiv.textContent = '';
-      const re = new RegExp(regex, flags);
+  <script>
+    const regexInput = document.getElementById('regex');
+    const testString = document.getElementById('test-string');
+    const output = document.getElementById('output');
+    const matchCount = document.getElementById('match-count');
+    const groups = document.getElementById('groups');
+    let activeFlags = 'g';
+    
+    // Flag buttons
+    document.querySelectorAll('.flag-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const flag = btn.dataset.flag;
+        if (activeFlags.includes(flag)) {
+          activeFlags = activeFlags.replace(flag, '');
+          btn.classList.remove('active');
+        } else {
+          activeFlags += flag;
+          btn.classList.add('active');
+        }
+        test();
+      });
+    });
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    
+    function test() {
+      const pattern = regexInput.value;
       const text = testString.value;
       
-      if (!regex) {
-        resultDiv.innerHTML = escapeHtml(text);
-        matchCountSpan.textContent = '0';
+      if (!pattern) {
+        output.innerHTML = '<div class="empty-state">Enter a regex pattern above</div>';
+        matchCount.innerHTML = '';
+        groups.innerHTML = '';
         return;
       }
       
-      let matches = [];
-      let match;
-      if (flags.includes('g')) {
-        while ((match = re.exec(text)) !== null) {
-          matches.push({ index: match.index, text: match[0], length: match[0].length });
-          if (match.index === re.lastIndex) re.lastIndex++;
+      try {
+        const regex = new RegExp(pattern, activeFlags);
+        let match;
+        const matches = [];
+        
+        if (activeFlags.includes('g')) {
+          while ((match = regex.exec(text)) !== null) {
+            matches.push(match);
+            if (match.index === regex.lastIndex) regex.lastIndex++;
+          }
+        } else {
+          match = regex.exec(text);
+          if (match) matches.push(match);
         }
-      } else {
-        match = re.exec(text);
-        if (match) {
-          matches.push({ index: match.index, text: match[0], length: match[0].length });
+        
+        matchCount.innerHTML = `<span>${matches.length}</span> match${matches.length !== 1 ? 'es' : ''}`;
+        
+        if (matches.length === 0) {
+          output.innerHTML = '<div class="empty-state">No matches found</div>';
+          groups.innerHTML = '';
+        } else {
+          // Highlight matches in text
+          let highlighted = '';
+          let lastIndex = 0;
+          const sortedMatches = [...matches].sort((a, b) => a.index - b.index);
+          
+          sortedMatches.forEach((m, i) => {
+            highlighted += escapeHtml(text.substring(lastIndex, m.index));
+            highlighted += `<span class="match">${escapeHtml(m[0])}</span>`;
+            lastIndex = m.index + m[0].length;
+          });
+          highlighted += escapeHtml(text.substring(lastIndex));
+          
+          output.innerHTML = `<div class="highlighted-text">${highlighted}</div>`;
+          
+          // Show capture groups
+          if (matches[0].length > 1) {
+            let groupsHtml = '<h4>Capture Groups</h4>';
+            matches.forEach((m, mi) => {
+              if (m.length > 1) {
+                groupsHtml += `<div class="group-item"><span class="group-num">Match ${mi + 1}:</span>`;
+                for (let i = 1; i < m.length; i++) {
+                  groupsHtml += `<span class="group-value">$${i}: ${escapeHtml(m[i] || '')}</span> `;
+                }
+                groupsHtml += '</div>';
+              }
+            });
+            groups.innerHTML = groupsHtml;
+          } else {
+            groups.innerHTML = '';
+          }
         }
+      } catch (e) {
+        output.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+        matchCount.innerHTML = '';
+        groups.innerHTML = '';
       }
-      
-      matchCountSpan.textContent = matches.length;
-      
-      if (matches.length === 0) {
-        resultDiv.innerHTML = '<span class="no-match">No matches found</span>';
-        return;
-      }
-      
-      // Build highlighted HTML
-      let result = '';
-      let lastIndex = 0;
-      
-      for (const m of matches) {
-        result += escapeHtml(text.slice(lastIndex, m.index));
-        result += '<span class="match">' + escapeHtml(m.text) + '</span>';
-        lastIndex = m.index + m.length;
-      }
-      result += escapeHtml(text.slice(lastIndex));
-      
-      resultDiv.innerHTML = result;
-    } catch (e) {
-      errorDiv.textContent = 'Error: ' + e.message;
-      matchCountSpan.textContent = '0';
     }
-  }
-  
-  function update() {
-    highlightMatches(regexInput.value, getFlags());
-  }
-  
-  regexInput.addEventListener('input', update);
-  testString.addEventListener('input', update);
-  
-  flagBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const flag = btn.dataset.flag;
-      if (activeFlags.includes(flag)) {
-        activeFlags = activeFlags.filter(f => f !== flag);
-        btn.classList.remove('active');
-      } else {
-        activeFlags.push(flag);
-        btn.classList.add('active');
-      }
-      update();
-    });
-  });
-  
-  quickBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      regexInput.value = btn.dataset.pattern;
-      update();
-    });
-  });
-  
-  // Initial render
-  update();
-</script>
+    
+    function insertChar(char) {
+      const start = regexInput.selectionStart;
+      const end = regexInput.selectionEnd;
+      const val = regexInput.value;
+      regexInput.value = val.substring(0, start) + char + val.substring(end);
+      regexInput.focus();
+      regexInput.setSelectionRange(start + char.length, start + char.length);
+      test();
+    }
+    
+    regexInput.addEventListener('input', test);
+    testString.addEventListener('input', test);
+    
+    // Initial test
+    test();
+  </script>
 </body>
 </html>
