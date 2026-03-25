@@ -4,216 +4,185 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Markdown Table Generator — Shadow's Garden</title>
-<meta name="description" content="Generate Markdown tables instantly. Build, preview, and export.">
+<meta name="description" content="Build Markdown tables instantly with a visual grid editor and live preview.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 2rem; }
-  .container { max-width: 800px; margin: 0 auto; }
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 900px; margin: 0 auto; }
   h1 { margin-bottom: 0.5rem; }
   .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-  .control-panel { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .control-group { display: flex; align-items: center; gap: 0.5rem; }
-  .control-group label { font-size: 0.9rem; color: var(--text-muted); }
-  input[type="number"] { width: 60px; padding: 0.4rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
-  .btn { padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .editor { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .panel { background: var(--card-bg); border-radius: 8px; padding: 1rem; }
+  .panel h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted); }
+  .table-controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .btn { padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
   .btn:hover { opacity: 0.9; }
   .btn.secondary { background: var(--border); }
-  .table-editor { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
-  .table-editor input { padding: 0.6rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: monospace; }
-  .table-editor input:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .output-area { margin-top: 1.5rem; }
-  .output-label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
-  textarea { width: 100%; min-height: 200px; padding: 1rem; font-family: monospace; font-size: 0.9rem; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
-  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .preview-area { margin-top: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; overflow-x: auto; }
-  .preview-area table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-  .preview-area th, .preview-area td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
-  .preview-area th { background: var(--highlight); font-weight: bold; }
-  .presets { margin-bottom: 1.5rem; }
-  .presets span { font-size: 0.85rem; color: var(--text-muted); margin-right: 0.5rem; }
-  .preset-btn { padding: 0.3rem 0.6rem; font-size: 0.8rem; background: var(--border); color: var(--text); border: none; border-radius: 4px; cursor: pointer; margin-right: 0.4rem; margin-bottom: 0.4rem; }
-  .preset-btn:hover { background: var(--accent); color: white; }
-  .align-controls { display: flex; gap: 0.25rem; }
-  .align-btn { padding: 0.2rem 0.4rem; font-size: 0.75rem; background: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
-  .align-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-  @media (max-width: 600px) { .control-panel { flex-direction: column; } }
+  .grid-editor { display: grid; gap: 2px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .cell { background: var(--input-bg); padding: 0.5rem; border: none; font-family: monospace; font-size: 0.85rem; color: var(--text); min-width: 80px; }
+  .cell:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .cell.header { background: var(--highlight); font-weight: bold; }
+  .preview { font-family: monospace; white-space: pre-wrap; background: var(--input-bg); padding: 1rem; border-radius: 4px; min-height: 200px; overflow: auto; font-size: 0.85rem; color: var(--text); }
+  .add-row-col { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .row-input, .col-input { padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); width: 80px; }
+  .empty-state { color: var(--text-muted); text-align: center; padding: 2rem; }
+  @media (max-width: 700px) { .editor { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
     <h1>📊 Markdown Table Generator</h1>
-    <div class="subtitle">Build Markdown tables instantly — no more manual alignment</div>
+    <div class="subtitle">Build Markdown tables instantly with a visual grid editor and live preview</div>
     
-    <div class="control-panel">
-      <div class="control-group">
-        <label>Rows:</label>
-        <input type="number" id="rows" value="3" min="1" max="20">
+    <div class="editor">
+      <div class="panel">
+        <h2>Grid Editor</h2>
+        <div class="table-controls">
+          <button class="btn" id="add-row">+ Row</button>
+          <button class="btn" id="add-col">+ Column</button>
+          <button class="btn secondary" id="clear">Clear</button>
+        </div>
+        <div class="grid-editor" id="grid"></div>
+        <div class="add-row-col">
+          <input type="number" class="row-input" id="rows-input" value="3" min="1" max="20">
+          <span style="color: var(--text-muted); align-self: center;">rows</span>
+          <input type="number" class="col-input" id="cols-input" value="3" min="1" max="10">
+          <span style="color: var(--text-muted); align-self: center;">cols</span>
+          <button class="btn" id="resize-btn">Resize</button>
+        </div>
       </div>
-      <div class="control-group">
-        <label>Cols:</label>
-        <input type="number" id="cols" value="3" min="1" max="10">
+      <div class="panel">
+        <h2>Markdown Output</h2>
+        <div class="preview" id="output"></div>
+        <button class="btn" id="copy-btn" style="margin-top: 1rem;">Copy Markdown</button>
       </div>
-      <button class="btn" id="generate-btn">Generate Grid</button>
-      <button class="btn secondary" id="clear-btn">Clear</button>
-    </div>
-    
-    <div class="presets">
-      <span>Quick templates:</span>
-      <button class="preset-btn" data-r="2" data-c="2">2×2</button>
-      <button class="preset-btn" data-r="3" data-c="3">3×3</button>
-      <button class="preset-btn" data-r="4" data-c="2">4×2</button>
-      <button class="preset-btn" data-r="5" data-c="3">5×3</button>
-    </div>
-    
-    <div class="table-editor" id="table-editor"></div>
-    
-    <div class="output-area">
-      <div class="output-label">
-        <span>Markdown Output</span>
-        <button class="btn" id="copy-btn" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Copy</button>
-      </div>
-      <textarea id="output" readonly placeholder="Your Markdown table will appear here..."></textarea>
-    </div>
-    
-    <div class="preview-area">
-      <div class="output-label" style="margin-bottom: 0.75rem;">Live Preview</div>
-      <div id="preview"></div>
     </div>
   </div>
   
   <script>
-    const rowsInput = document.getElementById('rows');
-    const colsInput = document.getElementById('cols');
-    const editor = document.getElementById('table-editor');
-    const output = document.getElementById('output');
-    const preview = document.getElementById('preview');
+    let rows = 3;
+    let cols = 3;
+    let grid = [];
     
-    function getGrid() {
-      const rows = parseInt(rowsInput.value);
-      const cols = parseInt(colsInput.value);
-      const inputs = editor.querySelectorAll('input');
-      const grid = [];
-      for (let i = 0; i < rows; i++) {
+    function initGrid() {
+      grid = [];
+      for (let r = 0; r < rows; r++) {
         const row = [];
-        for (let j = 0; j < cols; j++) {
-          const idx = i * cols + j;
-          row.push(inputs[idx]?.value || '');
+        for (let c = 0; c < cols; c++) {
+          row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c}`);
         }
         grid.push(row);
       }
-      return grid;
-    }
-    
-    function generateGrid() {
-      const rows = parseInt(rowsInput.value);
-      const cols = parseInt(colsInput.value);
-      editor.innerHTML = '';
-      editor.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      
-      for (let i = 0; i < rows * cols; i++) {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = i < cols ? `Header ${i % cols + 1}` : `Cell ${Math.floor(i / cols) + 1},${(i % cols) + 1}`;
-        if (i < cols) input.style.fontWeight = 'bold';
-        input.addEventListener('input', updateOutput);
-        editor.appendChild(input);
-      }
+      renderGrid();
       updateOutput();
     }
     
+    function renderGrid() {
+      const gridEl = document.getElementById('grid');
+      gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      gridEl.innerHTML = '';
+      
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const input = document.createElement('input');
+          input.className = 'cell' + (r === 0 ? ' header' : '');
+          input.value = grid[r][c];
+          input.addEventListener('input', (e) => {
+            grid[r][c] = e.target.value;
+            updateOutput();
+          });
+          gridEl.appendChild(input);
+        }
+      }
+    }
+    
     function updateOutput() {
-      const grid = getGrid();
-      if (!grid.length || !grid[0].length) {
-        output.value = '';
-        preview.innerHTML = '';
+      if (grid.length === 0) {
+        document.getElementById('output').textContent = 'Add rows and columns to start';
         return;
       }
       
-      // Calculate column widths
       const colWidths = [];
-      const cols = grid[0].length;
-      for (let j = 0; j < cols; j++) {
+      for (let c = 0; c < cols; c++) {
         let maxLen = 3;
-        for (let i = 0; i < grid.length; i++) {
-          const len = (grid[i][j] || '').length;
-          if (len > maxLen) maxLen = len;
+        for (let r = 0; r < rows; r++) {
+          maxLen = Math.max(maxLen, grid[r][c].length);
         }
         colWidths.push(maxLen);
       }
       
-      // Build markdown
       let md = '';
       
       // Header row
-      md += '| ' + grid[0].map((cell, j) => (cell || `Header${j+1}`).padEnd(colWidths[j])).join(' | ') + ' |\n';
+      md += '| ' + grid[0].map((v, i) => v.padEnd(colWidths[i])).join(' | ') + ' |\n';
       
       // Separator row
       md += '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |\n';
       
       // Data rows
-      for (let i = 1; i < grid.length; i++) {
-        md += '| ' + grid[i].map((cell, j) => (cell || '').padEnd(colWidths[j])).join(' | ') + ' |\n';
+      for (let r = 1; r < rows; r++) {
+        md += '| ' + grid[r].map((v, i) => v.padEnd(colWidths[i])).join(' | ') + ' |\n';
       }
       
-      output.value = md;
-      renderPreview(grid);
+      document.getElementById('output').textContent = md;
     }
     
-    function renderPreview(grid) {
-      if (!grid.length) {
-        preview.innerHTML = '';
-        return;
+    document.getElementById('add-row').addEventListener('click', () => {
+      const newRow = [];
+      for (let c = 0; c < cols; c++) {
+        newRow.push(`Row ${rows}`);
       }
-      
-      let html = '<table>';
-      
-      // Header
-      html += '<tr>';
-      grid[0].forEach(cell => {
-        html += `<th>${escapeHtml(cell || '')}</th>`;
-      });
-      html += '</tr>';
-      
-      // Body
-      for (let i = 1; i < grid.length; i++) {
-        html += '<tr>';
-        grid[i].forEach(cell => {
-          html += `<td>${escapeHtml(cell || '')}</td>`;
-        });
-        html += '</tr>';
-      }
-      
-      html += '</table>';
-      preview.innerHTML = html;
-    }
-    
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-    
-    document.getElementById('generate-btn').addEventListener('click', generateGrid);
-    document.getElementById('clear-btn').addEventListener('click', () => {
-      editor.querySelectorAll('input').forEach(input => input.value = '');
+      grid.push(newRow);
+      rows++;
+      renderGrid();
       updateOutput();
     });
+    
+    document.getElementById('add-col').addEventListener('click', () => {
+      for (let r = 0; r < rows; r++) {
+        grid[r].push(r === 0 ? `Header ${cols}` : `Cell ${r}-${cols}`);
+      }
+      cols++;
+      renderGrid();
+      updateOutput();
+    });
+    
+    document.getElementById('clear').addEventListener('click', initGrid);
+    
+    document.getElementById('resize-btn').addEventListener('click', () => {
+      const newRows = parseInt(document.getElementById('rows-input').value);
+      const newCols = parseInt(document.getElementById('cols-input').value);
+      
+      if (newRows < 1 || newCols < 1) return;
+      
+      const newGrid = [];
+      for (let r = 0; r < newRows; r++) {
+        const row = [];
+        for (let c = 0; c < newCols; c++) {
+          if (r < rows && c < cols) {
+            row.push(grid[r][c]);
+          } else {
+            row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c}`);
+          }
+        }
+        newGrid.push(row);
+      }
+      
+      rows = newRows;
+      cols = newCols;
+      grid = newGrid;
+      renderGrid();
+      updateOutput();
+    });
+    
     document.getElementById('copy-btn').addEventListener('click', () => {
-      navigator.clipboard.writeText(output.value);
-      const btn = document.getElementById('copy-btn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
+      navigator.clipboard.writeText(document.getElementById('output').textContent);
+      document.getElementById('copy-btn').textContent = 'Copied!';
+      setTimeout(() => document.getElementById('copy-btn').textContent = 'Copy Markdown', 1500);
     });
     
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        rowsInput.value = btn.dataset.r;
-        colsInput.value = btn.dataset.c;
-        generateGrid();
-      });
-    });
-    
-    // Initialize
-    generateGrid();
+    initGrid();
   </script>
 </body>
 </html>
