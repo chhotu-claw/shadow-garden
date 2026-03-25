@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phrase Rain — Shadow's Garden</title>
+<meta name="description">Type words and watch them fall like rain. Catch them before they hit the ground.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; font-family: 'Courier New', monospace; }
+  #game { width: 100vw; height: 100vh; position: relative; }
+  .word { position: absolute; color: #7aa2f7; font-size: 1.2rem; text-shadow: 0 0 10px #7aa2f780; transition: transform 0.1s; cursor: pointer; }
+  .word:hover { color: #f77a7a; transform: scale(1.1); }
+  .word.caught { color: #7af782; text-shadow: 0 0 15px #7af780; }
+  .word.missed { color: #666; text-shadow: none; }
+  #input { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; padding: 15px 20px; font-size: 1.1rem; background: rgba(20, 20, 30, 0.9); border: 2px solid #333; border-radius: 30px; color: #eee; text-align: center; outline: none; transition: border-color 0.3s; }
+  #input:focus { border-color: #7aa2f7; }
+  #score { position: fixed; top: 20px; right: 20px; color: #7aa2f7; font-size: 1.5rem; }
+  #instructions { position: fixed; top: 20px; left: 20px; color: #666; font-size: 0.9rem; }
+  .streak { position: fixed; top: 50px; right: 20px; color: #f7f77a; font-size: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div id="game"></div>
+  <input type="text" id="input" placeholder="type to make words fall..." autocomplete="off">
+  <div id="score">Score: 0</div>
+  <div class="streak">Streak: 0</div>
+  <div id="instructions">Type words to rain them down. Click to catch before they fall.</div>
+  
+  <script>
+    const words = [
+      'code', 'data', 'file', 'byte', 'node', 'curl', 'git', 'http', 'json', 'api',
+      'loop', 'regex', 'query', 'stack', 'queue', 'heap', 'tree', 'graph', 'hash', 'list',
+      'void', 'null', 'true', 'false', 'async', 'await', 'yield', 'throw', 'catch', 'try',
+      'import', 'export', 'const', 'let', 'var', 'class', 'function', 'return', 'yield',
+      'shadow', 'ghost', 'void', 'echo', 'drift', 'wave', 'flow', 'pulse', 'spark', 'flash',
+      'crypto', 'cipher', 'secret', 'key', 'token', 'salt', 'hash', 'sign', 'seal', 'lock',
+      'ssh', 'tcp', 'udp', 'dns', 'url', 'html', 'css', 'js', 'ts', 'wasm',
+      'bug', 'fix', 'test', 'debug', 'build', 'deploy', 'merge', 'branch', 'commit', 'push',
+      'cloud', 'edge', 'mesh', 'node', 'peer', 'swarm', 'cluster', 'server', 'client', 'proxy'
+    ];
+    
+    const game = document.getElementById('game');
+    const input = document.getElementById('input');
+    const scoreEl = document.getElementById('score');
+    const streakEl = document.querySelector('.streak');
+    
+    let score = 0;
+    let streak = 0;
+    let fallingWords = [];
+    let speed = 1.5;
+    let spawnRate = 2000;
+    let lastSpawn = 0;
+    
+    function spawnWord() {
+      const word = words[Math.floor(Math.random() * words.length)];
+      const x = Math.random() * (window.innerWidth - 100) + 20;
+      
+      const el = document.createElement('div');
+      el.className = 'word';
+      el.textContent = word;
+      el.style.left = x + 'px';
+      el.style.top = '-30px';
+      
+      el.addEventListener('click', () => catchWord(wordObj));
+      
+      game.appendChild(el);
+      
+      const wordObj = {
+        el, word, x, y: -30,
+        caught: false,
+        missed: false
+      };
+      
+      fallingWords.push(wordObj);
+    }
+    
+    function catchWord(wordObj) {
+      if (wordObj.caught || wordObj.missed) return;
+      
+      wordObj.caught = true;
+      wordObj.el.classList.add('caught');
+      
+      streak++;
+      score += 10 + streak;
+      
+      updateScore();
+      
+      setTimeout(() => {
+        wordObj.el.style.opacity = '0';
+        setTimeout(() => {
+          if (wordObj.el.parentNode) wordObj.el.remove();
+          fallingWords = fallingWords.filter(w => w !== wordObj);
+        }, 200);
+      }, 300);
+    }
+    
+    function updateScore() {
+      scoreEl.textContent = `Score: ${score}`;
+      streakEl.textContent = `Streak: ${streak}`;
+      
+      if (streak > 0 && streak % 5 === 0) {
+        speed = Math.min(4, speed + 0.2);
+        spawnRate = Math.max(800, spawnRate - 100);
+      }
+    }
+    
+    function update() {
+      const now = Date.now();
+      
+      if (now - lastSpawn > spawnRate) {
+        spawnWord();
+        lastSpawn = now;
+      }
+      
+      fallingWords.forEach(wordObj => {
+        if (wordObj.caught) return;
+        
+        wordObj.y += speed;
+        wordObj.el.style.top = wordObj.y + 'px';
+        
+        if (wordObj.y > window.innerHeight - 80) {
+          wordObj.missed = true;
+          wordObj.el.classList.add('missed');
+          streak = 0;
+          streakEl.textContent = `Streak: 0`;
+          
+          setTimeout(() => {
+            if (wordObj.el.parentNode) wordObj.el.remove();
+            fallingWords = fallingWords.filter(w => w !== wordObj);
+          }, 500);
+        }
+      });
+      
+      requestAnimationFrame(update);
+    }
+    
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        const typed = input.value.trim().toLowerCase();
+        
+        const match = fallingWords.find(w => w.word === typed && !w.caught && !w.missed);
+        if (match) {
+          catchWord(match);
+        } else {
+          streak = 0;
+          streakEl.textContent = `Streak: 0`;
+        }
+        
+        input.value = '';
+      }
+    });
+    
+    update();
+    input.focus();
+  </script>
+</body>
+</html>
