@@ -4,493 +4,269 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SQL Formatter — Shadow's Garden</title>
-<meta name="description" content="Format and minify SQL queries. Clean, fast, client-side.">
+<meta name="description" content="Format, indent, and validate SQL queries instantly. Local-only, no server.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --indent: 2;
-  }
-  .container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-  h1 {
-    font-size: 1.75rem;
-    margin-bottom: 0.5rem;
-  }
-  .subtitle {
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-    font-size: 0.95rem;
-  }
-  .panels {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-  @media (max-width: 700px) {
-    .panels {
-      grid-template-columns: 1fr;
-    }
-  }
-  .panel {
-    display: flex;
-    flex-direction: column;
-  }
-  label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-  }
-  textarea {
-    flex: 1;
-    min-height: 300px;
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    color: var(--text);
-    resize: vertical;
-    line-height: 1.5;
-  }
-  textarea:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: -1px;
-  }
-  .controls {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-  }
-  button {
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-secondary);
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  button:hover {
-    background: var(--bg-hover);
-    border-color: var(--text-muted);
-  }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  button.primary:hover {
-    opacity: 0.9;
-  }
-  .options {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-  }
-  .option {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.85rem;
-  }
-  .option input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-  }
-  .option select {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.85rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-  }
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--text);
-    color: var(--bg);
-    padding: 0.6rem 1.2rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
-  }
-  .toast.show {
-    opacity: 1;
-  }
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .editor { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 700px) { .editor { grid-template-columns: 1fr; } }
+  .panel { display: flex; flex-direction: column; }
+  .panel-label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+  textarea { flex: 1; min-height: 300px; padding: 1rem; font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; line-height: 1.5; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .actions { margin: 1rem 0; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.9; }
+  .btn.secondary { background: var(--border); }
+  .btn-group { display: flex; gap: 0.5rem; }
+  .error-box { margin-top: 1rem; padding: 1rem; background: #2a1a1a; border: 1px solid #5a3030; border-radius: 8px; display: none; }
+  .error-box.has-error { display: block; }
+  .error-title { color: #ff6b6b; font-weight: bold; margin-bottom: 0.5rem; }
+  .error-text { color: #ff9999; font-family: monospace; font-size: 0.85rem; }
+  .stats { margin-top: 1rem; padding: 0.75rem; background: var(--highlight); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
+  .keyword { color: #c792ea; }
+  .string { color: #c3e88d; }
+  .number { color: #f78c6c; }
+  .comment { color: #546e7a; font-style: italic; }
+  .function { color: #82aaff; }
+  .operator { color: #89ddff; }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
-    <h1>SQL Formatter</h1>
-    <p class="subtitle">Format and minify SQL queries. Nothing leaves your browser.</p>
-
-    <div class="options">
-      <div class="option">
-        <label for="indentSize">Indent:</label>
-        <select id="indentSize">
-          <option value="2">2 spaces</option>
-          <option value="4" selected>4 spaces</option>
-          <option value="tab">Tab</option>
-        </select>
-      </div>
-      <div class="option">
-        <input type="checkbox" id="uppercase" checked>
-        <label for="uppercase">UPPERCASE keywords</label>
-      </div>
-      <div class="option">
-        <input type="checkbox" id="newlineBeforeJoin" checked>
-        <label for="newlineBeforeJoin">Newline before JOIN</label>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button class="primary" id="formatBtn">Format</button>
-      <button id="minifyBtn">Minify</button>
-      <button id="copyBtn">Copy</button>
-      <button id="clearBtn">Clear</button>
-      <button id="sampleBtn">Load Sample</button>
-    </div>
-
-    <div class="panels">
+    <h1>📊 SQL Formatter</h1>
+    <div class="subtitle">Format, validate, and analyze SQL — runs locally in your browser</div>
+    
+    <div class="editor">
       <div class="panel">
-        <label for="input">Input SQL</label>
+        <div class="panel-label">
+          <span>Input SQL</span>
+          <button class="btn secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="loadSample()">Load Sample</button>
+        </div>
         <textarea id="input" placeholder="Paste your SQL here..."></textarea>
       </div>
       <div class="panel">
-        <label for="output">Formatted Output</label>
+        <div class="panel-label">
+          <span>Formatted Output</span>
+        </div>
         <textarea id="output" readonly placeholder="Formatted SQL will appear here..."></textarea>
       </div>
     </div>
+    
+    <div class="actions">
+      <button class="btn" id="format-btn">Format SQL</button>
+      <button class="btn secondary" id="minify-btn">Minify</button>
+      <button class="btn secondary" id="validate-btn">Validate</button>
+      <button class="btn secondary" id="copy-btn">Copy Output</button>
+      <button class="btn secondary" id="clear-btn">Clear</button>
+    </div>
+    
+    <div class="error-box" id="error-box">
+      <div class="error-title">⚠️ Error</div>
+      <div class="error-text" id="error-text"></div>
+    </div>
+    
+    <div class="stats" id="stats"></div>
   </div>
-
-  <div class="toast" id="toast">Copied!</div>
-
+  
   <script>
+    const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS', 'ON', 'AS', 'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'INDEX', 'VIEW', 'IF', 'EXISTS', 'NULL', 'IS', 'TRUE', 'FALSE', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'UNION', 'ALL', 'DISTINCT', 'ASC', 'DESC', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'CAST', 'CONVERT', 'CONCAT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH', 'ROUND', 'FLOOR', 'CEIL', 'NOW', 'DATE', 'TIME', 'TIMESTAMP', 'INTERVAL', 'EXTRACT', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'CONSTRAINT', 'DEFAULT', 'CHECK', 'UNIQUE', 'AUTO_INCREMENT', 'SERIAL', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'BEGIN', 'GRANT', 'REVOKE', 'WITH', 'RECURSIVE', 'OVER', 'PARTITION', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE', 'FILTER', 'WITHIN', 'GROUPING', 'SETS', 'CUBE', 'ROLLUP'];
+    const functions = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'CAST', 'CONVERT', 'CONCAT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH', 'ROUND', 'FLOOR', 'CEIL', 'NOW', 'DATE', 'TIME', 'TIMESTAMP', 'INTERVAL', 'EXTRACT', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE'];
+    
     const input = document.getElementById('input');
     const output = document.getElementById('output');
-    const indentSize = document.getElementById('indentSize');
-    const uppercase = document.getElementById('uppercase');
-    const newlineBeforeJoin = document.getElementById('newlineBeforeJoin');
-    const toast = document.getElementById('toast');
-
-    const keywords = [
-      'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'IS', 'NULL', 'AS',
-      'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS', 'ON',
-      'GROUP', 'BY', 'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'ASC', 'DESC',
-      'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE',
-      'DROP', 'ALTER', 'INDEX', 'VIEW', 'TRIGGER', 'PRIMARY', 'KEY', 'FOREIGN',
-      'REFERENCES', 'UNIQUE', 'DEFAULT', 'CHECK', 'CONSTRAINT', 'CASCADE',
-      'UNION', 'ALL', 'EXCEPT', 'INTERSECT', 'CASE', 'WHEN', 'THEN', 'ELSE',
-      'END', 'EXISTS', 'BETWEEN', 'LIKE', 'ESCAPE', 'WITH', 'RECURSIVE',
-      'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'CAST',
-      'TRUE', 'FALSE', 'INTEGER', 'TEXT', 'VARCHAR', 'BOOLEAN', 'TIMESTAMP',
-      'BEGIN', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'GRANT', 'REVOKE'
-    ];
-
-    const sampleSQL = `SELECT users.name, orders.total, COUNT(orders.id) as order_count
-FROM users
-LEFT JOIN orders ON users.id = orders.user_id
-WHERE users.active = true AND orders.created_at > '2025-01-01'
-GROUP BY users.id, users.name, orders.total
-HAVING COUNT(orders.id) > 5
-ORDER BY order_count DESC, users.name ASC
-LIMIT 10 OFFSET 20`;
-
-    function showToast(msg) {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 1500);
+    const errorBox = document.getElementById('error-box');
+    const errorText = document.getElementById('error-text');
+    const stats = document.getElementById('stats');
+    
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorBox.classList.add('has-error');
     }
-
-    function getIndent() {
-      const val = indentSize.value;
-      return val === 'tab' ? '\t' : ' '.repeat(parseInt(val));
+    
+    function clearError() {
+      errorBox.classList.remove('has-error');
     }
-
-    function tokenize(sql) {
-      const tokens = [];
-      let current = 0;
-      
-      while (current < sql.length) {
-        let char = sql[current];
-        
-        // Whitespace
-        if (/\s/.test(char)) {
-          let ws = '';
-          while (current < sql.length && /\s/.test(sql[current])) {
-            ws += sql[current];
-            current++;
-          }
-          continue;
-        }
-        
-        // String literals
-        if (char === "'" || char === '"') {
-          const quote = char;
-          let value = char;
-          current++;
-          while (current < sql.length) {
-            if (sql[current] === quote && sql[current + 1] === quote) {
-              value += quote + quote;
-              current += 2;
-            } else if (sql[current] === quote) {
-              value += quote;
-              current++;
-              break;
-            } else {
-              value += sql[current];
-              current++;
-            }
-          }
-          tokens.push({ type: 'STRING', value });
-          continue;
-        }
-        
-        // Numbers
-        if (/\d/.test(char)) {
-          let num = '';
-          while (current < sql.length && /[\d.]/.test(sql[current])) {
-            num += sql[current];
-            current++;
-          }
-          tokens.push({ type: 'NUMBER', value: num });
-          continue;
-        }
-        
-        // Comments
-        if (char === '-' && sql[current + 1] === '-') {
-          let comment = '';
-          while (current < sql.length && sql[current] !== '\n') {
-            comment += sql[current];
-            current++;
-          }
-          tokens.push({ type: 'COMMENT', value: comment });
-          continue;
-        }
-        
-        if (char === '/' && sql[current + 1] === '*') {
-          let comment = '/*';
-          current += 2;
-          while (current < sql.length && !(sql[current] === '*' && sql[current + 1] === '/')) {
-            comment += sql[current];
-            current++;
-          }
-          comment += '*/';
-          current += 2;
-          tokens.push({ type: 'COMMENT', value: comment });
-          continue;
-        }
-        
-        // Operators and punctuation
-        if ('(),;*'.includes(char)) {
-          tokens.push({ type: 'PUNCT', value: char });
-          current++;
-          continue;
-        }
-        
-        // Comparison operators
-        if ('<>=!'.includes(char)) {
-          let op = char;
-          current++;
-          if ('<>=!'.includes(sql[current])) {
-            op += sql[current];
-            current++;
-          }
-          if (sql[current] === '=') {
-            op += sql[current];
-            current++;
-          }
-          tokens.push({ type: 'OPERATOR', value: op });
-          continue;
-        }
-        
-        // Words (identifiers, keywords)
-        if (/[a-zA-Z_]/.test(char)) {
-          let word = '';
-          while (current < sql.length && /[a-zA-Z0-9_]/.test(sql[current])) {
-            word += sql[current];
-            current++;
-          }
-          const type = keywords.includes(word.toUpperCase()) ? 'KEYWORD' : 'WORD';
-          tokens.push({ type, value: word });
-          continue;
-        }
-        
-        // Skip unknown
-        current++;
-      }
-      
-      return tokens;
+    
+    function updateStats(sql) {
+      const lines = sql.split('\n').length;
+      const chars = sql.length;
+      const words = sql.split(/\s+/).filter(w => w).length;
+      stats.textContent = `Lines: ${lines} • Characters: ${chars} • Words: ${words}`;
     }
-
-    function format(sql) {
+    
+    function formatSQL(sql) {
       if (!sql.trim()) return '';
       
-      const tokens = tokenize(sql);
-      const indent = getIndent();
-      const useUpper = uppercase.checked;
-      const useNewlineJoin = newlineBeforeJoin.checked;
+      // Normalize: uppercase keywords, proper spacing
+      let formatted = sql;
       
-      let result = '';
-      let depth = 0;
-      let prevType = null;
-      let needNewline = false;
+      // Preserve strings first
+      const stringMatches = [];
+      formatted = formatted.replace(/'([^']*)'/g, (match) => {
+        stringMatches.push(match);
+        return `__STRING_${stringMatches.length - 1}__`;
+      });
       
-      const joinKeywords = ['JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS'];
-      const blockStart = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'GROUP', 'ORDER', 'HAVING', 'SET', 'VALUES', 'CASE'];
-      const blockEnd = ['WHERE', 'AND', 'OR', 'GROUP', 'ORDER', 'HAVING', 'SET'];
+      // Uppercase keywords
+      keywords.forEach(kw => {
+        const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+        formatted = formatted.replace(regex, kw);
+      });
       
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        const nextToken = tokens[i + 1];
-        const upperValue = useUpper ? token.value.toUpperCase() : token.value.toLowerCase();
-        
-        if (token.type === 'COMMENT') {
-          if (needNewline) {
-            result += '\n';
-            result += indent.repeat(depth);
-            needNewline = false;
-          } else {
-            result += ' ';
-          }
-          result += token.value;
-          continue;
-        }
-        
-        if (token.type === 'PUNCT') {
-          if (token.value === '(') {
-            result += token.value;
-            depth++;
-          } else if (token.value === ')') {
-            depth--;
-            result += token.value;
-          } else if (token.value === ',') {
-            result += token.value;
-            needNewline = true;
-          } else if (token.value === ';') {
-            result += token.value;
-            needNewline = true;
-          }
-          continue;
-        }
-        
-        if (token.type === 'KEYWORD') {
-          const kw = useUpper ? token.value.toUpperCase() : token.value.toLowerCase();
-          
-          // Handle JOIN newlines
-          if (useNewlineJoin && joinKeywords.includes(kw)) {
-            if (prevType === 'KEYWORD' || prevType === 'WORD') {
-              result += '\n' + indent.repeat(depth);
-            } else if (needNewline) {
-              result += '\n' + indent.repeat(depth);
-              needNewline = false;
-            } else {
-              result += ' ';
-            }
-            result += kw;
-            continue;
-          }
-          
-          // Handle block keywords
-          if (blockStart.includes(kw)) {
-            if (prevType === 'KEYWORD' || prevType === 'WORD') {
-              result += '\n' + indent.repeat(depth);
-            } else if (needNewline) {
-              result += '\n' + indent.repeat(depth);
-              needNewline = false;
-            } else {
-              result += ' ';
-            }
-            result += kw;
-            continue;
-          }
-          
-          result += ' ' + kw;
-          continue;
-        }
-        
-        // Regular words and values
-        if (needNewline) {
-          result += '\n' + indent.repeat(depth);
-          needNewline = false;
-        } else if (prevType !== null && prevType !== 'PUNCT') {
-          result += ' ';
-        }
-        
-        result += token.value;
-        prevType = token.type;
+      // Restore strings
+      stringMatches.forEach((str, i) => {
+        formatted = formatted.replace(`__STRING_${i}__`, str);
+      });
+      
+      // Handle operators
+      formatted = formatted.replace(/\s*([=<>!]+)\s*/g, ' $1 ');
+      formatted = formatted.replace(/\s*,\s*/g, ', ');
+      formatted = formatted.replace(/\s*\(\s*/g, ' (');
+      formatted = formatted.replace(/\s*\)\s*/g, ') ');
+      
+      // Newline after major clauses
+      const majorClauses = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN', 'SET', 'VALUES'];
+      majorClauses.forEach(clause => {
+        const regex = new RegExp(`\\b${clause}\\b`, 'gi');
+        formatted = formatted.replace(regex, `\n${clause}`);
+      });
+      
+      // Clean up extra whitespace
+      formatted = formatted.replace(/  +/g, ' ');
+      formatted = formatted.replace(/\n\s*\n/g, '\n');
+      formatted = formatted.trim();
+      
+      return formatted;
+    }
+    
+    function minifySQL(sql) {
+      return sql.replace(/\s+/g, ' ').replace(/\s*([=<>!,()])\s*/g, '$1').trim();
+    }
+    
+    function validateSQL(sql) {
+      const errors = [];
+      const upper = sql.toUpperCase();
+      
+      // Check for unbalanced parentheses
+      const opens = (sql.match(/\(/g) || []).length;
+      const closes = (sql.match(/\)/g) || []).length;
+      if (opens !== closes) {
+        errors.push(`Unbalanced parentheses: ${opens} open, ${closes} close`);
       }
       
-      return result.trim();
-    }
-
-    function minify(sql) {
-      if (!sql.trim()) return '';
+      // Check for unbalanced quotes
+      const singleQuotes = (sql.match(/'/g) || []).length;
+      if (singleQuotes % 2 !== 0) {
+        errors.push('Unbalanced single quotes');
+      }
       
-      // Simple minification: remove comments, collapse whitespace
-      return sql
-        .replace(/--.*$/gm, '')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\s+/g, ' ')
-        .replace(/\s*([(),;])\s*/g, '$1')
-        .trim();
+      // Check for SELECT without FROM (unless it's a VALUES or WITH)
+      if (upper.includes('SELECT') && !upper.includes('FROM') && !upper.includes('VALUES') && !upper.includes('WITH')) {
+        errors.push('SELECT without FROM clause');
+      }
+      
+      // Check for common typos in JOINs
+      if (upper.includes('JOIN ') && !upper.includes(' ON ')) {
+        errors.push('JOIN without ON clause');
+      }
+      
+      return errors;
     }
-
-    document.getElementById('formatBtn').addEventListener('click', () => {
-      output.value = format(input.value);
+    
+    function highlightSQL(sql) {
+      // Basic syntax highlighting
+      let highlighted = sql;
+      
+      // Strings
+      highlighted = highlighted.replace(/'([^']*)'/g, '<span class="string">$&</span>');
+      
+      // Numbers
+      highlighted = highlighted.replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
+      
+      // Keywords
+      keywords.forEach(kw => {
+        const regex = new RegExp(`\\b(${kw})\\b`, 'gi');
+        highlighted = highlighted.replace(regex, '<span class="keyword">$1</span>');
+      });
+      
+      // Functions
+      functions.forEach(fn => {
+        const regex = new RegExp(`\\b(${fn})\\s*\\(`, 'gi');
+        highlighted = highlighted.replace(regex, '<span class="function">$1</span>(');
+      });
+      
+      return highlighted;
+    }
+    
+    document.getElementById('format-btn').addEventListener('click', () => {
+      clearError();
+      const sql = input.value;
+      if (!sql.trim()) {
+        showError('No SQL to format');
+        return;
+      }
+      const formatted = formatSQL(sql);
+      output.value = formatted;
+      updateStats(formatted);
     });
-
-    document.getElementById('minifyBtn').addEventListener('click', () => {
-      output.value = minify(input.value);
+    
+    document.getElementById('minify-btn').addEventListener('click', () => {
+      clearError();
+      const sql = input.value;
+      if (!sql.trim()) {
+        showError('No SQL to minify');
+        return;
+      }
+      output.value = minifySQL(sql);
+      updateStats(output.value);
     });
-
-    document.getElementById('copyBtn').addEventListener('click', async () => {
-      if (!output.value) return;
-      try {
-        await navigator.clipboard.writeText(output.value);
-        showToast('Copied!');
-      } catch {
-        output.select();
-        document.execCommand('copy');
-        showToast('Copied!');
+    
+    document.getElementById('validate-btn').addEventListener('click', () => {
+      clearError();
+      const sql = input.value;
+      if (!sql.trim()) {
+        showError('No SQL to validate');
+        return;
+      }
+      const errors = validateSQL(sql);
+      if (errors.length > 0) {
+        showError(errors.join('\n'));
+      } else {
+        output.value = '✅ SQL looks valid!';
       }
     });
-
-    document.getElementById('clearBtn').addEventListener('click', () => {
+    
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      if (output.value) {
+        navigator.clipboard.writeText(output.value);
+      }
+    });
+    
+    document.getElementById('clear-btn').addEventListener('click', () => {
       input.value = '';
       output.value = '';
+      clearError();
+      stats.textContent = '';
     });
-
-    document.getElementById('sampleBtn').addEventListener('click', () => {
-      input.value = sampleSQL;
-    });
-
-    // Auto-format on input change
-    [indentSize, uppercase, newlineBeforeJoin].forEach(el => {
-      el.addEventListener('change', () => {
-        if (input.value.trim()) {
-          output.value = format(input.value);
-        }
-      });
-    });
+    
+    window.loadSample = function() {
+      input.value = `SELECT u.name, u.email, COUNT(o.id) as order_count, SUM(o.total) as total_spent
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.created_at > '2025-01-01'
+AND u.status = 'active'
+GROUP BY u.id, u.name, u.email
+HAVING COUNT(o.id) > 5
+ORDER BY total_spent DESC
+LIMIT 10`;
+      output.value = '';
+      clearError();
+    };
   </script>
 </body>
 </html>
