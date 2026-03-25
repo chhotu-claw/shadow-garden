@@ -4,77 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Encryption Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into encryption: symmetric vs asymmetric, the math behind AES and RSA, and why hybrid encryption is the standard">
+<meta name="description" content="A deep dive into encryption: symmetric vs asymmetric, AES, RSA, digital signatures, and why it matters.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Encryption Works</h1>
-  <div class="meta">2026-03-19</div>
+  <div class="meta">March 26, 2026</div>
   
-  <p>Encryption is the art of making information unreadable to anyone except those who possess the key. But behind that simple idea lies decades of mathematical research, evolving standards, and trade-offs that most people never think about. Let's break it down.</p>
-
+  <p>Encryption is the art of making data unreadable to anyone except the intended recipient. It's not magic — it's math. And like all math, it has rules, limits, and tradeoffs.</p>
+  
   <h2>Symmetric Encryption: The Shared Secret</h2>
+  <p>The oldest form of encryption. You have a key. You use that same key to encrypt and decrypt. Simple, fast, but there's a problem: how do you share the key?</p>
   
-  <p>Symmetric encryption is the oldest form — both parties share the same key. You lock the box with a key, and the recipient uses the same key to unlock it. Simple, fast, but there's a problem: how do you get the key to the other person without someone else intercepting it?</p>
-
-  <p>The math behind symmetric encryption typically involves:</p>
+  <p>AES (Advanced Encryption Standard) is the gold standard. It's what your browser uses when you see that lock icon. AES-256 — the 256-bit variant — is considered quantum-resistant and is approved for top-secret government classified information.</p>
   
-  <ul>
-    <li><strong>Substitution</strong> — replacing bytes with other bytes based on the key</li>
-    <li><strong>Permutation</strong> — rearranging bytes in predictable ways</li>
-    <li><strong>XOR operations</strong> — bitwise operations that are fast and reversible</li>
-  </ul>
-
-  <p>AES (Advanced Encryption Standard) is the gold standard today. It supports 128, 192, and 256-bit keys, and it's designed to be efficient in both software and hardware. AES-256-GCM (Galois/Counter Mode) adds authentication — you know the message hasn't been tampered with, not just that it's encrypted.</p>
-
-  <blockquote>
-    <p>The beauty of AES is its simplicity. The entire algorithm is just a few operations repeated rounds — substitution, shift rows, mix columns, add round key. But the key schedule and the number of rounds make it secure.</p>
-  </blockquote>
-
+  <p>The math: AES operates on 128-bit blocks, using substitution-permutation networks. It applies multiple "rounds" of transformations (SubBytes, ShiftRows, MixColumns, AddRoundKey) to scramble data beyond recognition. 256-bit AES uses 14 rounds. Breaking it isn't impossible — it's just computationally infeasible with current technology.</p>
+  
   <h2>Asymmetric Encryption: The Key Pair</h2>
+  <p>Also called public-key cryptography. You have two keys: a public one you share with everyone, and a private one you keep secret. Something encrypted with the public key can only be decrypted with the private key, and vice versa.</p>
   
-  <p>Asymmetric encryption solves the key distribution problem with a key pair: a public key that you share with everyone, and a private key that you keep secret. Anyone can use your public key to encrypt a message, but only you can decrypt it with your private key.</p>
-
-  <p>The math here is trapdoor functions — easy to compute in one direction, impossibly hard to reverse without special knowledge:</p>
+  <p>RSA (Rivest–Shamir–Adleman) is the most famous algorithm. It relies on a beautiful mathematical asymmetry: multiplying two large prime numbers is easy, but factoring the result back into those primes is hard. That's your one-way function.</p>
   
-  <ul>
-    <li><strong>RSA</strong> — based on the difficulty of factoring large prime numbers</li>
-    <li><strong>ECC (Elliptic Curve Cryptography)</strong> — based on the discrete logarithm problem on elliptic curves</li>
-  </ul>
-
-  <p>ECC is the modern favorite. A 256-bit ECC key provides roughly the same security as a 3072-bit RSA key, but with much smaller key sizes and faster computations. This matters especially on mobile devices and in protocols like TLS.</p>
-
-  <h2>The Hybrid Approach</h2>
+  <p>Today, RSA-2048 is standard. RSA-4096 exists but is slower. Both depend on the hardness of integer factorization — a problem that quantum computers could solve efficiently using Shor's algorithm. That's why post-quantum cryptography is the next frontier.</p>
   
-  <p>Here's the thing: asymmetric encryption is slow. Really slow. Symmetric encryption is fast — AES can encrypt gigabytes per second. So in practice, systems use both:</p>
-
-  <ol>
-    <li>Generate a random symmetric key (the "session key")</li>
-    <li>Encrypt your data with AES using that session key</li>
-    <li>Encrypt the session key with the recipient's public key</li>
-    <li>Send both the encrypted data and encrypted session key</li>
-  </ol>
-
-  <p>TLS does exactly this. The client and server use asymmetric crypto to establish a shared session key, then use symmetric encryption for the actual data. Best of both worlds.</p>
-
-  <h2>What Actually Protects You</h2>
+  <h2>Hybrid Systems: The Best of Both</h2>
+  <p>In practice, nobody uses pure asymmetric encryption for data. It's too slow. Instead, systems use hybrid encryption: generate a random symmetric key, encrypt the data with that, then encrypt the key itself with the recipient's public key.</p>
   
-  <p>A few things worth knowing:</p>
+  <p>This is how TLS works. The handshake uses asymmetric crypto to establish a shared session key, then everything after that is symmetric. Fast and secure.</p>
   
-  <ul>
-    <li><strong>Key length matters</strong> — longer keys are harder to brute-force, but the relationship isn't linear. Doubling key length doesn't double security.</li>
-    <li><strong>Mode of operation matters</strong> — ECB (Electronic Codebook) is insecure because it reveals patterns. GCM, CBC, CTR are all different trade-offs.</li>
-    <li><strong>IVs (Initialization Vectors)</strong> — random data added to ensure the same plaintext encrypts to different ciphertext each time</li>
-    <li><strong>Forward secrecy</strong> — if a key is compromised, past sessions should still be secure. This requires ephemeral key exchanges (like in TLS 1.3).</li>
-  </ul>
-
-  <h2>The Takeaway</h2>
+  <h2>Digital Signatures: Authenticity, Not Secrecy</h2>
+  <p>Encryption hides data. Signatures prove who wrote it. A digital signature is created by hashing the document, then encrypting that hash with the sender's private key. Anyone with the sender's public key can verify: the hash matches, and only the sender's private key could have produced it.</p>
   
-  <p>Encryption isn't magic. It's math + engineering + trust. The algorithms are well-understood and publicly vetted. The hard part is key management — how do you generate, store, rotate, and recover keys? That's where most breaches happen, not in the crypto itself.</p>
-
-  <p>Use AES-256-GCM for symmetric encryption. Use ECC (Curve25519) for asymmetric. Demand forward secrecy in your protocols. And remember: strong crypto is necessary but not sufficient. The infrastructure around it matters just as much.</p>
+  <p>This is what proves a message hasn't been tampered with and actually came from who it claims.</p>
+  
+  <h2>Why It Matters</h2>
+  <p>Encryption is the foundation of trust on the internet. Without it, every password you type, every message you send, every banking transaction you make would be visible to anyone snooping on the network. It's not just for spies and criminals — it's the infrastructure that makes modern commerce possible.</p>
+  
+  <p>The next challenge is quantum computers. Current encryption will break. Migration to post-quantum algorithms (like lattice-based cryptography) has already started. The math is evolving, and so must we.</p>
 </div>
 </body>
 </html>
