@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Parameter Parser — Shadow's Garden</title>
+<meta name="description" content="Parse, extract, and manipulate URL query parameters instantly. Visualize and edit URL components.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted); }
+  input[type="url"], textarea { width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: monospace; }
+  input[type="url"]:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+  .tab { padding: 0.5rem 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .params-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden; }
+  .params-table th, .params-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+  .params-table th { background: var(--highlight); font-weight: 600; font-size: 0.85rem; color: var(--text-muted); }
+  .params-table tr:last-child td { border-bottom: none; }
+  .params-table .key { font-family: monospace; color: var(--accent); }
+  .params-table .value { font-family: monospace; word-break: break-all; }
+  .params-table .actions { text-align: right; }
+  .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; }
+  .btn:hover { opacity: 0.9; }
+  .btn.secondary { background: var(--border); }
+  .btn.danger { background: #e74c3c; }
+  .add-param { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; }
+  .add-param input { padding: 0.5rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+  .output-area { margin-top: 1.5rem; padding: 1rem; background: var(--highlight); border-radius: 8px; }
+  .output-label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .output-text { font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+  .copy-btn { float: right; font-size: 0.8rem; }
+  .empty-state { text-align: center; padding: 2rem; color: var(--text-muted); }
+  .url-components { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .component { padding: 1rem; background: var(--card-bg); border-radius: 8px; }
+  .component-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+  .component-value { font-family: monospace; font-size: 0.9rem; word-break: break-all; }
+  @media (max-width: 600px) { .add-param { grid-template-columns: 1fr; } .url-components { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🔗 URL Parameter Parser</h1>
+    <div class="subtitle">Parse, extract, and manipulate URL query parameters — all local, no server</div>
+    
+    <div class="input-group">
+      <label>Enter a URL</label>
+      <input type="url" id="url-input" placeholder="https://example.com?foo=bar&baz=qux">
+    </div>
+    
+    <div class="tabs">
+      <button class="tab active" data-tab="parse">Parse</button>
+      <button class="tab" data-tab="build">Build</button>
+    </div>
+    
+    <div class="panel active" id="parse-panel">
+      <div class="url-components" id="url-components" style="display: none;">
+        <div class="component">
+          <div class="component-label">Protocol</div>
+          <div class="component-value" id="comp-protocol">—</div>
+        </div>
+        <div class="component">
+          <div class="component-label">Host</div>
+          <div class="component-value" id="comp-host">—</div>
+        </div>
+        <div class="component">
+          <div class="component-label">Path</div>
+          <div class="component-value" id="comp-path">—</div>
+        </div>
+        <div class="component">
+          <div class="component-label">Port</div>
+          <div class="component-value" id="comp-port">—</div>
+        </div>
+      </div>
+      
+      <table class="params-table" id="params-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="params-body">
+          <tr><td colspan="3" class="empty-state">Enter a URL above to parse</td></tr>
+        </tbody>
+      </table>
+      
+      <div class="output-area" id="raw-output" style="display: none;">
+        <div class="output-label">Raw Query String <button class="btn copy-btn" id="copy-raw">Copy</button></div>
+        <div class="output-text" id="raw-text"></div>
+      </div>
+    </div>
+    
+    <div class="panel" id="build-panel">
+      <table class="params-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="build-body">
+          <tr><td colspan="3" class="empty-state">Add parameters below</td></tr>
+        </tbody>
+      </table>
+      
+      <div class="add-param">
+        <input type="text" id="new-key" placeholder="Parameter name">
+        <input type="text" id="new-value" placeholder="Value">
+        <button class="btn" id="add-param-btn">Add</button>
+      </div>
+      
+      <div class="add-param" style="margin-top: 0.5rem;">
+        <input type="text" id="base-url" placeholder="Base URL (e.g., https://api.example.com/v1)" style="grid-column: 1 / -1;">
+      </div>
+      
+      <div class="output-area" id="built-output" style="display: none;">
+        <div class="output-label">Built URL <button class="btn copy-btn" id="copy-built">Copy</button></div>
+        <div class="output-text" id="built-text"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let params = {};
+    
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+      });
+    });
+    
+    // Parse URL
+    const urlInput = document.getElementById('url-input');
+    
+    function parseUrl() {
+      const urlStr = urlInput.value.trim();
+      if (!urlStr) {
+        document.getElementById('url-components').style.display = 'none';
+        document.getElementById('params-body').innerHTML = '<tr><td colspan="3" class="empty-state">Enter a URL above to parse</td></tr>';
+        document.getElementById('raw-output').style.display = 'none';
+        return;
+      }
+      
+      try {
+        const url = new URL(urlStr);
+        
+        // Show components
+        document.getElementById('comp-protocol').textContent = url.protocol;
+        document.getElementById('comp-host').textContent = url.hostname;
+        document.getElementById('comp-path').textContent = url.pathname || '/';
+        document.getElementById('comp-port').textContent = url.port || '(default)';
+        document.getElementById('url-components').style.display = 'grid';
+        
+        // Parse params
+        params = {};
+        url.searchParams.forEach((value, key) => {
+          params[key] = value;
+        });
+        
+        renderParams();
+        
+        // Show raw query
+        document.getElementById('raw-text').textContent = url.search;
+        document.getElementById('raw-output').style.display = 'block';
+      } catch (e) {
+        document.getElementById('params-body').innerHTML = `<tr><td colspan="3" class="empty-state" style="color: #e74c3c;">Invalid URL: ${e.message}</td></tr>`;
+      }
+    }
+    
+    function renderParams() {
+      const tbody = document.getElementById('params-body');
+      const keys = Object.keys(params);
+      
+      if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No parameters found</td></tr>';
+        return;
+      }
+      
+      let html = '';
+      keys.forEach(key => {
+        html += `<tr>
+          <td class="key">${escapeHtml(key)}</td>
+          <td class="value">${escapeHtml(params[key])}</td>
+          <td class="actions">
+            <button class="btn secondary" onclick="editParam('${escapeHtml(key)}')">Edit</button>
+            <button class="btn danger" onclick="deleteParam('${escapeHtml(key)}')">×</button>
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+    
+    window.editParam = function(key) {
+      const newValue = prompt(`Edit value for "${key}":`, params[key]);
+      if (newValue !== null) {
+        params[key] = newValue;
+        renderParams();
+      }
+    };
+    
+    window.deleteParam = function(key) {
+      delete params[key];
+      renderParams();
+    };
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    urlInput.addEventListener('input', parseUrl);
+    
+    document.getElementById('copy-raw').addEventListener('click', () => {
+      navigator.clipboard.writeText(document.getElementById('raw-text').textContent);
+    });
+    
+    // Build panel
+    let buildParams = {};
+    
+    function renderBuildParams() {
+      const tbody = document.getElementById('build-body');
+      const keys = Object.keys(buildParams);
+      
+      if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Add parameters below</td></tr>';
+        return;
+      }
+      
+      let html = '';
+      keys.forEach(key => {
+        html += `<tr>
+          <td class="key">${escapeHtml(key)}</td>
+          <td class="value">${escapeHtml(buildParams[key])}</td>
+          <td class="actions">
+            <button class="btn danger" onclick="removeBuildParam('${escapeHtml(key)}')">×</button>
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+      
+      updateBuiltUrl();
+    }
+    
+    window.removeBuildParam = function(key) {
+      delete buildParams[key];
+      renderBuildParams();
+    };
+    
+    document.getElementById('add-param-btn').addEventListener('click', () => {
+      const key = document.getElementById('new-key').value.trim();
+      const value = document.getElementById('new-value').value.trim();
+      if (key) {
+        buildParams[key] = value;
+        document.getElementById('new-key').value = '';
+        document.getElementById('new-value').value = '';
+        renderBuildParams();
+      }
+    });
+    
+    function updateBuiltUrl() {
+      const baseUrl = document.getElementById('base-url').value.trim();
+      const output = document.getElementById('built-output');
+      const text = document.getElementById('built-text');
+      
+      if (!baseUrl || Object.keys(buildParams).length === 0) {
+        output.style.display = 'none';
+        return;
+      }
+      
+      try {
+        const url = new URL(baseUrl);
+        Object.keys(buildParams).forEach(key => {
+          url.searchParams.append(key, buildParams[key]);
+        });
+        text.textContent = url.toString();
+        output.style.display = 'block';
+      } catch (e) {
+        text.textContent = `Invalid base URL: ${e.message}`;
+        output.style.display = 'block';
+      }
+    }
+    
+    document.getElementById('base-url').addEventListener('input', updateBuiltUrl);
+    document.getElementById('copy-built').addEventListener('click', () => {
+      navigator.clipboard.writeText(document.getElementById('built-text').textContent);
+    });
+    
+    // Initialize
+    renderBuildParams();
+  </script>
+</body>
+</html>
