@@ -4,242 +4,164 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Markdown Table Generator — Shadow's Garden</title>
-<meta name="description" content="Generate Markdown tables with live preview, row/column controls, and alignment options">
+<meta name="description" content="Generate Markdown tables instantly. Build, preview, and export.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #7c3aed; }
-  body { --bg: #0f172a; --fg: #e2e8f0; --border: #334155; }
-  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  body { padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
   h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
-  
-  .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .control-panel { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
   .control-group { display: flex; align-items: center; gap: 0.5rem; }
-  .control-group label { margin: 0; font-size: 0.8rem; text-transform: none; font-weight: normal; color: #94a3b8; }
-  
-  input[type="number"] { width: 60px; padding: 0.5rem; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-family: monospace; }
-  input[type="number"]:focus { outline: none; border-color: var(--accent); }
-  
-  button { padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: #475569; }
-  
-  .table-input { display: grid; gap: 2px; margin-bottom: 1.5rem; background: var(--border); border-radius: 8px; overflow: hidden; }
-  .table-row { display: contents; }
-  .table-cell { background: #1e293b; }
-  .table-cell input { width: 100%; padding: 0.75rem; background: transparent; border: none; color: var(--fg); font-family: monospace; font-size: 0.9rem; }
-  .table-cell input:focus { outline: none; background: #334155; }
-  .table-cell.header { background: #334155; }
-  .table-cell.header input { font-weight: 600; }
-  
-  .alignment-row { display: flex; gap: 2px; margin-bottom: 1.5rem; background: var(--border); border-radius: 8px; overflow: hidden; }
-  .align-cell { flex: 1; background: #1e293b; padding: 0.5rem; display: flex; justify-content: center; gap: 0.5rem; }
-  .align-btn { padding: 0.25rem 0.5rem; background: #475569; border: none; border-radius: 4px; color: #94a3b8; font-size: 0.75rem; cursor: pointer; }
-  .align-btn.active { background: var(--accent); color: white; }
-  
-  .output-section { margin-top: 1.5rem; }
-  .output-section label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  
-  .output { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; color: #cbd5e1; min-height: 100px; }
-  
-  .preview-section { margin-top: 1.5rem; }
-  .preview-section label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  
-  .preview { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
-  .preview table { border-collapse: collapse; width: 100%; }
-  .preview th, .preview td { padding: 0.75rem; border: 1px solid var(--border); text-align: left; }
-  .preview th { background: #334155; font-weight: 600; }
-  .preview td { background: #1e293b; }
-  .preview .align-left { text-align: left; }
-  .preview .align-center { text-align: center; }
-  .preview .align-right { text-align: right; }
-  
-  .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
-  .copy-btn { padding: 0.5rem 1rem; background: #10b981; border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; }
-  .copy-btn.copied { background: #059669; }
-  
-  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .preset-btn { padding: 0.35rem 0.7rem; background: #334155; border: 1px solid var(--border); border-radius: 4px; color: #94a3b8; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
-  .preset-btn:hover { background: #475569; color: var(--fg); }
+  .control-group label { font-size: 0.9rem; color: var(--text-muted); }
+  input[type="number"] { width: 60px; padding: 0.4rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
+  .btn { padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .btn:hover { opacity: 0.9; }
+  .btn.secondary { background: var(--border); }
+  .table-editor { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .table-editor input { padding: 0.6rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: monospace; }
+  .table-editor input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .output-area { margin-top: 1.5rem; }
+  .output-label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+  textarea { width: 100%; min-height: 200px; padding: 1rem; font-family: monospace; font-size: 0.9rem; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .preview-area { margin-top: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; overflow-x: auto; }
+  .preview-area table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  .preview-area th, .preview-area td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
+  .preview-area th { background: var(--highlight); font-weight: bold; }
+  .presets { margin-bottom: 1.5rem; }
+  .presets span { font-size: 0.85rem; color: var(--text-muted); margin-right: 0.5rem; }
+  .preset-btn { padding: 0.3rem 0.6rem; font-size: 0.8rem; background: var(--border); color: var(--text); border: none; border-radius: 4px; cursor: pointer; margin-right: 0.4rem; margin-bottom: 0.4rem; }
+  .preset-btn:hover { background: var(--accent); color: white; }
+  .align-controls { display: flex; gap: 0.25rem; }
+  .align-btn { padding: 0.2rem 0.4rem; font-size: 0.75rem; background: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+  .align-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  @media (max-width: 600px) { .control-panel { flex-direction: column; } }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
-    <h1>Markdown Table Generator</h1>
-    <p class="subtitle">Generate Markdown tables with live preview</p>
+    <h1>📊 Markdown Table Generator</h1>
+    <div class="subtitle">Build Markdown tables instantly — no more manual alignment</div>
     
-    <div class="controls">
+    <div class="control-panel">
       <div class="control-group">
         <label>Rows:</label>
         <input type="number" id="rows" value="3" min="1" max="20">
       </div>
       <div class="control-group">
-        <label>Columns:</label>
+        <label>Cols:</label>
         <input type="number" id="cols" value="3" min="1" max="10">
       </div>
-      <button id="generate">Generate Table</button>
+      <button class="btn" id="generate-btn">Generate Grid</button>
+      <button class="btn secondary" id="clear-btn">Clear</button>
     </div>
     
     <div class="presets">
+      <span>Quick templates:</span>
       <button class="preset-btn" data-r="2" data-c="2">2×2</button>
       <button class="preset-btn" data-r="3" data-c="3">3×3</button>
       <button class="preset-btn" data-r="4" data-c="2">4×2</button>
-      <button class="preset-btn" data-r="3" data-c="4">3×4</button>
+      <button class="preset-btn" data-r="5" data-c="3">5×3</button>
     </div>
     
-    <div class="table-input" id="tableInput"></div>
+    <div class="table-editor" id="table-editor"></div>
     
-    <div class="alignment-row" id="alignmentRow"></div>
-    
-    <div class="output-section">
-      <label>Markdown Output</label>
-      <div class="output" id="output"></div>
-      <div class="actions">
-        <button class="copy-btn" id="copyBtn">Copy to Clipboard</button>
+    <div class="output-area">
+      <div class="output-label">
+        <span>Markdown Output</span>
+        <button class="btn" id="copy-btn" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Copy</button>
       </div>
+      <textarea id="output" readonly placeholder="Your Markdown table will appear here..."></textarea>
     </div>
     
-    <div class="preview-section">
-      <label>Live Preview</label>
-      <div class="preview" id="preview"></div>
+    <div class="preview-area">
+      <div class="output-label" style="margin-bottom: 0.75rem;">Live Preview</div>
+      <div id="preview"></div>
     </div>
   </div>
   
   <script>
     const rowsInput = document.getElementById('rows');
     const colsInput = document.getElementById('cols');
-    const generateBtn = document.getElementById('generate');
-    const tableInput = document.getElementById('tableInput');
-    const alignmentRow = document.getElementById('alignmentRow');
+    const editor = document.getElementById('table-editor');
     const output = document.getElementById('output');
     const preview = document.getElementById('preview');
-    const copyBtn = document.getElementById('copyBtn');
     
-    let alignments = [];
-    let cellValues = [];
-    
-    function generateTable() {
+    function getGrid() {
       const rows = parseInt(rowsInput.value);
       const cols = parseInt(colsInput.value);
-      
-      alignments = Array(cols).fill('left');
-      cellValues = [];
-      for (let r = 0; r < rows; r++) {
+      const inputs = editor.querySelectorAll('input');
+      const grid = [];
+      for (let i = 0; i < rows; i++) {
         const row = [];
-        for (let c = 0; c < cols; c++) {
-          row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c + 1}`);
+        for (let j = 0; j < cols; j++) {
+          const idx = i * cols + j;
+          row.push(inputs[idx]?.value || '');
         }
-        cellValues.push(row);
+        grid.push(row);
       }
-      
-      renderTable();
-      updateOutput();
-      updatePreview();
+      return grid;
     }
     
-    function renderTable() {
-      const rows = cellValues.length;
-      const cols = cellValues[0] ? cellValues[0].length : 0;
+    function generateGrid() {
+      const rows = parseInt(rowsInput.value);
+      const cols = parseInt(colsInput.value);
+      editor.innerHTML = '';
+      editor.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       
-      tableInput.innerHTML = '';
-      tableInput.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = document.createElement('div');
-          cell.className = 'table-cell' + (r === 0 ? ' header' : '');
-          
-          const input = document.createElement('input');
-          input.value = cellValues[r][c];
-          input.dataset.row = r;
-          input.dataset.col = c;
-          input.addEventListener('input', (e) => {
-            cellValues[r][c] = e.target.value;
-            updateOutput();
-            updatePreview();
-          });
-          
-          cell.appendChild(input);
-          tableInput.appendChild(cell);
-        }
+      for (let i = 0; i < rows * cols; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = i < cols ? `Header ${i % cols + 1}` : `Cell ${Math.floor(i / cols) + 1},${(i % cols) + 1}`;
+        if (i < cols) input.style.fontWeight = 'bold';
+        input.addEventListener('input', updateOutput);
+        editor.appendChild(input);
       }
-      
-      // Alignment row
-      alignmentRow.innerHTML = '';
-      for (let c = 0; c < cols; c++) {
-        const alignCell = document.createElement('div');
-        alignCell.className = 'align-cell';
-        
-        const leftBtn = document.createElement('button');
-        leftBtn.className = 'align-btn' + (alignments[c] === 'left' ? ' active' : '');
-        leftBtn.textContent = '←';
-        leftBtn.addEventListener('click', () => setAlignment(c, 'left'));
-        
-        const centerBtn = document.createElement('button');
-        centerBtn.className = 'align-btn' + (alignments[c] === 'center' ? ' active' : '');
-        centerBtn.textContent = '↔';
-        centerBtn.addEventListener('click', () => setAlignment(c, 'center'));
-        
-        const rightBtn = document.createElement('button');
-        rightBtn.className = 'align-btn' + (alignments[c] === 'right' ? ' active' : '');
-        rightBtn.textContent = '→';
-        rightBtn.addEventListener('click', () => setAlignment(c, 'right'));
-        
-        alignCell.appendChild(leftBtn);
-        alignCell.appendChild(centerBtn);
-        alignCell.appendChild(rightBtn);
-        alignmentRow.appendChild(alignCell);
-      }
-    }
-    
-    function setAlignment(col, align) {
-      alignments[col] = align;
-      renderTable();
       updateOutput();
-      updatePreview();
     }
     
     function updateOutput() {
-      const rows = cellValues.length;
-      const cols = cellValues[0] ? cellValues[0].length : 0;
-      if (cols === 0) return;
+      const grid = getGrid();
+      if (!grid.length || !grid[0].length) {
+        output.value = '';
+        preview.innerHTML = '';
+        return;
+      }
       
+      // Calculate column widths
+      const colWidths = [];
+      const cols = grid[0].length;
+      for (let j = 0; j < cols; j++) {
+        let maxLen = 3;
+        for (let i = 0; i < grid.length; i++) {
+          const len = (grid[i][j] || '').length;
+          if (len > maxLen) maxLen = len;
+        }
+        colWidths.push(maxLen);
+      }
+      
+      // Build markdown
       let md = '';
       
       // Header row
-      md += '|';
-      for (let c = 0; c < cols; c++) {
-        md += ' ' + cellValues[0][c] + ' |';
-      }
-      md += '\n';
+      md += '| ' + grid[0].map((cell, j) => (cell || `Header${j+1}`).padEnd(colWidths[j])).join(' | ') + ' |\n';
       
-      // Alignment row
-      md += '|';
-      for (let c = 0; c < cols; c++) {
-        const align = alignments[c];
-        if (align === 'left') md += ' --- |';
-        else if (align === 'center') md += ' :---: |';
-        else md += ' ---: |';
-      }
-      md += '\n';
+      // Separator row
+      md += '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |\n';
       
       // Data rows
-      for (let r = 1; r < rows; r++) {
-        md += '|';
-        for (let c = 0; c < cols; c++) {
-          md += ' ' + cellValues[r][c] + ' |';
-        }
-        md += '\n';
+      for (let i = 1; i < grid.length; i++) {
+        md += '| ' + grid[i].map((cell, j) => (cell || '').padEnd(colWidths[j])).join(' | ') + ' |\n';
       }
       
-      output.textContent = md;
+      output.value = md;
+      renderPreview(grid);
     }
     
-    function updatePreview() {
-      const rows = cellValues.length;
-      const cols = cellValues[0] ? cellValues[0].length : 0;
-      if (cols === 0) {
+    function renderPreview(grid) {
+      if (!grid.length) {
         preview.innerHTML = '';
         return;
       }
@@ -248,17 +170,17 @@
       
       // Header
       html += '<tr>';
-      for (let c = 0; c < cols; c++) {
-        html += `<th class="align-${alignments[c]}">${escapeHtml(cellValues[0][c])}</th>`;
-      }
+      grid[0].forEach(cell => {
+        html += `<th>${escapeHtml(cell || '')}</th>`;
+      });
       html += '</tr>';
       
-      // Data rows
-      for (let r = 1; r < rows; r++) {
+      // Body
+      for (let i = 1; i < grid.length; i++) {
         html += '<tr>';
-        for (let c = 0; c < cols; c++) {
-          html += `<td class="align-${alignments[c]}">${escapeHtml(cellValues[r][c])}</td>`;
-        }
+        grid[i].forEach(cell => {
+          html += `<td>${escapeHtml(cell || '')}</td>`;
+        });
         html += '</tr>';
       }
       
@@ -270,32 +192,28 @@
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
     
-    generateBtn.addEventListener('click', generateTable);
-    
-    rowsInput.addEventListener('change', generateTable);
-    colsInput.addEventListener('change', generateTable);
+    document.getElementById('generate-btn').addEventListener('click', generateGrid);
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      editor.querySelectorAll('input').forEach(input => input.value = '');
+      updateOutput();
+    });
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(output.value);
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
     
     document.querySelectorAll('.preset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         rowsInput.value = btn.dataset.r;
         colsInput.value = btn.dataset.c;
-        generateTable();
-      });
-    });
-    
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(output.textContent).then(() => {
-        copyBtn.textContent = 'Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy to Clipboard';
-          copyBtn.classList.remove('copied');
-        }, 2000);
+        generateGrid();
       });
     });
     
     // Initialize
-    generateTable();
+    generateGrid();
   </script>
 </body>
 </html>

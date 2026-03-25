@@ -4,244 +4,220 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hash Generator — Shadow's Garden</title>
-<meta name="description" content="Generate SHA-256, SHA-1, MD5, and other hashes from any text input. Runs entirely in your browser.">
+<meta name="description" content="Generate SHA-1, SHA-256, SHA-384, SHA-512 hashes from text or files. All local, no server.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; padding: 2rem; box-sizing: border-box; }
+  body { min-height: 100vh; padding: 2rem; }
   .container { max-width: 700px; margin: 0 auto; }
   h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: var(--text-muted, #888); margin-bottom: 2rem; }
-  
-  .input-section { margin-bottom: 2rem; }
-  label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted, #888); }
-  textarea { width: 100%; min-height: 150px; padding: 1rem; font-size: 1rem; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--input-bg, #0f0f1a); color: var(--text, #eee); font-family: monospace; resize: vertical; box-sizing: border-box; }
-  textarea:focus { outline: 2px solid var(--accent, #646cff); border-color: transparent; }
-  
-  .options { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
-  select { padding: 0.75rem; font-size: 1rem; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--input-bg, #0f0f1a); color: var(--text, #eee); }
-  .btn { padding: 0.75rem 1.5rem; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; background: var(--accent, #646cff); color: white; transition: opacity 0.2s; }
-  .btn:hover { opacity: 0.9; }
-  .btn-secondary { background: var(--highlight, #16213e); }
-  
-  .results { display: flex; flex-direction: column; gap: 1rem; }
-  .hash-row { background: var(--card-bg, #1a1a2e); padding: 1rem; border-radius: 8px; }
-  .hash-label { font-size: 0.85rem; color: var(--text-muted, #888); margin-bottom: 0.5rem; }
-  .hash-value { font-family: monospace; font-size: 0.9rem; word-break: break-all; color: var(--text, #eee); }
-  .hash-value.copied { color: var(--success, #4ade80); }
-  
-  .copy-btn { float: right; font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--highlight, #16213e); color: var(--text-muted, #888); border: none; border-radius: 4px; cursor: pointer; }
-  .copy-btn:hover { color: var(--text, #eee); }
-  
-  .file-input-wrapper { margin-bottom: 1rem; }
-  .file-input-wrapper input[type="file"] { display: none; }
-  .file-btn { display: inline-block; padding: 0.75rem 1.5rem; font-size: 1rem; border: 1px dashed var(--border, #333); border-radius: 8px; cursor: pointer; color: var(--text-muted, #888); }
-  .file-btn:hover { border-color: var(--accent, #646cff); color: var(--text, #eee); }
-  
-  .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .mode-btn { padding: 0.5rem 1rem; font-size: 0.9rem; border: 1px solid var(--border, #333); border-radius: 6px; background: transparent; color: var(--text-muted, #888); cursor: pointer; }
-  .mode-btn.active { background: var(--accent, #646cff); border-color: var(--accent, #646cff); color: white; }
-  
-  @media (max-width: 600px) { .options { flex-direction: column; } .options > * { width: 100%; } }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .input-section { margin-bottom: 1.5rem; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .tab { padding: 0.5rem 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  textarea { width: 100%; min-height: 120px; padding: 1rem; font-family: monospace; font-size: 0.95rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .file-area { padding: 2rem; background: var(--card-bg); border: 2px dashed var(--border); border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .file-area:hover { border-color: var(--accent); }
+  .file-area.dragover { border-color: var(--accent); background: var(--highlight); }
+  .file-area input { display: none; }
+  .file-name { margin-top: 1rem; font-family: monospace; color: var(--accent); }
+  .file-size { font-size: 0.85rem; color: var(--text-muted); }
+  .generate-btn { width: 100%; padding: 1rem; font-size: 1rem; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem; }
+  .generate-btn:hover { opacity: 0.9; }
+  .results { margin-top: 2rem; display: none; }
+  .results.show { display: block; }
+  .result-row { margin-bottom: 1rem; }
+  .result-label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+  .result-value { display: flex; gap: 0.5rem; align-items: center; }
+  .result-value input { flex: 1; padding: 0.5rem; font-family: monospace; font-size: 0.85rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+  .copy-btn { padding: 0.5rem 0.75rem; background: var(--border); color: var(--text); border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+  .copy-btn:hover { background: var(--accent); color: white; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  @media (max-width: 500px) { .tabs { flex-wrap: wrap; } }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
-    <h1>#️ Hash Generator</h1>
-    <p class="subtitle">Generate cryptographic hashes from text or files. Runs entirely in your browser — nothing leaves your machine.</p>
+    <h1>🔐 Hash Generator</h1>
+    <div class="subtitle">Generate SHA-1, SHA-256, SHA-384, SHA-512 hashes — all local, no server</div>
     
-    <div class="mode-toggle">
-      <button class="mode-btn active" data-mode="text">Text Input</button>
-      <button class="mode-btn" data-mode="file">File Input</button>
+    <div class="tabs">
+      <button class="tab active" data-tab="text">Text</button>
+      <button class="tab" data-tab="file">File</button>
     </div>
     
-    <div class="input-section" id="text-input">
-      <label>Enter text to hash:</label>
-      <textarea id="input-text" placeholder="Type or paste text here..."></textarea>
-    </div>
-    
-    <div class="input-section" id="file-input" style="display: none;">
-      <div class="file-input-wrapper">
-        <label for="input-file" class="file-btn">📁 Click to select a file</label>
-        <input type="file" id="input-file">
+    <div class="panel active" id="text-panel">
+      <div class="input-section">
+        <textarea id="text-input" placeholder="Enter text to hash..."></textarea>
       </div>
-      <p id="file-name" style="color: var(--text-muted, #888); font-size: 0.9rem;"></p>
     </div>
     
-    <div class="options">
-      <select id="algo-select">
-        <option value="SHA-256">SHA-256</option>
-        <option value="SHA-384">SHA-384</option>
-        <option value="SHA-512">SHA-512</option>
-        <option value="SHA-1">SHA-1</option>
-        <option value="MD5">MD5 (legacy)</option>
-      </select>
-      <button class="btn" id="generate-btn">Generate Hash</button>
-      <button class="btn btn-secondary" id="clear-btn">Clear</button>
+    <div class="panel" id="file-panel">
+      <div class="file-area" id="file-area">
+        <input type="file" id="file-input">
+        <div>Drop a file here or click to browse</div>
+        <div class="file-name" id="file-name"></div>
+        <div class="file-size" id="file-size"></div>
+      </div>
     </div>
     
-    <div class="results" id="results"></div>
+    <button class="generate-btn" id="generate-btn">Generate Hashes</button>
+    
+    <div class="results" id="results">
+      <div class="result-row">
+        <div class="result-label">SHA-1</div>
+        <div class="result-value">
+          <input type="text" id="sha1-result" readonly>
+          <button class="copy-btn" data-target="sha1-result">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <div class="result-label">SHA-256</div>
+        <div class="result-value">
+          <input type="text" id="sha256-result" readonly>
+          <button class="copy-btn" data-target="sha256-result">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <div class="result-label">SHA-384</div>
+        <div class="result-value">
+          <input type="text" id="sha384-result" readonly>
+          <button class="copy-btn" data-target="sha384-result">Copy</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <div class="result-label">SHA-512</div>
+        <div class="result-value">
+          <input type="text" id="sha512-result" readonly>
+          <button class="copy-btn" data-target="sha512-result">Copy</button>
+        </div>
+      </div>
+    </div>
   </div>
   
   <script>
-    const textInput = document.getElementById('input-text');
-    const fileInput = document.getElementById('input-file');
-    const fileNameDisplay = document.getElementById('file-name');
-    const algoSelect = document.getElementById('algo-select');
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.panel');
+    const textInput = document.getElementById('text-input');
+    const fileInput = document.getElementById('file-input');
+    const fileArea = document.getElementById('file-area');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
     const generateBtn = document.getElementById('generate-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const resultsDiv = document.getElementById('results');
-    const modeBtns = document.querySelectorAll('.mode-btn');
+    const results = document.getElementById('results');
     
-    let currentMode = 'text';
-    let fileData = null;
+    let selectedFile = null;
     
-    // Mode switching
-    modeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        modeBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentMode = btn.dataset.mode;
-        
-        document.getElementById('text-input').style.display = currentMode === 'text' ? 'block' : 'none';
-        document.getElementById('file-input').style.display = currentMode === 'file' ? 'block' : 'none';
-        resultsDiv.innerHTML = '';
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
       });
     });
     
     // File handling
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      fileNameDisplay.textContent = `Selected: ${file.name} (${formatBytes(file.size)})`;
-      
-      // Read file as ArrayBuffer
-      const reader = new FileReader();
-      reader.onload = () => {
-        fileData = reader.result;
-      };
-      reader.readAsArrayBuffer(file);
+    fileArea.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFile);
+    
+    fileArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      fileArea.classList.add('dragover');
     });
     
-    function formatBytes(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    fileArea.addEventListener('dragleave', () => {
+      fileArea.classList.remove('dragover');
+    });
+    
+    fileArea.addEventListener('drop', e => {
+      e.preventDefault();
+      fileArea.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFile({ target: { files: e.dataTransfer.files } });
+      }
+    });
+    
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (file) {
+        selectedFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+      }
     }
     
-    // Hash algorithms using SubtleCrypto
-    async function generateHash(data, algorithm) {
-      const hashBuffer = await crypto.subtle.digest(algorithm, data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
     }
     
-    // MD5 fallback (simple implementation)
-    async function md5(data) {
-      // Use a minimal MD5 implementation
-      const msgBuffer = new Uint8Array(data);
-      const msgHex = Array.from(msgBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      // Simple hash simulation using multiple SHA-1 with salt (not real MD5 but useful)
-      // For real MD5 we'd need a library, but crypto.subtle doesn't support it
-      // Let's use a creative approach - hash with different transforms
-      const enc = new TextEncoder();
-      const combined = enc.encode(msgHex + 'md5salt');
-      const hashBuffer = await crypto.subtle.digest('SHA-1', combined);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-    }
-    
-    async function generate() {
-      resultsDiv.innerHTML = '<p style="text-align: center; color: var(--text-muted)">Generating...</p>';
+    // Hash generation
+    async function generateHashes() {
+      generateBtn.textContent = 'Generating...';
+      generateBtn.disabled = true;
       
       try {
         let data;
         
-        if (currentMode === 'text') {
+        if (document.querySelector('.tab[data-tab="file"].active')) {
+          if (!selectedFile) {
+            alert('Please select a file');
+            return;
+          }
+          data = await selectedFile.arrayBuffer();
+        } else {
           const text = textInput.value;
           if (!text) {
-            resultsDiv.innerHTML = '<p style="text-align: center; color: var(--text-muted)">Enter some text first</p>';
+            alert('Please enter some text');
             return;
           }
-          const enc = new TextEncoder();
-          data = enc.encode(text);
-        } else {
-          if (!fileData) {
-            resultsDiv.innerHTML = '<p style="text-align: center; color: var(--text-muted)">Select a file first</p>';
-            return;
-          }
-          data = new Uint8Array(fileData);
+          data = new TextEncoder().encode(text);
         }
         
-        const algo = algoSelect.value;
-        let hashes = [];
+        const [sha1, sha256, sha384, sha512] = await Promise.all([
+          crypto.subtle.digest('SHA-1', data),
+          crypto.subtle.digest('SHA-256', data),
+          crypto.subtle.digest('SHA-384', data),
+          crypto.subtle.digest('SHA-512', data)
+        ]);
         
-        // Generate selected hash
-        if (algo === 'MD5') {
-          const hash = await md5(data);
-          hashes.push({ algo: 'MD5', hash });
-        } else {
-          const hash = await generateHash(data, algo);
-          hashes.push({ algo, hash });
-        }
+        document.getElementById('sha1-result').value = buf2hex(sha1);
+        document.getElementById('sha256-result').value = buf2hex(sha256);
+        document.getElementById('sha384-result').value = buf2hex(sha384);
+        document.getElementById('sha512-result').value = buf2hex(sha512);
         
-        // Also show other algorithms for comparison
-        const otherAlgos = ['SHA-256', 'SHA-384', 'SHA-512', 'SHA-1'].filter(a => a !== algo);
-        for (const otherAlgo of otherAlgos) {
-          const hash = await generateHash(data, otherAlgo);
-          hashes.push({ algo: otherAlgo, hash });
-        }
-        
-        // Display results
-        resultsDiv.innerHTML = hashes.map(({ algo, hash }) => `
-          <div class="hash-row">
-            <div class="hash-label">${algo}</div>
-            <button class="copy-btn" data-hash="${hash}">Copy</button>
-            <div class="hash-value">${hash}</div>
-          </div>
-        `).join('');
-        
-        // Add copy functionality
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const hash = btn.dataset.hash;
-            await navigator.clipboard.writeText(hash);
-            btn.textContent = 'Copied!';
-            btn.style.color = 'var(--success, #4ade80)';
-            setTimeout(() => {
-              btn.textContent = 'Copy';
-              btn.style.color = '';
-            }, 1500);
-          });
-        });
-        
+        results.classList.add('show');
       } catch (err) {
-        resultsDiv.innerHTML = `<p style="text-align: center; color: #ef4444">Error: ${err.message}</p>`;
+        alert('Error generating hashes: ' + err.message);
       }
+      
+      generateBtn.textContent = 'Generate Hashes';
+      generateBtn.disabled = false;
     }
     
-    generateBtn.addEventListener('click', generate);
+    function buf2hex(buffer) {
+      return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
     
-    clearBtn.addEventListener('click', () => {
-      textInput.value = '';
-      fileInput.value = '';
-      fileData = null;
-      fileNameDisplay.textContent = '';
-      resultsDiv.innerHTML = '';
+    // Copy functionality
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        navigator.clipboard.writeText(input.value);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
     });
     
-    // Auto-generate on text input with debounce
-    let debounceTimer;
-    textInput.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        if (textInput.value) generate();
-      }, 500);
-    });
+    generateBtn.addEventListener('click', generateHashes);
   </script>
 </body>
 </html>
