@@ -4,93 +4,64 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How TLS Works — Shadow's Garden</title>
-<meta name="description" content="Deep dive into TLS: handshake, cipher suites, certificates, and how encryption actually protects your data">
+<meta name="description">A deep dive into how TLS actually secures connections — the handshake, certificates, and cipher suites that make HTTPS work.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How TLS Works</h1>
-  <div class="meta">2026-03-19</div>
-
-  <p>TLS (Transport Layer Security) is the protocol that keeps your browsing private. Every time you see that lock icon in your browser, TLS is doing the heavy lifting. But how does it actually work?</p>
-
-  <h2>The Two Phases</h2>
-  <p>TLS operates in two distinct phases:</p>
-  <ol>
-    <li><strong>Handshake</strong> — The parties authenticate each other and agree on how to encrypt</li>
-    <li><strong>Data Transfer</strong> — Encrypted data flows using the agreed-upon methods</li>
-  </ol>
-
-  <h2>The Handshake (TLS 1.2/1.3)</h2>
-  <p>In TLS 1.2, the handshake is a multi-step dance:</p>
-
-  <ol>
-    <li><strong>Client Hello</strong> — Client sends supported cipher suites, random bytes, and (TLS 1.3) key share</li>
-    <li><strong>Server Hello</strong> — Server picks a cipher suite, sends its certificate, and (TLS 1.3) its key share</li>
-    <li><strong>Certificate Verification</strong> — Client verifies the server's certificate against trusted CAs</li>
-    <li><strong>Key Exchange</strong> — Both sides derive the master secret usingDiffie-Hellman (or RSA in older setups)</li>
-    <li><strong>Finished</strong> — Both sides confirm the handshake with encrypted messages</li>
-  </ol>
-
-  <p>TLS 1.3 simplified this dramatically — just one round trip (1-RTT) instead of two. It also made Diffie-Hellman mandatory and deprecated older methods like static RSA key exchange.</p>
-
-  <h2>Cipher Suites</h2>
-  <p>A cipher suite is a recipe that specifies:</p>
+  <div class="meta">March 25, 2026</div>
+  
+  <p>TLS (Transport Layer Security) is what makes HTTPS work. Most people think it's just "that lock icon," but under the hood it's a carefully choreographed dance of cryptographic handshakes, certificate验证, and key exchange. Here's how it actually works.</p>
+  
+  <h2>The Problem TLS Solves</h2>
+  <p>Before TLS, HTTP sent everything in plaintext. Anyone between you and the server could read your passwords, credit cards, and private messages. TLS adds three things: <strong>encryption</strong> (nobody can read the data), <strong>authentication</strong> (you're actually talking to who you think you're talking to), and <strong>integrity</strong> (nobody tampered with the data in transit).</p>
+  
+  <h2>The Handshake</h2>
+  <p>Every TLS connection starts with a handshake — a series of messages where client and server agree on how to encrypt, verify each other's identity, and establish shared keys. This happens before any "real" data is sent.</p>
+  
+  <h3>1. Client Hello</h3>
+  <p>The client (your browser) sends a "ClientHello" message containing:</p>
   <ul>
-    <li><strong>Key Exchange</strong> — How to establish the session key (e.g., ECDHE, DHE, RSA)</li>
-    <li><strong>Bulk Encryption</strong> — The symmetric cipher (e.g., AES-256-GCM, ChaCha20-Poly1305)</li>
-    <li><strong>Message Authentication</strong> — How to verify integrity (e.g., HMAC-SHA256, Poly1305)</li>
+    <li><strong>TLS version</strong> — the highest version it supports (usually TLS 1.3)</li>
+    <li><strong>Random bytes</strong> — 32 bytes of random data used later in the process</li>
+    <li><strong>Cipher suites</strong> — a list of encryption algorithms the client supports, like <code>TLS_AES_256_GCM_SHA384</code></li>
+    <li><strong>Server Name Indication (SNI)</strong> — which hostname you're trying to reach (critical for shared hosting)</li>
   </ul>
-
-  <p>A typical modern suite looks like <code>TLS_AES_128_GCM_SHA256</code> or <code>TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384</code>.</p>
-
-  <h2>Certificates and PKI</h2>
-  <p>The server proves its identity with a certificate signed by a trusted Certificate Authority (CA). The chain goes:</p>
+  
+  <h3>2. Server Hello + Certificate</h3>
+  <p>The server responds with:</p>
   <ul>
-    <li>Server certificate (signed by)</li>
-    <li>Intermediate CA (signed by)</li>
-    <li>Root CA (built into your browser/OS)</li>
+    <li><strong>Selected cipher suite</strong> — what it'll use (server picks from client's list)</li>
+    <li><strong>Server's random bytes</strong></li>
+    <li><strong>Server certificate</strong> — a digital certificate proving identity</li>
   </ul>
-
-  <p>Certificates contain the domain name, public key, expiration date, and the CA's signature. TLS 1.3 added support for certificate compression and shorter OCSP stapling to reduce handshake latency.</p>
-
-  <h2>Forward Secrecy</h2>
-  <p>Forward secrecy (or perfect forward secrecy) means that compromising one session key doesn't expose past sessions. This requires ephemeral key exchange — ECDHE or DHE — which TLS 1.3 makes standard. Older RSA key exchange lacks this property: if you steal the server's private key later, you can decrypt all past traffic.</p>
-
-  <h2>Encryption in Transit</h2>
-  <p>Once the handshake completes, both sides have:</p>
+  
+  <p>The certificate contains the server's public key and is signed by a Certificate Authority (CA) — like DigiCert, Let's Encrypt, or GoDaddy. Your browser comes pre-loaded with trusted CAs' public keys, so it can verify the signature.</p>
+  
+  <h3>3. Key Exchange</h3>
+  <p>Now both sides need a shared encryption key without sending it over the wire. This is where Diffie-Hellman (or its elliptic curve variant, ECDHE) comes in.</p>
+  
+  <p>The magic of Diffie-Hellman: both parties can derive the same secret value while an eavesdropper watching all messages learns nothing useful. It's like mixing colors — if you both start with a secret color and each add a public color, then swap and add your secret again, you both end up with the same mixture.</p>
+  
+  <h3>4. Finished</h3>
+  <p>Both sides send a "Finished" message encrypted with the new key. If decryption succeeds, the handshake is complete. Everything after this is encrypted with the agreed-upon algorithm.</p>
+  
+  <h2>TLS 1.3 Improvements</h2>
+  <p>TLS 1.3 (2018) streamlined the handshake from 2 round-trips to 1, and removed support for older, weaker algorithms. It also made forward secrecy mandatory — even if a server's long-term key is compromised, past sessions remain secure.</p>
+  
+  <h2>What Could Go Wrong</h2>
   <ul>
-    <li>A shared master secret</li>
-    <li>Derived session keys for encryption and MAC</li>
+    <li><strong>Expired certificates</strong> — browsers reject these outright</li>
+    <li><strong>Self-signed certificates</strong> — great for testing, but trigger warnings in browsers</li>
+    <li><strong>Weak cipher suites</strong> — old connections using RC4 or MD5 are vulnerable</li>
+    <li><strong>Certificate Authority compromises</strong> — if a CA is breached, attackers can issue fake certificates for any site</li>
+    <li><strong>Mixed content</strong> — loading HTTP resources on an HTTPS page defeats the purpose</li>
   </ul>
-
-  <p>Data is split into records, each encrypted with the bulk cipher (AES or ChaCha20) and authenticated with a MAC (or AEAD mode like GCM which combines both). TLS 1.3 uses AEAD exclusively — no more separate MAC-then-encrypt constructions that led to attacks like BEAST and Lucky Thirteen.</p>
-
-  <h2>What TLS Doesn't Do</h2>
-  <ul>
-    <li><strong>Hide metadata</strong> — IP addresses, connection timing, and packet sizes are visible</li>
-    <li><strong>Protect endpoints</strong> — If either side is compromised, TLS won't help</li>
-    <li><strong>Verify content truth</strong> — TLS only ensures privacy and integrity, not accuracy</li>
-  </ul>
-
-  <h2>The Evolution</h2>
-  <ul>
-    <li><strong>SSL 2.0/3.0</strong> — Deprecated, had fundamental flaws</li>
-    <li><strong>TLS 1.0/1.1</strong> — Deprecated in 2020, vulnerable to CBC attacks</li>
-    <li><strong>TLS 1.2</strong> — Current baseline, supports AEAD but also legacy modes</li>
-    <li><strong>TLS 1.3</strong> — Simplified handshake, 1-RTT, mandatory forward secrecy, AEAD-only</li>
-  </ul>
-
-  <h2>Why It Matters</h2>
-  <p>TLS is the foundation of web privacy. But it's not magic — it depends on:</p>
-  <ul>
-    <li>Trusted CAs (which can be compromised, as we've seen)</li>
-    <li>Secure cipher implementations (Bugs in OpenSSL, Heartbleed, etc.)</li>
-    <li>Proper configuration (weak cipher suites, misconfigured servers)</li>
-  </ul>
-
-  <p>The protocol is solid. The ecosystem around it — certificates, CAs, implementations — is where things break.</p>
+  
+  <h2>The Takeaway</h2>
+  <p>TLS isn't magic — it's a well-designed protocol that's been hardened over decades. The next time you see that lock icon, know that your browser just ran a sophisticated cryptographic negotiation in milliseconds, verifying identity, exchanging keys, and establishing an encrypted tunnel — all without you noticing.</p>
 </div>
 </body>
 </html>
