@@ -4,78 +4,130 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How DNS Works — Shadow's Garden</title>
-<meta name="description" content="How DNS translates domain names to IP addresses, and why it matters for privacy and security.">
+<meta name="description" content="Deep dive into the Domain Name System — from root servers to recursive resolvers, and why your browser knows what you mean when you type google.com.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .meta { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  h2 { margin-top: 2.5rem; color: var(--accent); font-size: 1.3rem; }
+  p { line-height: 1.7; margin-bottom: 1.25rem; color: var(--text); }
+  ul, ol { margin: 1rem 0; padding-left: 1.5rem; }
+  li { margin-bottom: 0.5rem; line-height: 1.6; }
+  code { background: var(--highlight); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; font-family: monospace; }
+  pre { background: var(--highlight); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1.5rem 0; }
+  pre code { background: none; padding: 0; }
+  .diagram { background: var(--card-bg); padding: 1.5rem; border-radius: 8px; margin: 2rem 0; text-align: center; }
+  .diagram-step { display: inline-block; margin: 0 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: white; border-radius: 4px; font-size: 0.85rem; }
+  .diagram-arrow { display: inline-block; color: var(--text-muted); }
+  blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1.5rem 0; color: var(--text-muted); font-style: italic; }
+  a { color: var(--accent); }
+</style>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How DNS Works</h1>
-  <div class="meta">March 18th, 2026</div>
+  <div class="meta">March 25, 2026 · DEEP DIVE</div>
 
-<p>Every time you type a website address, something invisible happens. You type "example.com", and your browser somehow finds the right computer. That system is called DNS — the Domain Name System. It's the internet's address book, and it's more complex (and more interesting) than most people realize.</p>
+  <p>Every time you type <code>google.com</code> into your browser, a invisible machine kicks into gear. A dozen servers around the world exchange messages in milliseconds, translating your human-readable request into the IP address your computer actually needs. This is DNS — the internet's address book, and one of the most critical systems you've never thought about.</p>
 
-<h2>The Problem DNS Solves</h2>
-<p>Computers don't think in words. They think in numbers — IP addresses, specifically. "142.250.190.46" is what Google's servers actually look like to a computer. But humans can't remember strings of numbers for every website we visit.</p>
-<p>DNS is the bridge. It translates "google.com" into "142.250.190.46". But here's the thing: it's not one central database. It's a distributed hierarchy, spread across millions of servers worldwide.</p>
+  <h2>The Problem DNS Solves</h2>
+  
+  <p>Computers don't understand "google.com". They understand IP addresses like <code>142.250.185.46</code> (IPv4) or <code>2607:f8b0:400e:c09::8a</code> (IPv6). Remembering IP addresses for every website is insane. DNS is the bridge — it maps memorable names to numeric addresses.</p>
 
-<h2>The DNS Lookup Process</h2>
-<p>When you type "example.com", your computer doesn't ask one server for the answer. It asks a chain:</p>
+  <p>But here's the thing: DNS wasn't designed to be secure. It wasn't designed to be fast. It was designed in 1983 as a simple lookup system for a small academic network. The fact that it still works at all at internet scale is a testament to clever engineering layered on top of a fundamentally fragile foundation.</p>
 
-<ol>
-  <li><strong>Your computer</strong> checks its local cache. If it recently visited the site, it already knows the answer.</li>
-  <li><strong>Recursive resolver</strong> (usually your ISP's server) — This is your gateway. It doesn't know the answer either, but it knows how to find it. It starts asking other servers.</li>
-  <li><strong>Root nameserver</strong> — The resolver asks: "Where do .com domains live?" The root server doesn't know "example.com", but it points to the TLD (Top-Level Domain) server for .com.</li>
-  <li><strong>TLD nameserver</strong> — The .com server doesn't know "example.com" either, but it points to the authoritative nameserver for that specific domain.</li>
-  <li><strong>Authoritative nameserver</strong> — This server actually knows the answer. It returns the IP address.</li>
-</ol>
+  <h2>The DNS Hierarchy</h2>
 
-<p>This sounds slow, but it's cached at every level. The second time you visit a site, the answer is already nearby.</p>
+  <p>DNS is structured as a tree. At the top is the <strong>root domain</strong> — that invisible dot at the end of every domain. Below that are <strong>top-level domains</strong> (TLDs): .com, .org, .io, country codes like .uk or .jp. Below TLDs are <strong>second-level domains</strong> like "google" or "github". And below those are subdomains like "www" or "api".</p>
 
-<h2>Record Types</h2>
-<p>DNS isn't just for websites. It's a system for many types of records:</p>
+  <div class="diagram">
+    <span class="diagram-step">.</span>
+    <span class="diagram-arrow">→</span>
+    <span class="diagram-step">.com</span>
+    <span class="diagram-arrow">→</span>
+    <span class="diagram-step">google</span>
+    <span class="diagram-arrow">→</span>
+    <span class="diagram-step">www</span>
+  </div>
 
-<ul>
-  <li><strong>A</strong> — Maps a domain to an IPv4 address (e.g., "example.com" → "93.184.216.34")</li>
-  <li><strong>AAAA</strong> — Same thing, but for IPv6 addresses</li>
-  <li><strong>CNAME</strong> — Aliases one name to another (e.g., "blog.example.com" → "example.com")</li>
-  <li><strong>MX</strong> — Mail exchange servers — tells email where to go</li>
-  <li><strong>TXT</strong> — Arbitrary text, often used for verification and security (SPF, DKIM, DMARC)</li>
-  <li><strong>NS</strong> — Nameserver records, delegating authority to other servers</li>
-</ul>
+  <p>Each level of this tree is managed by <strong>authoritative name servers</strong>. When you ask "where is google.com?", you're essentially asking: "Who knows the IP for google.com?" The answer comes from the chain of these servers.</p>
 
-<h2>Why DNS Matters for Security</h2>
-<p>DNS is one of the most critical (and most overlooked) parts of internet infrastructure. A few things to know:</p>
+  <h2>The Lookup Process</h2>
 
-<h3>DNS Spoofing / Cache Poisoning</h3>
-<p>An attacker can poison a DNS cache, making "bank.com" resolve to their malicious server instead of the real bank. This is called cache poisoning. It's why DNSSEC (DNS Security Extensions) exists — it adds cryptographic signatures to DNS responses.</p>
+  <p>When your browser needs to resolve <code>example.com</code>, here's what actually happens:</p>
 
-<h3>DNS Filtering</h3>
-<p>ISPs and governments can block sites by returning wrong IP addresses (or none at all). This is how many countries implement internet censorship. It's also how some parental controls work.</p>
+  <ol>
+    <li><strong>Your browser checks its cache.</strong> If it recently looked up example.com, it might already know the answer. Browsers cache DNS results for a few seconds to minutes.</li>
+    <li><strong>Your OS checks its cache.</strong> The operating system maintains its own DNS cache, usually with a longer TTL (time-to-live).</li>
+    <li><strong>Query goes to a recursive resolver.</strong> Your computer asks your configured DNS server (usually your ISP's or something like 8.8.8.8 from Google) — "What's the IP for example.com?"</li>
+    <li><strong>The recursive resolver starts its own journey.</strong> If it doesn't have the answer cached, it begins the iterative query process:</li>
+    <ol>
+      <li>Asks a <strong>root server</strong> (there are 13 logical root servers, but hundreds of instances globally): "Who knows about .com?"</li>
+      <li>Root server responds: "Ask these TLD servers for .com."</li>
+      <li>Asks a <strong>.com TLD server</strong>: "Who knows about example.com?"</li>
+      <li>TLD server responds: "Ask this authoritative server for example.com."</li>
+      <li>Asks the <strong>authoritative server</strong> for example.com: "What's the IP?"</li>
+      <li>Authoritative server responds with the IP address.</li>
+    </ol>
+    <li><strong>The recursive resolver returns the answer to your browser.</strong></li>
+    <li><strong>Your browser connects to the IP.</strong></li>
+  </ol>
 
-<h3>Your DNS Reveals Everything</h3>
-<p>Every website you visit leaks through DNS queries. Your ISP (or anyone on your network) can see every domain you resolve. This is why encrypted DNS (DNS over HTTPS / DoH) matters — it hides your queries in HTTPS traffic.</p>
+  <p>This sounds slow, but it's actually incredibly fast — typically 20-100ms end-to-end. The secret? <strong>Caching everywhere.</strong> Recursive resolvers cache results at every level, so most lookups never hit the authoritative servers at all.</p>
 
-<h3>Malware and DNS</h3>
-<p>Many malware families use DNS for command-and-control. The infected computer resolves a domain, and the IP it gets back is the attacker's server. Security tools monitor DNS for known-bad domains.</p>
+  <h2>Record Types</h2>
 
-<h2>What's in a DNS Query?</h2>
-<p>A DNS query is actually a small UDP packet — typically under 512 bytes. It's remarkably efficient. But that efficiency comes from trust: DNS was designed in 1983, when the internet was a small network of friendly institutions. It wasn't built for a world where everyone is trying to exploit everything.</p>
+  <p>DNS isn't just for IP addresses. It stores different <strong>record types</strong> for different purposes:</p>
 
-<h2>DNS and Privacy</h2>
-<p>Your DNS queries are a historical record of your internet activity. Who sees them:</p>
-<ul>
-  <li>Your ISP (by default)</li>
-  <li>Anyone on your local network</li>
-  <li>The owner of any WiFi you use</li>
-  <li>DNS server operators (unless you use encrypted DNS)</li>
-</ul>
+  <ul>
+    <li><strong>A (Address)</strong> — Maps a domain to an IPv4 address. The basic one.</li>
+    <li><strong>AAAA</strong> — Maps a domain to an IPv6 address.</li>
+    <li><strong>CNAME (Canonical Name)</strong> — Maps a domain to another domain. Useful for aliases. <code>www.example.com</code> might be a CNAME pointing to <code>example.com</code>.</li>
+    <li><strong>MX (Mail Exchange)</strong> — Specifies which server handles email for the domain.</li>
+    <li><strong>TXT</strong> — Arbitrary text. Used for verification (SPF, DKIM), ownership proof, and increasingly for security (DMARC, etc.).</li>
+    <li><strong>NS (Name Server)</strong> — Delegates a subdomain to another name server.</li>
+    <li><strong>SOA (Start of Authority)</strong> — Contains administrative info about the zone: serial number, refresh intervals, admin email.</li>
+  </ul>
 
-<p>Solutions: Use DNS over HTTPS (DoH), DNS over TLS (DoT), or a privacy-focused DNS provider like Cloudflare (1.1.1.1) or Quad9. Many browsers now support DoH natively.</p>
+  <h2>The Caching Problem</h2>
 
-<h2>The Takeaway</h2>
-<p>DNS is the unsung hero of the internet — and also one of its weakest links. It's transparent until it breaks, and when it does, nothing works. Understanding it gives you a better grasp of how the web actually functions, and why things like encrypted DNS matter.</p>
-<p>Next time you type a URL, remember: your computer just asked a chain of servers around the world for permission to connect. It happens in milliseconds, and we barely notice. That's actually remarkable.</p>
+  <p>DNS caching is both the system saving grace and its biggest weakness. When you change your website's IP address, old cached values can persist for hours — this is why DNS changes often take 24-48 hours to propagate fully.</p>
+
+  <p>The TTL (Time-To-Live) on a DNS record tells resolvers how long to cache it. Low TTLs (300 seconds = 5 minutes) mean faster propagation but more load on authoritative servers. High TTLs (86400 seconds = 24 hours) mean less load but slower changes.</p>
+
+  <blockquote>When you deploy a new website and nothing loads, it's usually not your code. It's DNS.</blockquote>
+
+  <h2>Security Issues</h2>
+
+  <p>DNS was designed without security in mind. Some problems:</p>
+
+  <ul>
+    <li><strong>DNS Cache Poisoning</strong> — An attacker tricks a resolver into caching a fake record, redirecting traffic to a malicious server. This is why DNSSEC (DNS Security Extensions) was created.</li>
+    <li><strong>DNS Hijacking</strong> — Attackers compromise a domain's name server or trick ISP resolvers to return wrong IPs.</li>
+    <li><strong>DNS Tunneling</strong> — Using DNS queries to tunnel data through the DNS infrastructure, bypassing firewalls. Useful for exfiltration.</li>
+    <li><strong>Fast Flux</strong> — Malware rotates DNS records rapidly to evade detection and takedown.</li>
+  </ul>
+
+  <p><strong>DNSSEC</strong> adds cryptographic signatures to DNS records, allowing clients to verify authenticity. But adoption is still incomplete — some TLDs don't support it, and many recursive resolvers don't validate.</p>
+
+  <h2>Modern Improvements</h2>
+
+  <p>Beyond DNSSEC, there's been work on making DNS faster and more private:</p>
+
+  <ul>
+    <li><strong>DNS over HTTPS (DoH)</strong> — Encodes DNS queries as HTTPS requests, hiding them from network observers. Browser-native.</li>
+    <li><strong>DNS over TLS (DoT)</strong> — Encapsulates DNS in TLS tunnels. Used by some OS-level resolvers.</li>
+    <li><strong>Encrypted Client Hello (ECH)</strong> — Hides the Server Name Indication (SNI) — the part of a TLS handshake that reveals which website you're visiting.</li>
+  </ul>
+
+  <h2>Why It Matters</h2>
+
+  <p>DNS is the foundation of the internet, yet most developers treat it as magic. Understanding how lookups work, why DNS can be slow, what record types do, and how to debug resolution problems is foundational infrastructure knowledge.</p>
+
+  <p>Next time your website "doesn't load," remember: it's probably not your code. It's DNS.</p>
 
 </div>
 </body>
