@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encryption/Decryption Tool — Shadow's Garden</title>
+<meta name="description" content="Encrypt and decrypt text with AES-256-GCM locally in your browser. Nothing leaves your device.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; padding: 2rem; }
+  .container { max-width: 700px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .tool-section { background: var(--card-bg); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .tool-section h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-muted); }
+  textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-family: monospace; font-size: 0.9rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .password-field { display: flex; gap: 0.5rem; margin: 1rem 0; }
+  .password-field input { flex: 1; padding: 0.75rem; font-size: 1rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+  .password-field input::placeholder { color: var(--text-muted); }
+  .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .btn { padding: 0.75rem 1.5rem; font-size: 0.95rem; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.9; }
+  .btn.secondary { background: var(--border); }
+  .btn.danger { background: #dc3545; }
+  .result-box { margin-top: 1rem; padding: 1rem; background: var(--highlight); border-radius: 8px; display: none; }
+  .result-box.show { display: block; }
+  .result-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .result-content { font-family: monospace; word-break: break-all; font-size: 0.9rem; }
+  .copy-btn { float: right; font-size: 0.75rem; padding: 0.3rem 0.6rem; background: var(--border); color: var(--text); border: none; border-radius: 4px; cursor: pointer; }
+  .error { color: #f77; font-size: 0.9rem; margin-top: 0.5rem; display: none; }
+  .error.show { display: block; }
+  .info { font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>🔐 Encryption/Decryption Tool</h1>
+    <div class="subtitle">AES-256-GCM — everything runs locally in your browser</div>
+    
+    <div class="tool-section">
+      <h2>Encrypt</h2>
+      <textarea id="encrypt-input" placeholder="Enter text to encrypt..."></textarea>
+      <div class="password-field">
+        <input type="password" id="encrypt-password" placeholder="Enter encryption password">
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="encrypt-btn">Encrypt</button>
+        <button class="btn secondary" id="clear-encrypt">Clear</button>
+      </div>
+      <div class="error" id="encrypt-error"></div>
+      <div class="result-box" id="encrypt-result">
+        <div class="result-label">Encrypted (Base64) <button class="copy-btn" data-target="encrypted-output">Copy</button></div>
+        <div class="result-content" id="encrypted-output"></div>
+      </div>
+    </div>
+    
+    <div class="tool-section">
+      <h2>Decrypt</h2>
+      <textarea id="decrypt-input" placeholder="Enter encrypted text (Base64)..."></textarea>
+      <div class="password-field">
+        <input type="password" id="decrypt-password" placeholder="Enter decryption password">
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="decrypt-btn">Decrypt</button>
+        <button class="btn secondary" id="clear-decrypt">Clear</button>
+      </div>
+      <div class="error" id="decrypt-error"></div>
+      <div class="result-box" id="decrypt-result">
+        <div class="result-label">Decrypted Text <button class="copy-btn" data-target="decrypted-output">Copy</button></div>
+        <div class="result-content" id="decrypted-output"></div>
+      </div>
+    </div>
+    
+    <div class="info">
+      Uses AES-256-GCM with PBKDF2 key derivation (100,000 iterations). The salt is prepended to the ciphertext. Your data never leaves your browser.
+    </div>
+  </div>
+  
+  <script>
+    // Crypto utilities using Web Crypto API
+    async function deriveKey(password, salt) {
+      const encoder = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+    
+    async function encrypt(plaintext, password) {
+      const encoder = new TextEncoder();
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(password, salt);
+      
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        encoder.encode(plaintext)
+      );
+      
+      // Combine salt + iv + ciphertext, then base64 encode
+      const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+      combined.set(salt, 0);
+      combined.set(iv, salt.length);
+      combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
+      
+      return btoa(String.fromCharCode(...combined));
+    }
+    
+    async function decrypt(encryptedBase64, password) {
+      try {
+        const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+        const salt = combined.slice(0, 16);
+        const iv = combined.slice(16, 28);
+        const ciphertext = combined.slice(28);
+        
+        const key = await deriveKey(password, salt);
+        const plaintext = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          ciphertext
+        );
+        
+        return new TextDecoder().decode(plaintext);
+      } catch (e) {
+        throw new Error('Decryption failed. Wrong password or corrupted data.');
+      }
+    }
+    
+    // UI handlers
+    document.getElementById('encrypt-btn').addEventListener('click', async () => {
+      const input = document.getElementById('encrypt-input').value;
+      const password = document.getElementById('encrypt-password').value;
+      const errorEl = document.getElementById('encrypt-error');
+      const resultEl = document.getElementById('encrypt-result');
+      
+      errorEl.classList.remove('show');
+      resultEl.classList.remove('show');
+      
+      if (!input) {
+        errorEl.textContent = 'Please enter text to encrypt';
+        errorEl.classList.add('show');
+        return;
+      }
+      if (!password) {
+        errorEl.textContent = 'Please enter a password';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      try {
+        const encrypted = await encrypt(input, password);
+        document.getElementById('encrypted-output').textContent = encrypted;
+        resultEl.classList.add('show');
+      } catch (e) {
+        errorEl.textContent = 'Encryption failed: ' + e.message;
+        errorEl.classList.add('show');
+      }
+    });
+    
+    document.getElementById('decrypt-btn').addEventListener('click', async () => {
+      const input = document.getElementById('decrypt-input').value;
+      const password = document.getElementById('decrypt-password').value;
+      const errorEl = document.getElementById('decrypt-error');
+      const resultEl = document.getElementById('decrypt-result');
+      
+      errorEl.classList.remove('show');
+      resultEl.classList.remove('show');
+      
+      if (!input) {
+        errorEl.textContent = 'Please enter encrypted text';
+        errorEl.classList.add('show');
+        return;
+      }
+      if (!password) {
+        errorEl.textContent = 'Please enter the password';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      try {
+        const decrypted = await decrypt(input, password);
+        document.getElementById('decrypted-output').textContent = decrypted;
+        resultEl.classList.add('show');
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.classList.add('show');
+      }
+    });
+    
+    document.getElementById('clear-encrypt').addEventListener('click', () => {
+      document.getElementById('encrypt-input').value = '';
+      document.getElementById('encrypt-password').value = '';
+      document.getElementById('encrypt-result').classList.remove('show');
+      document.getElementById('encrypt-error').classList.remove('show');
+    });
+    
+    document.getElementById('clear-decrypt').addEventListener('click', () => {
+      document.getElementById('decrypt-input').value = '';
+      document.getElementById('decrypt-password').value = '';
+      document.getElementById('decrypt-result').classList.remove('show');
+      document.getElementById('decrypt-error').classList.remove('show');
+    });
+    
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const text = document.getElementById(targetId).textContent;
+        navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
+    });
+  </script>
+</body>
+</html>
