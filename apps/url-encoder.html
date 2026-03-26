@@ -4,121 +4,131 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>URL Encoder/Decoder — Shadow's Garden</title>
-<meta name="description" content="Encode and decode URLs instantly. Handle special characters, query parameters, and full URLs with ease.">
+<meta name="description" content="Encode special characters in URLs or decode encoded URLs — all local in your browser</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
-  .encoder { background: var(--card-bg, #1a1a2e); padding: 2rem; border-radius: 12px; width: 100%; max-width: 560px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
-  h1 { margin: 0 0 1.5rem 0; font-size: 1.5rem; text-align: center; }
+  body { min-height: 100vh; }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
   .input-group { margin-bottom: 1.5rem; }
-  label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted, #888); }
-  textarea { width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--input-bg, #0f0f1a); color: var(--text, #eee); font-family: monospace; min-height: 100px; resize: vertical; }
-  textarea:focus { outline: 2px solid var(--accent, #646cff); border-color: transparent; }
-  .buttons { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-  .btn { flex: 1; padding: 0.75rem; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; font-weight: 500; }
-  .btn-encode { background: var(--accent, #646cff); color: white; }
-  .btn-decode { background: var(--highlight, #16213e); color: var(--text, #eee); border: 1px solid var(--border, #333); }
-  .btn:hover { opacity: 0.9; }
-  .result-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border, #333); }
-  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-  .result-header label { margin-bottom: 0; }
-  .copy-btn { padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--highlight, #16213e); color: var(--text, #eee); border: 1px solid var(--border, #333); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-  .copy-btn:hover { background: var(--accent, #646cff); color: white; border-color: var(--accent, #646cff); }
-  .copy-btn.copied { background: var(--success, #4ade80); color: #000; border-color: var(--success, #4ade80); }
-  .result-text { width: 100%; padding: 0.75rem; font-size: 0.95rem; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--input-bg, #0f0f1a); color: var(--text, #eee); font-family: monospace; min-height: 80px; resize: vertical; word-break: break-all; }
-  .error { color: var(--error, #ef4444); font-size: 0.9rem; margin-top: 0.5rem; display: none; }
-  .error.show { display: block; }
-  .info { font-size: 0.85rem; color: var(--text-muted, #888); margin-top: 1rem; text-align: center; }
-  @media (max-width: 600px) { .encoder { padding: 1.5rem; } .buttons { flex-direction: column; } }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-alpha);
+  }
+  .buttons { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  button {
+    padding: 0.7rem 1.4rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--accent);
+    color: var(--bg);
+  }
+  button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  button.secondary { background: var(--border); color: var(--text); }
+  button.secondary:hover { background: var(--text-muted); }
+  .result-area { background: var(--bg-secondary); border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+  .result-area label { margin-bottom: 0.75rem; }
+  .copy-btn { margin-left: 0.5rem; font-size: 0.8rem; padding: 0.3rem 0.6rem; background: var(--border); color: var(--text); }
+  .copy-btn:hover { background: var(--text-muted); }
+  .actions-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+  .clear-btn { background: transparent; color: var(--text-muted); font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+  .clear-btn:hover { color: var(--text); background: var(--border); }
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: var(--bg); padding: 0.6rem 1.2rem;
+    border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="encoder">
-    <h1>🔗 URL Encoder/Decoder</h1>
-    
-    <div class="input-group">
-      <label>Enter URL or text</label>
-      <textarea id="input" placeholder="Paste your URL or text here..."></textarea>
-    </div>
-    
-    <div class="buttons">
-      <button class="btn btn-encode" id="encode-btn">Encode</button>
-      <button class="btn btn-decode" id="decode-btn">Decode</button>
-    </div>
-    
-    <div class="result-section">
-      <div class="result-header">
-        <label>Result</label>
-        <button class="copy-btn" id="copy-btn">Copy</button>
-      </div>
-      <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
-      <div class="error" id="error">Invalid input for decoding</div>
-    </div>
-    
-    <div class="info">Use encode for special characters, decode to reverse</div>
+<div class="container">
+  <h1>URL Encoder/Decoder</h1>
+  <p class="subtitle">Encode special characters for URLs or decode encoded strings — 100% local, nothing leaves your browser</p>
+  
+  <div class="input-group">
+    <label for="input">Enter URL or text</label>
+    <textarea id="input" placeholder="Paste your URL or text here..."></textarea>
   </div>
   
-  <script>
-    const input = document.getElementById('input');
-    const output = document.getElementById('output');
-    const encodeBtn = document.getElementById('encode-btn');
-    const decodeBtn = document.getElementById('decode-btn');
-    const copyBtn = document.getElementById('copy-btn');
-    const error = document.getElementById('error');
-    
-    function encode() {
-      error.classList.remove('show');
-      try {
-        const result = encodeURIComponent(input.value);
-        output.value = result;
-      } catch (e) {
-        error.textContent = 'Encoding failed';
-        error.classList.add('show');
-      }
+  <div class="buttons">
+    <button id="encodeBtn">Encode</button>
+    <button id="decodeBtn">Decode</button>
+    <button id="encodeAllBtn" class="secondary">Encode All</button>
+    <button id="decodeAllBtn" class="secondary">Decode All</button>
+  </div>
+  
+  <div class="result-area">
+    <div class="actions-row">
+      <label for="output" style="margin:0">Result</label>
+      <button class="copy-btn" id="copyBtn">Copy</button>
+      <button class="clear-btn" id="clearBtn">Clear All</button>
+    </div>
+    <textarea id="output" readonly placeholder="Output will appear here..."></textarea>
+  </div>
+</div>
+<div class="toast" id="toast">Copied!</div>
+<script>
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const toast = document.getElementById('toast');
+  
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1500);
+  }
+  
+  document.getElementById('encodeBtn').addEventListener('click', () => {
+    try { output.value = encodeURIComponent(input.value); } 
+    catch(e) { output.value = 'Error: ' + e.message; }
+  });
+  
+  document.getElementById('decodeBtn').addEventListener('click', () => {
+    try { output.value = decodeURIComponent(input.value); }
+    catch(e) { output.value = 'Error: Invalid encoded string'; }
+  });
+  
+  document.getElementById('encodeAllBtn').addEventListener('click', () => {
+    try { output.value = encodeURI(input.value); }
+    catch(e) { output.value = 'Error: ' + e.message; }
+  });
+  
+  document.getElementById('decodeAllBtn').addEventListener('click', () => {
+    try { output.value = decodeURI(input.value); }
+    catch(e) { output.value = 'Error: Invalid encoded string'; }
+  });
+  
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    if (output.value) {
+      navigator.clipboard.writeText(output.value).then(() => showToast('Copied!'));
     }
-    
-    function decode() {
-      error.classList.remove('show');
-      try {
-        const result = decodeURIComponent(input.value);
-        if (result === input.value && !input.value.includes('%')) {
-          // Might not be encoded, still return but warn
-          output.value = result;
-        } else {
-          output.value = result;
-        }
-      } catch (e) {
-        error.textContent = 'Invalid URL-encoded string';
-        error.classList.add('show');
-        output.value = '';
-      }
-    }
-    
-    function copy() {
-      if (!output.value) return;
-      navigator.clipboard.writeText(output.value).then(() => {
-        copyBtn.textContent = 'Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy';
-          copyBtn.classList.remove('copied');
-        }, 1500);
-      });
-    }
-    
-    encodeBtn.addEventListener('click', encode);
-    decodeBtn.addEventListener('click', decode);
-    copyBtn.addEventListener('click', copy);
-    
-    // Also allow Enter in input (with Ctrl/Cmd for decode)
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        decode();
-      } else if (e.key === 'Enter') {
-        encode();
-      }
-    });
-  </script>
+  });
+  
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    input.value = '';
+    output.value = '';
+  });
+</script>
 </body>
 </html>
