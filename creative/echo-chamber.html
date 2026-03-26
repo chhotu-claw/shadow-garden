@@ -4,223 +4,131 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="Watch three AI agents debate each other in real-time. No humans allowed.">
+<meta name="description" content="Type a word and watch it echo back — but changed. Each echo transforms based on how you type it.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; padding: 2rem; }
-  .container { max-width: 900px; margin: 0 auto; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-  .input-area { margin-bottom: 2rem; }
-  .input-area input { width: 100%; padding: 1rem; font-size: 1.1rem; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
-  .input-area input:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .debate-stage { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
-  .agent { background: var(--card-bg); border-radius: 12px; padding: 1.25rem; min-height: 300px; border: 2px solid var(--border); display: flex; flex-direction: column; }
-  .agent.skeptic { border-color: #e74c3c; }
-  .agent.optimist { border-color: #2ecc71; }
-  .agent.pragmatist { border-color: #3498db; }
-  .agent-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
-  .agent-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-  .skeptic .agent-icon { background: #e74c3c; }
-  .optimist .agent-icon { background: #2ecc71; }
-  .pragmatist .agent-icon { background: #3498db; }
-  .agent-name { font-weight: bold; font-size: 1.1rem; }
-  .agent-role { font-size: 0.8rem; color: var(--text-muted); }
-  .agent-dialogue { flex: 1; overflow-y: auto; font-size: 0.9rem; line-height: 1.6; }
-  .dialogue-bubble { padding: 0.75rem; margin-bottom: 0.75rem; border-radius: 8px; background: var(--highlight); animation: fadeIn 0.3s ease; }
-  .dialogue-bubble.speaking { border-left: 3px solid var(--accent); }
-  .dialogue-bubble .speaker { font-weight: bold; font-size: 0.75rem; margin-bottom: 0.25rem; opacity: 0.7; }
-  .controls { display: flex; gap: 1rem; justify-content: center; }
-  .btn { padding: 0.75rem 1.5rem; font-size: 1rem; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.secondary { background: var(--border); }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  @media (max-width: 700px) { .debate-stage { grid-template-columns: 1fr; } }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0a;
+    overflow: hidden;
+  }
+  #input-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    padding: 0 1rem;
+  }
+  #word-input {
+    width: 100%;
+    padding: 1.5rem;
+    font-size: 2rem;
+    text-align: center;
+    background: transparent;
+    border: 2px solid #333;
+    border-radius: 12px;
+    color: #e5e5e5;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  #word-input:focus {
+    border-color: #6cb6ff;
+    box-shadow: 0 0 30px rgba(108, 182, 255, 0.15);
+  }
+  #word-input::placeholder {
+    color: #444;
+  }
+  #echoes {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .echo {
+    font-size: 1.2rem;
+    color: #666;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeUp 2s forwards;
+    letter-spacing: 0.1em;
+  }
+  @keyframes fadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .echo:nth-child(1) { animation-delay: 0s; color: #555; }
+  .echo:nth-child(2) { animation-delay: 0.5s; color: #5a5a5a; }
+  .echo:nth-child(3) { animation-delay: 1s; color: #606060; }
+  .echo:nth-child(4) { animation-delay: 1.5s; color: #666; }
+  .echo:nth-child(5) { animation-delay: 2s; color: #6a6a6a; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>💬 Echo Chamber</h1>
-    <div class="subtitle">Three AI agents debate. No humans allowed.</div>
-    
-    <div class="input-area">
-      <input type="text" id="topic-input" placeholder="Enter a topic for the agents to debate..." autofocus>
-    </div>
-    
-    <div class="debate-stage">
-      <div class="agent skeptic">
-        <div class="agent-header">
-          <div class="agent-icon">🤔</div>
-          <div>
-            <div class="agent-name">Skeptic</div>
-            <div class="agent-role">Questions everything</div>
-          </div>
-        </div>
-        <div class="agent-dialogue" id="skeptic-dialogue"></div>
-      </div>
-      
-      <div class="agent optimist">
-        <div class="agent-header">
-          <div class="agent-icon">🌟</div>
-          <div>
-            <div class="agent-name">Optimist</div>
-            <div class="agent-role">Sees the bright side</div>
-          </div>
-        </div>
-        <div class="agent-dialogue" id="optimist-dialogue"></div>
-      </div>
-      
-      <div class="agent pragmatist">
-        <div class="agent-header">
-          <div class="agent-icon">🎯</div>
-          <div>
-            <div class="agent-name">Pragmatist</div>
-            <div class="agent-role">Gets things done</div>
-          </div>
-        </div>
-        <div class="agent-dialogue" id="pragmatist-dialogue"></div>
-      </div>
-    </div>
-    
-    <div class="controls">
-      <button class="btn" id="start-btn">Start Debate</button>
-      <button class="btn secondary" id="reset-btn">Reset</button>
-    </div>
+  <div id="input-container">
+    <input type="text" id="word-input" placeholder="type a word..." autocomplete="off" spellcheck="false">
+    <div id="echoes"></div>
   </div>
-  
   <script>
-    const topicInput = document.getElementById('topic-input');
-    const startBtn = document.getElementById('start-btn');
-    const resetBtn = document.getElementById('reset-btn');
+    const input = document.getElementById('word-input');
+    const echoes = document.getElementById('echoes');
+    const transforms = [
+      w => w.split('').reverse().join(''),
+      w => w.replace(/[aeiou]/g, ''),
+      w => w.slice(0, Math.floor(w.length / 2)) + w.slice(Math.floor(w.length / 2)).toUpperCase(),
+      w => w.replace(/(.)\1/g, '$1'),
+      w => w.length > 3 ? w.slice(1, -1) : w,
+      w => w.split('').map((c, i) => i % 2 ? c.toUpperCase() : c).join(''),
+      w => w.split('').sort(() => Math.random() - 0.5).join(''),
+      w => w + (w.length % 2 ? '?' : ''),
+      w => w.charCodeAt(0) % 2 ? w.toUpperCase() : w.toLowerCase(),
+      w => w.slice(-3) + w.slice(0, -3),
+    ];
     
-    const agents = {
-      skeptic: { dialogue: [], icon: '🤔' },
-      optimist: { dialogue: [], icon: '🌟' },
-      pragmatist: { dialogue: [], icon: '🎯' }
-    };
-    
-    const perspectives = {
-      skeptic: [
-        "But have we considered the opposite?",
-        "This assumes facts not in evidence.",
-        "Where's the evidence for this claim?",
-        "I remain unconvinced. The problem is more fundamental.",
-        "That's one interpretation. Here's another...",
-        "We need to examine our assumptions first.",
-        "This is exactly the kind of thinking that got us here.",
-        "Wait — what are we actually optimizing for?"
-      ],
-      optimist: [
-        "This is incredibly exciting!",
-        "Think about the possibilities this opens up!",
-        "We're only getting started — the best is yet to come!",
-        "This could transform everything we know!",
-        "The upside is enormous if we execute well.",
-        "Why not embrace this? It could be wonderful!",
-        "Every challenge is just an opportunity in disguise.",
-        "This is the beginning of something amazing!"
-      ],
-      pragmatist: [
-        "Let's focus on what actually works.",
-        "The question is: how do we build this?",
-        "Here's the practical approach...",
-        "We need to ship this and iterate.",
-        "What metric are we actually moving?",
-        "Let's start small and measure.",
-        "The implementation matters more than the vision.",
-        "What's the minimum viable version?"
-      ]
-    };
-    
-    let debateActive = false;
-    let currentSpeaker = 0;
-    const speakerOrder = ['skeptic', 'optimist', 'pragmatist', 'pragmatist', 'optimist', 'skeptic'];
-    let round = 0;
-    
-    function addDialogue(agent, text, isSpeaking = false) {
-      const container = document.getElementById(agent + '-dialogue');
-      const bubble = document.createElement('div');
-      bubble.className = 'dialogue-bubble' + (isSpeaking ? ' speaking' : '');
-      bubble.innerHTML = `<div class="speaker">${agents[agent].icon} ${agent.charAt(0).toUpperCase() + agent.slice(1)}</div>${text}`;
-      container.appendChild(bubble);
-      container.scrollTop = container.scrollHeight;
+    function transform(word) {
+      if (!word || word.length < 2) return null;
+      const fn = transforms[Math.floor(Math.random() * transforms.length)];
+      const result = fn(word);
+      return result !== word ? result : null;
     }
     
-    function getResponse(agent, topic, round) {
-      const lines = perspectives[agent];
-      const baseIdx = (round * 3 + (agent === 'skeptic' ? 0 : agent === 'optimist' ? 1 : 2)) % lines.length;
-      return lines[baseIdx];
-    }
-    
-    function runDebate() {
-      if (!debateActive) return;
+    let typingTimeout;
+    input.addEventListener('input', (e) => {
+      const word = e.target.value.trim();
       
-      const topic = topicInput.value || 'the future of AI';
-      const agent = speakerOrder[currentSpeaker];
-      const response = getResponse(agent, topic, round);
+      clearTimeout(typingTimeout);
       
-      addDialogue(agent, response, true);
+      echoes.innerHTML = '';
       
-      currentSpeaker++;
-      if (currentSpeaker >= speakerOrder.length) {
-        currentSpeaker = 0;
-        round++;
+      if (word.length < 2) return;
+      
+      const variants = [];
+      for (let i = 0; i < 5; i++) {
+        const t = transform(word);
+        if (t && !variants.includes(t)) variants.push(t);
       }
       
-      if (round < 6) {
-        setTimeout(runDebate, 1500 + Math.random() * 1000);
-      } else {
-        debateActive = false;
-        startBtn.disabled = false;
-        startBtn.textContent = 'Start Again';
-      }
-    }
-    
-    startBtn.addEventListener('click', () => {
-      if (debateActive) return;
-      
-      const topic = topicInput.value.trim();
-      if (!topic) {
-        topicInput.focus();
-        return;
-      }
-      
-      debateActive = true;
-      startBtn.disabled = true;
-      startBtn.textContent = 'Debating...';
-      
-      // Clear previous
-      Object.keys(agents).forEach(a => {
-        document.getElementById(a + '-dialogue').innerHTML = '';
+      variants.forEach(v => {
+        const el = document.createElement('div');
+        el.className = 'echo';
+        el.textContent = v;
+        echoes.appendChild(el);
       });
       
-      round = 0;
-      currentSpeaker = 0;
-      
-      // Opening statements
-      addDialogue('skeptic', `Let's talk about "${topic}". But first — what do we actually mean by that?`);
-      setTimeout(() => {
-        addDialogue('optimist', `Oh, this is going to be great! "${topic}" represents so much potential!`);
-        setTimeout(() => {
-          addDialogue('pragmatist', `Cool. So how are we implementing "${topic}"?`);
-          setTimeout(runDebate, 2000);
-        }, 1500);
-      }, 1500);
-    });
-    
-    resetBtn.addEventListener('click', () => {
-      debateActive = false;
-      Object.keys(agents).forEach(a => {
-        document.getElementById(a + '-dialogue').innerHTML = '';
-      });
-      startBtn.disabled = false;
-      startBtn.textContent = 'Start Debate';
-      topicInput.value = '';
-    });
-    
-    topicInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') startBtn.click();
+      typingTimeout = setTimeout(() => {
+        // echoes.innerHTML = '';
+      }, 5000);
     });
   </script>
 </body>
