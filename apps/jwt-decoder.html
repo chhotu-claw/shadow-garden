@@ -4,170 +4,234 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JWT Decoder — Shadow's Garden</title>
-<meta name="description" content="Decode and inspect JWT tokens. See header, payload, and signature at a glance.">
+<meta name="description" content="Decode and inspect JWT tokens locally in your browser. See header, payload, and signature. Nothing leaves your device.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 20px; max-width: 900px; margin: 0 auto; }
-  .container { background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 20px; }
-  textarea { width: 100%; height: 80px; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: monospace; font-size: 14px; resize: vertical; }
-  button { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-right: 8px; margin-top: 8px; }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: var(--bg-tertiary); }
-  .output { margin-top: 20px; }
-  .section { background: var(--bg); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-  .section h3 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: var(--text-secondary); }
-  .section-header { background: #6366f1; }
-  .section-payload { background: #22c55e; }
-  .section-signature { background: #f59e0b; }
-  pre { margin: 0; white-space: pre-wrap; word-break: break-all; font-size: 13px; line-height: 1.5; }
-  .error { color: #ef4444; padding: 12px; background: #fef2f2; border-radius: 8px; display: none; }
-  .token-parts { display: flex; gap: 8px; margin-bottom: 16px; }
-  .token-part { flex: 1; padding: 8px 12px; border-radius: 6px; font-size: 12px; text-align: center; }
-  .token-header { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
-  .token-payload { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-  .token-sig { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-  .copy-btn { font-size: 12px; padding: 4px 8px; margin: 0; }
-  .meta-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
-  .meta-item { font-size: 13px; }
-  .meta-item span { color: var(--text-secondary); }
-  .expired { color: #ef4444; }
-  .valid { color: #22c55e; }
+  body {
+    font-family: var(--font-mono);
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+  textarea {
+    width: 100%;
+    height: 100px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 1rem;
+    border-radius: 8px;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .output-section {
+    margin-top: 2rem;
+    display: none;
+  }
+  .output-section.visible {
+    display: block;
+  }
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    margin-top: 1.5rem;
+  }
+  .section-title:first-of-type {
+    margin-top: 0;
+  }
+  pre {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .header { border-left: 3px solid #f43f5e; }
+  .payload { border-left: 3px solid #8b5cf6; }
+  .signature { border-left: 3px solid #10b981; }
+  .error {
+    background: rgba(244, 63, 94, 0.1);
+    border-color: #f43f5e;
+    color: #f43f5e;
+  }
+  .meta-info {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+  .meta-item {
+    background: var(--bg-secondary);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+  }
+  .meta-label {
+    color: var(--text-muted);
+    margin-right: 0.5rem;
+  }
+  .valid {
+    color: #10b981;
+  }
+  .expired {
+    color: #f43f5e;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>JWT Decoder</h1>
-  <p style="color: var(--text-secondary); margin-top: -10px;">Paste a JWT token to decode and inspect its contents</p>
-  
   <div class="container">
-    <textarea id="tokenInput" placeholder="Paste your JWT token here (eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"></textarea>
-    <button onclick="decode()">Decode</button>
-    <button class="secondary" onclick="clearAll()">Clear</button>
+    <h1>JWT Decoder</h1>
+    <p class="subtitle">Decode JWT tokens locally. Your data never leaves your browser.</p>
     
-    <div id="error" class="error"></div>
+    <textarea id="jwtInput" placeholder="Paste your JWT token here..."></textarea>
     
-    <div id="output" class="output" style="display: none;">
-      <div class="token-parts">
-        <div class="token-part token-header">HEADER</div>
-        <div class="token-part token-payload">PAYLOAD</div>
-        <div class="token-part token-sig">SIGNATURE</div>
-      </div>
+    <div id="output" class="output-section">
+      <div class="meta-info" id="metaInfo"></div>
       
-      <div class="section section-header">
-        <h3>Header</h3>
-        <pre id="headerOutput"></pre>
-      </div>
+      <div class="section-title">Header</div>
+      <pre id="headerOutput" class="header"></pre>
       
-      <div class="section section-payload">
-        <h3>Payload</h3>
-        <pre id="payloadOutput"></pre>
-        <div class="meta-row" id="metaOutput"></div>
-      </div>
+      <div class="section-title">Payload</div>
+      <pre id="payloadOutput" class="payload"></pre>
       
-      <div class="section section-signature">
-        <h3>Signature</h3>
-        <pre id="signatureOutput"></pre>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Note: Signature verification requires the secret key and is not performed client-side.</p>
-      </div>
+      <div class="section-title">Signature</div>
+      <pre id="signatureOutput" class="signature"></pre>
     </div>
   </div>
-  
+
   <script>
-    function decode() {
-      const input = document.getElementById('tokenInput').value.trim();
-      const errorEl = document.getElementById('error');
-      const outputEl = document.getElementById('output');
+    const input = document.getElementById('jwtInput');
+    const output = document.getElementById('output');
+    const headerOutput = document.getElementById('headerOutput');
+    const payloadOutput = document.getElementById('payloadOutput');
+    const signatureOutput = document.getElementById('signatureOutput');
+    const metaInfo = document.getElementById('metaInfo');
+
+    function base64UrlDecode(str) {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = str.length % 4;
+      if (pad) str += '='.repeat(4 - pad);
+      try {
+        return decodeURIComponent(atob(str).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+      } catch (e) {
+        return atob(str);
+      }
+    }
+
+    function formatJson(json) {
+      return JSON.stringify(json, null, 2);
+    }
+
+    function formatTimestamp(ts) {
+      return new Date(ts * 1000).toLocaleString();
+    }
+
+    function getExpiryStatus(payload) {
+      if (!payload.exp) return null;
+      const now = Math.floor(Date.now() / 1000);
+      const diff = payload.exp - now;
+      if (diff > 0) {
+        return { valid: true, text: `Expires in ${formatDuration(diff)}` };
+      } else {
+        return { valid: false, text: `Expired ${formatDuration(-diff)} ago` };
+      }
+    }
+
+    function formatDuration(seconds) {
+      if (seconds < 60) return `${seconds}s`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+      return `${Math.floor(seconds / 86400)}d`;
+    }
+
+    function decodeJWT() {
+      const token = input.value.trim();
       
-      errorEl.style.display = 'none';
-      outputEl.style.display = 'none';
-      
-      if (!input) {
-        showError('Please paste a JWT token');
+      if (!token) {
+        output.classList.remove('visible');
         return;
       }
-      
-      const parts = input.split('.');
+
+      const parts = token.split('.');
       if (parts.length !== 3) {
-        showError('Invalid JWT format. Expected 3 parts separated by dots.');
+        output.classList.remove('visible');
         return;
       }
-      
+
       try {
         const header = JSON.parse(base64UrlDecode(parts[0]));
         const payload = JSON.parse(base64UrlDecode(parts[1]));
         const signature = parts[2];
+
+        headerOutput.textContent = formatJson(header);
+        payloadOutput.textContent = formatJson(payload);
+        signatureOutput.textContent = signature;
+
+        // Build meta info
+        let metaHTML = '';
         
-        document.getElementById('headerOutput').textContent = JSON.stringify(header, null, 2);
-        document.getElementById('payloadOutput').textContent = JSON.stringify(payload, null, 2);
-        document.getElementById('signatureOutput').textContent = signature;
-        
-        // Meta info
-        let metaHtml = '';
-        if (payload.iss) metaHtml += `<div class="meta-item"><span>Issuer:</span> ${escapeHtml(payload.iss)}</div>`;
-        if (payload.sub) metaHtml += `<div class="meta-item"><span>Subject:</span> ${escapeHtml(payload.sub)}</div>`;
-        if (payload.aud) metaHtml += `<div class="meta-item"><span>Audience:</span> ${escapeHtml(Array.isArray(payload.aud) ? payload.aud.join(', ') : payload.aud)}</div>`;
-        
-        if (payload.exp) {
-          const expDate = new Date(payload.exp * 1000);
-          const now = new Date();
-          const isExpired = now > expDate;
-          metaHtml += `<div class="meta-item"><span>Expires:</span> <span class="${isExpired ? 'expired' : 'valid'}">${expDate.toLocaleString()} ${isExpired ? '(EXPIRED)' : '(VALID)'}</span></div>`;
+        if (payload.iss) {
+          metaHTML += `<div class="meta-item"><span class="meta-label">issuer:</span>${payload.iss}</div>`;
         }
-        
+        if (payload.sub) {
+          metaHTML += `<div class="meta-item"><span class="meta-label">subject:</span>${payload.sub}</div>`;
+        }
+        if (payload.aud) {
+          metaHTML += `<div class="meta-item"><span class="meta-label">audience:</span>${Array.isArray(payload.aud) ? payload.aud.join(', ') : payload.aud}</div>`;
+        }
         if (payload.iat) {
-          const iatDate = new Date(payload.iat * 1000);
-          metaHtml += `<div class="meta-item"><span>Issued:</span> ${iatDate.toLocaleString()}</div>`;
+          metaHTML += `<div class="meta-item"><span class="meta-label">issued:</span>${formatTimestamp(payload.iat)}</div>`;
         }
-        
-        if (payload.nbf) {
-          const nbfDate = new Date(payload.nbf * 1000);
-          metaHtml += `<div class="meta-item"><span>Not Before:</span> ${nbfDate.toLocaleString()}</div>`;
+        if (payload.exp) {
+          const status = getExpiryStatus(payload);
+          if (status) {
+            metaHTML += `<div class="meta-item ${status.valid ? 'valid' : 'expired'}"><span class="meta-label">expiry:</span>${status.text} (${formatTimestamp(payload.exp)})</div>`;
+          }
         }
+
+        metaInfo.innerHTML = metaHTML;
+        output.classList.add('visible');
         
-        document.getElementById('metaOutput').innerHTML = metaHtml;
-        
-        outputEl.style.display = 'block';
+        headerOutput.classList.remove('error');
+        payloadOutput.classList.remove('error');
       } catch (e) {
-        showError('Failed to decode token: ' + e.message);
+        output.classList.remove('visible');
       }
     }
-    
-    function base64UrlDecode(str) {
-      // Replace URL-safe characters
-      let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-      // Pad with = if needed
-      const padding = base64.length % 4;
-      if (padding) {
-        base64 += '='.repeat(4 - padding);
-      }
-      // Decode
-      const decoded = atob(base64);
-      // Handle UTF-8
-      return decodeURIComponent(decoded.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    }
-    
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
-    
-    function showError(msg) {
-      const errorEl = document.getElementById('error');
-      errorEl.textContent = msg;
-      errorEl.style.display = 'block';
-    }
-    
-    function clearAll() {
-      document.getElementById('tokenInput').value = '';
-      document.getElementById('output').style.display = 'none';
-      document.getElementById('error').style.display = 'none';
-    }
-    
-    // Auto-decode on paste
-    document.getElementById('tokenInput').addEventListener('paste', function() {
-      setTimeout(decode, 10);
-    });
+
+    input.addEventListener('input', decodeJWT);
+    decodeJWT();
   </script>
 </body>
 </html>
