@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracker Detector — Shadow's Garden</title>
+<meta name="description" content="Enter any URL and see which third-party trackers are lurking on that page. All checks run locally in your browser.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+  .input-group { display: flex; gap: 10px; max-width: 600px; width: 100%; margin-bottom: 30px; }
+  input[type="url"] { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid #444; background: #1a1a1a; color: #eee; font-size: 16px; }
+  button { padding: 12px 24px; background: #00d4aa; color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #00f5c4; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  #results { width: 100%; max-width: 600px; }
+  .tracker-card { background: #222; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #00d4aa; }
+  .tracker-card.warning { border-left-color: #ff6b6b; }
+  .tracker-name { font-weight: 600; font-size: 18px; color: #fff; margin-bottom: 8px; }
+  .tracker-category { display: inline-block; background: #333; padding: 4px 10px; border-radius: 4px; font-size: 13px; color: #aaa; margin-bottom: 8px; }
+  .tracker-domain { color: #888; font-size: 14px; font-family: monospace; }
+  .empty { color: #666; text-align: center; padding: 40px; }
+  .loader { text-align: center; color: #00d4aa; padding: 20px; }
+  h2 { color: #fff; margin-bottom: 20px; }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>🔍 Tracker Detector</h1>
+  <p style="color:#888;margin-bottom:30px;">Enter any URL to scan for third-party trackers. Nothing leaves your browser.</p>
+  
+  <div class="input-group">
+    <input type="url" id="urlInput" placeholder="https://example.com" value="https://">
+    <button id="scanBtn">Scan</button>
+  </div>
+  
+  <div id="results">
+    <div class="empty">Enter a URL above to check for trackers</div>
+  </div>
+
+  <script>
+    const TRACKER_DOMAINS = {
+      'google-analytics.com': { name: 'Google Analytics', category: 'Analytics' },
+      'googletagmanager.com': { name: 'Google Tag Manager', category: 'Tag Management' },
+      'doubleclick.net': { name: 'DoubleClick', category: 'Advertising' },
+      'googleadservices.com': { name: 'Google Ads', category: 'Advertising' },
+      'facebook.net': { name: 'Facebook Pixel', category: 'Advertising' },
+      'connect.facebook.net': { name: 'Facebook Connect', category: 'Social' },
+      'hotjar.com': { name: 'Hotjar', category: 'Analytics' },
+      'mixpanel.com': { name: 'Mixpanel', category: 'Analytics' },
+      'segment.com': { name: 'Segment', category: 'Analytics' },
+      'amplitude.com': { name: 'Amplitude', category: 'Analytics' },
+      'newrelic.com': { name: 'New Relic', category: 'Monitoring' },
+      'sentry.io': { name: 'Sentry', category: 'Monitoring' },
+      'datadog.com': { name: 'Datadog', category: 'Monitoring' },
+      'crazyegg.com': { name: 'Crazy Egg', category: 'Analytics' },
+      'optimizely.com': { name: 'Optimizely', category: 'A/B Testing' },
+      'hubspot.com': { name: 'HubSpot', category: 'Marketing' },
+      'marketo.com': { name: 'Marketo', category: 'Marketing' },
+      'salesforce.com': { name: 'Salesforce', category: 'CRM' },
+      'bing.com': { name: 'Bing Ads', category: 'Advertising' },
+      'taboola.com': { name: 'Taboola', category: 'Advertising' },
+      'outbrain.com': { name: 'Outbrain', category: 'Advertising' },
+      'criteo.com': { name: 'Criteo', category: 'Advertising' },
+      'amazon-adsystem.com': { name: 'Amazon Ads', category: 'Advertising' },
+      'ads.twitter.com': { name: 'Twitter Ads', category: 'Advertising' },
+      'linkedin.com/px': { name: 'LinkedIn Insight', category: 'Advertising' },
+      'tiktok.com': { name: 'TikTok Pixel', category: 'Advertising' },
+      'snap.licdn.com': { name: 'Snapchat Analytics', category: 'Advertising' },
+      'adsrvr.org': { name: 'The Trade Desk', category: 'Advertising' },
+      'adnxs.com': { name: 'AppNexus', category: 'Advertising' },
+      'rubiconproject.com': { name: 'Rubicon Project', category: 'Advertising' },
+      'pubmatic.com': { name: 'PubMatic', category: 'Advertising' },
+      'openx.net': { name: 'OpenX', category: 'Advertising' },
+      'scorecardresearch.com': { name: 'Comscore', category: 'Analytics' },
+      'quantserve.com': { name: 'Quantcast', category: 'Analytics' },
+      'bluekai.com': { name: 'BlueKai', category: 'Data Management' },
+      'krxd.net': { name: 'Krux', category: 'Data Management' },
+      'exelator.com': { name: 'Exelator', category: 'Data Management' },
+      'liadm.com': { name: 'LiveIntent', category: 'Advertising' },
+      'tapad.com': { name: 'Tapad', category: 'Device Graph' },
+      'branch.io': { name: 'Branch', category: 'Attribution' },
+      'appsflyer.com': { name: 'AppsFlyer', category: 'Attribution' },
+      'adjust.com': { name: 'Adjust', category: 'Attribution' }
+    };
+
+    const resultsDiv = document.getElementById('results');
+    const urlInput = document.getElementById('urlInput');
+    const scanBtn = document.getElementById('scanBtn');
+
+    async function scanURL(url) {
+      if (!url) return;
+      
+      resultsDiv.innerHTML = '<div class="loader">Scanning...</div>';
+      scanBtn.disabled = true;
+
+      try {
+        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        const html = await response.text();
+        
+        const found = [];
+        
+        // Check scripts
+        const scriptMatches = html.match(/src="([^"]+)"/g) || [];
+        for (const match of scriptMatches) {
+          const src = match.replace('src="', '').replace('"', '');
+          for (const [domain, info] of Object.entries(TRACKER_DOMAINS)) {
+            if (src.includes(domain)) {
+              if (!found.find(t => t.domain === domain)) {
+                found.push({ domain, ...info });
+              }
+            }
+          }
+        }
+        
+        // Check iframes
+        const iframeMatches = html.match(/iframe[^>]*src="([^"]+)"/g) || [];
+        for (const match of iframeMatches) {
+          const src = match.match(/src="([^"]+)"/)?.[1];
+          if (src) {
+            for (const [domain, info] of Object.entries(TRACKER_DOMAINS)) {
+              if (src.includes(domain)) {
+                if (!found.find(t => t.domain === domain)) {
+                  found.push({ domain, ...info });
+                }
+              }
+            }
+          }
+        }
+
+        // Check pixels
+        const pixelMatches = html.match(/<img[^>]*src="([^"]+)"/g) || [];
+        for (const match of pixelMatches) {
+          const src = match.match(/src="([^"]+)"/)?.[1];
+          if (src) {
+            for (const [domain, info] of Object.entries(TRACKER_DOMAINS)) {
+              if (src.includes(domain)) {
+                if (!found.find(t => t.domain === domain)) {
+                  found.push({ domain, ...info });
+                }
+              }
+            }
+          }
+        }
+
+        if (found.length === 0) {
+          resultsDiv.innerHTML = `
+            <div class="tracker-card">
+              <div class="tracker-name">✅ No common trackers detected</div>
+              <p style="color:#888;">Note: This only checks against a known list. There may be other tracking methods.</p>
+            </div>
+          `;
+        } else {
+          resultsDiv.innerHTML = `<h2>Found ${found.length} tracker${found.length > 1 ? 's' : ''}</h2>`;
+          for (const tracker of found) {
+            const card = document.createElement('div');
+            card.className = 'tracker-card warning';
+            card.innerHTML = `
+              <div class="tracker-name">${tracker.name}</div>
+              <span class="tracker-category">${tracker.category}</span>
+              <div class="tracker-domain">${tracker.domain}</div>
+            `;
+            resultsDiv.appendChild(card);
+          }
+        }
+      } catch (err) {
+        resultsDiv.innerHTML = `
+          <div class="tracker-card">
+            <div class="tracker-name">⚠️ Could not scan</div>
+            <p style="color:#888;">${err.message}</p>
+          </div>
+        `;
+      }
+
+      scanBtn.disabled = false;
+    }
+
+    scanBtn.addEventListener('click', () => scanURL(urlInput.value));
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') scanURL(urlInput.value);
+    });
+  </script>
+</body>
+</html>
