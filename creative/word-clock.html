@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Clock — Shadow's Garden</title>
+<meta name="description" content="A clock that tells time in words. Watch the minutes tick by as language.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; background: #0a0a0a; }
+  .clock-container { position: relative; width: 90vw; max-width: 600px; aspect-ratio: 1; }
+  .word { position: absolute; font-family: 'Courier New', monospace; font-size: clamp(1rem, 3vw, 2rem); color: #444; transition: all 0.3s ease; cursor: default; user-select: none; }
+  .word.active { color: #7aa2f7; text-shadow: 0 0 10px rgba(122, 162, 247, 0.5); }
+  .word:hover { color: #888; }
+  .time-display { font-family: 'Courier New', monospace; font-size: 1.2rem; color: #666; margin-bottom: 2rem; }
+  .title { position: fixed; top: 2rem; left: 2rem; font-size: 0.9rem; color: #333; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="title">word clock</div>
+  <div class="time-display" id="digital">--:--</div>
+  <div class="clock-container" id="clock"></div>
+
+<script>
+const words = [
+  // Hours
+  { text: 'ONE', x: 15, y: 15 }, { text: 'TWO', x: 35, y: 15 }, { text: 'THREE', x: 55, y: 15 },
+  { text: 'FOUR', x: 75, y: 15 }, { text: 'FIVE', x: 95, y: 15 }, { text: 'SIX', x: 115, y: 15 },
+  { text: 'SEVEN', x: 135, y: 15 }, { text: 'EIGHT', x: 160, y: 15 }, { text: 'NINE', x: 190, y: 15 },
+  { text: 'TEN', x: 220, y: 15 }, { text: 'ELEVEN', x: 240, y: 15 }, { text: 'TWELVE', x: 270, y: 15 },
+  
+  // Minutes - five minute increments
+  { text: 'FIVE', x: 15, y: 35 }, { text: 'TEN', x: 40, y: 35 }, { text: 'QUARTER', x: 70, y: 35 },
+  { text: 'TWENTY', x: 120, y: 35 }, { text: 'TWENTY FIVE', x: 165, y: 35 }, { text: 'HALF', x: 220, y: 35 },
+  
+  // Connectors
+  { text: 'PAST', x: 15, y: 55 }, { text: 'TO', x: 55, y: 55 },
+  
+  // Minute markers
+  { text: 'ONE', x: 80, y: 55 }, { text: 'TWO', x: 100, y: 55 }, { text: 'THREE', x: 120, y: 55 },
+  { text: 'FOUR', x: 145, y: 55 }, { text: 'FIVE', x: 165, y: 55 }, { text: 'SIX', x: 185, y: 55 },
+  { text: 'SEVEN', x: 210, y: 55 }, { text: 'EIGHT', x: 240, y: 55 }, { text: 'NINE', x: 270, y: 55 },
+  
+  // More minutes
+  { text: 'TEN', x: 15, y: 75 }, { text: 'ELEVEN', x: 40, y: 75 }, { text: 'TWELVE', x: 80, y: 75 },
+  { text: 'THIRTEEN', x: 115, y: 75 }, { text: 'FOURTEEN', x: 155, y: 75 }, { text: 'SIXTEEN', x: 200, y: 75 },
+  { text: 'SEVENTEEN', x: 240, y: 75 }, { text: 'EIGHTEEN', x: 285, y: 75 },
+  
+  // Extra
+  { text: 'FIVE', x: 15, y: 95 }, { text: 'TEN', x: 40, y: 95 }, { text: 'QUARTER', x: 65, y: 95 },
+  { text: 'TWENTY', x: 115, y: 95 }, { text: 'TWENTY FIVE', x: 160, y: 95 }, { text: 'THIRTY', x: 215, y: 95 },
+  
+  // OCLOCK
+  { text: "O'CLOCK", x: 15, y: 115 },
+  
+  // Minute markers continued
+  { text: 'NINETEEN', x: 80, y: 115 }, { text: 'TWENTY ONE', x: 120, y: 115 }, { text: 'TWENTY TWO', x: 165, y: 115 },
+  { text: 'TWENTY THREE', x: 210, y: 115 }, { text: 'TWENTY FOUR', x: 260, y: 115 },
+  
+  // More
+  { text: 'TWENTY SIX', x: 15, y: 135 }, { text: 'TWENTY SEVEN', x: 80, y: 135 }, { text: 'TWENTY EIGHT', x: 135, y: 135 },
+  { text: 'TWENTY NINE', x: 190, y: 135 },
+  
+  // Minutes
+  { text: 'THIRTY ONE', x: 15, y: 155 }, { text: 'THIRTY TWO', x: 85, y: 155 }, { text: 'THIRTY THREE', x: 145, y: 155 },
+  { text: 'THIRTY FOUR', x: 205, y: 155 }, { text: 'THIRTY FIVE', x: 260, y: 155 },
+  
+  // More
+  { text: 'THIRTY SIX', x: 15, y: 175 }, { text: 'THIRTY SEVEN', x: 90, y: 175 }, { text: 'THIRTY EIGHT', x: 150, y: 175 },
+  { text: 'THIRTY NINE', x: 210, y: 175 },
+  
+  // Forties
+  { text: 'FORTY', x: 15, y: 195 }, { text: 'FORTY ONE', x: 55, y: 195 }, { text: 'FORTY TWO', x: 105, y: 195 },
+  { text: 'FORTY THREE', x: 155, y: 195 }, { text: 'FORTY FOUR', x: 210, y: 195 }, { text: 'FORTY FIVE', x: 255, y: 195 },
+  
+  // Fifties
+  { text: 'FORTY SIX', x: 15, y: 215 }, { text: 'FORTY SEVEN', x: 85, y: 215 }, { text: 'FORTY EIGHT', x: 140, y: 215 },
+  { text: 'FORTY NINE', x: 195, y: 215 }, { text: 'FIFTY', x: 240, y: 215 }, { text: 'FIFTY ONE', x: 270, y: 215 },
+  
+  // More
+  { text: 'FIFTY TWO', x: 15, y: 235 }, { text: 'FIFTY THREE', x: 80, y: 235 }, { text: 'FIFTY FOUR', x: 135, y: 235 },
+  { text: 'FIFTY FIVE', x: 185, y: 235 }, { text: 'FIFTY SIX', x: 230, y: 235 }, { text: 'FIFTY SEVEN', x: 270, y: 235 },
+  
+  // Final
+  { text: 'FIFTY EIGHT', x: 15, y: 255 }, { text: 'FIFTY NINE', x: 90, y: 255 },
+];
+
+// Simpler word clock logic
+const hourWords = ['TWELVE', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN'];
+const minuteWords = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN', 'TWENTY', 'TWENTY ONE', 'TWENTY TWO', 'TWENTY THREE', 'TWENTY FOUR', 'TWENTY FIVE', 'TWENTY SIX', 'TWENTY SEVEN', 'TWENTY EIGHT', 'TWENTY NINE', 'THIRTY', 'THIRTY ONE', 'THIRTY TWO', 'THIRTY THREE', 'THIRTY FOUR', 'THIRTY FIVE', 'THIRTY SIX', 'THIRTY SEVEN', 'THIRTY EIGHT', 'THIRTY NINE', 'FORTY', 'FORTY ONE', 'FORTY TWO', 'FORTY THREE', 'FORTY FOUR', 'FORTY FIVE', 'FORTY SIX', 'FORTY SEVEN', 'FORTY EIGHT', 'FORTY NINE', 'FIFTY', 'FIFTY ONE', 'FIFTY TWO', 'FIFTY THREE', 'FIFTY FOUR', 'FIFTY FIVE', 'FIFTY SIX', 'FIFTY SEVEN', 'FIFTY EIGHT', 'FIFTY NINE'];
+
+// Grid-based clock layout
+const gridWords = [
+  { text: 'IT', row: 0, col: 0 },
+  { text: 'IS', row: 0, col: 2 },
+  { text: 'ONE', row: 1, col: 0 }, { text: 'TWO', row: 1, col: 2 }, { text: 'THREE', row: 1, col: 4 },
+  { text: 'FOUR', row: 1, col: 6 }, { text: 'FIVE', row: 2, col: 0 }, { text: 'SIX', row: 2, col: 2 },
+  { text: 'SEVEN', row: 2, col: 4 }, { text: 'EIGHT', row: 2, col: 6 }, { text: 'NINE', row: 3, col: 0 },
+  { text: 'TEN', row: 3, col: 2 }, { text: 'ELEVEN', row: 3, col: 4 }, { text: 'TWELVE', row: 3, col: 6 },
+  { text: 'O', row: 4, col: 0 }, { text: "CLOCK", row: 4, col: 2 },
+  { text: 'FIVE', row: 5, col: 0 }, { text: 'TEN', row: 5, col: 2 }, { text: 'QUARTER', row: 5, col: 4 },
+  { text: 'TWENTY', row: 6, col: 0 }, { text: 'TWENTY FIVE', row: 6, col: 3 },
+  { text: 'HALF', row: 7, col: 0 }, { text: 'B', row: 7, col: 2 }, { text: 'PAST', row: 7, col: 4 },
+  { text: 'TO', row: 8, col: 0 },
+  { text: 'ONE', row: 9, col: 0 }, { text: 'TWO', row: 9, col: 2 }, { text: 'THREE', row: 9, col: 4 },
+  { text: 'FOUR', row: 9, col: 6 }, { text: 'FIVE', row: 10, col: 0 }, { text: 'SIX', row: 10, col: 2 },
+  { text: 'SEVEN', row: 10, col: 4 }, { text: 'EIGHT', row: 10, col: 6 }, { text: 'NINE', row: 11, col: 0 },
+  { text: 'TEN', row: 11, col: 2 }, { text: 'ELEVEN', row: 11, col: 4 }, { text: 'TWELVE', row: 11, col: 6 },
+];
+
+const container = document.getElementById('clock');
+const cellWidth = 100 / 8;
+const cellHeight = 100 / 12;
+
+// Create grid
+gridWords.forEach(w => {
+  const div = document.createElement('div');
+  div.className = 'word';
+  div.textContent = w.text;
+  div.style.left = (w.col * cellWidth) + '%';
+  div.style.top = (w.row * cellHeight) + '%';
+  div.style.width = cellWidth + '%';
+  div.style.height = cellHeight + '%';
+  div.style.display = 'flex';
+  div.style.alignItems = 'center';
+  div.style.justifyContent = 'center';
+  container.appendChild(div);
+});
+
+function updateClock() {
+  const now = new Date();
+  let hours = now.getHours();
+  let minutes = now.getMinutes();
+  
+  document.getElementById('digital').textContent = 
+    hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
+  
+  // Clear all
+  document.querySelectorAll('.word').forEach(w => w.classList.remove('active'));
+  
+  // Always show IT IS
+  document.querySelectorAll('.word').forEach(w => {
+    if (w.textContent === 'IT' || w.textContent === 'IS') w.classList.add('active');
+  });
+  
+  const isPast = minutes < 35;
+  const displayHour = isPast ? hours : (hours + 1) % 12;
+  const displayMin = isPast ? minutes : 60 - minutes;
+  
+  // Show hour
+  const hourWords = ['TWELVE', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN'];
+  document.querySelectorAll('.word').forEach(w => {
+    if (w.textContent === hourWords[displayHour]) w.classList.add('active');
+  });
+  
+  // Show past/to
+  if (minutes !== 0) {
+    document.querySelectorAll('.word').forEach(w => {
+      if (isPast && w.textContent === 'PAST') w.classList.add('active');
+      if (!isPast && w.textContent === 'TO') w.classList.add('active');
+    });
+  }
+  
+  // Show o'clock if on the hour
+  if (minutes === 0) {
+    document.querySelectorAll('.word').forEach(w => {
+      if (w.textContent === 'O' || w.textContent === 'CLOCK') w.classList.add('active');
+    });
+  }
+  
+  // Show minute words for 5-minute increments
+  if (displayMin >= 5) {
+    const fiveMin = Math.floor(displayMin / 5) * 5;
+    const minWord = minuteWords[fiveMin];
+    document.querySelectorAll('.word').forEach(w => {
+      if (w.textContent === minWord || w.textContent.includes(minWord)) w.classList.add('active');
+    });
+  }
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>
