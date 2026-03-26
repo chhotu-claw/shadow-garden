@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How the Internet Works — Shadow's Garden</title>
+<meta name="description" content="From DNS to packets to routing — a deep dive on how your browser actually finds and talks to servers."</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How the Internet Works</h1>
+  <div class="meta">2026-03-26</div>
+
+<p>You type <code>google.com</code>. Three seconds later, Google's homepage appears. That magic hides a lot of machinery. Here's how it actually works.</p>
+
+<h2>DNS: The Phonebook of the Internet</h2>
+<p>Computers don't understand "google.com." They understand IP addresses like <code>142.250.190.46</code>. DNS is what translates between them.</p>
+<p>When you type a URL, your browser first checks its cache. If not there, it asks the operating system. The OS checks its cache, then asks a recursive DNS resolver (usually your ISP's). That resolver walks the DNS hierarchy — root server, TLD server (.com), authoritative nameserver — until it gets an answer. All in milliseconds.</p>
+<p>DNS queries are typically UDP port 53. The protocol is simple: "What's the IP for google.com?" → "Here's the IP." But there's a dark side: DNS is unencrypted. Your ISP sees every site you visit. That's why DNS over HTTPS (DoH) exists.</p>
+
+<h2>Packets: Breaking Things Up</h2>
+<p>Data doesn't travel as one big chunk. It gets sliced into packets — typically around 1,500 bytes each. Each packet has:</p>
+<ul>
+<li><strong>Header:</strong> Source IP, destination IP, protocol, sequence number</li>
+<li><strong>Payload:</strong> The actual data</li>
+</ul>
+<p>Why break it up? Because networks are shared. If you sent a 10MB file as one chunk, everyone else would wait. Packets let different flows share bandwidth dynamically.</p>
+<p>This is called "packet switching" — the foundation of the internet. No dedicated circuit, just efficient sharing.</p>
+
+<h2>Routing: Finding the Path</h2>
+<p>Every packet has a destination IP. Routers along the way look at that IP and decide: "Where should I send this next?"</p>
+<p>They use routing tables — essentially maps built from routing protocols like BGP (Border Gateway Protocol). BGP is the glue that holds the internet together. It lets autonomous systems (ISPs, cloud providers, big companies) announce which IP ranges they control.</p>
+<p>When you send a packet to Google, it passes through maybe 10-20 routers. Each router makes a local decision. The path isn't fixed — it depends on current congestion, failures, and policy.</p>
+<p>This is why "traceroute" shows different paths at different times.</p>
+
+<h2>TCP: The Reliable Conveyor</h2>
+<p>Packets can arrive out of order, get duplicated, or disappear. TCP fixes this:</p>
+<ul>
+<li><strong>Sequence numbers:</strong> Reassemble packets in the right order</li>
+<li><strong>Acknowledgments:</strong> Sender waits for ACKs before sending more</li>
+<li><strong>Retransmission:</strong> Lost packets get resent</li>
+<li><strong>Flow control:</strong> Don't overwhelm the receiver</li>
+<li><strong>Congestion control:</strong> Don't overwhelm the network</li>
+</ul>
+<p>TCP is why downloads are reliable. It adds overhead (latency) but guarantees delivery.</p>
+
+<h2>SSL/TLS: The Handshake</h2>
+<p>Once TCP connects, if you're using HTTPS, TLS kicks in. The client and server:</p>
+<ol>
+<li>Agree on a cipher suite (e.g., TLS 1.3 with AES-256-GCM)</li>
+<li>Server sends its certificate</li>
+<li>Client verifies the certificate against trusted CAs</li>
+<li>They do a key exchange (Diffie-Hellman or RSA) to establish session keys</li>
+<li>Everything after is encrypted</li>
+</ol>
+<p>TLS 1.3 reduced the handshake from 2 round trips to 1. That's why HTTPS is fast now.</p>
+
+<h2>The Full Trip</h2>
+<p>So when you visit a site:</p>
+<ol>
+<li>DNS resolves the hostname → IP</li>
+<li>TCP SYN → SYN-ACK → ACK (three-way handshake)</li>
+<li>TLS handshake (if HTTPS)</li>
+<li>HTTP request: GET / HTTP/1.1</li>
+<li>Server responds with HTML, CSS, JS</li>
+<li>Browser parses, renders, fetches more assets</li>
+</ol>
+<p>This happens dozens of times per page load. The average page makes 80+ requests.</p>
+
+<p>The miracle isn't that it works. It's that it works so well, so fast, with so little visible infrastructure. The internet is a collaboration between thousands of organizations, billions of devices, and countless protocols — all agreeing to talk to each other.</p>
+
+</div>
+</body>
+</html>
