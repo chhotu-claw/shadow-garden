@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Editor — Shadow's Garden</title>
+<meta name="description" content="A clean markdown editor with live preview. Write on the left, see the result on the right.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    height: calc(100vh - 200px);
+    min-height: 400px;
+  }
+  .editor-pane, .preview-pane {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow: auto;
+  }
+  .editor-pane textarea {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+  }
+  .preview-pane {
+    line-height: 1.7;
+  }
+  .preview-pane h1, .preview-pane h2, .preview-pane h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .preview-pane h1 { font-size: 1.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  .preview-pane h2 { font-size: 1.4rem; }
+  .preview-pane h3 { font-size: 1.2rem; }
+  .preview-pane p { margin: 0.8rem 0; }
+  .preview-pane code {
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', monospace;
+    font-size: 0.85rem;
+  }
+  .preview-pane pre {
+    background: var(--bg-tertiary);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  .preview-pane pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .preview-pane ul, .preview-pane ol {
+    margin: 0.8rem 0;
+    padding-left: 1.5rem;
+  }
+  .preview-pane li { margin: 0.3rem 0; }
+  .preview-pane blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 1rem 0;
+    padding-left: 1rem;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+  .preview-pane a { color: var(--accent); }
+  .preview-pane hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+  .preview-pane table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .preview-pane th, .preview-pane td {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    text-align: left;
+  }
+  .preview-pane th { background: var(--bg-tertiary); }
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+  }
+  .toolbar button:hover { background: var(--bg-quaternary); }
+  .status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+  }
+  @media (max-width: 768px) {
+    .editor-container { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="toolbar">
+    <button onclick="insertFormat('**', '**')">Bold</button>
+    <button onclick="insertFormat('*', '*')">Italic</button>
+    <button onclick="insertFormat('`', '`')">Code</button>
+    <button onclick="insertFormat('\n```\n', '\n```\n')">Code Block</button>
+    <button onclick="insertFormat('[', '](url)')">Link</button>
+    <button onclick="insertFormat('\n- ', '')">List</button>
+    <button onclick="insertFormat('\n1. ', '')">Numbered</button>
+    <button onclick="insertFormat('# ', '')">H1</button>
+    <button onclick="insertFormat('## ', '')">H2</button>
+    <button onclick="clearEditor()">Clear</button>
+  </div>
+  <div class="editor-container">
+    <div class="editor-pane">
+      <textarea id="editor" placeholder="Write markdown here..."># Welcome
+
+Start typing markdown on the left, see the preview on the right.
+
+## Features
+- **Bold** and *italic* text
+- `inline code` and code blocks
+- Lists, links, and more
+
+```javascript
+// Code blocks with syntax
+const greeting = "Hello!";
+```
+
+> Blockquotes look like this
+
+---
+
+Happy writing!</textarea>
+    </div>
+    <div class="preview-pane" id="preview"></div>
+  </div>
+  <div class="status" id="status">Auto-saved to localStorage</div>
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    
+    // Simple markdown parser
+    function parseMarkdown(text) {
+      let html = text
+        // Escape HTML
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // Code blocks (must be before inline code)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Headers
+        .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+        .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+        .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Bold and italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        // Images
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2">')
+        // Blockquotes
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Horizontal rules
+        .replace(/^---$/gm, '<hr>')
+        .replace(/^\*\*\*$/gm, '<hr>')
+        // Unordered lists
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        // Ordered lists
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        // Paragraphs (must be last)
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(?!<[hupol]|<li|<blockquote|<pre|<img)/gm, '<p>')
+        .replace(/<\/p>$/g, '');
+      return html || '<p>Start typing...</p>';
+    }
+    
+    function update() {
+      const text = editor.value;
+      preview.innerHTML = parseMarkdown(text);
+      localStorage.setItem('markdown-editor-content', text);
+    }
+    
+    function insertFormat(before, after) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const text = editor.value;
+      const selected = text.substring(start, end);
+      editor.value = text.substring(0, start) + before + selected + after + text.substring(end);
+      editor.focus();
+      editor.selectionStart = start + before.length;
+      editor.selectionEnd = start + before.length + selected.length;
+      update();
+    }
+    
+    function clearEditor() {
+      if (confirm('Clear all content?')) {
+        editor.value = '';
+        update();
+      }
+    }
+    
+    // Load saved content
+    const saved = localStorage.getItem('markdown-editor-content');
+    if (saved) editor.value = saved;
+    
+    editor.addEventListener('input', update);
+    update();
+  </script>
+</body>
+</html>
