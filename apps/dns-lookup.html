@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS Lookup — Shadow's Garden</title>
+<meta name="description" content="Perform DNS lookups directly in your browser. Query A, AAAA, MX, TXT, CNAME, NS records.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: #888; margin-bottom: 2rem; }
+  .input-group { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  input[type="text"] {
+    flex: 1; min-width: 200px; padding: 0.75rem 1rem; font-size: 1rem;
+    background: #1a1a1a; border: 1px solid #333; border-radius: 6px; color: #e5e5e5;
+  }
+  input[type="text"]:focus { outline: none; border-color: #6cb6ff; }
+  select {
+    padding: 0.75rem 1rem; font-size: 1rem; background: #1a1a1a;
+    border: 1px solid #333; border-radius: 6px; color: #e5e5e5;
+  }
+  button {
+    padding: 0.75rem 1.5rem; font-size: 1rem; background: #6cb6ff; color: #0d0d0d;
+    border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #8ec8ff; }
+  .result { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+  .result.error { border-color: #f77a7a; color: #f77a7a; }
+  .record { padding: 0.5rem 0; border-bottom: 1px solid #222; }
+  .record:last-child { border-bottom: none; }
+  .record-type { color: #bb9af7; font-weight: 600; font-size: 0.85rem; }
+  .record-value { color: #7af782; font-family: monospace; word-break: break-all; }
+  .record-ttl { color: #666; font-size: 0.8rem; }
+  .note { color: #666; font-size: 0.85rem; margin-top: 1rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>DNS Lookup</h1>
+  <p class="subtitle">Query DNS records directly from your browser</p>
+  
+  <div class="input-group">
+    <input type="text" id="domain" placeholder="example.com" value="">
+    <select id="recordType">
+      <option value="A">A</option>
+      <option value="AAAA">AAAA</option>
+      <option value="MX">MX</option>
+      <option value="TXT">TXT</option>
+      <option value="CNAME">CNAME</option>
+      <option value="NS">NS</option>
+      <option value="SOA">SOA</option>
+      <option value="PTR">PTR</option>
+    </select>
+    <button onclick="doLookup()">Lookup</button>
+  </div>
+  
+  <div id="results"></div>
+  
+  <p class="note">Uses the Google DNS over HTTPS (DoH) API. All queries go directly from your browser to Google's DNS servers — nothing leaves this device except to 8.8.8.8.</p>
+</div>
+
+<script>
+const DNS_API = 'https://dns.google/resolve';
+
+async function doLookup() {
+  const domain = document.getElementById('domain').value.trim();
+  const type = document.getElementById('recordType').value;
+  const resultsDiv = document.getElementById('results');
+  
+  if (!domain) {
+    resultsDiv.innerHTML = '<div class="result error">Please enter a domain name</div>';
+    return;
+  }
+  
+  resultsDiv.innerHTML = '<div class="result">Loading...</div>';
+  
+  try {
+    const response = await fetch(`${DNS_API}?name=${encodeURIComponent(domain)}&type=${type}`);
+    const data = await response.json();
+    
+    if (data.Status !== 0) {
+      resultsDiv.innerHTML = `<div class="result error">DNS error: ${data.Status} (NXDOMAIN = 3, SERVFAIL = 2)</div>`;
+      return;
+    }
+    
+    if (!data.Answer || data.Answer.length === 0) {
+      resultsDiv.innerHTML = `<div class="result">No ${type} records found for ${domain}</div>`;
+      return;
+    }
+    
+    let html = '<div class="result">';
+    data.Answer.forEach(record => {
+      const typeName = getTypeName(record.type);
+      html += `<div class="record">
+        <div class="record-type">${typeName}</div>
+        <div class="record-value">${escapeHtml(record.data)}</div>
+        <div class="record-ttl">TTL: ${record.TTL}s</div>
+      </div>`;
+    });
+    html += '</div>';
+    resultsDiv.innerHTML = html;
+    
+  } catch (err) {
+    resultsDiv.innerHTML = `<div class="result error">Error: ${err.message}</div>`;
+  }
+}
+
+function getTypeName(type) {
+  const types = { 1: 'A', 28: 'AAAA', 15: 'MX', 16: 'TXT', 5: 'CNAME', 2: 'NS', 6: 'SOA', 12: 'PTR' };
+  return types[type] || `TYPE${type}`;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+document.getElementById('domain').addEventListener('keypress', e => {
+  if (e.key === 'Enter') doLookup();
+});
+</script>
+</body>
+</html>
