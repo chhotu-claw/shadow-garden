@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Accessibility Checker — Shadow's Garden</title>
+<meta name="description" content="Check color contrast ratios for WCAG accessibility compliance">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { padding: 2rem; max-width: 600px; margin: 0 auto; }
+  .checker { background: #141414; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  .input-group label { display: block; margin-bottom: 0.5rem; color: #888; font-size: 0.9rem; }
+  .input-group input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid #333; border-radius: 6px; background: #0d0d0d; color: #e5e5e5; font-family: monospace; font-size: 1rem; }
+  .input-group input[type="color"] { width: 100%; height: 48px; border: 1px solid #333; border-radius: 6px; background: #0d0d0d; cursor: pointer; }
+  .preview { padding: 2rem; border-radius: 6px; margin: 1rem 0; text-align: center; font-size: 1.5rem; font-weight: 500; }
+  .preview-small { padding: 1rem; border-radius: 6px; margin: 0.5rem 0; text-align: center; font-size: 0.875rem; }
+  .results { margin-top: 1.5rem; }
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; background: #1a1a1a; }
+  .result-row.pass { border-left: 3px solid #7af782; }
+  .result-row.fail { border-left: 3px solid #f77a7a; }
+  .ratio { font-size: 1.25rem; font-weight: 600; }
+  .status { font-size: 0.875rem; text-transform: uppercase; font-weight: 500; }
+  .status.pass { color: #7af782; }
+  .status.fail { color: #f77a7a; }
+  .copy-btn { background: #222; border: none; color: #888; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; }
+  .copy-btn:hover { background: #333; color: #e5e5e5; }
+  .color-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 500px) { .color-inputs { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>Color Accessibility Checker</h1>
+  <p style="color:#888;margin-bottom:1rem;">Check if your color combinations meet WCAG accessibility standards.</p>
+  
+  <div class="checker">
+    <div class="color-inputs">
+      <div class="input-group">
+        <label>Foreground Color</label>
+        <input type="text" id="fgColor" value="#ffffff" placeholder="#ffffff">
+        <input type="color" id="fgPicker" value="#ffffff">
+      </div>
+      <div class="input-group">
+        <label>Background Color</label>
+        <input type="text" id="bgColor" value="#000000" placeholder="#000000">
+        <input type="color" id="bgPicker" value="#000000">
+      </div>
+    </div>
+    
+    <div class="preview" id="previewNormal">Sample Text</div>
+    <div class="preview-small" id="previewSmall">Small text sample</div>
+    
+    <div class="results">
+      <div class="result-row" id="resultAA">
+        <span>AA Normal (4.5:1)</span>
+        <span class="ratio" id="ratioAA">—</span>
+        <span class="status" id="statusAA">—</span>
+      </div>
+      <div class="result-row" id="resultAALarge">
+        <span>AA Large (3:1)</span>
+        <span class="ratio" id="ratioAALarge">—</span>
+        <span class="status" id="statusAALarge">—</span>
+      </div>
+      <div class="result-row" id="resultAAA">
+        <span>AAA Normal (7:1)</span>
+        <span class="ratio" id="ratioAAA">—</span>
+        <span class="status" id="statusAAA">—</span>
+      </div>
+      <div class="result-row" id="resultAAALarge">
+        <span>AAA Large (4.5:1)</span>
+        <span class="ratio" id="ratioAAALarge">—</span>
+        <span class="status" id="statusAAALarge">—</span>
+      </div>
+    </div>
+  </div>
+  
+  <p style="color:#666;font-size:0.875rem;margin-top:1rem;">Enter colors as HEX, RGB, or HSL. Click the color picker for visual selection.</p>
+  <script>
+    const fgColor = document.getElementById('fgColor');
+    const bgColor = document.getElementById('bgColor');
+    const fgPicker = document.getElementById('fgPicker');
+    const bgPicker = document.getElementById('bgPicker');
+    const previewNormal = document.getElementById('previewNormal');
+    const previewSmall = document.getElementById('previewSmall');
+    
+    function parseColor(color) {
+      color = color.trim().toLowerCase();
+      // HEX
+      if (color.startsWith('#')) {
+        if (color.length === 4) {
+          return '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
+        }
+        return color;
+      }
+      // RGB
+      const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+      if (rgbMatch) {
+        const r = parseInt(rgbMatch[1]);
+        const g = parseInt(rgbMatch[2]);
+        const b = parseInt(rgbMatch[3]);
+        return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+      }
+      // HSL
+      const hslMatch = color.match(/hsl\s*\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?\s*\)/);
+      if (hslMatch) {
+        const h = parseInt(hslMatch[1]) / 360;
+        const s = parseInt(hslMatch[2]) / 100;
+        const l = parseInt(hslMatch[3]) / 100;
+        let r, g, b;
+        if (s === 0) {
+          r = g = b = l;
+        } else {
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hueToRgb(p, q, h + 1/3);
+          g = hueToRgb(p, q, h);
+          b = hueToRgb(p, q, h - 1/3);
+        }
+        return '#' + [Math.round(r*255), Math.round(g*255), Math.round(b*255)].map(x => x.toString(16).padStart(2, '0')).join('');
+      }
+      return null;
+    }
+    
+    function hueToRgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    }
+    
+    function hexToRgb(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('');
+      }
+      return {
+        r: parseInt(hex.substr(0, 2), 16),
+        g: parseInt(hex.substr(2, 2), 16),
+        b: parseInt(hex.substr(4, 2), 16)
+      };
+    }
+    
+    function getLuminance(r, g, b) {
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c = c / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    }
+    
+    function getContrastRatio(fg, bg) {
+      const fgRgb = hexToRgb(fg);
+      const bgRgb = hexToRgb(bg);
+      const l1 = getLuminance(fgRgb.r, fgRgb.g, fgRgb.b);
+      const l2 = getLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
+      const lighter = Math.max(l1, l2);
+      const darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+    
+    function updateResults() {
+      const fg = parseColor(fgColor.value);
+      const bg = parseColor(bgColor.value);
+      
+      if (!fg || !bg) return;
+      
+      try {
+        const ratio = getContrastRatio(fg, bg);
+        const ratioStr = ratio.toFixed(2) + ':1';
+        
+        previewNormal.style.color = fg;
+        previewNormal.style.backgroundColor = bg;
+        previewSmall.style.color = fg;
+        previewSmall.style.backgroundColor = bg;
+        
+        // Update pickers
+        fgPicker.value = fg;
+        bgPicker.value = bg;
+        
+        // AA Normal (4.5:1)
+        setResult('AA', ratio, 4.5);
+        // AA Large (3:1)
+        setResult('AALarge', ratio, 3);
+        // AAA Normal (7:1)
+        setResult('AAA', ratio, 7);
+        // AAALarge (4.5:1)
+        setResult('AAALarge', ratio, 4.5);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    function setResult(id, ratio, threshold) {
+      const pass = ratio >= threshold;
+      const el = document.getElementById('result' + id);
+      const ratioEl = document.getElementById('ratio' + id);
+      const statusEl = document.getElementById('status' + id);
+      
+      ratioEl.textContent = ratio.toFixed(2) + ':1';
+      statusEl.textContent = pass ? 'PASS' : 'FAIL';
+      statusEl.className = 'status ' + (pass ? 'pass' : 'fail');
+      el.className = 'result-row ' + (pass ? 'pass' : 'fail');
+    }
+    
+    fgColor.addEventListener('input', updateResults);
+    bgColor.addEventListener('input', updateResults);
+    fgPicker.addEventListener('input', () => { fgColor.value = fgPicker.value; updateResults(); });
+    bgPicker.addEventListener('input', () => { bgColor.value = bgPicker.value; updateResults(); });
+    
+    // Initial update
+    updateResults();
+  </script>
+</body>
+</html>
