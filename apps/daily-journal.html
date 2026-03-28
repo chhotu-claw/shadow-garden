@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Journal — Shadow's Garden</title>
+<meta name="description" content="A simple local-first journal that stores everything in your browser. No cloud, no sync, just you.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { --bg: #0d0d0d; --surface: #141414; --border: #222; --text: #e5e5e5; --text-dim: #888; --accent: #7aa2f7; }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; font-weight: 600; }
+  .subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 0.95rem; }
+  .entry-form { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+  .entry-form input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-size: 1.1rem; padding: 0.75rem 0; margin-bottom: 0.5rem; outline: none; }
+  .entry-form input:focus { border-color: var(--accent); }
+  .entry-form textarea { width: 100%; background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.95rem; padding: 0.75rem; min-height: 120px; resize: vertical; font-family: inherit; outline: none; margin-bottom: 1rem; }
+  .entry-form textarea:focus { border-color: var(--accent); }
+  .btn { background: var(--accent); color: #000; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+  .btn:hover { opacity: 0.9; }
+  .entries-list { display: flex; flex-direction: column; gap: 1rem; }
+  .entry { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+  .entry-date { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 0.5rem; }
+  .entry-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .entry-body { color: #ccc; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; }
+  .entry-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+  .btn-sm { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+  .btn-sm:hover { border-color: var(--text-dim); color: var(--text); }
+  .empty { text-align: center; color: var(--text-dim); padding: 3rem; }
+  .storage-note { text-align: center; color: var(--text-dim); font-size: 0.8rem; margin-top: 2rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Daily Journal</h1>
+  <p class="subtitle">A simple local-first journal. Nothing leaves your browser.</p>
+  
+  <div class="entry-form">
+    <input type="text" id="entryTitle" placeholder="Entry title...">
+    <textarea id="entryBody" placeholder="What's on your mind?"></textarea>
+    <button class="btn" onclick="saveEntry()">Save Entry</button>
+  </div>
+  
+  <div id="entriesList" class="entries-list"></div>
+  
+  <p class="storage-note"> localStorage only — your words never leave this device.</p>
+</div>
+
+<script>
+const STORAGE_KEY = 'shadow-journal-entries';
+
+function loadEntries() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveEntries(entries) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function saveEntry() {
+  const titleInput = document.getElementById('entryTitle');
+  const bodyInput = document.getElementById('entryBody');
+  const title = titleInput.value.trim();
+  const body = bodyInput.value.trim();
+  
+  if (!title && !body) return;
+  
+  const entries = loadEntries();
+  const entry = {
+    id: Date.now(),
+    title: title || 'Untitled',
+    body: body,
+    date: new Date().toISOString()
+  };
+  
+  entries.unshift(entry);
+  saveEntries(entries);
+  
+  titleInput.value = '';
+  bodyInput.value = '';
+  renderEntries();
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  const entries = loadEntries().filter(e => e.id !== id);
+  saveEntries(entries);
+  renderEntries();
+}
+
+function renderEntries() {
+  const entries = loadEntries();
+  const container = document.getElementById('entriesList');
+  
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty">No entries yet. Start writing.</div>';
+    return;
+  }
+  
+  container.innerHTML = entries.map(entry => {
+    const date = new Date(entry.date);
+    const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="entry">
+        <div class="entry-date">${dateStr}</div>
+        <div class="entry-title">${escapeHtml(entry.title)}</div>
+        <div class="entry-body">${escapeHtml(entry.body)}</div>
+        <div class="entry-actions">
+          <button class="btn-sm" onclick="deleteEntry(${entry.id})">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    saveEntry();
+  }
+});
+
+renderEntries();
+</script>
+</body>
+</html>
