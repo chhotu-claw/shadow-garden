@@ -4,208 +4,217 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stopwatch — Shadow's Garden</title>
-<meta name="description" content="A simple, clean stopwatch with lap times — all local, no tracking.">
+<meta name="description" content="A clean stopwatch with lap times, split functionality, and large display. Runs entirely in-browser.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
+  .stopwatch-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
-    font-family: var(--font-mono);
-    background: var(--bg);
-    color: var(--text);
-  }
-  .stopwatch {
-    text-align: center;
-    padding: 3rem;
-    background: var(--card-bg);
-    border-radius: 1rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    min-height: 60vh;
+    padding: 2rem;
   }
   .time-display {
-    font-size: 5rem;
-    font-weight: 700;
-    font-family: var(--font-mono);
-    letter-spacing: -0.05em;
-    margin-bottom: 2rem;
+    font-size: clamp(3rem, 12vw, 6rem);
+    font-weight: 200;
+    font-family: 'JetBrains Mono', monospace;
     color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 2rem;
+    font-variant-numeric: tabular-nums;
   }
   .controls {
     display: flex;
     gap: 1rem;
+    flex-wrap: wrap;
     justify-content: center;
     margin-bottom: 2rem;
   }
-  button {
+  .btn {
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
-    font-weight: 600;
     border: none;
-    border-radius: 0.5rem;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: var(--font-sans);
+    transition: all 0.2s;
+    font-weight: 500;
   }
   .btn-start {
-    background: var(--accent);
-    color: var(--bg);
+    background: #2d5a2d;
+    color: #7af782;
   }
   .btn-start:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+    background: #3d7a3d;
   }
   .btn-stop {
-    background: #e74c3c;
-    color: white;
+    background: #5a2d2d;
+    color: #f77a7a;
   }
-  .btn-reset {
-    background: var(--border);
-    color: var(--text);
+  .btn-stop:hover {
+    background: #7a3d3d;
   }
-  .btn-lap {
-    background: var(--tag-research);
-    color: white;
+  .btn-lap, .btn-reset {
+    background: #2d2d2d;
+    color: #aaa;
+  }
+  .btn-lap:hover, .btn-reset:hover {
+    background: #3d3d3d;
   }
   .laps {
-    max-height: 200px;
-    overflow-y: auto;
     width: 100%;
-    text-align: left;
+    max-width: 500px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #0d0d0d;
+    border-radius: 8px;
+    padding: 1rem;
   }
-  .lap-item {
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    display: flex;
-    justify-content: space-between;
-  }
-  .lap-item:first-child {
-    border-top: 1px solid var(--border);
-  }
-  h2 {
-    font-size: 1rem;
-    color: var(--muted);
-    margin-bottom: 1rem;
+  .laps h3 {
+    font-size: 0.85rem;
+    color: #666;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+  .lap-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+  }
+  .lap-item:last-child {
+    border-bottom: none;
+  }
+  .lap-number {
+    color: #666;
+  }
+  .lap-time {
+    color: var(--text);
+  }
+  .lap-split {
+    color: #7aa2f7;
+  }
+  @media (max-width: 500px) {
+    .controls {
+      width: 100%;
+    }
+    .btn {
+      flex: 1;
+      min-width: 80px;
+    }
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="stopwatch">
+  <div class="stopwatch-container">
     <div class="time-display" id="display">00:00:00.00</div>
     <div class="controls">
-      <button class="btn-start" id="startBtn">Start</button>
-      <button class="btn-stop" id="stopBtn" style="display:none;">Stop</button>
-      <button class="btn-lap" id="lapBtn" disabled>Lap</button>
-      <button class="btn-reset" id="resetBtn">Reset</button>
+      <button class="btn btn-start" id="startBtn">Start</button>
+      <button class="btn btn-stop" id="stopBtn" disabled>Stop</button>
+      <button class="btn btn-lap" id="lapBtn" disabled>Lap</button>
+      <button class="btn btn-reset" id="resetBtn" disabled>Reset</button>
     </div>
-    <div class="laps-section" id="lapsSection" style="display:none;">
-      <h2>Laps</h2>
-      <div class="laps" id="laps"></div>
+    <div class="laps" id="lapsContainer" style="display: none;">
+      <h3>Laps</h3>
+      <div id="laps"></div>
     </div>
   </div>
-
   <script>
     let startTime = 0;
     let elapsed = 0;
     let running = false;
     let interval = null;
-    let lapCount = 0;
-
+    let lapTimes = [];
+    
     const display = document.getElementById('display');
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const lapBtn = document.getElementById('lapBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const lapsSection = document.getElementById('lapsSection');
-    const lapsContainer = document.getElementById('laps');
-
+    const lapsContainer = document.getElementById('lapsContainer');
+    const lapsEl = document.getElementById('laps');
+    
     function formatTime(ms) {
-      const totalSec = Math.floor(ms / 1000);
-      const hours = Math.floor(totalSec / 3600);
-      const minutes = Math.floor((totalSec % 3600) / 60);
-      const seconds = totalSec % 60;
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
       const centiseconds = Math.floor((ms % 1000) / 10);
-      
-      return [hours, minutes, seconds, centiseconds]
-        .map(n => n.toString().padStart(2, '0'))
-        .join(':');
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
     }
-
-    function updateDisplay() {
-      const current = running ? Date.now() - startTime + elapsed : elapsed;
-      display.textContent = formatTime(current);
+    
+    function update() {
+      const now = performance.now();
+      elapsed = now - startTime;
+      display.textContent = formatTime(elapsed);
     }
-
-    function start() {
-      if (running) return;
-      running = true;
-      startTime = Date.now();
-      interval = setInterval(updateDisplay, 10);
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'inline-block';
-      lapBtn.disabled = false;
-    }
-
-    function stop() {
-      if (!running) return;
-      running = false;
-      elapsed += Date.now() - startTime;
-      clearInterval(interval);
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'inline-block';
-      stopBtn.textContent = 'Resume';
-      lapBtn.disabled = true;
-    }
-
-    function resume() {
-      running = true;
-      startTime = Date.now();
-      interval = setInterval(updateDisplay, 10);
-      stopBtn.textContent = 'Stop';
-      lapBtn.disabled = false;
-    }
-
-    function reset() {
-      running = false;
-      clearInterval(interval);
-      elapsed = 0;
-      lapCount = 0;
-      display.textContent = '00:00:00.00';
-      startBtn.style.display = 'inline-block';
-      stopBtn.style.display = 'none';
-      stopBtn.textContent = 'Stop';
-      lapBtn.disabled = true;
-      lapsSection.style.display = 'none';
-      lapsContainer.innerHTML = '';
-    }
-
-    function lap() {
-      if (!running) return;
-      lapCount++;
-      const current = Date.now() - startTime + elapsed;
-      const lapTime = current - (lapCount > 1 ? parseInt(lapsContainer.firstChild?.dataset.time || 0) : 0);
-      
-      const div = document.createElement('div');
-      div.className = 'lap-item';
-      div.dataset.time = current;
-      div.innerHTML = `<span>Lap ${lapCount}</span><span>${formatTime(lapTime)}</span>`;
-      lapsContainer.insertBefore(div, lapsContainer.firstChild);
-      lapsSection.style.display = 'block';
-    }
-
-    startBtn.addEventListener('click', start);
-    stopBtn.addEventListener('click', () => {
-      if (stopBtn.textContent === 'Stop') stop();
-      else resume();
+    
+    startBtn.addEventListener('click', () => {
+      if (!running) {
+        startTime = performance.now() - elapsed;
+        interval = setInterval(update, 10);
+        running = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        lapBtn.disabled = false;
+        resetBtn.disabled = false;
+      }
     });
-    resetBtn.addEventListener('click', reset);
-    lapBtn.addEventListener('click', lap);
+    
+    stopBtn.addEventListener('click', () => {
+      if (running) {
+        clearInterval(interval);
+        running = false;
+        startBtn.textContent = 'Resume';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    });
+    
+    lapBtn.addEventListener('click', () => {
+      if (running || elapsed > 0) {
+        lapTimes.unshift(elapsed);
+        const lapNum = lapTimes.length;
+        const lapItem = document.createElement('div');
+        lapItem.className = 'lap-item';
+        const split = lapTimes.length > 1 ? lapTimes[0] - lapTimes[1] : elapsed;
+        lapItem.innerHTML = `
+          <span class="lap-number">Lap ${lapNum}</span>
+          <span class="lap-time">${formatTime(elapsed)}</span>
+        `;
+        lapsEl.insertBefore(lapItem, lapsEl.firstChild);
+        lapsContainer.style.display = 'block';
+      }
+    });
+    
+    resetBtn.addEventListener('click', () => {
+      clearInterval(interval);
+      running = false;
+      elapsed = 0;
+      lapTimes = [];
+      display.textContent = '00:00:00.00';
+      startBtn.textContent = 'Start';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      lapBtn.disabled = true;
+      resetBtn.disabled = true;
+      lapsEl.innerHTML = '';
+      lapsContainer.style.display = 'none';
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (running) {
+          stopBtn.click();
+        } else {
+          startBtn.click();
+        }
+      }
+    });
   </script>
 </body>
 </html>
