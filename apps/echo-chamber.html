@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Chamber — Shadow's Garden</title>
+<meta name="description" content="An interactive text experience that echoes and evolves what you type">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: #0a0a0a; }
+  .container { max-width: 600px; width: 100%; text-align: center; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #e5e5e5; font-weight: 300; letter-spacing: 0.1em; }
+  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+  #input { width: 100%; padding: 1rem; font-size: 1.1rem; background: #111; border: 1px solid #222; color: #ccc; font-family: inherit; resize: none; height: 100px; border-radius: 4px; margin-bottom: 1rem; }
+  #input:focus { outline: none; border-color: #444; }
+  #echo-container { min-height: 200px; margin-top: 2rem; position: relative; }
+  .echo-line { opacity: 0; transform: translateY(10px); animation: fadeIn 0.5s forwards; font-size: 1rem; color: #888; margin: 0.5rem 0; transition: all 0.3s; }
+  .echo-line.fresh { color: #6cb6ff; }
+  .echo-line.evolved { color: #bb9af7; }
+  .echo-line.dead { color: #444; text-decoration: line-through; }
+  @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+  .stats { color: #444; font-size: 0.75rem; margin-top: 2rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>ECHO CHAMBER</h1>
+    <p class="subtitle">Type something. Watch it evolve.</p>
+    <textarea id="input" placeholder="write something here..."></textarea>
+    <div id="echo-container"></div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <script>
+    const input = document.getElementById('input');
+    const container = document.getElementById('echo-container');
+    const stats = document.getElementById('stats');
+    let echoes = [];
+    let generation = 0;
+
+    function evolve(text) {
+      const words = text.split(/\s+/).filter(w => w.length > 0);
+      if (words.length === 0) return '';
+      
+      // Slight mutation: swap, delete, or duplicate a word
+      const mutations = [
+        () => { // duplicate a word
+          const idx = Math.floor(Math.random() * words.length);
+          return words.slice(0, idx).concat([words[idx]], words.slice(idx)).join(' ');
+        },
+        () => { // delete a short word
+          const idx = words.findIndex(w => w.length < 4 && Math.random() > 0.5);
+          if (idx > -1) return words.slice(0, idx).concat(words.slice(idx+1)).join(' ');
+          return text;
+        },
+        () => { // reverse two words
+          const idx = Math.floor(Math.random() * (words.length - 1));
+          const temp = words[idx];
+          words[idx] = words[idx+1];
+          words[idx+1] = temp;
+          return words.join(' ');
+        }
+      ];
+      
+      return mutations[Math.floor(Math.random() * mutations.length)]();
+    }
+
+    function addEcho(text, isOriginal = false) {
+      if (!text.trim()) return;
+      
+      const line = document.createElement('div');
+      line.className = 'echo-line fresh';
+      line.textContent = isOriginal ? `"${text}"` : text;
+      container.insertBefore(line, container.firstChild);
+      
+      echoes.unshift({ text, age: 0, el: line });
+      
+      // Keep only last 20
+      if (echoes.length > 20) {
+        const old = echoes.pop();
+        old.el.remove();
+      }
+      
+      updateStats();
+    }
+
+    function ageEchoes() {
+      echoes.forEach(echo => {
+        echo.age++;
+        echo.el.classList.remove('fresh');
+        
+        if (echo.age > 3) {
+          // Evolve
+          const evolved = evolve(echo.text);
+          if (evolved !== echo.text) {
+            echo.text = evolved;
+            echo.el.textContent = evolved;
+            echo.el.classList.add('evolved');
+          }
+        }
+        
+        if (echo.age > 8) {
+          echo.el.classList.add('dead');
+        }
+      });
+    }
+
+    function updateStats() {
+      stats.textContent = `${echoes.length} echoes · generation ${generation}`;
+    }
+
+    input.addEventListener('input', () => {
+      const text = input.value.trim();
+      if (text && text.endsWith('.')) {
+        addEcho(text.replace(/\.+$/, ''), true);
+        generation++;
+        input.value = '';
+      }
+    });
+
+    setInterval(ageEchoes, 3000);
+    updateStats();
+  </script>
+</body>
+</html>
