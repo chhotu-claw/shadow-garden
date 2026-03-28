@@ -4,366 +4,280 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unit Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between units of length, weight, temperature, volume, and area. Clean, fast, client-side.">
+<meta name="description" content="Convert between units of length, weight, temperature, and data storage. Clean, local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #10b981;
-  }
-  body {
-    font-family: 'IBM Plex Mono', monospace;
-    background: #0a0a0a;
-    color: #e5e5e5;
-    min-height: 100vh;
-    margin: 0;
-    padding: 2rem 1rem;
-  }
-  .converter-container {
-    max-width: 600px;
-    margin: 0 auto;
-  }
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    color: var(--accent);
-  }
-  .subtitle {
-    color: #666;
-    font-size: 0.85rem;
-    margin-bottom: 2rem;
-  }
-  .category-tabs {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-  }
-  .category-tab {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #888;
-    padding: 0.5rem 1rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .category-tab:hover {
-    border-color: var(--accent);
-    color: #ccc;
-  }
-  .category-tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #000;
-  }
-  .converter-box {
-    background: #111;
-    border: 1px solid #222;
-    padding: 1.5rem;
-  }
-  .input-group {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-  .input-group input {
-    flex: 1;
-    background: #0a0a0a;
-    border: 1px solid #333;
-    color: #e5e5e5;
-    padding: 0.75rem;
-    font-size: 1rem;
-    font-family: inherit;
-  }
-  .input-group input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .input-group select {
-    background: #0a0a0a;
-    border: 1px solid #333;
-    color: #e5e5e5;
-    padding: 0.75rem;
-    font-size: 1rem;
-    font-family: inherit;
-    min-width: 120px;
-  }
-  .input-group select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .result-display {
-    background: #0a0a0a;
-    border: 1px solid #333;
-    padding: 1rem;
-    font-size: 1.25rem;
-    color: var(--accent);
-    min-height: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .copy-btn {
-    background: transparent;
-    border: 1px solid #333;
-    color: #666;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.7rem;
-    cursor: pointer;
-    margin-left: auto;
-  }
-  .copy-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .quick-presets {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-top: 1rem;
-  }
-  .preset-btn {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #666;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.7rem;
-    cursor: pointer;
-  }
-  .preset-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; padding: 2rem; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .category-select { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .category-btn { padding: 0.5rem 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; color: #888; cursor: pointer; transition: all 0.2s; }
+  .category-btn:hover { border-color: #555; color: #aaa; }
+  .category-btn.active { background: #1e3a5f; border-color: #3b82f6; color: #60a5fa; }
+  .converter-section { display: none; }
+  .converter-section.active { display: block; }
+  .converter-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: end; }
+  @media (max-width: 600px) { .converter-grid { grid-template-columns: 1fr; } }
+  .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  label { font-size: 0.85rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+  input, select { padding: 0.75rem; background: #141414; border: 1px solid #333; border-radius: 6px; color: #fff; font-size: 1rem; }
+  input:focus, select:focus { outline: none; border-color: #3b82f6; }
+  .swap-btn { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 0.75rem; cursor: pointer; color: #666; font-size: 1.2rem; }
+  .swap-btn:hover { border-color: #555; color: #aaa; }
+  .common-values { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .common-values button { padding: 0.25rem 0.5rem; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #666; font-size: 0.8rem; cursor: pointer; }
+  .common-values button:hover { border-color: #555; }
+  .result { font-size: 1.5rem; font-weight: 600; color: #4ade80; margin-top: 1rem; padding: 1rem; background: #0a1a0a; border-radius: 8px; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="converter-container">
+  <nav></nav>
   <h1>Unit Converter</h1>
-  <p class="subtitle">Length · Weight · Temperature · Volume · Area</p>
+  <p style="color:#666;margin-bottom:1.5rem;">Convert between units of length, weight, temperature, and data storage.</p>
   
-  <div class="category-tabs">
-    <button class="category-tab active" data-category="length">Length</button>
-    <button class="category-tab" data-category="weight">Weight</button>
-    <button class="category-tab" data-category="temperature">Temperature</button>
-    <button class="category-tab" data-category="volume">Volume</button>
-    <button class="category-tab" data-category="area">Area</button>
+  <div class="category-select">
+    <button class="category-btn active" data-category="length">Length</button>
+    <button class="category-btn" data-category="weight">Weight</button>
+    <button class="category-btn" data-category="temperature">Temperature</button>
+    <button class="category-btn" data-category="data">Data</button>
   </div>
-  
-  <div class="converter-box">
-    <div class="input-group">
-      <input type="number" id="inputValue" placeholder="Enter value" value="1">
-      <select id="fromUnit"></select>
+
+  <div id="length" class="converter-section active">
+    <div class="converter-grid">
+      <div class="input-group">
+        <label>From</label>
+        <input type="number" id="length-from" value="1">
+        <select id="length-unit-from">
+          <option value="m">Meter</option>
+          <option value="km">Kilometer</option>
+          <option value="cm">Centimeter</option>
+          <option value="mm">Millimeter</option>
+          <option value="mi">Mile</option>
+          <option value="yd">Yard</option>
+          <option value="ft">Foot</option>
+          <option value="in">Inch</option>
+          <option value="nm">Nautical Mile</option>
+        </select>
+        <div class="common-values">
+          <button onclick="setValue('length-from', 1)">1m</button>
+          <button onclick="setValue('length-from', 100)">100m</button>
+          <button onclick="setValue('length-from', 1609.34)">1 mile</button>
+        </div>
+      </div>
+      <button class="swap-btn" onclick="swapUnits('length')">⇄</button>
+      <div class="input-group">
+        <label>To</label>
+        <select id="length-unit-to">
+          <option value="m">Meter</option>
+          <option value="km">Kilometer</option>
+          <option value="cm" selected>Centimeter</option>
+          <option value="mm">Millimeter</option>
+          <option value="mi">Mile</option>
+          <option value="yd">Yard</option>
+          <option value="ft">Foot</option>
+          <option value="in">Inch</option>
+          <option value="nm">Nautical Mile</option>
+        </select>
+        <div id="length-result" class="result">100 cm</div>
+      </div>
     </div>
-    <div class="input-group">
-      <input type="text" id="toValue" placeholder="Result" readonly>
-      <select id="toUnit"></select>
-    </div>
-    <div class="result-display" id="resultDisplay">
-      <span id="resultText">1 meter = 3.281 feet</span>
-      <button class="copy-btn" id="copyBtn">COPY</button>
-    </div>
-    <div class="quick-presets" id="quickPresets"></div>
   </div>
-</div>
 
-<script>
-const units = {
-  length: {
-    name: 'Length',
-    units: {
-      meter: { name: 'Meter', toBase: 1 },
-      kilometer: { name: 'Kilometer', toBase: 1000 },
-      centimeter: { name: 'Centimeter', toBase: 0.01 },
-      millimeter: { name: 'Millimeter', toBase: 0.001 },
-      mile: { name: 'Mile', toBase: 1609.344 },
-      yard: { name: 'Yard', toBase: 0.9144 },
-      foot: { name: 'Foot', toBase: 0.3048 },
-      inch: { name: 'Inch', toBase: 0.0254 }
-    },
-    presets: [
-      { from: 'meter', to: 'foot' },
-      { from: 'kilometer', to: 'mile' },
-      { from: 'inch', to: 'centimeter' }
-    ]
-  },
-  weight: {
-    name: 'Weight',
-    units: {
-      kilogram: { name: 'Kilogram', toBase: 1 },
-      gram: { name: 'Gram', toBase: 0.001 },
-      milligram: { name: 'Milligram', toBase: 0.000001 },
-      pound: { name: 'Pound', toBase: 0.453592 },
-      ounce: { name: 'Ounce', toBase: 0.0283495 },
-      ton: { name: 'Metric Ton', toBase: 1000 }
-    },
-    presets: [
-      { from: 'kilogram', to: 'pound' },
-      { from: 'pound', to: 'kilogram' },
-      { from: 'gram', to: 'ounce' }
-    ]
-  },
-  temperature: {
-    name: 'Temperature',
-    units: {
-      celsius: { name: 'Celsius (°C)', toBase: 'celsius' },
-      fahrenheit: { name: 'Fahrenheit (°F)', toBase: 'fahrenheit' },
-      kelvin: { name: 'Kelvin (K)', toBase: 'kelvin' }
-    },
-    presets: [
-      { from: 'celsius', to: 'fahrenheit' },
-      { from: 'fahrenheit', to: 'celsius' },
-      { from: 'celsius', to: 'kelvin' }
-    ]
-  },
-  volume: {
-    name: 'Volume',
-    units: {
-      liter: { name: 'Liter', toBase: 1 },
-      milliliter: { name: 'Milliliter', toBase: 0.001 },
-      gallon: { name: 'US Gallon', toBase: 3.78541 },
-      quart: { name: 'US Quart', toBase: 0.946353 },
-      pint: { name: 'US Pint', toBase: 0.473176 },
-      cup: { name: 'US Cup', toBase: 0.236588 },
-      fluidounce: { name: 'US Fluid Ounce', toBase: 0.0295735 }
-    },
-    presets: [
-      { from: 'liter', to: 'gallon' },
-      { from: 'gallon', to: 'liter' },
-      { from: 'cup', to: 'milliliter' }
-    ]
-  },
-  area: {
-    name: 'Area',
-    units: {
-      sqmeter: { name: 'Square Meter', toBase: 1 },
-      sqkilometer: { name: 'Square Kilometer', toBase: 1000000 },
-      sqfoot: { name: 'Square Foot', toBase: 0.092903 },
-      sqinch: { name: 'Square Inch', toBase: 0.00064516 },
-      acre: { name: 'Acre', toBase: 4046.86 },
-      hectare: { name: 'Hectare', toBase: 10000 },
-      sqmile: { name: 'Square Mile', toBase: 2589988.11 }
-    },
-    presets: [
-      { from: 'sqmeter', to: 'sqfoot' },
-      { from: 'acre', to: 'sqmeter' },
-      { from: 'hectare', to: 'acre' }
-    ]
-  }
-};
+  <div id="weight" class="converter-section">
+    <div class="converter-grid">
+      <div class="input-group">
+        <label>From</label>
+        <input type="number" id="weight-from" value="1">
+        <select id="weight-unit-from">
+          <option value="kg">Kilogram</option>
+          <option value="g">Gram</option>
+          <option value="mg">Milligram</option>
+          <option value="lb">Pound</option>
+          <option value="oz">Ounce</option>
+          <option value="ton">Metric Ton</option>
+        </select>
+        <div class="common-values">
+          <button onclick="setValue('weight-from', 1)">1kg</button>
+          <button onclick="setValue('weight-from', 453.592)">1 lb</button>
+        </div>
+      </div>
+      <button class="swap-btn" onclick="swapUnits('weight')">⇄</button>
+      <div class="input-group">
+        <label>To</label>
+        <select id="weight-unit-to">
+          <option value="kg">Kilogram</option>
+          <option value="g" selected>Gram</option>
+          <option value="mg">Milligram</option>
+          <option value="lb">Pound</option>
+          <option value="oz">Ounce</option>
+          <option value="ton">Metric Ton</option>
+        </select>
+        <div id="weight-result" class="result">1000 g</div>
+      </div>
+    </div>
+  </div>
 
-let currentCategory = 'length';
+  <div id="temperature" class="converter-section">
+    <div class="converter-grid">
+      <div class="input-group">
+        <label>From</label>
+        <input type="number" id="temp-from" value="0">
+        <select id="temp-unit-from">
+          <option value="c">Celsius</option>
+          <option value="f">Fahrenheit</option>
+          <option value="k">Kelvin</option>
+        </select>
+        <div class="common-values">
+          <button onclick="setValue('temp-from', 0)">0°C</button>
+          <button onclick="setValue('temp-from', 100)">100°C</button>
+          <button onclick="setValue('temp-from', 32)">32°F</button>
+          <button onclick="setValue('temp-from', -40)">-40°C</button>
+        </div>
+      </div>
+      <button class="swap-btn" onclick="swapUnits('temp')">⇄</button>
+      <div class="input-group">
+        <label>To</label>
+        <select id="temp-unit-to">
+          <option value="c" selected>Celsius</option>
+          <option value="f">Fahrenheit</option>
+          <option value="k">Kelvin</option>
+        </select>
+        <div id="temp-result" class="result">0°C</div>
+      </div>
+    </div>
+  </div>
 
-function convertTemperature(value, from, to) {
-  let celsius;
-  if (from === 'celsius') celsius = value;
-  else if (from === 'fahrenheit') celsius = (value - 32) * 5/9;
-  else if (from === 'kelvin') celsius = value - 273.15;
-  
-  if (to === 'celsius') return celsius;
-  if (to === 'fahrenheit') return celsius * 9/5 + 32;
-  if (to === 'kelvin') return celsius + 273.15;
-}
+  <div id="data" class="converter-section">
+    <div class="converter-grid">
+      <div class="input-group">
+        <label>From</label>
+        <input type="number" id="data-from" value="1">
+        <select id="data-unit-from">
+          <option value="b">Bytes</option>
+          <option value="kb">Kilobytes</option>
+          <option value="mb" selected>Megabytes</option>
+          <option value="gb">Gigabytes</option>
+          <option value="tb">Terabytes</option>
+          <option value="pb">Petabytes</option>
+        </select>
+        <div class="common-values">
+          <button onclick="setValue('data-from', 1)">1 MB</button>
+          <button onclick="setValue('data-from', 1024)">1 GB</button>
+        </div>
+      </div>
+      <button class="swap-btn" onclick="swapUnits('data')">⇄</button>
+      <div class="input-group">
+        <label>To</label>
+        <select id="data-unit-to">
+          <option value="b">Bytes</option>
+          <option value="kb">Kilobytes</option>
+          <option value="mb">Megabytes</option>
+          <option value="gb" selected>Gigabytes</option>
+          <option value="tb">Terabytes</option>
+          <option value="pb">Petabytes</option>
+        </select>
+        <div id="data-result" class="result">0.001 GB</div>
+      </div>
+    </div>
+  </div>
 
-function convert() {
-  const value = parseFloat(document.getElementById('inputValue').value);
-  const fromUnit = document.getElementById('fromUnit').value;
-  const toUnit = document.getElementById('toUnit').value;
-  const category = units[currentCategory];
-  
-  if (isNaN(value)) {
-    document.getElementById('toValue').value = '';
-    document.getElementById('resultText').textContent = 'Enter a number';
-    return;
-  }
-  
-  let result;
-  if (currentCategory === 'temperature') {
-    result = convertTemperature(value, fromUnit, toUnit);
-  } else {
-    const baseValue = value * category.units[fromUnit].toBase;
-    result = baseValue / category.units[toUnit].toBase;
-  }
-  
-  const formatted = Math.abs(result) < 0.0001 || Math.abs(result) > 10000000 
-    ? result.toExponential(4) 
-    : parseFloat(result.toFixed(6));
-  
-  document.getElementById('toValue').value = formatted;
-  
-  const fromName = category.units[fromUnit].name;
-  const toName = category.units[toUnit].name;
-  document.getElementById('resultText').textContent = `${value} ${fromName} = ${formatted} ${toName}`;
-}
-
-function populateUnits() {
-  const category = units[currentCategory];
-  const fromSelect = document.getElementById('fromUnit');
-  const toSelect = document.getElementById('toUnit');
-  
-  fromSelect.innerHTML = '';
-  toSelect.innerHTML = '';
-  
-  for (const [key, unit] of Object.entries(category.units)) {
-    fromSelect.innerHTML += `<option value="${key}">${unit.name}</option>`;
-    toSelect.innerHTML += `<option value="${key}">${unit.name}</option>`;
-  }
-  
-  if (category.presets.length > 0) {
-    document.getElementById('fromUnit').value = category.presets[0].from;
-    document.getElementById('toUnit').value = category.presets[0].to;
-  }
-  
-  populatePresets();
-  convert();
-}
-
-function populatePresets() {
-  const category = units[currentCategory];
-  const presetsDiv = document.getElementById('quickPresets');
-  presetsDiv.innerHTML = '';
-  
-  category.presets.forEach(preset => {
-    const btn = document.createElement('button');
-    btn.className = 'preset-btn';
-    const fromName = category.units[preset.from].name.split(' ')[0];
-    const toName = category.units[preset.to].name.split(' ')[0];
-    btn.textContent = `${fromName} → ${toName}`;
-    btn.onclick = () => {
-      document.getElementById('fromUnit').value = preset.from;
-      document.getElementById('toUnit').value = preset.to;
-      convert();
+  <script>
+    const conversionFactors = {
+      length: {
+        m: 1, km: 1000, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254, nm: 1852
+      },
+      weight: {
+        kg: 1, g: 0.001, mg: 0.000001, lb: 0.453592, oz: 0.0283495, ton: 1000
+      },
+      data: {
+        b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776, pb: 1125899906842624
+      }
     };
-    presetsDiv.appendChild(btn);
-  });
-}
 
-document.querySelectorAll('.category-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    currentCategory = tab.dataset.category;
-    populateUnits();
-  });
-});
+    function celsiusToFahrenheit(c) { return c * 9/5 + 32; }
+    function celsiusToKelvin(c) { return c + 273.15; }
+    function fahrenheitToCelsius(f) { return (f - 32) * 5/9; }
+    function kelvinToCelsius(k) { return k - 273.15; }
 
-document.getElementById('inputValue').addEventListener('input', convert);
-document.getElementById('fromUnit').addEventListener('change', convert);
-document.getElementById('toUnit').addEventListener('change', convert);
+    function convertTemperature(value, from, to) {
+      let c;
+      if (from === 'c') c = value;
+      else if (from === 'f') c = fahrenheitToCelsius(value);
+      else c = kelvinToCelsius(value);
+      
+      if (to === 'c') return c;
+      else if (to === 'f') return celsiusToFahrenheit(c);
+      else return celsiusToKelvin(c);
+    }
 
-document.getElementById('copyBtn').addEventListener('click', () => {
-  const result = document.getElementById('toValue').value;
-  if (result) {
-    navigator.clipboard.writeText(result);
-    document.getElementById('copyBtn').textContent = 'COPIED';
-    setTimeout(() => {
-      document.getElementById('copyBtn').textContent = 'COPY';
-    }, 1500);
-  }
-});
+    function convert(type) {
+      let fromVal, fromUnit, toUnit, result;
+      
+      if (type === 'temp') {
+        fromVal = parseFloat(document.getElementById('temp-from').value);
+        fromUnit = document.getElementById('temp-unit-from').value;
+        toUnit = document.getElementById('temp-unit-to').value;
+        result = convertTemperature(fromVal, fromUnit, toUnit);
+        document.getElementById('temp-result').textContent = result.toFixed(2) + ' ' + (toUnit === 'c' ? '°C' : toUnit === 'f' ? '°F' : 'K');
+      } else {
+        const factors = conversionFactors[type];
+        fromVal = parseFloat(document.getElementById(type + '-from').value);
+        fromUnit = document.getElementById(type + '-unit-from').value;
+        toUnit = document.getElementById(type + '-unit-to').value;
+        const baseValue = fromVal * factors[fromUnit];
+        result = baseValue / factors[toUnit];
+        
+        let unitName = toUnit;
+        if (type === 'length') unitName += ' (meter)';
+        else if (type === 'weight') unitName += ' (kg)';
+        else unitName += ' (bytes)';
+        
+        if (result >= 1000000) document.getElementById(type + '-result').textContent = result.toExponential(2) + ' ' + toUnit;
+        else if (result < 0.0001) document.getElementById(type + '-result').textContent = result.toExponential(2) + ' ' + toUnit;
+        else document.getElementById(type + '-result').textContent = result.toLocaleString(undefined, {maximumFractionDigits: 6}) + ' ' + toUnit;
+      }
+    }
 
-populateUnits();
-</script>
+    function swapUnits(type) {
+      const suffix = type === 'temp' ? '' : '-' + type;
+      const fromSelect = document.getElementById((type === 'temp' ? 'temp' : type) + '-unit-from');
+      const toSelect = document.getElementById((type === 'temp' ? 'temp' : type) + '-unit-to');
+      const temp = fromSelect.value;
+      fromSelect.value = toSelect.value;
+      toSelect.value = temp;
+      convert(type);
+    }
+
+    function setValue(id, val) {
+      document.getElementById(id).value = val;
+      const type = id.split('-')[0];
+      convert(type);
+    }
+
+    document.querySelectorAll('.category-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.converter-section').forEach(s => s.classList.remove('active'));
+        document.getElementById(btn.dataset.category).classList.add('active');
+      });
+    });
+
+    ['length', 'weight', 'data'].forEach(type => {
+      document.getElementById(type + '-from').addEventListener('input', () => convert(type));
+      document.getElementById(type + '-unit-from').addEventListener('change', () => convert(type));
+      document.getElementById(type + '-unit-to').addEventListener('change', () => convert(type));
+    });
+
+    ['temp-from', 'temp-unit-from', 'temp-unit-to'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => convert('temp'));
+      document.getElementById(id).addEventListener('change', () => convert('temp'));
+    });
+
+    convert('length');
+    convert('weight');
+    convert('temp');
+    convert('data');
+  </script>
 </body>
 </html>
