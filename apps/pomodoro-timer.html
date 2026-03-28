@@ -4,358 +4,169 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pomodoro Timer — Shadow's Garden</title>
-<meta name="description" content="A focused pomodoro timer with customizable work/break durations, notifications, and session tracking.">
+<meta name="description" content="A minimal Pomodoro timer with customizable intervals, visual progress, and session tracking. Works entirely in your browser.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .pomodoro-container {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 2rem;
-    text-align: center;
-  }
-  
-  .timer-display {
-    font-size: 6rem;
-    font-weight: 300;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--text);
-    margin: 1rem 0;
-    letter-spacing: -2px;
-  }
-  
-  .timer-display.work { color: #e74c3c; }
-  .timer-display.break { color: #27ae60; }
-  .timer-display.paused { color: #7f8c8d; }
-  
-  .timer-controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin: 2rem 0;
-  }
-  
-  .timer-btn {
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-weight: 600;
-  }
-  
-  .timer-btn.primary {
-    background: var(--accent);
-    color: white;
-  }
-  
-  .timer-btn.primary:hover {
-    opacity: 0.9;
-    transform: scale(1.02);
-  }
-  
-  .timer-btn.secondary {
-    background: var(--bg-secondary);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  
-  .timer-settings {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin: 2rem 0;
-    padding: 1.5rem;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-  }
-  
-  .setting-group {
-    text-align: left;
-  }
-  
-  .setting-group label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-  }
-  
-  .setting-group input {
-    width: 100%;
-    padding: 0.75rem;
-    font-size: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text);
-  }
-  
-  .session-counter {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    margin-top: 1rem;
-  }
-  
-  .session-counter span {
-    color: var(--accent);
-    font-weight: 600;
-  }
-  
-  .progress-ring {
-    width: 200px;
-    height: 200px;
-    margin: 0 auto;
-  }
-  
-  .progress-ring circle {
-    fill: none;
-    stroke-width: 8;
-  }
-  
-  .progress-ring .bg {
-    stroke: var(--bg-secondary);
-  }
-  
-  .progress-ring .progress {
-    stroke: var(--accent);
-    stroke-linecap: round;
-    transform: rotate(-90deg);
-    transform-origin: center;
-    transition: stroke-dashoffset 1s linear;
-  }
-  
-  .progress-ring.work .progress { stroke: #e74c3c; }
-  .progress-ring.break .progress { stroke: #27ae60; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: #0d0d0d; }
+  .timer-display { font-size: 5rem; font-weight: 200; font-family: 'SF Mono', monospace; letter-spacing: -0.02em; margin-bottom: 2rem; color: #e5e5e5; }
+  .timer-display.break { color: #7af782; }
+  .timer-display.paused { color: #f77a7a; }
+  .session-label { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: #666; margin-bottom: 0.5rem; }
+  .progress-ring { width: 280px; height: 280px; margin-bottom: 2rem; position: relative; }
+  .progress-ring svg { transform: rotate(-90deg); }
+  .progress-ring circle { fill: none; stroke-width: 4; }
+  .progress-ring .bg { stroke: #222; }
+  .progress-ring .progress { stroke: #7aa2f7; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+  .progress-ring.break .progress { stroke: #7af782; }
+  .controls { display: flex; gap: 1rem; margin-bottom: 2rem; }
+  button { background: #1a1a1a; border: 1px solid #333; color: #e5e5e5; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+  button:hover { background: #252525; border-color: #444; }
+  button.primary { background: #7aa2f7; color: #0d0d0d; border-color: #7aa2f7; }
+  button.primary:hover { background: #8fb4ff; }
+  button.secondary { background: transparent; }
+  .settings { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+  .setting { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .setting label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; }
+  .setting input { width: 60px; background: #1a1a1a; border: 1px solid #333; color: #e5e5e5; padding: 0.5rem; border-radius: 4px; text-align: center; font-size: 1rem; }
+  .session-count { font-size: 0.85rem; color: #666; }
+  .session-count span { color: #7aa2f7; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="pomodoro-container">
-    <h1>Pomodoro Timer</h1>
-    
-    <div class="progress-ring work" id="progressRing">
-      <svg viewBox="0 0 200 200">
-        <circle class="bg" cx="100" cy="100" r="90"/>
-        <circle class="progress" cx="100" cy="100" r="90" 
-          stroke-dasharray="565.48" stroke-dashoffset="0"/>
-      </svg>
-      <div class="timer-display work" id="timerDisplay">25:00</div>
+  <div class="session-label" id="sessionLabel">Focus Session</div>
+  <div class="progress-ring" id="progressRing">
+    <svg width="280" height="280">
+      <circle class="bg" cx="140" cy="140" r="130"></circle>
+      <circle class="progress" id="progressCircle" cx="140" cy="140" r="130" stroke-dasharray="816.81" stroke-dashoffset="0"></circle>
+    </svg>
+  </div>
+  <div class="timer-display" id="timerDisplay">25:00</div>
+  <div class="controls">
+    <button id="startBtn" class="primary">Start</button>
+    <button id="resetBtn" class="secondary">Reset</button>
+  </div>
+  <div class="settings">
+    <div class="setting">
+      <label>Focus</label>
+      <input type="number" id="focusTime" value="25" min="1" max="60">
     </div>
-    
-    <div class="timer-controls">
-      <button class="timer-btn primary" id="startBtn">Start</button>
-      <button class="timer-btn secondary" id="resetBtn">Reset</button>
+    <div class="setting">
+      <label>Break</label>
+      <input type="number" id="breakTime" value="5" min="1" max="30">
     </div>
-    
-    <div class="session-counter">
-      Sessions: <span id="sessionCount">0</span> | 
-      Time focused: <span id="totalTime">0</span> min
-    </div>
-    
-    <div class="timer-settings">
-      <div class="setting-group">
-        <label>Work Duration (min)</label>
-        <input type="number" id="workDuration" value="25" min="1" max="60">
-      </div>
-      <div class="setting-group">
-        <label>Break Duration (min)</label>
-        <input type="number" id="breakDuration" value="5" min="1" max="30">
-      </div>
-      <div class="setting-group">
-        <label>Long Break (min)</label>
-        <input type="number" id="longBreak" value="15" min="1" max="60">
-      </div>
-      <div class="setting-group">
-        <label>Sessions until long break</label>
-        <input type="number" id="sessionsUntilLong" value="4" min="1" max="10">
-      </div>
+    <div class="setting">
+      <label>Long Break</label>
+      <input type="number" id="longBreakTime" value="15" min="1" max="60">
     </div>
   </div>
-
+  <div class="session-count">Sessions: <span id="sessionCount">0</span></div>
   <script>
+    const CIRCUMFERENCE = 2 * Math.PI * 130;
     let timeLeft = 25 * 60;
     let totalTime = 25 * 60;
     let isRunning = false;
-    let isWork = true;
-    let sessionCount = 0;
-    let totalMinutes = 0;
+    let isBreak = false;
+    let currentSession = 0;
     let interval = null;
-    
+
     const timerDisplay = document.getElementById('timerDisplay');
+    const progressCircle = document.getElementById('progressCircle');
+    const progressRing = document.getElementById('progressRing');
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const progressRing = document.getElementById('progressRing');
-    const progressCircle = progressRing.querySelector('.progress');
-    const sessionCountEl = document.getElementById('sessionCount');
-    const totalTimeEl = document.getElementById('totalTime');
-    const workDurationInput = document.getElementById('workDuration');
-    const breakDurationInput = document.getElementById('breakDuration');
-    const longBreakInput = document.getElementById('longBreak');
-    const sessionsUntilLongInput = document.getElementById('sessionsUntilLong');
-    
-    const circumference = 2 * Math.PI * 90;
-    
+    const sessionLabel = document.getElementById('sessionLabel');
+    const sessionCount = document.getElementById('sessionCount');
+    const focusTime = document.getElementById('focusTime');
+    const breakTime = document.getElementById('breakTime');
+    const longBreakTime = document.getElementById('longBreakTime');
+
     function updateDisplay() {
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      const offset = circumference * (1 - timeLeft / totalTime);
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      const offset = CIRCUMFERENCE * (1 - timeLeft / totalTime);
       progressCircle.style.strokeDashoffset = offset;
     }
-    
-    function updateTitle() {
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      document.title = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} - Pomodoro`;
-    }
-    
+
     function tick() {
       if (timeLeft > 0) {
         timeLeft--;
         updateDisplay();
-        updateTitle();
       } else {
         clearInterval(interval);
         isRunning = false;
+        startBtn.textContent = isBreak ? 'Start Break' : 'Start';
         
-        if (isWork) {
-          sessionCount++;
-          totalMinutes += parseInt(workDurationInput.value);
-          sessionCountEl.textContent = sessionCount;
-          totalTimeEl.textContent = totalMinutes;
-          
-          const shouldLongBreak = sessionCount % parseInt(sessionsUntilLongInput.value) === 0;
-          const breakTime = shouldLongBreak ? parseInt(longBreakInput.value) : parseInt(breakDurationInput.value);
-          
-          startBreak(breakTime);
-          playNotification();
+        if (!isBreak) {
+          currentSession++;
+          sessionCount.textContent = currentSession;
+          const longBreak = currentSession % 4 === 0;
+          totalTime = (longBreak ? parseInt(longBreakTime.value) : parseInt(breakTime.value)) * 60;
+          timeLeft = totalTime;
+          isBreak = true;
+          sessionLabel.textContent = longBreak ? 'Long Break' : 'Break';
+          timerDisplay.classList.add('break');
+          progressRing.classList.add('break');
         } else {
-          startWork(parseInt(workDurationInput.value));
-          playNotification();
+          totalTime = parseInt(focusTime.value) * 60;
+          timeLeft = totalTime;
+          isBreak = false;
+          sessionLabel.textContent = 'Focus Session';
+          timerDisplay.classList.remove('break');
+          progressRing.classList.remove('break');
+        }
+        updateDisplay();
+        
+        if (Notification.permission === 'granted') {
+          new Notification(isBreak ? 'Time for a break!' : 'Time to focus!');
         }
       }
     }
-    
-    function startWork(minutes) {
-      isWork = true;
-      totalTime = minutes * 60;
-      timeLeft = totalTime;
-      timerDisplay.className = 'timer-display work';
-      progressRing.className = 'progress-ring work';
-      updateDisplay();
-    }
-    
-    function startBreak(minutes) {
-      isWork = false;
-      totalTime = minutes * 60;
-      timeLeft = totalTime;
-      timerDisplay.className = 'timer-display break';
-      progressRing.className = 'progress-ring break';
-      updateDisplay();
-    }
-    
-    function playNotification() {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(isWork ? 'Time for a break!' : 'Break over! Ready to focus?');
-      }
-      
-      // Also try audio
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        oscillator.frequency.value = isWork ? 880 : 440;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-        
-        oscillator.start(audioCtx.currentTime);
-        oscillator.stop(audioCtx.currentTime + 0.5);
-      } catch (e) {
-        console.log('Audio not supported');
-      }
-    }
-    
-    function toggleTimer() {
+
+    startBtn.addEventListener('click', () => {
       if (isRunning) {
         clearInterval(interval);
         isRunning = false;
-        startBtn.textContent = 'Start';
+        startBtn.textContent = 'Resume';
         timerDisplay.classList.add('paused');
-        progressRing.classList.add('paused');
       } else {
-        if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
         interval = setInterval(tick, 1000);
         isRunning = true;
         startBtn.textContent = 'Pause';
         timerDisplay.classList.remove('paused');
-        progressRing.classList.remove('paused');
       }
-    }
-    
-    function resetTimer() {
+    });
+
+    resetBtn.addEventListener('click', () => {
       clearInterval(interval);
       isRunning = false;
+      isBreak = false;
+      currentSession = 0;
+      sessionCount.textContent = '0';
+      totalTime = parseInt(focusTime.value) * 60;
+      timeLeft = totalTime;
+      sessionLabel.textContent = 'Focus Session';
+      timerDisplay.classList.remove('break', 'paused');
+      progressRing.classList.remove('break');
       startBtn.textContent = 'Start';
-      
-      if (isWork) {
-        startWork(parseInt(workDurationInput.value));
-      } else {
-        startBreak(parseInt(breakDurationInput.value));
-      }
+      updateDisplay();
+    });
+
+    [focusTime, breakTime, longBreakTime].forEach(input => {
+      input.addEventListener('change', () => {
+        if (!isRunning && !isBreak) {
+          totalTime = parseInt(focusTime.value) * 60;
+          timeLeft = totalTime;
+          updateDisplay();
+        }
+      });
+    });
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-    
-    workDurationInput.addEventListener('change', () => {
-      if (!isRunning && isWork) {
-        startWork(parseInt(workDurationInput.value));
-      }
-    });
-    
-    breakDurationInput.addEventListener('change', () => {
-      if (!isRunning && !isWork) {
-        startBreak(parseInt(breakDurationInput.value));
-      }
-    });
-    
-    startBtn.addEventListener('click', toggleTimer);
-    resetBtn.addEventListener('click', resetTimer);
-    
-    // Load saved state
-    const savedState = localStorage.getItem('pomodoroState');
-    if (savedState) {
-      try {
-        const state = JSON.parse(savedState);
-        sessionCount = state.sessionCount || 0;
-        totalMinutes = state.totalMinutes || 0;
-        sessionCountEl.textContent = sessionCount;
-        totalTimeEl.textContent = totalMinutes;
-      } catch (e) {}
-    }
-    
-    // Save state periodically
-    setInterval(() => {
-      localStorage.setItem('pomodoroState', JSON.stringify({
-        sessionCount,
-        totalMinutes
-      }));
-    }, 10000);
-    
-    // Handle page visibility for accurate timing
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && isRunning) {
-        // Recalculate time based on system clock
-      }
-    });
-    
+
     updateDisplay();
   </script>
 </body>
