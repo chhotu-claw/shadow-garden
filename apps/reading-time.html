@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Time Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate reading time, word count, character count, and more for any text.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --text: #e8e8e8;
+    --muted: #888;
+    --accent: #00d4aa;
+  }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 200px;
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 1rem;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .stat-card {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+  .speed-control {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .speed-control label {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  input[type="range"] {
+    flex: 1;
+    max-width: 200px;
+  }
+  .speed-value {
+    color: var(--accent);
+    font-size: 0.875rem;
+    min-width: 60px;
+  }
+  .clear-btn {
+    margin-top: 1rem;
+    background: transparent;
+    border: 1px solid #333;
+    color: var(--muted);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+  .clear-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Reading Time Calculator</h1>
+  <p class="subtitle">Word count, character count, reading time</p>
+  
+  <textarea id="input" placeholder="Paste your text here..."></textarea>
+  
+  <div class="speed-control">
+    <label>Reading speed:</label>
+    <input type="range" id="speed" min="100" max="500" value="200" step="10">
+    <span class="speed-value" id="speedValue">200 wpm</span>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-value" id="words">0</div>
+      <div class="stat-label">Words</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="characters">0</div>
+      <div class="stat-label">Characters</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="charactersNoSpace">0</div>
+      <div class="stat-label">Chars (no spaces)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="lines">0</div>
+      <div class="stat-label">Lines</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="paragraphs">0</div>
+      <div class="stat-label">Paragraphs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="readingTime">0 min</div>
+      <div class="stat-label">Reading Time</div>
+    </div>
+  </div>
+  
+  <button class="clear-btn" id="clear">Clear</button>
+</div>
+
+<script>
+const input = document.getElementById('input');
+const speed = document.getElementById('speed');
+const speedValue = document.getElementById('speedValue');
+
+function count() {
+  const text = input.value;
+  
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const characters = text.length;
+  const charactersNoSpace = text.replace(/\s/g, '').length;
+  const lines = text ? text.split('\n').length : 0;
+  const paragraphs = text ? text.split(/\n\n+/).filter(p => p.trim()).length : 0;
+  
+  const wpm = parseInt(speed.value);
+  const minutes = words / wpm;
+  const readingTime = minutes < 1 
+    ? `< 1 min` 
+    : minutes < 60 
+      ? `${Math.round(minutes)} min` 
+      : `${Math.floor(minutes / 60)}h ${Math.round(minutes % 60)}m`;
+  
+  document.getElementById('words').textContent = words.toLocaleString();
+  document.getElementById('characters').textContent = characters.toLocaleString();
+  document.getElementById('charactersNoSpace').textContent = charactersNoSpace.toLocaleString();
+  document.getElementById('lines').textContent = lines.toLocaleString();
+  document.getElementById('paragraphs').textContent = paragraphs.toLocaleString();
+  document.getElementById('readingTime').textContent = readingTime;
+}
+
+speed.addEventListener('input', () => {
+  speedValue.textContent = speed.value + ' wpm';
+  count();
+});
+
+input.addEventListener('input', count);
+
+document.getElementById('clear').addEventListener('click', () => {
+  input.value = '';
+  count();
+});
+
+// Load saved text
+const saved = localStorage.getItem('reading-time-text');
+if (saved) {
+  input.value = saved;
+  count();
+}
+
+input.addEventListener('input', () => {
+  localStorage.setItem('reading-time-text', input.value);
+});
+</script>
+</body>
+</html>
