@@ -4,156 +4,157 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Duration Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate the duration between two dates in human-readable format. Supports years, months, days, hours, minutes, seconds.">
+<meta name="description" content="Calculate durations across multiple units simultaneously. See years, days, hours, minutes all at once.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
-  .container { max-width: 600px; width: 100%; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; }
-  .subtitle { color: #666; margin-bottom: 2rem; }
-  .inputs { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem; }
-  .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-  .input-group label { font-size: 0.9rem; color: #888; }
-  .input-group input { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 0.75rem; color: #e5e5e5; font-size: 1rem; }
-  .input-group input:focus { outline: none; border-color: #6cb6ff; }
-  .buttons { display: flex; gap: 1rem; margin-bottom: 2rem; }
-  button { background: #1a1a2e; color: #7aa2f7; border: 1px solid #333; border-radius: 6px; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; transition: all 0.2s; }
-  button:hover { background: #2a2a4e; border-color: #7aa2f7; }
-  button.secondary { background: transparent; color: #666; border-color: #333; }
-  button.secondary:hover { color: #888; border-color: #444; }
-  .result { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1.5rem; text-align: center; }
-  .result.empty { color: #666; }
-  .result-value { font-size: 1.25rem; font-weight: 600; color: #7af782; }
-  .result-breakdown { margin-top: 1rem; font-size: 0.9rem; color: #888; }
-  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .preset-btn { background: #222; border: 1px solid #333; color: #666; padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 4px; cursor: pointer; }
-  .preset-btn:hover { border-color: #555; color: #888; }
+  body { font-family: var(--font-mono); }
+  .calculator { max-width: 600px; margin: 0 auto; padding: 2rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-light); }
+  input, select { 
+    width: 100%; padding: 0.75rem; font-size: 1rem; 
+    background: var(--bg-light); border: 1px solid var(--border);
+    border-radius: 8px; font-family: inherit;
+  }
+  .results { 
+    background: var(--bg-accent); padding: 1.5rem; 
+    border-radius: 12px; margin-top: 2rem;
+  }
+  .result-row { 
+    display: flex; justify-content: space-between; 
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-label { color: var(--text-light); }
+  .result-value { font-weight: bold; color: var(--accent); }
+  .mode-toggle {
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+  }
+  .mode-btn {
+    flex: 1; padding: 0.75rem; border: 1px solid var(--border);
+    background: transparent; border-radius: 8px; cursor: pointer;
+    font-family: inherit; transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: var(--accent); color: var(--bg-dark);
+    border-color: var(--accent);
+  }
+  .time-inputs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+  .time-inputs input { text-align: center; }
+  .time-inputs .unit { font-size: 0.75rem; color: var(--text-light); text-align: center; margin-top: 0.25rem; }
+  h1 { text-align: center; margin-bottom: 2rem; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Duration Calculator</h1>
-    <p class="subtitle">Calculate the time between two dates</p>
-    
-    <div class="presets">
-      <button class="preset-btn" onclick="setNow()">Now → +1 hour</button>
-      <button class="preset-btn" onclick="setToday()">Today → End of day</button>
-      <button class="preset-btn" onclick="setWeek()">Now → +7 days</button>
-    </div>
+<div class="calculator">
+  <h1>⏱️ Duration Calculator</h1>
+  
+  <div class="mode-toggle">
+    <button class="mode-btn active" data-mode="duration">Duration → Units</button>
+    <button class="mode-btn" data-mode="range">Date Range</button>
+  </div>
 
-    <div class="inputs">
-      <div class="input-group">
-        <label>Start Date & Time</label>
-        <input type="datetime-local" id="start">
+  <div id="duration-mode">
+    <div class="input-group">
+      <label>Enter duration</label>
+      <div class="time-inputs">
+        <div><input type="number" id="years" min="0" placeholder="0"><div class="unit">years</div></div>
+        <div><input type="number" id="days" min="0" placeholder="0"><div class="unit">days</div></div>
+        <div><input type="number" id="hours" min="0" placeholder="0"><div class="unit">hours</div></div>
+        <div><input type="number" id="minutes" min="0" placeholder="0"><div class="unit">min</div></div>
       </div>
-      <div class="input-group">
-        <label>End Date & Time</label>
-        <input type="datetime-local" id="end">
-      </div>
-    </div>
-
-    <div class="buttons">
-      <button onclick="calculate()">Calculate</button>
-      <button class="secondary" onclick="clearAll()">Clear</button>
-    </div>
-
-    <div class="result" id="result">
-      <p class="empty">Enter two dates to see the duration</p>
     </div>
   </div>
 
-  <script>
-    const startInput = document.getElementById('start');
-    const endInput = document.getElementById('end');
-    const resultDiv = document.getElementById('result');
+  <div id="range-mode" style="display:none;">
+    <div class="input-group">
+      <label>Start Date</label>
+      <input type="datetime-local" id="start-date">
+    </div>
+    <div class="input-group">
+      <label>End Date</label>
+      <input type="datetime-local" id="end-date">
+    </div>
+    <button class="mode-btn" onclick="useNow()" style="margin-top:0.5rem;">Use Now as End</button>
+  </div>
 
-    function setNow() {
-      const now = new Date();
-      const later = new Date(now.getTime() + 60 * 60 * 1000);
-      startInput.value = formatForInput(now);
-      endInput.value = formatForInput(later);
+  <div class="results" id="results">
+    <div class="result-row"><span class="result-label">Total Days</span><span class="result-value" id="total-days">—</span></div>
+    <div class="result-row"><span class="result-label">Total Hours</span><span class="result-value" id="total-hours">—</span></div>
+    <div class="result-row"><span class="result-label">Total Minutes</span><span class="result-value" id="total-minutes">—</span></div>
+    <div class="result-row"><span class="result-label">Total Seconds</span><span class="result-value" id="total-seconds">—</span></div>
+    <div class="result-row"><span class="result-label">Weeks</span><span class="result-value" id="total-weeks">—</span></div>
+    <div class="result-row"><span class="result-label">Business Days</span><span class="result-value" id="biz-days">—</span></div>
+    <div class="result-row"><span class="result-label">Months (approx)</span><span class="result-value" id="total-months">—</span></div>
+    <div class="result-row"><span class="result-label">Years (approx)</span><span class="result-value" id="total-years">—</span></div>
+  </div>
+</div>
+
+<script>
+  const modeBtns = document.querySelectorAll('.mode-btn[data-mode]');
+  let currentMode = 'duration';
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      document.getElementById('duration-mode').style.display = currentMode === 'duration' ? 'block' : 'none';
+      document.getElementById('range-mode').style.display = currentMode === 'range' ? 'block' : 'none';
       calculate();
-    }
+    });
+  });
 
-    function setToday() {
-      const now = new Date();
-      const endOfDay = new Date(now);
-      endOfDay.setHours(23, 59, 59, 999);
-      startInput.value = formatForInput(now);
-      endInput.value = formatForInput(endOfDay);
-      calculate();
-    }
+  function useNow() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('end-date').value = now.toISOString().slice(0, 16);
+    calculate();
+  }
 
-    function setWeek() {
-      const now = new Date();
-      const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      startInput.value = formatForInput(now);
-      endInput.value = formatForInput(weekLater);
-      calculate();
-    }
+  const inputs = ['years', 'days', 'hours', 'minutes'].map(id => document.getElementById(id));
+  const dateInputs = ['start-date', 'end-date'].map(id => document.getElementById(id));
 
-    function formatForInput(date) {
-      return date.toISOString().slice(0, 16);
-    }
+  inputs.forEach(input => input.addEventListener('input', calculate));
+  dateInputs.forEach(input => input.addEventListener('input', calculate));
 
-    function calculate() {
-      const start = new Date(startInput.value);
-      const end = new Date(endInput.value);
+  function calculate() {
+    if (currentMode === 'duration') {
+      const y = parseFloat(document.getElementById('years').value) || 0;
+      const d = parseFloat(document.getElementById('days').value) || 0;
+      const h = parseFloat(document.getElementById('hours').value) || 0;
+      const m = parseFloat(document.getElementById('minutes').value) || 0;
 
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        resultDiv.innerHTML = '<p class="empty">Please enter valid dates</p>';
-        return;
+      const totalMinutes = (y * 365.25 * 24 * 60) + (d * 24 * 60) + (h * 60) + m;
+      showResults(totalMinutes);
+    } else {
+      const start = new Date(document.getElementById('start-date').value);
+      const end = new Date(document.getElementById('end-date').value);
+      if (start && end && !isNaN(start) && !isNaN(end)) {
+        const totalMinutes = (end - start) / 60000;
+        if (totalMinutes >= 0) showResults(totalMinutes);
       }
-
-      if (end <= start) {
-        resultDiv.innerHTML = '<p class="empty">End must be after start</p>';
-        return;
-      }
-
-      const diff = end.getTime() - start.getTime();
-      const totalSeconds = Math.floor(diff / 1000);
-      const totalMinutes = Math.floor(diff / 60000);
-      const totalHours = Math.floor(diff / 3600000);
-      const totalDays = Math.floor(diff / 86400000);
-
-      // Calculate breakdown
-      let remaining = diff;
-      const years = Math.floor(remaining / (365.25 * 86400000));
-      remaining = remaining % (365.25 * 86400000);
-      const months = Math.floor(remaining / (30.44 * 86400000));
-      remaining = remaining % (30.44 * 86400000);
-      const days = Math.floor(remaining / 86400000);
-      remaining = remaining % 86400000;
-      const hours = Math.floor(remaining / 3600000);
-      remaining = remaining % 3600000;
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-
-      // Human readable
-      const parts = [];
-      if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
-      if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
-      if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
-      if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
-      if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`);
-      if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds !== 1 ? 's' : ''}`);
-
-      const humanReadable = parts.join(', ');
-
-      resultDiv.innerHTML = `
-        <div class="result-value">${humanReadable}</div>
-        <div class="result-breakdown">
-          ${totalDays} days · ${totalHours} hours · ${totalMinutes} minutes · ${totalSeconds} seconds
-        </div>
-      `;
     }
+  }
 
-    function clearAll() {
-      startInput.value = '';
-      endInput.value = '';
-      resultDiv.innerHTML = '<p class="empty">Enter two dates to see the duration</p>';
-    }
-  </script>
+  function showResults(minutes) {
+    document.getElementById('total-days').textContent = (minutes / 60 / 24).toFixed(2);
+    document.getElementById('total-hours').textContent = (minutes / 60).toFixed(2);
+    document.getElementById('total-minutes').textContent = minutes.toFixed(0);
+    document.getElementById('total-seconds').textContent = (minutes * 60).toFixed(0);
+    document.getElementById('total-weeks').textContent = (minutes / 60 / 24 / 7).toFixed(2);
+    document.getElementById('biz-days').textContent = (minutes / 60 / 24 * 5 / 7).toFixed(2);
+    document.getElementById('total-months').textContent = (minutes / 60 / 24 / 30.44).toFixed(2);
+    document.getElementById('total-years').textContent = (minutes / 60 / 24 / 365.25).toFixed(4);
+  }
+
+  // Initialize end date to now
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('end-date').value = now.toISOString().slice(0, 16);
+  document.getElementById('start-date').value = now.toISOString().slice(0, 16);
+  calculate();
+</script>
 </body>
 </html>
