@@ -4,350 +4,160 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Focus — Shadow's Garden</title>
-<meta name="description" content="Stay focused. Set 1-3 priorities for today, track them, build streaks.">
+<meta name="description" content="A minimal daily focus tool without the bloat of full todo apps"> 
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --bg: #0d0d0d;
-    --card: #1a1a1a;
-    --text: #e8e8e8;
-    --muted: #888;
-    --accent: #00d4aa;
-    --accent-dim: #00d4aa22;
-    --danger: #ff4757;
-  }
-  body {
-    font-family: 'JetBrains Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem 1rem;
-  }
-  .container {
-    max-width: 480px;
-    width: 100%;
-  }
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 400;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .streak-badge {
-    font-size: 0.75rem;
-    background: var(--accent-dim);
-    color: var(--accent);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-  }
-  .date-display {
-    color: var(--muted);
-    font-size: 0.875rem;
-    margin-bottom: 2rem;
-  }
-  .priorities {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-  }
-  .priority-item {
-    background: var(--card);
-    border-radius: 8px;
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    transition: all 0.2s;
-  }
-  .priority-item.done {
-    opacity: 0.5;
-    text-decoration: line-through;
-  }
-  .priority-item.done .checkbox {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-  .checkbox {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--muted);
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.2s;
-  }
-  .checkbox:hover {
-    border-color: var(--accent);
-  }
-  .checkbox svg {
-    display: none;
-    width: 14px;
-    height: 14px;
-    stroke: var(--bg);
-    stroke-width: 3;
-  }
-  .priority-item.done .checkbox svg {
-    display: block;
-  }
-  .priority-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    font-size: 1rem;
-    font-family: inherit;
-    outline: none;
-  }
-  .priority-input::placeholder {
-    color: var(--muted);
-  }
-  .delete-btn {
-    background: transparent;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 0.25rem;
-    font-size: 1.25rem;
-    line-height: 1;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .priority-item:hover .delete-btn {
-    opacity: 1;
-  }
-  .delete-btn:hover {
-    color: var(--danger);
-  }
-  .add-btn {
-    background: transparent;
-    border: 2px dashed var(--muted);
-    color: var(--muted);
-    padding: 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.875rem;
-    width: 100%;
-    transition: all 0.2s;
-  }
-  .add-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .add-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-  .stats {
-    background: var(--card);
-    border-radius: 8px;
-    padding: 1rem;
-    display: flex;
-    justify-content: space-around;
-  }
-  .stat {
-    text-align: center;
-  }
-  .stat-value {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--accent);
-  }
-  .stat-label {
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-  .completed-today {
-    text-align: center;
-    color: var(--accent);
-    font-size: 0.875rem;
-    padding: 1rem;
-    display: none;
-  }
-  .completed-today.show {
-    display: block;
-  }
+  .focus-container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
+  .date-display { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem; }
+  .input-group { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+  .input-group input { flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+  .input-group input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .input-group button { padding: 0.75rem 1.5rem; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: transform 0.1s; }
+  .input-group button:hover { transform: scale(1.02); }
+  .task-list { list-style: none; padding: 0; margin: 0; }
+  .task-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 0.5rem; transition: opacity 0.2s; }
+  .task-item.completed { opacity: 0.5; }
+  .task-item.completed .task-text { text-decoration: line-through; }
+  .task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+  .task-text { flex: 1; }
+  .delete-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; font-size: 1.2rem; opacity: 0; transition: opacity 0.2s; }
+  .task-item:hover .delete-btn { opacity: 1; }
+  .delete-btn:hover { color: var(--error); }
+  .clear-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-top: 1rem; font-size: 0.85rem; }
+  .clear-btn:hover { border-color: var(--text); color: var(--text); }
+  .empty-state { text-align: center; color: var(--text-muted); padding: 2rem; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+  .progress-text { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>Daily Focus <span class="streak-badge" id="streak">🔥0</span></h1>
-  <div class="date-display" id="date"></div>
-  
-  <div class="priorities" id="priorities"></div>
-  
-  <button class="add-btn" id="addBtn">+ Add Priority</button>
-  
-  <div class="completed-today" id="completedMsg">
-    ✓ All priorities complete! Great day.
+<div class="focus-container">
+  <div class="date-display" id="dateDisplay"></div>
+  <div class="progress-text" id="progressText">0 of 0 tasks done</div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
+  <div class="input-group">
+    <input type="text" id="taskInput" placeholder="What needs to get done today?" autocomplete="off">
+    <button id="addBtn">Add</button>
   </div>
-  
-  <div style="margin-top: 2rem;">
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value" id="totalDone">0</div>
-        <div class="stat-label">Total Done</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="perfectDays">0</div>
-        <div class="stat-label">Perfect Days</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="currentStreak">0</div>
-        <div class="stat-label">Current Streak</div>
-      </div>
-    </div>
+  <ul class="task-list" id="taskList"></ul>
+  <div style="text-align: center;">
+    <button class="clear-btn" id="clearCompleted">Clear completed</button>
   </div>
 </div>
-
 <script>
-const STORAGE_KEY = 'daily-focus';
-const TODAY_KEY = 'daily-focus-today';
+const STORAGE_KEY = 'shadow-daily-focus-tasks';
+const DATE_KEY = 'shadow-daily-focus-date';
 
-function getDateKey() {
+function getToday() {
   return new Date().toISOString().split('T')[0];
 }
 
-function load() {
-  const today = getDateKey();
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const data = stored ? JSON.parse(stored) : { priorities: [], stats: { total: 0, perfect: 0, streak: 0 }, history: {} };
+function loadTasks() {
+  const storedDate = localStorage.getItem(DATE_KEY);
+  const today = getToday();
   
-  const lastDate = localStorage.getItem(TODAY_KEY);
-  if (lastDate !== today) {
-    if (lastDate) {
-      const yesterdayItems = data.history[lastDate] || [];
-      const allDone = yesterdayItems.length > 0 && yesterdayItems.every(p => p.done);
-      if (allDone) {
-        data.stats.streak++;
-      } else {
-        data.stats.streak = 0;
-      }
-    }
-    localStorage.setItem(TODAY_KEY, today);
-    data.priorities = [];
-    save(data);
+  if (storedDate !== today) {
+    localStorage.setItem(DATE_KEY, today);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    return [];
   }
   
-  return data;
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
 }
 
-function save(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+function saveTasks(tasks) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
 function render() {
-  const data = load();
-  const priorities = document.getElementById('priorities');
-  priorities.innerHTML = '';
+  const tasks = loadTasks();
+  const list = document.getElementById('taskList');
+  const input = document.getElementById('taskInput');
+  const progressText = document.getElementById('progressText');
+  const progressFill = document.getElementById('progressFill');
   
-  const activeItems = data.priorities.filter(p => p.text.trim());
+  const completed = tasks.filter(t => t.done).length;
+  const total = tasks.length;
   
-  activeItems.forEach((p, i) => {
-    const item = document.createElement('div');
-    item.className = `priority-item ${p.done ? 'done' : ''}`;
-    item.innerHTML = `
-      <div class="checkbox" data-index="${i}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
-      </div>
-      <input type="text" class="priority-input" value="${p.text}" placeholder="What's the priority?" data-index="${i}">
+  progressText.textContent = `${completed} of ${total} tasks done`;
+  progressFill.style.width = total > 0 ? `${(completed / total) * 100}%` : '0%';
+  
+  if (tasks.length === 0) {
+    list.innerHTML = '<div class="empty-state">No tasks yet. Add one above.</div>';
+    return;
+  }
+  
+  list.innerHTML = tasks.map((task, i) => `
+    <li class="task-item ${task.done ? 'completed' : ''}">
+      <input type="checkbox" class="task-checkbox" ${task.done ? 'checked' : ''} data-index="${i}">
+      <span class="task-text">${escapeHtml(task.text)}</span>
       <button class="delete-btn" data-index="${i}">×</button>
-    `;
-    priorities.appendChild(item);
-  });
-  
-  const addBtn = document.getElementById('addBtn');
-  addBtn.disabled = activeItems.length >= 3;
-  
-  const allDone = activeItems.length > 0 && activeItems.every(p => p.done);
-  document.getElementById('completedMsg').classList.toggle('show', allDone);
-  
-  document.getElementById('streak').textContent = `🔥${data.stats.streak}`;
-  document.getElementById('totalDone').textContent = data.stats.total;
-  document.getElementById('perfectDays').textContent = data.stats.perfect;
-  document.getElementById('currentStreak').textContent = data.stats.streak;
-  
-  document.getElementById('date').textContent = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', month: 'long', day: 'numeric' 
-  });
+    </li>
+  `).join('');
 }
 
-function add() {
-  const data = load();
-  if (data.priorities.length < 3) {
-    data.priorities.push({ text: '', done: false });
-    save(data);
-    render();
-  }
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-function toggle(i) {
-  const data = load();
-  if (data.priorities[i]) {
-    data.priorities[i].done = !data.priorities[i].done;
-    if (data.priorities[i].done) {
-      data.stats.total++;
-    }
-    save(data);
-    render();
-  }
-}
-
-function updateText(i, text) {
-  const data = load();
-  if (data.priorities[i]) {
-    data.priorities[i].text = text;
-    save(data);
-  }
-}
-
-function remove(i) {
-  const data = load();
-  data.priorities.splice(i, 1);
-  save(data);
+function addTask() {
+  const input = document.getElementById('taskInput');
+  const text = input.value.trim();
+  if (!text) return;
+  
+  const tasks = loadTasks();
+  tasks.push({ text, done: false });
+  saveTasks(tasks);
+  input.value = '';
   render();
 }
 
-function checkPerfectDay() {
-  const data = load();
-  const activeItems = data.priorities.filter(p => p.text.trim());
-  if (activeItems.length > 0 && activeItems.every(p => p.done)) {
-    data.stats.perfect++;
-    save(data);
-  }
+function toggleTask(index) {
+  const tasks = loadTasks();
+  tasks[index].done = !tasks[index].done;
+  saveTasks(tasks);
+  render();
 }
 
-document.getElementById('priorities').addEventListener('click', e => {
-  if (e.target.classList.contains('checkbox')) {
-    const i = parseInt(e.target.dataset.index);
-    toggle(i);
-    checkPerfectDay();
-  }
-  if (e.target.classList.contains('delete-btn')) {
-    const i = parseInt(e.target.dataset.index);
-    remove(i);
+function deleteTask(index) {
+  const tasks = loadTasks();
+  tasks.splice(index, 1);
+  saveTasks(tasks);
+  render();
+}
+
+function clearCompleted() {
+  const tasks = loadTasks().filter(t => !t.done);
+  saveTasks(tasks);
+  render();
+}
+
+document.getElementById('addBtn').addEventListener('click', addTask);
+document.getElementById('taskInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') addTask();
+});
+document.getElementById('taskList').addEventListener('click', e => {
+  if (e.target.classList.contains('task-checkbox')) {
+    toggleTask(parseInt(e.target.dataset.index));
+  } else if (e.target.classList.contains('delete-btn')) {
+    deleteTask(parseInt(e.target.dataset.index));
   }
 });
+document.getElementById('clearCompleted').addEventListener('click', clearCompleted);
 
-document.getElementById('priorities').addEventListener('input', e => {
-  if (e.target.classList.contains('priority-input')) {
-    const i = parseInt(e.target.dataset.index);
-    updateText(i, e.target.value);
-  }
-});
+// Display today's date nicely
+const dateOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US', dateOpts);
 
-document.getElementById('addBtn').addEventListener('click', add);
-
+// Initial render
 render();
 </script>
 </body>
