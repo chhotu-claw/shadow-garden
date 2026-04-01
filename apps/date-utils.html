@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Date Utilities — Shadow's Garden</title>
+<meta name="description" content="Unix timestamp converter, timezone tool, date diff, and day finder. The date tools you actually need.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+  }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; margin: 0; padding: 2rem; box-sizing: border-box; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .tagline { color: var(--muted); margin-bottom: 2rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+  .card h2 { font-size: 1.1rem; margin: 0 0 1rem 0; color: var(--accent); }
+  label { display: block; margin-bottom: 0.5rem; color: var(--muted); font-size: 0.85rem; }
+  input, select { width: 100%; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 1rem; box-sizing: border-box; margin-bottom: 0.75rem; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .result { background: var(--bg); padding: 0.75rem; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 0.9rem; word-break: break-all; min-height: 1.5rem; color: var(--success); }
+  .btn { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+  .btn:hover { opacity: 0.9; }
+  .row { display: flex; gap: 0.5rem; }
+  .row input { margin-bottom: 0; }
+  .tools { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .tool-btn { background: var(--border); color: var(--text); border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+  .tool-btn:hover { background: var(--accent); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>🗓️ Date Utilities</h1>
+  <p class="tagline">The date tools you actually need. No bloat.</p>
+
+  <div class="grid">
+    <!-- Unix Timestamp Converter -->
+    <div class="card">
+      <h2>Unix Timestamp</h2>
+      <label>Current timestamp (seconds)</label>
+      <input type="text" id="ts-input" placeholder="e.g. 1704067200">
+      <div class="tools">
+        <button class="btn" onclick="convertTs()">Convert</button>
+        <button class="tool-btn" onclick="nowTs()">Now</button>
+        <button class="tool-btn" onclick="copyResult('ts-result')">Copy</button>
+      </div>
+      <div class="result" id="ts-result"></div>
+    </div>
+
+    <!-- Date to Timestamp -->
+    <div class="card">
+      <h2>Date → Timestamp</h2>
+      <label>Select date & time</label>
+      <input type="datetime-local" id="date-input">
+      <button class="btn" onclick="dateToTs()">Get Timestamp</button>
+      <div class="result" id="date-result"></div>
+    </div>
+
+    <!-- Timezone Converter -->
+    <div class="card">
+      <h2>Timezone Converter</h2>
+      <label>From timezone</label>
+      <select id="tz-from">
+        <option value="UTC">UTC</option>
+        <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+        <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
+        <option value="Europe/London">Europe/London (GMT/BST)</option>
+        <option value="America/New_York">America/New_York (EST/EDT)</option>
+        <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+        <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+        <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+      </select>
+      <label>To timezone</label>
+      <select id="tz-to">
+        <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+        <option value="UTC">UTC</option>
+        <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
+        <option value="Europe/London">Europe/London</option>
+        <option value="America/New_York">America/New_York</option>
+        <option value="America/Los_Angeles">America/Los_Angeles</option>
+        <option value="Asia/Tokyo">Asia/Tokyo</option>
+        <option value="Australia/Sydney">Australia/Sydney</option>
+      </select>
+      <label>Time</label>
+      <input type="time" id="time-input" value="12:00">
+      <button class="btn" onclick="convertTz()">Convert</button>
+      <div class="result" id="tz-result"></div>
+    </div>
+
+    <!-- Date Difference -->
+    <div class="card">
+      <h2>Date Difference</h2>
+      <label>Start date</label>
+      <input type="date" id="diff-start">
+      <label>End date</label>
+      <input type="date" id="diff-end">
+      <button class="btn" onclick="calcDiff()">Calculate</button>
+      <div class="result" id="diff-result"></div>
+    </div>
+
+    <!-- Day Finder -->
+    <div class="card">
+      <h2>Day Finder</h2>
+      <label>Enter any date</label>
+      <input type="date" id="day-input">
+      <button class="btn" onclick="findDay()">Find Day</button>
+      <div class="result" id="day-result"></div>
+    </div>
+
+    <!-- Quick Add/Subtract -->
+    <div class="card">
+      <h2>Add/Subtract Days</h2>
+      <label>Start date</label>
+      <input type="date" id="add-date">
+      <div class="row">
+        <input type="number" id="add-days" placeholder="Days" style="flex:1">
+        <button class="btn" onclick="addDays()">Go</button>
+      </div>
+      <div class="result" id="add-result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Initialize with current date
+  document.getElementById('diff-start').valueAsDate = new Date();
+  document.getElementById('diff-end').valueAsDate = new Date();
+  document.getElementById('day-input').valueAsDate = new Date();
+  document.getElementById('add-date').valueAsDate = new Date();
+
+  function convertTs() {
+    const input = document.getElementById('ts-input').value.trim();
+    if (!input) return;
+    const ts = parseInt(input);
+    if (isNaN(ts)) {
+      document.getElementById('ts-result').textContent = 'Invalid timestamp';
+      return;
+    }
+    const date = new Date(ts * 1000);
+    document.getElementById('ts-result').textContent = date.toLocaleString();
+  }
+
+  function nowTs() {
+    const now = Math.floor(Date.now() / 1000);
+    document.getElementById('ts-input').value = now;
+    document.getElementById('ts-result').textContent = new Date().toLocaleString();
+  }
+
+  function dateToTs() {
+    const input = document.getElementById('date-input').value;
+    if (!input) return;
+    const date = new Date(input);
+    const ts = Math.floor(date.getTime() / 1000);
+    document.getElementById('date-result').textContent = ts + ' (seconds)\n' + (ts * 1000) + ' (ms)';
+  }
+
+  function convertTz() {
+    const from = document.getElementById('tz-from').value;
+    const to = document.getElementById('tz-to').value;
+    const time = document.getElementById('time-input').value;
+    if (!time) return;
+
+    const now = new Date();
+    const [hours, minutes] = time.split(':');
+
+    // Create date in source timezone
+    const dateStr = now.toISOString().split('T')[0] + 'T' + time + ':00';
+    const sourceDate = new Date(dateStr);
+
+    // Simple offset calculation
+    const getOffset = (tz) => {
+      const offsetMap = {
+        'UTC': 0, 'Asia/Dubai': 4, 'Asia/Kolkata': 5.5,
+        'Europe/London': 0, 'America/New_York': -5, 'America/Los_Angeles': -8,
+        'Asia/Tokyo': 9, 'Australia/Sydney': 11
+      };
+      return offsetMap[tz] || 0;
+    };
+
+    const fromOffset = getOffset(from);
+    const toOffset = getOffset(to);
+    const diff = toOffset - fromOffset;
+
+    const resultDate = new Date(sourceDate.getTime() + diff * 3600000);
+    const resultTime = resultDate.toTimeString().slice(0, 5);
+
+    document.getElementById('tz-result').textContent = resultTime + ' (' + to + ')';
+  }
+
+  function calcDiff() {
+    const start = document.getElementById('diff-start').value;
+    const end = document.getElementById('diff-end').value;
+    if (!start || !end) return;
+
+    const d1 = new Date(start);
+    const d2 = new Date(end);
+    const diff = Math.abs(d2 - d1);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
+
+    document.getElementById('diff-result').textContent = 
+      days + ' days\n' + hours + ' hours\n' + minutes + ' minutes';
+  }
+
+  function findDay() {
+    const input = document.getElementById('day-input').value;
+    if (!input) return;
+    const date = new Date(input);
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    document.getElementById('day-result').textContent = days[date.getDay()];
+  }
+
+  function addDays() {
+    const dateStr = document.getElementById('add-date').value;
+    const days = parseInt(document.getElementById('add-days').value);
+    if (!dateStr || isNaN(days)) return;
+
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + days);
+
+    document.getElementById('add-result').textContent = date.toLocaleDateString();
+  }
+
+  function copyResult(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text);
+  }
+</script>
+</body>
+</html>
