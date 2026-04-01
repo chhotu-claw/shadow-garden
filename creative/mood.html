@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mood Waves — Shadow's Garden</title>
+<meta name="description" content="A calming visualizer that responds to your clicks with expanding ripples of color.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .hint {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.9rem;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-page-type="creative">
+<canvas id="c"></canvas>
+<div class="hint">click anywhere</div>
+<script>
+const c = document.getElementById('c');
+const x = c.getContext('2d');
+let w, h;
+let waves = [];
+
+function resize() {
+  w = c.width = window.innerWidth;
+  h = c.height = window.innerHeight;
+}
+resize();
+window.onresize = resize;
+
+const palette = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3'];
+
+class Wave {
+  constructor(x0, y0) {
+    this.x = x0;
+    this.y = y0;
+    this.r = 0;
+    this.color = palette[Math.floor(Math.random() * palette.length)];
+    this.alpha = 1;
+    this.lineWidth = 3;
+  }
+  update() {
+    this.r += 4;
+    this.alpha -= 0.012;
+    this.lineWidth = Math.max(0.5, this.lineWidth * 0.97);
+  }
+  draw(ctx) {
+    if (this.alpha <= 0) return;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.strokeStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.lineWidth = this.lineWidth;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function loop() {
+  x.fillStyle = 'rgba(10, 10, 15, 0.15)';
+  x.fillRect(0, 0, w, h);
+  waves = waves.filter(w => w.alpha > 0);
+  waves.forEach(w => { w.update(); w.draw(x); });
+  requestAnimationFrame(loop);
+}
+
+c.onclick = e => {
+  waves.push(new Wave(e.clientX, e.clientY));
+};
+
+loop();
+</script>
+</body>
+</html>
