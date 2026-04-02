@@ -4,159 +4,107 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Formatter — Shadow's Garden</title>
-<meta name="description" content="Format, validate, and minify JSON instantly. Paste your messy JSON and get clean, readable output.">
+<meta name="description" content="Format, validate, and minify JSON. Paste messy JSON, get clean output.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; min-height: 100vh; display: flex; flex-direction: column; }
-  .container { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; }
-  .description { color: #666; margin-bottom: 1.5rem; }
-  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: 1; min-height: 0; }
-  .panel { display: flex; flex-direction: column; min-height: 300px; }
-  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-  .panel-title { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
-  textarea { flex: 1; background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; color: #e5e5e5; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 0.9rem; resize: none; line-height: 1.5; }
-  textarea:focus { outline: none; border-color: #333; }
-  .toolbar { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
-  button { background: #1a1a1a; border: 1px solid #333; color: #e5e5e5; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
-  button:hover { background: #252525; border-color: #444; }
-  button.primary { background: #7aa2f7; color: #0d0d0d; border-color: #7aa2f7; font-weight: 500; }
-  button.primary:hover { background: #89b4fa; }
-  .error { color: #f7768e; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
-  .error.show { display: block; }
-  .stats { font-size: 0.8rem; color: #666; margin-top: 0.5rem; }
-  @media (max-width: 768px) { .panels { grid-template-columns: 1fr; } }
+  body { min-height: 100vh; display: flex; flex-direction: column; padding: 1rem; box-sizing: border-box; }
+  .container { width: 100%; max-width: 800px; margin: 0 auto; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; }
+  .editor-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .editor-col { flex: 1; min-width: 300px; }
+  label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
+  textarea { width: 100%; height: 300px; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); font-family: var(--mono); font-size: 0.9rem; resize: vertical; box-sizing: border-box; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .btn-row { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+  button { padding: 0.6rem 1rem; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: var(--border); color: var(--text); }
+  .status { padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-family: var(--mono); font-size: 0.9rem; }
+  .status.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+  .status.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+  .options { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .options label { display: flex; align-items: center; gap: 0.25rem; font-weight: 400; cursor: pointer; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <h1>JSON Formatter</h1>
-  <p class="description">Format, validate, and minify JSON. Paste your messy JSON and get clean output.</p>
-  
-  <div class="panels">
-    <div class="panel">
-      <div class="panel-header"><span class="panel-title">Input</span></div>
-      <textarea id="input" placeholder='{"key": "value"}'></textarea>
+  <div class="container">
+    <h1>JSON Formatter</h1>
+    <p class="subtitle">Format, validate, and minify JSON</p>
+    
+    <div class="editor-row">
+      <div class="editor-col">
+        <label>Input</label>
+        <textarea id="input" placeholder='Paste JSON here... e.g. {"name":"test","value":123}'></textarea>
+      </div>
+      <div class="editor-col">
+        <label>Output</label>
+        <textarea id="output" readonly placeholder="Formatted output will appear here..."></textarea>
+      </div>
     </div>
-    <div class="panel">
-      <div class="panel-header"><span class="panel-title">Output</span></div>
-      <textarea id="output" placeholder="Formatted JSON will appear here..." readonly></textarea>
+    
+    <div class="btn-row">
+      <button onclick="format()">Format</button>
+      <button class="secondary" onclick="minify()">Minify</button>
+      <button class="secondary" onclick="validate()">Validate</button>
+      <button class="secondary" onclick="copy()">Copy Output</button>
+      <button class="secondary" onclick="clear()">Clear</button>
     </div>
+    
+    <div id="status"></div>
   </div>
   
-  <div class="toolbar">
-    <button class="primary" id="format">Format</button>
-    <button id="minify">Minify</button>
-    <button id="validate">Validate</button>
-    <button id="clear">Clear</button>
-    <button id="copy">Copy Output</button>
-    <button id="swap">Swap ⇄</button>
-  </div>
-  
-  <div class="error" id="error"></div>
-  <div class="stats" id="stats"></div>
-</div>
-
-<script>
-const input = document.getElementById('input');
-const output = document.getElementById('output');
-const error = document.getElementById('error');
-const stats = document.getElementById('stats');
-
-function showError(msg) {
-  error.textContent = msg;
-  error.classList.add('show');
-}
-
-function hideError() {
-  error.classList.remove('show');
-}
-
-function updateStats(text) {
-  const lines = text.split('\n').length;
-  const chars = text.length;
-  const size = new Blob([text]).size;
-  stats.textContent = `${lines} lines · ${chars} chars · ${size.toLocaleString()} bytes`;
-}
-
-function format() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    const formatted = JSON.stringify(parsed, null, 2);
-    output.value = formatted;
-    updateStats(formatted);
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-    output.value = '';
-    stats.textContent = '';
-  }
-}
-
-function minify() {
-  hideError();
-  try {
-    const parsed = JSON.parse(input.value);
-    const minified = JSON.stringify(parsed);
-    output.value = minified;
-    updateStats(minified);
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-    output.value = '';
-    stats.textContent = '';
-  }
-}
-
-function validate() {
-  hideError();
-  try {
-    JSON.parse(input.value);
-    showError('');
-    output.value = 'Valid JSON ✓';
-    stats.textContent = '';
-  } catch (e) {
-    showError('Invalid JSON: ' + e.message);
-    output.value = '';
-    stats.textContent = '';
-  }
-}
-
-function clear() {
-  input.value = '';
-  output.value = '';
-  hideError();
-  stats.textContent = '';
-}
-
-async function copy() {
-  if (!output.value) return;
-  try {
-    await navigator.clipboard.writeText(output.value);
-    const btn = document.getElementById('copy');
-    const orig = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = orig, 1500);
-  } catch (e) {
-    showError('Failed to copy');
-  }
-}
-
-function swap() {
-  const temp = input.value;
-  input.value = output.value;
-  output.value = temp;
-  updateStats(output.value);
-}
-
-document.getElementById('format').addEventListener('click', format);
-document.getElementById('minify').addEventListener('click', minify);
-document.getElementById('validate').addEventListener('click', validate);
-document.getElementById('clear').addEventListener('click', clear);
-document.getElementById('copy').addEventListener('click', copy);
-document.getElementById('swap').addEventListener('click', swap);
-
-input.addEventListener('input', () => { hideError(); });
-</script>
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+    
+    function show(msg, isError = false) {
+      status.textContent = msg;
+      status.className = 'status ' + (isError ? 'error' : 'success');
+    }
+    
+    function format() {
+      try {
+        const obj = JSON.parse(input.value);
+        output.value = JSON.stringify(obj, null, 2);
+        show('Formatted successfully');
+      } catch (e) {
+        show('Error: ' + e.message, true);
+      }
+    }
+    
+    function minify() {
+      try {
+        const obj = JSON.parse(input.value);
+        output.value = JSON.stringify(obj);
+        show('Minified successfully');
+      } catch (e) {
+        show('Error: ' + e.message, true);
+      }
+    }
+    
+    function validate() {
+      try {
+        JSON.parse(input.value);
+        show('Valid JSON');
+      } catch (e) {
+        show('Invalid JSON: ' + e.message, true);
+      }
+    }
+    
+    function copy() {
+      if (output.value) {
+        navigator.clipboard.writeText(output.value).then(() => show('Copied!')).catch(() => show('Copy failed', true));
+      }
+    }
+    
+    function clear() {
+      input.value = '';
+      output.value = '';
+      status.textContent = '';
+    }
+  </script>
 </body>
 </html>
