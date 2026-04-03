@@ -4,132 +4,184 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="Type a word and watch it echo back — but changed. Each echo transforms based on how you type it.</meta>
+<meta name="description" content="A generative art piece where your words echo and transform into geometric patterns. Type and watch your thoughts take shape.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #0a0a0a;
-    overflow: hidden;
-  }
-  #input-container {
-    position: relative;
-    width: 100%;
-    max-width: 600px;
-    padding: 0 1rem;
-  }
-  #word-input {
-    width: 100%;
-    padding: 1.5rem;
-    font-size: 2rem;
-    text-align: center;
-    background: transparent;
-    border: 2px solid #333;
-    border-radius: 12px;
-    color: #e5e5e5;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.3s, box-shadow 0.3s;
-  }
-  #word-input:focus {
-    border-color: #6cb6ff;
-    box-shadow: 0 0 30px rgba(108, 182, 255, 0.15);
-  }
-  #word-input::placeholder {
-    color: #444;
-  }
-  #echoes {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    padding: 2rem 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .echo {
-    font-size: 1.2rem;
-    color: #666;
-    opacity: 0;
-    transform: translateY(10px);
-    animation: fadeUp 2s forwards;
-    letter-spacing: 0.1em;
-  }
-  @keyframes fadeUp {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  .echo:nth-child(1) { animation-delay: 0s; color: #555; }
-  .echo:nth-child(2) { animation-delay: 0.5s; color: #5a5a5a; }
-  .echo:nth-child(3) { animation-delay: 1s; color: #606060; }
-  .echo:nth-child(4) { animation-delay: 1.5s; color: #666; }
-  .echo:nth-child(5) { animation-delay: 2s; color: #6a6a6a; }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .input-overlay { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; z-index: 10; }
+  input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 1rem 1.5rem; border-radius: 50px; font-size: 1rem; font-family: 'Fira Code', monospace; outline: none; transition: all 0.3s; }
+  input:focus { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+  input::placeholder { color: rgba(255,255,255,0.3); }
+  .hint { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.3); font-size: 0.8rem; font-family: 'Fira Code', monospace; }
 </style>
 </head>
 <body data-page-type="app">
-  <div id="input-container">
-    <input type="text" id="word-input" placeholder="type a word..." autocomplete="off" spellcheck="false">
-    <div id="echoes"></div>
+  <div class="hint">type and press enter — watch your words echo</div>
+  <div class="input-overlay">
+    <input type="text" id="echoInput" placeholder="speak..." autocomplete="off">
   </div>
+  <canvas id="canvas"></canvas>
   <script>
-    const input = document.getElementById('word-input');
-    const echoes = document.getElementById('echoes');
-    const transforms = [
-      w => w.split('').reverse().join(''),
-      w => w.replace(/[aeiou]/g, ''),
-      w => w.slice(0, Math.floor(w.length / 2)) + w.slice(Math.floor(w.length / 2)).toUpperCase(),
-      w => w.replace(/(.)\1/g, '$1'),
-      w => w.length > 3 ? w.slice(1, -1) : w,
-      w => w.split('').map((c, i) => i % 2 ? c.toUpperCase() : c).join(''),
-      w => w.split('').sort(() => Math.random() - 0.5).join(''),
-      w => w + (w.length % 2 ? '?' : ''),
-      w => w.charCodeAt(0) % 2 ? w.toUpperCase() : w.toLowerCase(),
-      w => w.slice(-3) + w.slice(0, -3),
-    ];
-    
-    function transform(word) {
-      if (!word || word.length < 2) return null;
-      const fn = transforms[Math.floor(Math.random() * transforms.length)];
-      const result = fn(word);
-      return result !== word ? result : null;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const input = document.getElementById('echoInput');
+
+    let width, height;
+    let echoes = [];
+    let time = 0;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     }
-    
-    let typingTimeout;
-    input.addEventListener('input', (e) => {
-      const word = e.target.value.trim();
-      
-      clearTimeout(typingTimeout);
-      
-      echoes.innerHTML = '';
-      
-      if (word.length < 2) return;
-      
-      const variants = [];
-      for (let i = 0; i < 5; i++) {
-        const t = transform(word);
-        if (t && !variants.includes(t)) variants.push(t);
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Echo {
+      constructor(text) {
+        this.text = text.toUpperCase();
+        this.x = Math.random() * width;
+        this.y = height + 50;
+        this.targetY = height * 0.4 + (Math.random() - 0.5) * height * 0.3;
+        this.vy = -2 - Math.random() * 3;
+        this.life = 1;
+        this.decay = 0.002 + Math.random() * 0.003;
+        this.shapes = this.generateShapes(text);
+        this.rotation = 0;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
       }
-      
-      variants.forEach(v => {
-        const el = document.createElement('div');
-        el.className = 'echo';
-        el.textContent = v;
-        echoes.appendChild(el);
-      });
-      
-      typingTimeout = setTimeout(() => {
-        // echoes.innerHTML = '';
-      }, 5000);
+
+      generateShapes(text) {
+        const shapes = [];
+        const len = text.length;
+        const baseRadius = 20 + len * 3;
+        
+        for (let i = 0; i < len; i++) {
+          const angle = (i / len) * Math.PI * 2;
+          const r = baseRadius + Math.sin(i * 0.5) * 10;
+          shapes.push({
+            x: Math.cos(angle) * r,
+            y: Math.sin(angle) * r,
+            size: 3 + (text.charCodeAt(i) % 10),
+            type: text.charCodeAt(i) % 4
+          });
+        }
+        return shapes;
+      }
+
+      update() {
+        this.y += this.vy;
+        if (this.y < this.targetY) {
+          this.vy *= 0.95;
+        }
+        this.life -= this.decay;
+        this.rotation += this.rotationSpeed;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        
+        const colors = [
+          `rgba(139, 92, 246, ${this.life})`,
+          `rgba(59, 130, 246, ${this.life})`,
+          `rgba(236, 72, 153, ${this.life})`,
+          `rgba(34, 197, 94, ${this.life})`
+        ];
+
+        // Draw connecting web
+        ctx.beginPath();
+        this.shapes.forEach((s, i) => {
+          this.shapes.forEach((s2, j) => {
+            if (j > i) {
+              const dist = Math.hypot(s.x - s2.x, s.y - s2.y);
+              if (dist < 80) {
+                ctx.moveTo(s.x, s.y);
+                ctx.lineTo(s2.x, s2.y);
+              }
+            }
+          });
+        });
+        ctx.strokeStyle = `rgba(255,255,255,${this.life * 0.15})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Draw shapes
+        this.shapes.forEach((s, i) => {
+          ctx.fillStyle = colors[s.type];
+          ctx.beginPath();
+          if (s.type === 0) {
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          } else if (s.type === 1) {
+            ctx.rect(s.x - s.size/2, s.y - s.size/2, s.size, s.size);
+          } else if (s.type === 2) {
+            ctx.moveTo(s.x, s.y - s.size);
+            ctx.lineTo(s.x + s.size, s.y + s.size);
+            ctx.lineTo(s.x - s.size, s.y + s.size);
+            ctx.closePath();
+          } else {
+            ctx.moveTo(s.x, s.y - s.size);
+            ctx.lineTo(s.x + s.size * 0.8, s.y);
+            ctx.lineTo(s.x, s.y + s.size);
+            ctx.lineTo(s.x - s.size * 0.8, s.y);
+            ctx.closePath();
+          }
+          ctx.fill();
+        });
+
+        // Draw text
+        ctx.font = '12px "Fira Code"';
+        ctx.fillStyle = `rgba(255,255,255,${this.life * 0.5})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text.substring(0, 20), 0, 60);
+
+        ctx.restore();
+      }
+    }
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        echoes.push(new Echo(input.value));
+        input.value = '';
+      }
     });
+
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+
+      echoes = echoes.filter(e => e.life > 0);
+      echoes.forEach(e => {
+        e.update();
+        e.draw();
+      });
+
+      // Ambient particles
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(
+          Math.random() * width,
+          Math.random() * height,
+          Math.random() * 2,
+          0, Math.PI * 2
+        );
+        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.3})`;
+        ctx.fill();
+      }
+
+      time++;
+      requestAnimationFrame(animate);
+    }
+
+    // Initial echoes
+    setTimeout(() => echoes.push(new Echo('hello')), 500);
+    setTimeout(() => echoes.push(new Echo('world')), 1500);
+
+    animate();
+    input.focus();
   </script>
 </body>
 </html>

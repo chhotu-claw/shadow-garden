@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Entity Encoder/Decoder — Shadow's Garden</title>
+<meta name="description" content="Encode HTML special characters to entities, or decode entities back to characters. All local, no server.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; padding: 0; }
+  .container { display: flex; flex-direction: column; flex: 1; padding: 1.5rem; gap: 1rem; overflow-y: auto; }
+  h1 { margin: 0; }
+  .inputs { display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+  .input-group { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+  label { font-weight: 600; font-size: 0.9rem; }
+  textarea, .output { width: 100%; min-height: 120px; padding: 0.8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font-family: 'Fira Code', monospace; font-size: 14px; resize: none; }
+  textarea:focus, .output:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .output { overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  .buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  button { background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button:hover { background: var(--bg-secondary); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  button.primary:hover { opacity: 0.9; }
+  .stats { font-size: 0.85rem; color: var(--fg-muted); margin-top: 0.25rem; }
+  .error { color: #ef4444; font-size: 0.9rem; }
+</style>
+</head>
+<body data-page-type="app">
+  <div class="container">
+    <h1>HTML Entity Encoder/Decoder</h1>
+    <div class="inputs">
+      <div class="input-group">
+        <label for="input">Input</label>
+        <textarea id="input" placeholder="Enter text to encode or decode...
+
+Examples:
+&lt; → &amp;lt;
+&amp; → &amp;amp;
+Quote: &quot;"></textarea>
+        <div class="stats"><span id="charCount">0</span> characters</div>
+      </div>
+      <div class="buttons">
+        <button id="encodeBtn" class="primary">Encode →</button>
+        <button id="decodeBtn" class="primary">← Decode</button>
+        <button id="swapBtn">Swap</button>
+        <button id="clearBtn">Clear</button>
+        <button id="copyBtn">Copy Output</button>
+      </div>
+      <div class="input-group">
+        <label for="output">Output</label>
+        <div id="output" class="output" contenteditable="true"></div>
+        <div class="stats" id="outputStats"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const charCount = document.getElementById('charCount');
+    const outputStats = document.getElementById('outputStats');
+    const errorDiv = document.getElementById('error');
+
+    const entities = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+      '/': '&#x2F;',
+      '`': '&#96;',
+      '=': '&#x3D;'
+    };
+
+    const decodeMap = Object.fromEntries(
+      Object.entries(entities).map(([k, v]) => [v, k])
+    );
+
+    function encode(str) {
+      return str.replace(/[&<>"'`=\/]/g, c => entities[c] || c);
+    }
+
+    function decode(str) {
+      let result = str;
+      for (const [ent, char] of Object.entries(decodeMap)) {
+        result = result.replace(new RegExp(ent.replace(/[&|\\]/g, '\\$&'), char));
+      }
+      result = result.replace(/&#(\d+);/g, (m, d) => String.fromCharCode(d));
+      result = result.replace(/&#x([\da-f]+);/gi, (m, h) => String.fromCharCode(parseInt(h, 16)));
+      return result;
+    }
+
+    function countStats(el, outputDiv) {
+      const text = el.value || el.textContent || '';
+      outputDiv.textContent = `${text.length} characters, ${text.split(/\s+/).filter(w => w).length} words`;
+    }
+
+    function updateStats() {
+      countStats(input, charCount);
+    }
+
+    input.addEventListener('input', () => {
+      updateStats();
+      output.textContent = '';
+    });
+
+    document.getElementById('encodeBtn').addEventListener('click', () => {
+      output.textContent = encode(input.value);
+      countStats(output, outputStats);
+    });
+
+    document.getElementById('decodeBtn').addEventListener('click', () => {
+      try {
+        output.textContent = decode(input.value);
+        countStats(output, outputStats);
+      } catch (e) {
+        output.textContent = 'Error decoding: ' + e.message;
+      }
+    });
+
+    document.getElementById('swapBtn').addEventListener('click', () => {
+      const temp = input.value;
+      input.value = output.textContent;
+      output.textContent = temp;
+      updateStats();
+      countStats(output, outputStats);
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      input.value = '';
+      output.textContent = '';
+      charCount.textContent = '0';
+      outputStats.textContent = '';
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(output.textContent);
+        const btn = document.getElementById('copyBtn');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1500);
+      } catch (e) {
+        output.textContent = 'Copy failed: ' + e.message;
+      }
+    });
+
+    output.addEventListener('input', () => countStats(output, outputStats));
+  </script>
+</body>
+</html>
