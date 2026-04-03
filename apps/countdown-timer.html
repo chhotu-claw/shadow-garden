@@ -4,179 +4,158 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Countdown Timer — Shadow's Garden</title>
-<meta name="description" content="Track countdowns to events, birthdays, deadlines — simple, localStorage, live updates">
+<meta name="description" content="Set a target date and see exactly how much time remains. Days, hours, minutes, seconds. Also shows time since past dates.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #f472b6; }
-  body { --accent: #f472b6; }
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-  
-  .add-form { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
-  .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .form-row input { flex: 1; min-width: 150px; padding: 0.6rem 0.8rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.95rem; }
-  .form-row input:focus { outline: none; border-color: var(--accent); }
-  .form-row input[type="datetime-local"] { flex: 1; min-width: 200px; }
-  .btn { padding: 0.6rem 1.2rem; background: var(--accent); border: none; border-radius: 6px; color: #0d1117; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
-  .btn:hover { opacity: 0.85; }
-  
-  .countdowns { display: flex; flex-direction: column; gap: 1rem; }
-  .countdown-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-  .countdown-info { flex: 1; min-width: 200px; }
-  .countdown-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
-  .countdown-date { font-size: 0.85rem; color: #8b949e; }
-  .countdown-time { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
-  .countdown-actions { display: flex; gap: 0.5rem; }
-  .btn-small { padding: 0.4rem 0.7rem; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 0.8rem; cursor: pointer; }
-  .btn-small:hover { background: #30363d; color: #c9d1d9; }
-  .btn-delete:hover { background: #f85149; border-color: #f85149; color: #fff; }
-  
-  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
-  .preset-btn { padding: 0.35rem 0.7rem; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 0.75rem; cursor: pointer; }
-  .preset-btn:hover { background: #30363d; color: #c9d1d9; }
-  
-  .empty { text-align: center; padding: 2rem; color: #8b949e; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; font-family: var(--font-mono); }
+  .container { text-align: center; max-width: 600px; width: 100%; }
+  h1 { font-size: 1.5rem; font-weight: 400; margin-bottom: 2rem; color: var(--fg-muted); }
+  .input-group { margin-bottom: 2rem; }
+  input, button { font-size: 1.1rem; padding: 0.8rem 1.2rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  input[type="datetime-local"] { font-family: var(--font-mono); }
+  button { cursor: pointer; background: var(--bg-secondary); margin: 0.5rem; }
+  button:hover { background: var(--border); }
+  .display { font-size: clamp(2rem, 8vw, 4rem); font-weight: 600; margin: 2rem 0; line-height: 1.2; }
+  .display .unit { font-size: 0.35em; font-weight: 400; color: var(--fg-muted); display: block; margin-top: 0.3em; }
+  .display.counting-up { color: var(--accent); }
+  .display.counting-down { color: var(--fg); }
+  .event-name { font-size: 1.2rem; margin-bottom: 1rem; color: var(--accent); }
+  .presets { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; }
+  .presets button { font-size: 0.9rem; padding: 0.5rem 0.8rem; }
+  .status { font-size: 0.9rem; color: var(--fg-muted); margin-top: 1rem; }
+  .counting-up .status { color: var(--accent); }
 </style>
 </head>
 <body data-page-type="app">
   <div class="container">
     <h1>Countdown Timer</h1>
-    <p class="subtitle">Track days until events, birthdays, deadlines</p>
     
-    <div class="add-form">
-      <div class="form-row">
-        <input type="text" id="eventName" placeholder="Event name (e.g., Birthday, Deadline)">
-        <input type="datetime-local" id="eventDate">
-        <button class="btn" onclick="addCountdown()">Add</button>
-      </div>
-      <div class="presets">
-        <button class="preset-btn" onclick="addPreset(1, 'day')">+1 Day</button>
-        <button class="preset-btn" onclick="addPreset(1, 'week')">+1 Week</button>
-        <button class="preset-btn" onclick="addPreset(1, 'month')">+1 Month</button>
-        <button class="preset-btn" onclick="addPreset(7, 'days')">+7 Days</button>
-        <button class="preset-btn" onclick="addPreset(30, 'days')">+30 Days</button>
-      </div>
+    <div class="presets">
+      <button data-days="1">Tomorrow</button>
+      <button data-days="7">Week</button>
+      <button data-days="30">Month</button>
+      <button data-days="365">Year</button>
+    </div>
+
+    <div class="input-group">
+      <input type="datetime-local" id="targetDate">
     </div>
     
-    <div class="countdowns" id="countdowns">
-      <div class="empty">No countdowns yet. Add one above!</div>
+    <div class="input-group">
+      <input type="text" id="eventName" placeholder="Event name (optional)">
     </div>
+
+    <button id="startBtn">Start Countdown</button>
+    <button id="stopBtn" style="display:none;">Stop</button>
+    <button id="resetBtn">Reset</button>
+
+    <div id="display" class="display" style="display:none;">
+      <div id="eventNameDisplay" class="event-name"></div>
+      <div id="countdownDisplay">00d 00h 00m 00s</div>
+    </div>
+    
+    <div id="status" class="status"></div>
   </div>
-  
+
   <script>
-    let countdowns = JSON.parse(localStorage.getItem('countdowns') || '[]');
-    
-    function save() {
-      localStorage.setItem('countdowns', JSON.stringify(countdowns));
-      render();
-    }
-    
-    function addCountdown() {
-      const name = document.getElementById('eventName').value.trim();
-      const date = document.getElementById('eventDate').value;
-      
-      if (!name || !date) return;
-      
-      countdowns.push({ id: Date.now(), name, date });
-      document.getElementById('eventName').value = '';
-      document.getElementById('eventDate').value = '';
-      save();
-    }
-    
-    function addPreset(value, unit) {
-      const now = new Date();
-      let target = new Date(now);
-      
-      if (unit === 'day') target.setDate(target.getDate() + value);
-      else if (unit === 'week') target.setDate(target.getDate() + (value * 7));
-      else if (unit === 'month') target.setMonth(target.getMonth() + value);
-      else if (unit === 'days') target.setDate(target.getDate() + value);
-      
-      const name = unit === 'day' ? 'Tomorrow' : 
-                   unit === 'week' ? 'Next Week' : 
-                   unit === 'month' ? 'Next Month' : 
-                   `${value} Days`;
-      
-      countdowns.push({ 
-        id: Date.now(), 
-        name, 
-        date: target.toISOString().slice(0, 16) 
+    const targetDateInput = document.getElementById('targetDate');
+    const eventNameInput = document.getElementById('eventName');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const display = document.getElementById('display');
+    const eventNameDisplay = document.getElementById('eventNameDisplay');
+    const countdownDisplay = document.getElementById('countdownDisplay');
+    const status = document.getElementById('status');
+    const presets = document.querySelectorAll('.presets button');
+
+    let interval = null;
+    let isCountingDown = true;
+
+    // Set default to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(12, 0, 0, 0);
+    targetDateInput.value = tomorrow.toISOString().slice(0, 16);
+
+    presets.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const days = parseInt(btn.dataset.days);
+        const target = new Date();
+        target.setDate(target.getDate() + days);
+        target.setHours(12, 0, 0, 0);
+        targetDateInput.value = target.toISOString().slice(0, 16);
       });
-      save();
-    }
-    
-    function deleteCountdown(id) {
-      countdowns = countdowns.filter(c => c.id !== id);
-      save();
-    }
-    
-    function getTimeRemaining(targetDate) {
+    });
+
+    function update() {
+      const target = new Date(targetDateInput.value);
       const now = new Date();
-      const target = new Date(targetDate);
       const diff = target - now;
-      
-      if (diff <= 0) return { expired: true };
-      
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
-      return { days, hours, minutes, seconds, expired: false };
+
+      isCountingDown = diff > 0;
+      const absDiff = Math.abs(diff);
+
+      const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((absDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((absDiff % (1000 * 60)) / 1000);
+
+      countdownDisplay.innerHTML = `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s<span class="unit">${isCountingDown ? 'remaining' : 'ago'}</span>`;
+
+      display.className = 'display ' + (isCountingDown ? 'counting-down' : 'counting-up');
+      status.textContent = isCountingDown ? 'Counting down' : 'Time since';
     }
-    
-    function formatTime(t) {
-      if (t.expired) return 'Event passed';
+
+    function start() {
+      if (!targetDateInput.value) return;
       
-      const parts = [];
-      if (t.days > 0) parts.push(`${t.days}d`);
-      if (t.hours > 0 || t.days > 0) parts.push(`${t.hours}h`);
-      if (t.minutes > 0 || t.hours > 0 || t.days > 0) parts.push(`${t.minutes}m`);
-      parts.push(`${t.seconds}s`);
-      
-      return parts.join(' ');
-    }
-    
-    function render() {
-      const container = document.getElementById('countdowns');
-      
-      if (countdowns.length === 0) {
-        container.innerHTML = '<div class="empty">No countdowns yet. Add one above!</div>';
-        return;
+      const name = eventNameInput.value.trim();
+      if (name) {
+        eventNameDisplay.textContent = name;
+      } else {
+        eventNameDisplay.textContent = '';
       }
+
+      display.style.display = 'block';
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
       
-      countdowns.sort((a, b) => new Date(a.date) - new Date(b.date));
+      update();
+      interval = setInterval(update, 1000);
       
-      container.innerHTML = countdowns.map(c => {
-        const t = getTimeRemaining(c.date);
-        const dateStr = new Date(c.date).toLocaleDateString('en-US', { 
-          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-        
-        return `
-          <div class="countdown-card">
-            <div class="countdown-info">
-              <div class="countdown-title">${escapeHtml(c.name)}</div>
-              <div class="countdown-date">${dateStr}</div>
-            </div>
-            <div class="countdown-time">${formatTime(t)}</div>
-            <div class="countdown-actions">
-              <button class="btn-small btn-delete" onclick="deleteCountdown(${c.id})">Delete</button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // Save to localStorage
+      localStorage.setItem('countdown_target', targetDateInput.value);
+      localStorage.setItem('countdown_name', eventNameInput.value);
     }
-    
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    function stop() {
+      clearInterval(interval);
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
     }
-    
-    // Update every second
-    setInterval(render, 1000);
-    render();
+
+    function reset() {
+      stop();
+      display.style.display = 'none';
+      localStorage.removeItem('countdown_target');
+      localStorage.removeItem('countdown_name');
+    }
+
+    startBtn.addEventListener('click', start);
+    stopBtn.addEventListener('click', stop);
+    resetBtn.addEventListener('click', reset);
+    targetDateInput.addEventListener('change', update);
+
+    // Restore from localStorage
+    const savedTarget = localStorage.getItem('countdown_target');
+    const savedName = localStorage.getItem('countdown_name');
+    if (savedTarget) {
+      targetDateInput.value = savedTarget;
+      eventNameInput.value = savedName || '';
+      start();
+    }
   </script>
 </body>
 </html>
