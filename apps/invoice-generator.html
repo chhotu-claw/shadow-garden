@@ -4,498 +4,166 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invoice Generator — Shadow's Garden</title>
-<meta name="description" content="Generate simple invoices for freelancers. PDF export, no account required">
+<meta name="description" content="Generate clean invoices — add line items, calculate totals, export as HTML or print. All local, no server.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .invoice-app {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-  .card {
-    background: var(--card-bg, #1e1e2e);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--border, #313244);
-  }
-  h1 { margin-top: 0; }
-  .row {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-  .col { flex: 1; min-width: 200px; }
-  .input-group { margin-bottom: 1rem; }
-  label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary, #a6adc8);
-    font-size: 0.9rem;
-  }
-  input, textarea, select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border, #313244);
-    border-radius: 8px;
-    background: var(--input-bg, #11111b);
-    color: var(--text, #cdd6f4);
-    font-size: 1rem;
-    font-family: inherit;
-    box-sizing: border-box;
-  }
-  textarea { resize: vertical; min-height: 80px; }
-  button {
-    padding: 0.875rem 1.5rem;
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    margin-right: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-  button:hover { opacity: 0.9; }
-  button:active { transform: scale(0.98); }
-  button.secondary {
-    background: transparent;
-    border: 1px solid var(--accent, #cba6f7);
-    color: var(--accent, #cba6f7);
-  }
-  .items-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-  }
-  .items-table th, .items-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border, #313244);
-  }
-  .items-table th {
-    color: var(--text-secondary, #a6adc8);
-    font-weight: 500;
-  }
-  .items-table input {
-    background: transparent;
-    border: none;
-    padding: 0.25rem;
-    width: 100%;
-  }
-  .items-table .amount {
-    text-align: right;
-    font-family: monospace;
-  }
-  .delete-btn {
-    background: transparent;
-    color: #f38ba8;
-    border: none;
-    padding: 0.25rem 0.5rem;
-    font-size: 1.2rem;
-    cursor: pointer;
-    width: auto;
-  }
-  .totals {
-    text-align: right;
-    margin-top: 1rem;
-  }
-  .totals .total-row {
-    display: flex;
-    justify-content: flex-end;
-    gap: 2rem;
-    padding: 0.5rem 0;
-  }
-  .totals .label { color: var(--text-secondary, #a6adc8); }
-  .totals .value {
-    font-weight: 600;
-    min-width: 100px;
-    text-align: right;
-  }
-  .totals .grand-total {
-    font-size: 1.25rem;
-    color: var(--accent, #cba6f7);
-  }
-  .preview {
-    background: #fff;
-    color: #111;
-    padding: 2rem;
-    border-radius: 8px;
-    margin-top: 1rem;
-  }
-  .preview h2 { color: #111; margin-top: 0; }
-  .preview .meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
-  .preview table { width: 100%; border-collapse: collapse; }
-  .preview th, .preview td { padding: 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
-  .preview .amount { text-align: right; }
-  .preview .total-row { display: flex; justify-content: flex-end; gap: 2rem; padding: 0.5rem 0; }
-  .preview .grand-total { font-weight: bold; font-size: 1.25rem; }
-  .hidden { display: none; }
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .toast.show { opacity: 1; }
+  body { padding: 2rem; }
+  .invoice-box { max-width: 800px; margin: 0 auto; background: var(--bg-secondary); border-radius: 12px; padding: 2rem; }
+  .header { display: flex; justify-content: space-between; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap; }
+  .header-section { flex: 1; min-width: 200px; }
+  .header-section h2 { margin: 0 0 0.5rem 0; font-size: 1.2rem; }
+  .header-section input, .header-section textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 14px; }
+  .header-section textarea { resize: vertical; min-height: 60px; }
+  .meta-row { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .meta-row > div { flex: 1; min-width: 150px; }
+  .meta-row label { display: block; margin-bottom: 0.3rem; font-size: 12px; color: var(--fg-muted); }
+  .meta-row input { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+  .items-table th, .items-table td { border: 1px solid var(--border); padding: 0.5rem; text-align: left; }
+  .items-table th { background: var(--bg); font-size: 12px; }
+  .items-table input { width: 100%; padding: 0.4rem; border: none; background: transparent; color: var(--fg); }
+  .items-table .num input { text-align: right; }
+  .items-table .action { width: 40px; text-align: center; }
+  .items-table .action button { background: transparent; border: none; color: var(--fg-muted); cursor: pointer; padding: 4px; }
+  .items-table .action button:hover { color: #e74c3c; }
+  .add-row-btn { background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
+  .add-row-btn:hover { background: var(--bg-secondary); }
+  .totals { text-align: right; margin-bottom: 2rem; }
+  .totals-row { display: flex; justify-content: flex-end; gap: 2rem; padding: 0.5rem 0; }
+  .totals-label { color: var(--fg-muted); }
+  .totals-value { font-weight: 600; min-width: 100px; text-align: right; }
+  .notes textarea { width: 100%; min-height: 80px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
+  .actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
+  .actions button { padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .print-btn { background: var(--accent); color: white; border: none; }
+  .print-btn:hover { opacity: 0.9; }
+  .download-btn { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+  .download-btn:hover { background: var(--bg-secondary); }
+  @media print { .actions, .add-row-btn, .items-table .action, .print-header-buttons { display: none; } body { padding: 0; } .invoice-box { box-shadow: none; } }
 </style>
 </head>
 <body data-page-type="app">
-<div class="invoice-app">
-  <h1>🧾 Invoice Generator</h1>
-  
-  <div class="card">
-    <div class="row">
-      <div class="col">
-        <div class="input-group">
-          <label>Your Name / Business</label>
-          <input type="text" id="from-name" placeholder="Your Name or Business">
-        </div>
+  <div class="invoice-box">
+    <div class="header">
+      <div class="header-section">
+        <h2>From</h2>
+        <textarea id="fromDetails" placeholder="Your Name&#10;Your Address&#10;Email / Phone">Shadow's Services
+123 Garden Street
+shadow@example.com</textarea>
       </div>
-      <div class="col">
-        <div class="input-group">
-          <label>Your Email</label>
-          <input type="email" id="from-email" placeholder="you@example.com">
-        </div>
+      <div class="header-section">
+        <h2>To</h2>
+        <textarea id="toDetails" placeholder="Client Name&#10;Client Address">Client Name
+Client Address</textarea>
       </div>
     </div>
-    <div class="input-group">
-      <label>Your Address</label>
-      <textarea id="from-address" placeholder="123 Street Name, City, Country"></textarea>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <div class="col">
-        <div class="input-group">
-          <label>Invoice Number</label>
-          <input type="text" id="invoice-num" value="INV-001">
-        </div>
+    <div class="meta-row">
+      <div>
+        <label>Invoice Number</label>
+        <input type="text" id="invoiceNum" value="INV-001">
       </div>
-      <div class="col">
-        <div class="input-group">
-          <label>Date</label>
-          <input type="date" id="invoice-date">
-        </div>
+      <div>
+        <label>Date</label>
+        <input type="date" id="invoiceDate">
       </div>
-      <div class="col">
-        <div class="input-group">
-          <label>Due Date</label>
-          <input type="date" id="due-date">
-        </div>
+      <div>
+        <label>Due Date</label>
+        <input type="date" id="dueDate">
       </div>
     </div>
-    <div class="input-group">
-      <label>Client Name</label>
-      <input type="text" id="to-name" placeholder="Client Name">
-    </div>
-    <div class="input-group">
-      <label>Client Address</label>
-      <textarea id="to-address" placeholder="Client Address"></textarea>
-    </div>
-  </div>
-
-  <div class="card">
-    <label>Line Items</label>
     <table class="items-table">
       <thead>
         <tr>
-          <th style="width: 40%">Description</th>
-          <th style="width: 15%">Qty</th>
-          <th style="width: 20%">Rate</th>
-          <th style="width: 20%">Amount</th>
-          <th style="width: 5%"></th>
+          <th>Description</th>
+          <th style="width:80px">Qty</th>
+          <th style="width:100px">Rate</th>
+          <th style="width:100px">Amount</th>
+          <th class="action"></th>
         </tr>
       </thead>
-      <tbody id="items-body">
+      <tbody id="itemsBody">
+        <tr>
+          <td><input type="text" placeholder="Item description"></td>
+          <td class="num"><input type="number" value="1" min="0" step="0.01"></td>
+          <td class="num"><input type="number" value="0" min="0" step="0.01"></td>
+          <td class="num">0.00</td>
+          <td class="action"><button onclick="removeRow(this)">✕</button></td>
+        </tr>
       </tbody>
     </table>
-    <button class="secondary" onclick="addItem()">+ Add Item</button>
-    
+    <button class="add-row-btn" onclick="addRow()">+ Add Line Item</button>
     <div class="totals">
-      <div class="total-row">
-        <span class="label">Subtotal:</span>
-        <span class="value" id="subtotal">$0.00</span>
-      </div>
-      <div class="total-row">
-        <span class="label">Tax (%):</span>
-        <input type="number" id="tax-rate" value="0" min="0" max="100" style="width: 60px; padding: 0.25rem;" onchange="calculate()">
-        <span class="value" id="tax-amount">$0.00</span>
-      </div>
-      <div class="total-row grand-total">
-        <span class="label">Total:</span>
-        <span class="value" id="grand-total">$0.00</span>
-      </div>
+      <div class="totals-row"><span class="totals-label">Subtotal:</span><span class="totals-value" id="subtotal">0.00</span></div>
+      <div class="totals-row"><span class="totals-label">Tax (%):</span><input type="number" id="taxRate" value="0" min="0" max="100" step="0.1" style="width:60px;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);"></div>
+      <div class="totals-row"><span class="totals-label">Tax Amount:</span><span class="totals-value" id="taxAmount">0.00</span></div>
+      <div class="totals-row" style="font-size:1.2em;margin-top:0.5rem;"><span class="totals-label">Total:</span><span class="totals-value" id="total">0.00</span></div>
+    </div>
+    <div class="notes">
+      <label style="display:block;margin-bottom:0.5rem;font-size:12px;color:var(--fg-muted);">Notes / Terms</label>
+      <textarea id="notes" placeholder="Payment due within 30 days. Thank you for your business!"></textarea>
+    </div>
+    <div class="actions">
+      <button class="download-btn" onclick="downloadInvoice()">Download HTML</button>
+      <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
     </div>
   </div>
+  <script>
+    const itemsBody = document.getElementById('itemsBody');
+    const taxRateInput = document.getElementById('taxRate');
 
-  <div class="card">
-    <div class="input-group">
-      <label>Notes (optional)</label>
-      <textarea id="notes" placeholder="Payment terms, thank you note, etc."></textarea>
-    </div>
-    <div class="input-group">
-      <label>Currency</label>
-      <select id="currency" onchange="calculate()">
-        <option value="$">USD ($)</option>
-        <option value="€">EUR (€)</option>
-        <option value="£">GBP (£)</option>
-        <option value="₹">INR (₹)</option>
-        <option value="AED">AED (د.إ)</option>
-      </select>
-    </div>
-    <button onclick="generatePDF()">Download PDF</button>
-    <button class="secondary" onclick="printInvoice()">Print</button>
-    <button class="secondary" onclick="saveTemplate()">Save as Template</button>
-    <button class="secondary" onclick="loadTemplate()">Load Template</button>
-  </div>
+    // Set default dates
+    document.getElementById('invoiceDate').valueAsDate = new Date();
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+    document.getElementById('dueDate').valueAsDate = dueDate;
 
-  <div class="preview hidden" id="preview">
-    <h2>Invoice</h2>
-    <div class="meta">
-      <div id="preview-num"></div>
-      <div id="preview-date"></div>
-    </div>
-    <div class="row" style="margin-bottom: 1rem;">
-      <div class="col">
-        <strong>From:</strong>
-        <div id="preview-from"></div>
-      </div>
-      <div class="col">
-        <strong>To:</strong>
-        <div id="preview-to"></div>
-      </div>
-    </div>
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Qty</th><th>Rate</th><th class="amount">Amount</th></tr>
-      </thead>
-      <tbody id="preview-items"></tbody>
-    </table>
-    <div class="total-row"><span>Subtotal:</span><span id="preview-subtotal"></span></div>
-    <div class="total-row"><span>Tax:</span><span id="preview-tax"></span></div>
-    <div class="total-row grand-total"><span>Total:</span><span id="preview-total"></span></div>
-    <div id="preview-notes" style="margin-top: 1rem; color: #666;"></div>
-  </div>
+    function addRow() {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input type="text" placeholder="Item description"></td>
+        <td class="num"><input type="number" value="1" min="0" step="0.01"></td>
+        <td class="num"><input type="number" value="0" min="0" step="0.01"></td>
+        <td class="num">0.00</td>
+        <td class="action"><button onclick="removeRow(this)">✕</button></td>`;
+      itemsBody.appendChild(tr);
+      tr.querySelectorAll('input').forEach(input => input.addEventListener('input', calculate));
+    }
 
-  <div class="toast" id="toast">Saved!</div>
-</div>
+    function removeRow(btn) {
+      if (itemsBody.rows.length > 1) btn.closest('tr').remove();
+      calculate();
+    }
 
-<script>
-  let items = [{ desc: '', qty: 1, rate: 0 }];
-  
-  function init() {
-    document.getElementById('invoice-date').value = new Date().toISOString().split('T')[0];
-    const due = new Date();
-    due.setDate(due.getDate() + 30);
-    document.getElementById('due-date').value = due.toISOString().split('T')[0];
-    renderItems();
-    loadAutoSave();
-    
-    // Auto-save on change
-    document.querySelectorAll('input, textarea, select').forEach(el => {
-      el.addEventListener('change', autoSave);
-    });
-  }
+    function calculate() {
+      let subtotal = 0;
+      itemsBody.querySelectorAll('tr').forEach(tr => {
+        const qty = parseFloat(tr.cells[1].querySelector('input').value) || 0;
+        const rate = parseFloat(tr.cells[2].querySelector('input').value) || 0;
+        const amount = qty * rate;
+        tr.cells[3].textContent = amount.toFixed(2);
+        subtotal += amount;
+      });
+      const taxRate = parseFloat(taxRateInput.value) || 0;
+      const tax = subtotal * (taxRate / 100);
+      document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('taxAmount').textContent = tax.toFixed(2);
+      document.getElementById('total').textContent = (subtotal + tax).toFixed(2);
+    }
 
-  function renderItems() {
-    const tbody = document.getElementById('items-body');
-    tbody.innerHTML = items.map((item, i) => `
-      <tr>
-        <td><input type="text" value="${item.desc}" onchange="updateItem(${i}, 'desc', this.value)" placeholder="Description"></td>
-        <td><input type="number" value="${item.qty}" min="1" onchange="updateItem(${i}, 'qty', parseFloat(this.value))"></td>
-        <td><input type="number" value="${item.rate}" min="0" step="0.01" onchange="updateItem(${i}, 'rate', parseFloat(this.value))"></td>
-        <td class="amount">${getCurrency()}${(item.qty * item.rate).toFixed(2)}</td>
-        <td><button class="delete-btn" onclick="deleteItem(${i})">×</button></td>
-      </tr>
-    `).join('');
+    itemsBody.querySelectorAll('input').forEach(input => input.addEventListener('input', calculate));
+    taxRateInput.addEventListener('input', calculate);
+
+    function downloadInvoice() {
+      const invoiceNum = document.getElementById('invoiceNum').value;
+      const html = document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `invoice-${invoiceNum}.html`;
+      a.click();
+    }
+
     calculate();
-  }
-
-  function updateItem(i, field, value) {
-    items[i][field] = value;
-    renderItems();
-  }
-
-  function addItem() {
-    items.push({ desc: '', qty: 1, rate: 0 });
-    renderItems();
-  }
-
-  function deleteItem(i) {
-    if (items.length > 1) {
-      items.splice(i, 1);
-      renderItems();
-    }
-  }
-
-  function getCurrency() {
-    return document.getElementById('currency').value;
-  }
-
-  function calculate() {
-    const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-    const taxRate = parseFloat(document.getElementById('tax-rate').value) || 0;
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
-    const curr = getCurrency();
-    
-    document.getElementById('subtotal').textContent = curr + subtotal.toFixed(2);
-    document.getElementById('tax-amount').textContent = curr + tax.toFixed(2);
-    document.getElementById('grand-total').textContent = curr + total.toFixed(2);
-  }
-
-  function getInvoiceData() {
-    return {
-      fromName: document.getElementById('from-name').value,
-      fromEmail: document.getElementById('from-email').value,
-      fromAddress: document.getElementById('from-address').value,
-      invoiceNum: document.getElementById('invoice-num').value,
-      invoiceDate: document.getElementById('invoice-date').value,
-      dueDate: document.getElementById('due-date').value,
-      toName: document.getElementById('to-name').value,
-      toAddress: document.getElementById('to-address').value,
-      items: items,
-      taxRate: document.getElementById('tax-rate').value,
-      currency: document.getElementById('currency').value,
-      notes: document.getElementById('notes').value
-    };
-  }
-
-  function autoSave() {
-    localStorage.setItem('invoice-autosave', JSON.stringify(getInvoiceData()));
-  }
-
-  function loadAutoSave() {
-    const saved = localStorage.getItem('invoice-autosave');
-    if (saved) {
-      const data = JSON.parse(saved);
-      document.getElementById('from-name').value = data.fromName || '';
-      document.getElementById('from-email').value = data.fromEmail || '';
-      document.getElementById('from-address').value = data.fromAddress || '';
-      document.getElementById('invoice-num').value = data.invoiceNum || 'INV-001';
-      document.getElementById('invoice-date').value = data.invoiceDate || '';
-      document.getElementById('due-date').value = data.dueDate || '';
-      document.getElementById('to-name').value = data.toName || '';
-      document.getElementById('to-address').value = data.toAddress || '';
-      document.getElementById('tax-rate').value = data.taxRate || 0;
-      document.getElementById('currency').value = data.currency || '$';
-      document.getElementById('notes').value = data.notes || '';
-      if (data.items) {
-        items = data.items;
-        renderItems();
-      }
-    }
-  }
-
-  function saveTemplate() {
-    localStorage.setItem('invoice-template', JSON.stringify(getInvoiceData()));
-    showToast('Template saved!');
-  }
-
-  function loadTemplate() {
-    const saved = localStorage.getItem('invoice-template');
-    if (saved) {
-      const data = JSON.parse(saved);
-      document.getElementById('from-name').value = data.fromName || '';
-      document.getElementById('from-email').value = data.fromEmail || '';
-      document.getElementById('from-address').value = data.fromAddress || '';
-      document.getElementById('currency').value = data.currency || '$';
-      document.getElementById('notes').value = data.notes || '';
-      showToast('Template loaded!');
-    }
-  }
-
-  function printInvoice() {
-    const data = getInvoiceData();
-    const curr = data.currency;
-    const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-    const tax = subtotal * (data.taxRate / 100);
-    const total = subtotal + tax;
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Invoice ${data.invoiceNum}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
-          h1 { margin-top: 0; }
-          .row { display: flex; justify-content: space-between; margin-bottom: 2rem; }
-          .col { flex: 1; }
-          table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-          th, td { padding: 0.75rem; border-bottom: 1px solid #ddd; text-align: left; }
-          .amount { text-align: right; }
-          .total-row { display: flex; justify-content: flex-end; gap: 2rem; padding: 0.5rem 0; }
-          .grand-total { font-weight: bold; font-size: 1.25rem; }
-          .meta { color: #666; margin-bottom: 1rem; }
-        </style>
-      </head>
-      <body>
-        <h1>Invoice ${data.invoiceNum}</h1>
-        <div class="meta">Date: ${data.invoiceDate} | Due: ${data.dueDate}</div>
-        <div class="row">
-          <div class="col">
-            <strong>From:</strong><br>
-            ${data.fromName}<br>
-            ${data.fromEmail}<br>
-            ${data.fromAddress.replace(/\n/g, '<br>')}
-          </div>
-          <div class="col">
-            <strong>To:</strong><br>
-            ${data.toName}<br>
-            ${data.toAddress.replace(/\n/g, '<br>')}
-          </div>
-        </div>
-        <table>
-          <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th class="amount">Amount</th></tr></thead>
-          <tbody>
-            ${items.map(item => `
-              <tr>
-                <td>${item.desc}</td>
-                <td>${item.qty}</td>
-                <td>${curr}${item.rate.toFixed(2)}</td>
-                <td class="amount">${curr}${(item.qty * item.rate).toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div class="total-row"><span>Subtotal:</span><span>${curr}${subtotal.toFixed(2)}</span></div>
-        <div class="total-row"><span>Tax (${data.taxRate}%):</span><span>${curr}${tax.toFixed(2)}</span></div>
-        <div class="total-row grand-total"><span>Total:</span><span>${curr}${total.toFixed(2)}</span></div>
-        ${data.notes ? `<div style="margin-top: 2rem;"><strong>Notes:</strong><br>${data.notes.replace(/\n/g, '<br>')}</div>` : ''}
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  }
-
-  function generatePDF() {
-    // Use print to PDF
-    printInvoice();
-  }
-
-  function showToast(msg) {
-    const toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
-  }
-
-  init();
-</script>
+  </script>
 </body>
 </html>
