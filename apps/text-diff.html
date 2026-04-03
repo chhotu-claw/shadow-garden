@@ -3,170 +3,180 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Text Diff Tool — Shadow's Garden</title>
-<meta name="description" content="Compare two texts and see the differences instantly. Highlights additions in green, deletions in red.">
+<title>Text Diff Checker — Shadow's Garden</title>
+<meta name="description" content="Compare two texts and see exactly what changed. Side-by-side diff with additions, deletions, and changes highlighted.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #666; margin-bottom: 2rem; }
-  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  .input-group { display: flex; flex-direction: column; }
-  .input-group label { font-size: 0.85rem; color: #888; margin-bottom: 0.5rem; }
-  textarea { 
-    width: 100%; height: 200px; 
-    background: #1a1a1a; border: 1px solid #333; 
-    color: #e5e5e5; padding: 1rem; font-family: monospace;
-    resize: vertical;
-  }
-  textarea:focus { outline: none; border-color: #6cb6ff; }
-  .controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
-  button {
-    background: #333; color: #e5e5e5; border: none;
-    padding: 0.75rem 1.5rem; cursor: pointer; font-size: 0.9rem;
-    border-radius: 4px;
-  }
-  button:hover { background: #444; }
-  button.primary { background: #6cb6ff; color: #0d0d0d; font-weight: 600; }
-  button.primary:hover { background: #5aa3ef; }
-  .output { 
-    background: #1a1a1a; border: 1px solid #333; 
-    padding: 1rem; min-height: 150px; max-height: 400px; overflow: auto;
-    font-family: monospace; white-space: pre-wrap;
-  }
-  .diff-added { background: #1a3d1a; color: #7af782; }
-  .diff-removed { background: #3d1a1a; color: #f77a7a; }
-  .empty-state { color: #666; text-align: center; padding: 2rem; }
-  .stats { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; padding: 0; }
+  .header { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .container { display: flex; flex: 1; overflow: hidden; }
+  .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .panel:first-child { border-right: 1px solid var(--border); }
+  .panel-header { padding: 0.5rem 1rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border); font-size: 14px; color: var(--fg-muted); }
+  textarea { flex: 1; border: none; resize: none; padding: 1rem; font-family: 'Fira Code', monospace; font-size: 14px; line-height: 1.5; background: var(--bg); color: var(--fg); outline: none; }
+  .toolbar { display: flex; gap: 0.5rem; align-items: center; }
+  button { background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button:hover { background: var(--bg-secondary); }
+  .stats { font-size: 13px; color: var(--fg-muted); margin-left: 1rem; }
+  .diff-view { display: none; flex: 1; overflow-y: auto; padding: 1rem; font-family: 'Fira Code', monospace; font-size: 14px; line-height: 1.6; }
+  .diff-view.active { display: block; }
+  .diff-line { white-space: pre-wrap; padding: 2px 0; }
+  .diff-add { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+  .diff-del { background: rgba(239, 68, 68, 0.15); color: #ef4444; text-decoration: line-through; }
+  .diff-add::before { content: "+ "; color: #22c55e; }
+  .diff-del::before { content: "- "; color: #ef4444; }
+  .view-toggle { display: none; }
+  textarea.hidden { display: none; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Text Diff Tool</h1>
-    <p class="subtitle">Compare two texts and see what's different. Green = added, red = removed.</p>
-    
-    <div class="input-row">
-      <div class="input-group">
-        <label>Original Text</label>
-        <textarea id="original" placeholder="Paste original text here..."></textarea>
-      </div>
-      <div class="input-group">
-        <label>Modified Text</label>
-        <textarea id="modified" placeholder="Paste modified text here..."></textarea>
-      </div>
+  <div class="header">
+    <div class="toolbar">
+      <span style="font-weight:600">Text Diff Checker</span>
+      <button id="compareBtn">Compare</button>
+      <button id="swapBtn">Swap</button>
+      <button id="clearBtn">Clear</button>
+      <button id="viewToggleBtn" class="view-toggle">Show Input</button>
     </div>
-    
-    <div class="controls">
-      <button class="primary" onclick="computeDiff()">Compare</button>
-      <button onclick="clearAll()">Clear</button>
-    </div>
-    
     <div class="stats" id="stats"></div>
-    <div class="output" id="output"><div class="empty-state">Enter both texts and click Compare to see differences</div></div>
   </div>
-
+  <div class="container">
+    <div class="panel">
+      <div class="panel-header">Original Text</div>
+      <textarea id="text1" placeholder="Paste original text here..."></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Changed Text</div>
+      <textarea id="text2" placeholder="Paste changed text here..."></textarea>
+    </div>
+  </div>
+  <div class="diff-view" id="diffView"></div>
   <script>
-    function computeDiff() {
-      const original = document.getElementById('original').value;
-      const modified = document.getElementById('modified').value;
-      const output = document.getElementById('output');
-      const stats = document.getElementById('stats');
+    const text1 = document.getElementById('text1');
+    const text2 = document.getElementById('text2');
+    const compareBtn = document.getElementById('compareBtn');
+    const swapBtn = document.getElementById('swapBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const viewToggleBtn = document.getElementById('viewToggleBtn');
+    const stats = document.getElementById('stats');
+    const diffView = document.getElementById('diffView');
+
+    let showingDiff = false;
+
+    function diffLines(a, b) {
+      const aLines = a.split('\n');
+      const bLines = b.split('\n');
+      const result = [];
+      let i = 0, j = 0;
       
-      if (!original && !modified) {
-        output.innerHTML = '<div class="empty-state">Enter both texts and click Compare to see differences</div>';
-        return;
-      }
-      
-      const origLines = original.split('\n');
-      const modLines = modified.split('\n');
-      
-      // Simple line-by-line diff using LCS approach
-      const lcs = longestCommonSubsequence(origLines, modLines);
-      
-      let result = [];
-      let adds = 0, removes = 0;
-      
-      let i = 0, j = 0, k = 0;
-      while (i < origLines.length || j < modLines.length) {
-        if (k < lcs.length && i < origLines.length && origLines[i] === lcs[k]) {
-          if (j < modLines.length && modLines[j] === lcs[k]) {
-            result.push({ type: 'same', text: lcs[k] });
-            i++; j++; k++;
-          } else {
-            result.push({ type: 'removed', text: origLines[i] });
-            removes++;
-            i++;
-          }
-        } else if (k < lcs.length && j < modLines.length && modLines[j] === lcs[k]) {
-          result.push({ type: 'added', text: modLines[j] });
-          adds++;
+      while (i < aLines.length || j < bLines.length) {
+        if (i < aLines.length && j < bLines.length && aLines[i] === bLines[j]) {
+          result.push({ type: 'same', text: aLines[i] });
+          i++; j++;
+        } else if (j < bLines.length && (!aLines[i] || !bLines[i] || bLines.slice(j).includes(aLines[i]))) {
+          result.push({ type: 'add', text: bLines[j] });
           j++;
-        } else if (j < modLines.length) {
-          result.push({ type: 'added', text: modLines[j] });
-          adds++;
-          j++;
-        } else if (i < origLines.length) {
-          result.push({ type: 'removed', text: origLines[i] });
-          removes++;
+        } else if (i < aLines.length) {
+          result.push({ type: 'del', text: aLines[i] });
           i++;
         } else {
-          break;
-        }
-      }
-      
-      stats.textContent = `${adds} additions, ${removes} deletions`;
-      
-      output.innerHTML = result.map(line => {
-        if (line.type === 'same') {
-          return escapeHtml(line.text);
-        } else if (line.type === 'added') {
-          return `<span class="diff-added">+ ${escapeHtml(line.text)}</span>`;
-        } else {
-          return `<span class="diff-removed">- ${escapeHtml(line.text)}</span>`;
-        }
-      }).join('\n');
-    }
-    
-    function longestCommonSubsequence(a, b) {
-      const m = a.length, n = b.length;
-      const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-      
-      for (let i = 1; i <= m; i++) {
-        for (let j = 1; j <= n; j++) {
-          if (a[i-1] === b[j-1]) {
-            dp[i][j] = dp[i-1][j-1] + 1;
-          } else {
-            dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
-          }
-        }
-      }
-      
-      const result = [];
-      let i = m, j = n;
-      while (i > 0 && j > 0) {
-        if (a[i-1] === b[j-1]) {
-          result.unshift(a[i-1]);
-          i--; j--;
-        } else if (dp[i-1][j] > dp[i][j-1]) {
-          i--;
-        } else {
-          j--;
+          result.push({ type: 'add', text: bLines[j] });
+          j++;
         }
       }
       return result;
     }
-    
+
+    function computeSimpleDiff(a, b) {
+      const aWords = a.split(/(\s+)/);
+      const bWords = b.split(/(\s+)/);
+      const result = [];
+      let i = 0, j = 0;
+      
+      while (i < aWords.length || j < bWords.length) {
+        if (i < aWords.length && j < bWords.length && aWords[i] === bWords[j]) {
+          result.push({ type: 'same', text: aWords[i] });
+          i++; j++;
+        } else if (j < bWords.length && (!aWords[i] || !bWords[j] || bWords.slice(j).includes(aWords[i]))) {
+          result.push({ type: 'add', text: bWords[j] });
+          j++;
+        } else if (i < aWords.length) {
+          result.push({ type: 'del', text: aWords[i] });
+          i++;
+        } else {
+          result.push({ type: 'add', text: bWords[j] });
+          j++;
+        }
+      }
+      return result;
+    }
+
+    function showDiff() {
+      const t1 = text1.value;
+      const t2 = text2.value;
+      
+      if (!t1 && !t2) {
+        stats.textContent = '';
+        return;
+      }
+
+      let diffResult;
+      const useLineDiff = t1.split('\n').length > 3 && t2.split('\n').length > 3;
+      
+      if (useLineDiff) {
+        diffResult = diffLines(t1, t2);
+      } else {
+        diffResult = computeSimpleDiff(t1, t2);
+      }
+
+      let adds = 0, dels = 0;
+      diffView.innerHTML = diffResult.map(d => {
+        if (d.type === 'add') adds++;
+        if (d.type === 'del') dels++;
+        const cls = d.type === 'add' ? 'diff-add' : d.type === 'del' ? 'diff-del' : '';
+        return `<div class="diff-line ${cls}">${escapeHtml(d.text)}</div>`;
+      }).join('');
+
+      stats.textContent = `+${adds} −${dels}`;
+      diffView.classList.add('active');
+      text1.classList.add('hidden');
+      text2.classList.add('hidden');
+      viewToggleBtn.style.display = 'block';
+      showingDiff = true;
+    }
+
     function escapeHtml(text) {
       return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
-    
-    function clearAll() {
-      document.getElementById('original').value = '';
-      document.getElementById('modified').value = '';
-      document.getElementById('output').innerHTML = '<div class="empty-state">Enter both texts and click Compare to see differences</div>';
-      document.getElementById('stats').textContent = '';
-    }
+
+    compareBtn.addEventListener('click', showDiff);
+
+    swapBtn.addEventListener('click', () => {
+      const temp = text1.value;
+      text1.value = text2.value;
+      text2.value = temp;
+    });
+
+    clearBtn.addEventListener('click', () => {
+      text1.value = '';
+      text2.value = '';
+      stats.textContent = '';
+      diffView.innerHTML = '';
+      diffView.classList.remove('active');
+      text1.classList.remove('hidden');
+      text2.classList.remove('hidden');
+      viewToggleBtn.style.display = 'none';
+      showingDiff = false;
+    });
+
+    viewToggleBtn.addEventListener('click', () => {
+      text1.classList.remove('hidden');
+      text2.classList.remove('hidden');
+      diffView.classList.remove('active');
+      viewToggleBtn.style.display = 'none';
+      showingDiff = false;
+    });
   </script>
 </body>
 </html>
