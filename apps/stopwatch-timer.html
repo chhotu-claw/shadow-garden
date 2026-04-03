@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stopwatch & Timer — Shadow's Garden</title>
+<meta name="description" content="A stopwatch with lap times and a countdown timer in one. Simple, local, no distractions.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
+  .container { width: 100%; max-width: 500px; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .tab { flex: 1; padding: 0.75rem; border: none; background: var(--bg-secondary); color: var(--fg-muted); border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+  .tab.active { background: var(--accent); color: var(--bg); }
+  .display { font-size: clamp(3rem, 12vw, 5rem); font-weight: 300; text-align: center; font-family: 'Fira Code', monospace; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+  .controls { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  button { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { opacity: 0.85; transform: scale(1.02); }
+  .btn-secondary { background: var(--bg-secondary); color: var(--fg); }
+  .btn-secondary:hover { background: var(--border); }
+  .lap-times { width: 100%; max-height: 200px; overflow-y: auto; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .lap-times h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--fg-muted); font-weight: 400; }
+  .lap-list { list-style: none; padding: 0; margin: 0; font-family: 'Fira Code', monospace; font-size: 0.9rem; }
+  .lap-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--bg-secondary); display: flex; justify-content: space-between; }
+  .timer-inputs { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .timer-inputs input { width: 60px; padding: 0.5rem; text-align: center; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 1.2rem; font-family: 'Fira Code', monospace; }
+  .timer-inputs label { display: block; font-size: 0.7rem; color: var(--fg-muted); margin-top: 0.25rem; text-transform: uppercase; }
+  .input-group { display: flex; flex-direction: column; align-items: center; }
+  .mode-stopwatch .timer-inputs { display: none; }
+  .mode-timer .lap-times { display: none; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" data-mode="stopwatch">Stopwatch</button>
+    <button class="tab" data-mode="timer">Timer</button>
+  </div>
+  
+  <div class="display" id="display">00:00:00.00</div>
+  
+  <div class="timer-inputs">
+    <div class="input-group">
+      <input type="number" id="hours" min="0" max="99" value="0">
+      <label>Hours</label>
+    </div>
+    <div class="input-group">
+      <input type="number" id="minutes" min="0" max="59" value="5">
+      <label>Minutes</label>
+    </div>
+    <div class="input-group">
+      <input type="number" id="seconds" min="0" max="59" value="0">
+      <label>Seconds</label>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button class="btn-primary" id="startBtn">Start</button>
+    <button class="btn-secondary" id="lapBtn">Lap</button>
+    <button class="btn-secondary" id="stopBtn">Stop</button>
+    <button class="btn-secondary" id="resetBtn">Reset</button>
+  </div>
+  
+  <div class="lap-times">
+    <h3>Lap Times</h3>
+    <ul class="lap-list" id="lapList"></ul>
+  </div>
+</div>
+
+<script>
+  const display = document.getElementById('display');
+  const startBtn = document.getElementById('startBtn');
+  const lapBtn = document.getElementById('lapBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const lapList = document.getElementById('lapList');
+  const tabs = document.querySelectorAll('.tab');
+  const timerInputs = document.querySelector('.timer-inputs');
+  
+  let mode = 'stopwatch';
+  let running = false;
+  let startTime = 0;
+  let elapsed = 0;
+  let timerEnd = 0;
+  let interval = null;
+  let lapCount = 0;
+  
+  function formatTime(ms, showMs = true) {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const mil = Math.floor((ms % 1000) / 10);
+    
+    if (showMs) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(mil).padStart(2, '0')}`;
+    }
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  
+  function update() {
+    let now = Date.now();
+    let ms;
+    
+    if (mode === 'stopwatch') {
+      ms = now - startTime + elapsed;
+      display.textContent = formatTime(ms);
+    } else {
+      ms = Math.max(0, timerEnd - now);
+      display.textContent = formatTime(ms);
+      
+      if (ms === 0) {
+        stop();
+        // Play a simple beep
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          osc.connect(ctx.destination);
+          osc.frequency.value = 800;
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch(e) {}
+      }
+    }
+  }
+  
+  function start() {
+    if (running) return;
+    
+    if (mode === 'stopwatch') {
+      startTime = Date.now();
+      running = true;
+      startBtn.textContent = 'Resume';
+    } else {
+      const h = parseInt(document.getElementById('hours').value) || 0;
+      const m = parseInt(document.getElementById('minutes').value) || 0;
+      const s = parseInt(document.getElementById('seconds').value) || 0;
+      const totalMs = (h * 3600 + m * 60 + s) * 1000;
+      
+      if (totalMs === 0) return;
+      
+      timerEnd = Date.now() + totalMs;
+      running = true;
+    }
+    
+    interval = setInterval(update, 10);
+    startBtn.disabled = true;
+    lapBtn.disabled = false;
+    stopBtn.disabled = false;
+  }
+  
+  function stop() {
+    if (!running) return;
+    
+    if (mode === 'stopwatch') {
+      elapsed += Date.now() - startTime;
+    }
+    
+    clearInterval(interval);
+    running = false;
+    startBtn.textContent = 'Start';
+    startBtn.disabled = false;
+  }
+  
+  function reset() {
+    stop();
+    elapsed = 0;
+    startTime = 0;
+    display.textContent = '00:00:00.00';
+    lapList.innerHTML = '';
+    lapCount = 0;
+    startBtn.textContent = 'Start';
+    startBtn.disabled = false;
+    lapBtn.disabled = true;
+    stopBtn.disabled = true;
+  }
+  
+  function lap() {
+    if (!running || mode !== 'stopwatch') return;
+    
+    lapCount++;
+    const now = Date.now();
+    const ms = now - startTime + elapsed;
+    
+    const li = document.createElement('li');
+    li.innerHTML = `<span>Lap ${lapCount}</span><span>${formatTime(ms)}</span>`;
+    lapList.insertBefore(li, lapList.firstChild);
+  }
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      mode = tab.dataset.mode;
+      
+      document.body.className = `mode-${mode}`;
+      
+      if (mode === 'timer') {
+        timerInputs.style.display = 'flex';
+        document.querySelector('.lap-times').style.display = 'none';
+        lapBtn.disabled = true;
+      } else {
+        timerInputs.style.display = 'none';
+        document.querySelector('.lap-times').style.display = 'block';
+      }
+      
+      reset();
+    });
+  });
+  
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+  resetBtn.addEventListener('click', reset);
+  lapBtn.addEventListener('click', lap);
+  
+  lapBtn.disabled = true;
+  stopBtn.disabled = true;
+</script>
+</body>
+</html>
