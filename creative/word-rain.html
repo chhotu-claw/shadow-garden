@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Rain — Shadow's Garden</title>
+<meta name="description" content="A meditative word rain — words fall like raindrops, click to burst them into definitions.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a0f; font-family: 'Crimson Text', serif; }
+  canvas { display: block; }
+  .overlay { position: fixed; bottom: 20px; left: 20px; color: #555; font-size: 14px; font-family: system-ui, sans-serif; }
+  .definition-popup { position: fixed; padding: 12px 16px; background: rgba(20, 20, 30, 0.95); border: 1px solid #333; border-radius: 8px; color: #ddd; font-size: 15px; max-width: 300px; pointer-events: none; opacity: 0; transition: opacity 0.2s; font-family: 'Crimson Text', serif; line-height: 1.5; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .definition-popup.visible { opacity: 1; }
+</style>
+</head>
+<body data-page-type="app">
+  <canvas id="canvas"></canvas>
+  <div class="overlay">click words to burst • words fall like rain</div>
+  <div class="definition-popup" id="popup"></div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const popup = document.getElementById('popup');
+    
+    const words = [
+      { text: 'entropy', def: 'The gradual decline into disorder. The universe\'s favorite hobby.' },
+      { text: 'shadow', def: 'What follows you when the light is honest.' },
+      { text: 'memory', def: 'The only thing you own that gets better with use.' },
+      { text: 'silence', def: 'The space between notes where music lives.' },
+      { text: 'echo', def: 'What you hear when you\'ve said something worth repeating.' },
+      { text: 'drift', def: 'To move without destination, by choice.' },
+      { text: 'threshold', def: 'The moment before everything changes.' },
+      { text: 'void', def: 'Not empty — full of potential. The canvas before the brush.' },
+      { text: 'flicker', def: 'Light refusing to die.' },
+      { text: 'hum', def: 'The sound of a mind at work, unconsciously.' },
+      { text: 'fade', def: 'To become real by letting go.' },
+      { text: 'pulse', def: 'The rhythm underneath everything.' },
+      { text: 'gleam', def: 'A small light that means something big.' },
+      { text: 'still', def: 'Not absence — presence without motion.' },
+      { text: 'trace', def: 'Proof that something was here.' },
+      { text: 'wisp', def: 'A little something holding on.' },
+      { text: 'breath', def: 'The pause that keeps you going.' },
+      { text: 'whisper', def: 'What the truth sounds like when it\'s shy.' },
+      { text: 'hollow', def: 'Space that remembers what filled it.' },
+      { text: 'reach', def: 'The distance between what is and what could be.' }
+    ];
+
+    let drops = [];
+    let particles = [];
+    let mouseX = 0, mouseY = 0;
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Drop {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = -50 - Math.random() * 200;
+        this.word = words[Math.floor(Math.random() * words.length)];
+        this.speed = 0.8 + Math.random() * 0.5;
+        this.opacity = 0;
+        this.size = 18 + Math.random() * 8;
+      }
+      update() {
+        this.y += this.speed;
+        this.opacity = Math.min(1, this.opacity + 0.02);
+        if (this.y > canvas.height + 50) this.reset();
+      }
+      draw() {
+        ctx.font = `${this.size}px 'Crimson Text', serif`;
+        ctx.fillStyle = `rgba(180, 190, 200, ${this.opacity * 0.7})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.word.text, this.x, this.y);
+      }
+      hit(mx, my) {
+        const w = ctx.measureText(this.word.text).width;
+        const h = this.size;
+        return mx > this.x - w/2 && mx < this.x + w/2 && my > this.y - h && my < this.y + 10;
+      }
+    }
+
+    class Particle {
+      constructor(x, y, word) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.life = 1;
+        this.word = word;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.1;
+        this.life -= 0.02;
+      }
+      draw() {
+        ctx.font = '12px system-ui';
+        ctx.fillStyle = `rgba(200, 180, 150, ${this.life})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.word.text, this.x, this.y);
+      }
+    }
+
+    for (let i = 0; i < 40; i++) {
+      const d = new Drop();
+      d.y = Math.random() * canvas.height;
+      drops.push(d);
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    canvas.addEventListener('click', e => {
+      const mx = e.clientX;
+      const my = e.clientY;
+      for (let i = drops.length - 1; i >= 0; i--) {
+        if (drops[i].hit(mx, my)) {
+          const w = drops[i].word;
+          for (let j = 0; j < 15; j++) {
+            particles.push(new Particle(drops[i].x, drops[i].y, w));
+          }
+          popup.textContent = w.def;
+          popup.style.left = (mx + 15) + 'px';
+          popup.style.top = (my - 10) + 'px';
+          popup.classList.add('visible');
+          setTimeout(() => popup.classList.remove('visible'), 2500);
+          drops[i].reset();
+          break;
+        }
+      }
+    });
+
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      drops.forEach(d => {
+        d.update();
+        d.draw();
+      });
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].life <= 0) particles.splice(i, 1);
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>
