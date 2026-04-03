@@ -4,169 +4,223 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JWT Decoder — Shadow's Garden</title>
-<meta name="description" content="Decode and inspect JWT tokens locally in your browser. View header, payload, and signature. Nothing leaves your device.">
+<meta name="description" content="Decode and validate JWT tokens. See header, payload, signature. All local, nothing leaves your browser.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; }
-  .nav { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
-  .nav a { color: #666; text-decoration: none; }
-  .nav a:hover { color: #6cb6ff; }
-  textarea { width: 100%; height: 120px; background: #141414; border: 1px solid #333; border-radius: 6px; color: #e5e5e5; padding: 1rem; font-family: 'SF Mono', Monaco, monospace; font-size: 0.9rem; resize: vertical; }
-  textarea:focus { outline: none; border-color: #6cb6ff; }
-  .btn-group { display: flex; gap: 0.5rem; margin: 1rem 0; }
-  button { background: #1a1a1a; border: 1px solid #333; color: #e5e5e5; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-  button:hover { border-color: #6cb6ff; }
-  button.primary { background: #6cb6ff; color: #0d0d0d; border-color: #6cb6ff; }
-  button.primary:hover { background: #5aa3ef; }
-  .section { background: #141414; border: 1px solid #222; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
-  .section h3 { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
-  .token-part { background: #0d0d0d; padding: 0.75rem; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 0.85rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
-  .header { border-left: 3px solid #f77; }
-  .payload { border-left: 3px solid #7af7; }
-  .signature { border-left: 3px solid #7af; }
-  .error { background: #2e1a1a; border: 1px solid #f77; padding: 1rem; border-radius: 6px; color: #f77; }
-  .info { color: #666; font-size: 0.85rem; margin-top: 0.5rem; }
-  .claim { display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid #222; }
-  .claim:last-child { border-bottom: none; }
-  .claim-key { color: #888; }
-  .claim-value { color: #e5e5e5; font-family: 'SF Mono', Monaco, monospace; }
-  .expired { color: #f77; }
-  .valid { color: #7af7; }
-  pre { margin: 0; white-space: pre-wrap; word-break: break-all; }
+  :root { --accent: #6366f1; }
+  body { padding: 1rem; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+  .section { margin-bottom: 1.5rem; }
+  .label { font-weight: 600; margin-bottom: 0.5rem; display: block; color: var(--fg-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  textarea, .output { width: 100%; box-sizing: border-box; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--fg); font-family: 'Fira Code', monospace; font-size: 14px; }
+  textarea { min-height: 120px; resize: vertical; }
+  .output { white-space: pre-wrap; word-break: break-all; min-height: 60px; }
+  .valid { border-color: #22c55e; }
+  .invalid { border-color: #ef4444; }
+  .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .badge-valid { background: #22c55e20; color: #22c55e; }
+  .badge-invalid { background: #ef444420; color: #ef4444; }
+  .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  button { background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button:hover { background: var(--bg-secondary); }
+  .error { color: #ef4444; font-size: 0.9rem; margin-top: 0.5rem; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .info-card { background: var(--bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border); }
+  .info-card h3 { margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--fg-muted); text-transform: uppercase; }
+  .info-card .value { font-family: 'Fira Code', monospace; font-size: 0.9rem; word-break: break-all; }
+  .timestamp { font-size: 0.8rem; color: var(--fg-muted); }
 </style>
 </head>
-<body>
-  <div class="nav">
-    <a href="index.html">Home</a>
-    <a href="index-writing.html">Writing</a>
-  </div>
-
+<body data-page-type="app">
   <h1>JWT Decoder</h1>
-  <p style="color:#888;margin-bottom:1.5rem;">Decode and inspect JWT tokens. Everything runs locally — nothing leaves your browser.</p>
-
-  <textarea id="jwtInput" placeholder="Paste your JWT here (e.g., eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"></textarea>
   
-  <div class="btn-group">
-    <button class="primary" onclick="decode()">Decode</button>
-    <button onclick="clearAll()">Clear</button>
-    <button onclick="loadFromStorage()">Load Last</button>
+  <div class="section">
+    <label class="label" for="jwt">Paste your JWT token</label>
+    <textarea id="jwt" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"></textarea>
+    <div class="btn-group">
+      <button id="decode">Decode</button>
+      <button id="validate">Validate Structure</button>
+      <button id="clear">Clear</button>
+    </div>
+    <div id="error" class="error"></div>
   </div>
 
-  <div id="error" class="error" style="display:none;"></div>
+  <div class="section" id="result" style="display:none;">
+    <label class="label">Decoded Token</label>
+    <div id="status"></div>
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>Header</h3>
+        <div class="value" id="header"></div>
+      </div>
+      <div class="info-card">
+        <h3>Payload</h3>
+        <div class="value" id="payload"></div>
+      </div>
+      <div class="info-card">
+        <h3>Signature</h3>
+        <div class="value" id="signature"></div>
+      </div>
+    </div>
+  </div>
 
-  <div id="result" style="display:none;">
-    <div class="section">
-      <h3>Header</h3>
-      <div class="token-part header" id="headerOutput"></div>
-    </div>
-    
-    <div class="section">
-      <h3>Payload</h3>
-      <div class="token-part payload" id="payloadOutput"></div>
-      <div class="info" id="payloadInfo"></div>
-    </div>
-    
-    <div class="section">
-      <h3>Signature</h3>
-      <div class="token-part signature" id="signatureOutput"></div>
+  <div class="section" id="claims-section" style="display:none;">
+    <label class="label">Token Claims</label>
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>Issuer (iss)</h3>
+        <div class="value" id="iss"></div>
+      </div>
+      <div class="info-card">
+        <h3>Subject (sub)</h3>
+        <div class="value" id="sub"></div>
+      </div>
+      <div class="info-card">
+        <h3>Audience (aud)</h3>
+        <div class="value" id="aud"></div>
+      </div>
+      <div class="info-card">
+        <h3>Expiration (exp)</h3>
+        <div class="value" id="exp"></div>
+      </div>
+      <div class="info-card">
+        <h3>Issued At (iat)</h3>
+        <div class="value" id="iat"></div>
+      </div>
+      <div class="info-card">
+        <h3>Not Before (nbf)</h3>
+        <div class="value" id="nbf"></div>
+      </div>
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY = 'last_jwt';
-
-    function decode() {
-      const input = document.getElementById('jwtInput').value.trim();
-      const errorEl = document.getElementById('error');
-      const resultEl = document.getElementById('result');
-      
-      if (!input) {
-        errorEl.textContent = 'Please paste a JWT token';
-        errorEl.style.display = 'block';
-        resultEl.style.display = 'none';
-        return;
-      }
-
-      const parts = input.split('.');
-      if (parts.length !== 3) {
-        errorEl.textContent = 'Invalid JWT format. Expected 3 parts separated by dots.';
-        errorEl.style.display = 'block';
-        resultEl.style.display = 'none';
-        return;
-      }
-
-      try {
-        const header = JSON.parse(base64UrlDecode(parts[0]));
-        const payload = JSON.parse(base64UrlDecode(parts[1]));
-        const signature = parts[2];
-
-        document.getElementById('headerOutput').innerHTML = '<pre>' + JSON.stringify(header, null, 2) + '</pre>';
-        document.getElementById('payloadOutput').innerHTML = '<pre>' + JSON.stringify(payload, null, 2) + '</pre>';
-        document.getElementById('signatureOutput').textContent = signature;
-
-        // Show payload info
-        let info = [];
-        if (payload.exp) {
-          const expDate = new Date(payload.exp * 1000);
-          const now = new Date();
-          const isExpired = now > expDate;
-          info.push(`exp: ${expDate.toLocaleString()} ${isExpired ? '(EXPIRED)' : '(valid)'}`);
-        }
-        if (payload.iat) {
-          const iatDate = new Date(payload.iat * 1000);
-          info.push(`iat: ${iatDate.toLocaleString()}`);
-        }
-        if (payload.nbf) {
-          const nbfDate = new Date(payload.nbf * 1000);
-          info.push(`nbf: ${nbfDate.toLocaleString()}`);
-        }
-        if (payload.sub) info.push(`sub: ${payload.sub}`);
-        if (payload.iss) info.push(`iss: ${payload.iss}`);
-        if (payload.aud) info.push(`aud: ${payload.aud}`);
-
-        document.getElementById('payloadInfo').textContent = info.join(' | ');
-
-        errorEl.style.display = 'none';
-        resultEl.style.display = 'block';
-
-        // Save to storage
-        localStorage.setItem(STORAGE_KEY, input);
-
-      } catch (e) {
-        errorEl.textContent = 'Failed to decode: ' + e.message;
-        errorEl.style.display = 'block';
-        resultEl.style.display = 'none';
-      }
-    }
+    const jwtInput = document.getElementById('jwt');
+    const decodeBtn = document.getElementById('decode');
+    const validateBtn = document.getElementById('validate');
+    const clearBtn = document.getElementById('clear');
+    const resultSection = document.getElementById('result');
+    const claimsSection = document.getElementById('claims-section');
+    const errorDiv = document.getElementById('error');
 
     function base64UrlDecode(str) {
-      let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-      const padding = base64.length % 4;
-      if (padding) {
-        base64 += '='.repeat(4 - padding);
-      }
-      return decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    }
-
-    function clearAll() {
-      document.getElementById('jwtInput').value = '';
-      document.getElementById('error').style.display = 'none';
-      document.getElementById('result').style.display = 'none';
-    }
-
-    function loadFromStorage() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        document.getElementById('jwtInput').value = saved;
-        decode();
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (str.length % 4) str += '=';
+      try {
+        return decodeURIComponent(atob(str).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+      } catch (e) {
+        return null;
       }
     }
 
-    // Auto-decode on paste
-    document.getElementById('jwtInput').addEventListener('paste', () => {
-      setTimeout(decode, 10);
+    function decodeJWT(token) {
+      const parts = token.trim().split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format: expected 3 parts separated by dots');
+      }
+      const header = JSON.parse(base64UrlDecode(parts[0]));
+      const payload = JSON.parse(base64UrlDecode(parts[1]));
+      const signature = parts[2];
+      return { header, payload, signature };
+    }
+
+    function formatTimestamp(ts) {
+      if (!ts) return '-';
+      const date = new Date(ts * 1000);
+      return date.toLocaleString() + ' (' + date.toLocaleTimeString('en-US', { timeZoneName: 'short' }) + ')';
+    }
+
+    function showError(msg) {
+      errorDiv.textContent = msg;
+      resultSection.style.display = 'none';
+      claimsSection.style.display = 'none';
+    }
+
+    function displayJWT(decoded) {
+      errorDiv.textContent = '';
+      resultSection.style.display = 'block';
+      claimsSection.style.display = 'block';
+
+      document.getElementById('header').textContent = JSON.stringify(decoded.header, null, 2);
+      document.getElementById('payload').textContent = JSON.stringify(decoded.payload, null, 2);
+      document.getElementById('signature').textContent = decoded.signature;
+
+      const p = decoded.payload;
+      document.getElementById('iss').textContent = p.iss || '-';
+      document.getElementById('sub').textContent = p.sub || '-';
+      document.getElementById('aud').textContent = p.aud ? (Array.isArray(p.aud) ? p.aud.join(', ') : p.aud) : '-';
+      document.getElementById('exp').textContent = p.exp ? formatTimestamp(p.exp) + (new Date(p.exp * 1000) < new Date() ? ' — EXPIRED' : '') : '-';
+      document.getElementById('iat').textContent = p.iat ? formatTimestamp(p.iat) : '-';
+      document.getElementById('nbf').textContent = p.nbf ? formatTimestamp(p.nbf) : '-';
+    }
+
+    decodeBtn.addEventListener('click', () => {
+      const token = jwtInput.value.trim();
+      if (!token) {
+        showError('Please paste a JWT token');
+        return;
+      }
+      try {
+        const decoded = decodeJWT(token);
+        displayJWT(decoded);
+        document.getElementById('status').innerHTML = '<span class="badge badge-valid">Decoded</span>';
+      } catch (e) {
+        showError(e.message);
+      }
+    });
+
+    validateBtn.addEventListener('click', () => {
+      const token = jwtInput.value.trim();
+      if (!token) {
+        showError('Please paste a JWT token');
+        return;
+      }
+      try {
+        const decoded = decodeJWT(token);
+        const parts = token.split('.');
+        
+        // Check structure
+        if (parts.length !== 3) {
+          throw new Error('Invalid structure: ' + parts.length + ' parts, expected 3');
+        }
+        
+        // Check expiration
+        let status = '<span class="badge badge-valid">Valid Structure</span>';
+        if (decoded.payload.exp) {
+          if (new Date(decoded.payload.exp * 1000) < new Date()) {
+            status += '<span class="badge badge-invalid">EXPIRED</span>';
+          } else {
+            status += '<span class="badge badge-valid">Not Expired</span>';
+          }
+        }
+        
+        // Check not-before
+        if (decoded.payload.nbf) {
+          if (new Date(decoded.payload.nbf * 1000) > new Date()) {
+            status += '<span class="badge badge-invalid">Not Yet Valid</span>';
+          }
+        }
+        
+        document.getElementById('status').innerHTML = status;
+        displayJWT(decoded);
+      } catch (e) {
+        document.getElementById('status').innerHTML = '<span class="badge badge-invalid">Invalid</span>';
+        showError(e.message);
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      jwtInput.value = '';
+      resultSection.style.display = 'none';
+      claimsSection.style.display = 'none';
+      errorDiv.textContent = '';
+    });
+
+    jwtInput.addEventListener('input', () => {
+      errorDiv.textContent = '';
     });
   </script>
 </body>
