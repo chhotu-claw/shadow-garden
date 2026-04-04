@@ -4,151 +4,162 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Counter — Shadow's Garden</title>
-<meta name="description" content="Count words, characters, sentences, paragraphs in any text. No tracking, no ads.">
+<meta name="description" content="Count words, characters, sentences, paragraphs. All local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; }
-  .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .tagline { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  .counter { max-width: 700px; margin: 0 auto; }
   textarea {
     width: 100%;
-    height: 300px;
-    padding: 1rem;
-    font-size: 1rem;
-    font-family: inherit;
+    min-height: 300px;
+    padding: 16px;
     border: 2px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
     color: var(--text);
-    resize: vertical;
+    font-size: 15px;
+    font-family: var(--mono);
     line-height: 1.6;
+    resize: vertical;
+    box-sizing: border-box;
   }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .stats {
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 1rem;
-    margin-top: 1.5rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: 20px 0;
   }
-  .stat-box {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
+  .stat-card {
+    background: var(--bg);
+    border: 2px solid var(--border);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 16px;
     text-align: center;
   }
   .stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--accent);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
   }
   .stat-label {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
   }
-  .info {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    background: var(--bg-secondary);
+  .controls {
+    display: flex;
+    gap: 12px;
+  }
+  button {
+    padding: 10px 16px;
+    border: 2px solid var(--border);
     border-radius: 8px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-  .info kbd {
     background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.15rem 0.4rem;
-    font-family: monospace;
-    font-size: 0.8rem;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  @media (max-width: 500px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .controls {
+      flex-wrap: wrap;
+    }
   }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Word Counter</h1>
-  <p class="tagline">Count words, characters, sentences, paragraphs. No tracking.</p>
-  
-  <textarea id="text" placeholder="Paste or type your text here..."></textarea>
-  
-  <div class="stats">
-    <div class="stat-box">
-      <div class="stat-value" id="words">0</div>
-      <div class="stat-label">Words</div>
+  <div class="counter">
+    <h1>Word Counter</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">Count words, characters, sentences, and paragraphs. All local, no tracking.</p>
+    
+    <textarea id="input" placeholder="Paste or type text here..." oninput="count()"></textarea>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="wordCount">0</div>
+        <div class="stat-label">Words</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="charCount">0</div>
+        <div class="stat-label">Characters</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="sentenceCount">0</div>
+        <div class="stat-label">Sentences</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="paragraphCount">0</div>
+        <div class="stat-label">Paragraphs</div>
+      </div>
     </div>
-    <div class="stat-box">
-      <div class="stat-value" id="chars">0</div>
-      <div class="stat-label">Characters</div>
+    
+    <div class="controls">
+      <button class="primary" onclick="count()">Refresh Count</button>
+      <button onclick="clearText()">Clear</button>
+      <button onclick="copyStats()">Copy Stats</button>
     </div>
-    <div class="stat-box">
-      <div class="stat-value" id="charsNoSpaces">0</div>
-      <div class="stat-label">Chars (no spaces)</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value" id="sentences">0</div>
-      <div class="stat-label">Sentences</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value" id="paragraphs">0</div>
-      <div class="stat-label">Paragraphs</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value" id="lines">0</div>
-      <div class="stat-label">Lines</div>
-    </div>
-  </div>
-  
-  <div class="info">
-    <kbd>Ctrl+V</kbd> to paste · <kbd>Ctrl+Z</kbd> to undo · Counts update as you type
   </div>
 </div>
-
 <script>
-const textArea = document.getElementById('text');
-const stats = {
-  words: document.getElementById('words'),
-  chars: document.getElementById('chars'),
-  charsNoSpaces: document.getElementById('charsNoSpaces'),
-  sentences: document.getElementById('sentences'),
-  paragraphs: document.getElementById('paragraphs'),
-  lines: document.getElementById('lines')
-};
-
-function count() {
-  const text = textArea.value;
+  function count() {
+    const text = document.getElementById('input').value;
+    
+    // Words: split by whitespace, filter empty
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    document.getElementById('wordCount').textContent = words.length.toLocaleString();
+    
+    // Characters
+    document.getElementById('charCount').textContent = text.length.toLocaleString();
+    
+    // Sentences: count . ! ? followed by space or end
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    document.getElementById('sentenceCount').textContent = sentences.length.toLocaleString();
+    
+    // Paragraphs: split by double newline or more
+    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+    document.getElementById('paragraphCount').textContent = paragraphs.length.toLocaleString();
+  }
   
-  // Characters
-  stats.chars.textContent = text.length;
+  function clearText() {
+    document.getElementById('input').value = '';
+    count();
+  }
   
-  // Characters without spaces
-  stats.charsNoSpaces.textContent = text.replace(/\s/g, '').length;
+  function copyStats() {
+    const words = document.getElementById('wordCount').textContent;
+    const chars = document.getElementById('charCount').textContent;
+    const sentences = document.getElementById('sentenceCount').textContent;
+    const paragraphs = document.getElementById('paragraphCount').textContent;
+    
+    const stats = `Words: ${words}\nCharacters: ${chars}\nSentences: ${sentences}\nParagraphs: ${paragraphs}`;
+    navigator.clipboard.writeText(stats).then(() => {
+      const btn = event.target;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy Stats', 1500);
+    });
+  }
   
-  // Words - split by whitespace, filter empty
-  const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-  stats.words.textContent = words.length;
-  
-  // Sentences - split by . ! ?
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  stats.sentences.textContent = sentences.length;
-  
-  // Paragraphs - split by double newline or more
-  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-  stats.paragraphs.textContent = paragraphs.length;
-  
-  // Lines
-  const lines = text.split('\n').length;
-  stats.lines.textContent = lines;
-}
-
-textArea.addEventListener('input', count);
-
-// Count on load in case there's default content
-count();
+  // Initial count (in case of page refresh with content)
+  count();
 </script>
 </body>
 </html>
