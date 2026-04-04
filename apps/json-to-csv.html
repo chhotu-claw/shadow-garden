@@ -4,115 +4,202 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON to CSV Converter — Shadow's Garden</title>
-<meta name="description" content="Convert JSON arrays to CSV with automatic header detection. Copy or download.">
+<meta name="description" content="Convert JSON arrays to CSV. All local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
-  .container { display: flex; gap: 1rem; flex-direction: column; height: calc(100vh - 120px); }
-  textarea { flex: 1; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 14px; background: var(--bg); color: var(--fg); resize: none; min-height: 200px; }
-  .output-area { flex: 1; display: flex; flex-direction: column; }
-  .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-  .output { flex: 1; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); font-family: 'Fira Code', monospace; font-size: 14px; white-space: pre-wrap; overflow: auto; }
-  .buttons { display: flex; gap: 0.5rem; }
-  button { background: var(--accent); color: var(--bg); border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: var(--bg-secondary); color: var(--fg); border: 1px solid var(--border); }
-  label { font-weight: 600; display: block; margin-bottom: 0.5rem; }
-  .error { color: #e74c3c; font-size: 14px; margin-top: 0.5rem; }
-  .stats { color: var(--fg-muted); font-size: 12px; margin-top: 0.5rem; }
+  .converter { max-width: 900px; margin: 0 auto; }
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 700px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  textarea {
+    width: 100%;
+    min-height: 300px;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--mono);
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 12px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  .error {
+    color: #f77;
+    font-size: 14px;
+    margin-top: 8px;
+    display: none;
+  }
+  .error.show { display: block; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <div>
-      <label>Input JSON</label>
-      <textarea id="input" placeholder='Paste JSON array here, e.g.:
-[
-  {"name": "Alice", "age": 30},
-  {"name": "Bob", "age": 25}
-]'></textarea>
-    </div>
-    <div class="output-area">
-      <div class="output-header">
-        <label>Output CSV</label>
-        <div class="buttons">
-          <button id="convertBtn">Convert</button>
-          <button id="copyBtn" class="secondary">Copy</button>
-          <button id="downloadBtn" class="secondary">Download</button>
-        </div>
+<div class="container">
+  <div class="converter">
+    <h1>JSON to CSV</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Convert JSON arrays to CSV. All local, no tracking.</p>
+    
+    <div class="panels">
+      <div class="panel">
+        <label>JSON Input</label>
+        <textarea id="jsonInput" placeholder='[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]'></textarea>
       </div>
-      <div id="output" class="output">CSV output will appear here...</div>
-      <div id="stats" class="stats"></div>
-      <div id="error" class="error"></div>
+      <div class="panel">
+        <label>CSV Output</label>
+        <textarea id="csvOutput" readonly placeholder="CSV will appear here..."></textarea>
+      </div>
+    </div>
+    
+    <div class="error" id="error"></div>
+    
+    <div class="controls">
+      <button class="primary" onclick="convert()">Convert JSON → CSV</button>
+      <button onclick="copyCSV()">Copy CSV</button>
+      <button onclick="downloadCSV()">Download CSV</button>
+      <button onclick="clearAll()">Clear</button>
     </div>
   </div>
-  <script>
-    const input = document.getElementById('input');
-    const output = document.getElementById('output');
+</div>
+<script>
+  function convert() {
+    const input = document.getElementById('jsonInput').value.trim();
+    const output = document.getElementById('csvOutput');
     const error = document.getElementById('error');
-    const stats = document.getElementById('stats');
-    const convertBtn = document.getElementById('convertBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-
-    function escapeCSV(val) {
-      if (val == null) return '';
-      const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return '"' + str.replace(/"/g, '""') + '"';
-      }
-      return str;
+    
+    error.classList.remove('show');
+    output.value = '';
+    
+    if (!input) {
+      error.textContent = 'Please enter JSON';
+      error.classList.add('show');
+      return;
     }
-
-    function convert() {
-      error.textContent = '';
-      const raw = input.value.trim();
-      if (!raw) {
-        output.textContent = 'CSV output will appear here...';
-        stats.textContent = '';
-        return;
+    
+    try {
+      const data = JSON.parse(input);
+      
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('Input must be a non-empty JSON array');
       }
-      try {
-        const data = JSON.parse(raw);
-        if (!Array.isArray(data)) {
-          throw new Error('Input must be a JSON array');
+      
+      // Get all unique keys from all objects
+      const headers = new Set();
+      data.forEach(obj => {
+        if (typeof obj === 'object' && obj !== null) {
+          Object.keys(obj).forEach(k => headers.add(k));
         }
-        if (data.length === 0) {
-          output.textContent = '';
-          stats.textContent = '0 rows, 0 columns';
-          return;
-        }
-        const headers = Object.keys(data[0]);
-        const rows = data.map(row => headers.map(h => escapeCSV(row[h])).join(','));
-        const csv = [headers.join(','), ...rows].join('\n');
-        output.textContent = csv;
-        stats.textContent = `${data.length} row${data.length !== 1 ? 's' : ''}, ${headers.length} column${headers.length !== 1 ? 's' : ''}`;
-      } catch (e) {
-        error.textContent = 'Error: ' + e.message;
-        output.textContent = '';
-        stats.textContent = '';
+      });
+      
+      if (headers.size === 0) {
+        throw new Error('No valid objects found in array');
       }
+      
+      const headerArray = Array.from(headers);
+      
+      // Build CSV
+      const csvRows = [];
+      csvRows.push(headerArray.join(','));
+      
+      data.forEach(obj => {
+        const row = headerArray.map(h => {
+          const val = obj[h];
+          if (val === null || val === undefined) return '';
+          if (typeof val === 'object') return JSON.stringify(val);
+          let str = String(val);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            str = '"' + str.replace(/"/g, '""') + '"';
+          }
+          return str;
+        });
+        csvRows.push(row.join(','));
+      });
+      
+      output.value = csvRows.join('\n');
+      
+    } catch (e) {
+      error.textContent = 'Error: ' + e.message;
+      error.classList.add('show');
     }
-
-    convertBtn.addEventListener('click', convert);
-    copyBtn.addEventListener('click', () => {
-      if (output.textContent && output.textContent !== 'CSV output will appear here...') {
-        navigator.clipboard.writeText(output.textContent);
-        copyBtn.textContent = 'Copied!';
-        setTimeout(() => copyBtn.textContent = 'Copy', 1500);
-      }
+  }
+  
+  function copyCSV() {
+    const output = document.getElementById('csvOutput');
+    if (!output.value) return;
+    
+    navigator.clipboard.writeText(output.value).then(() => {
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
     });
-    downloadBtn.addEventListener('click', () => {
-      if (output.textContent && output.textContent !== 'CSV output will appear here...') {
-        const blob = new Blob([output.textContent], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'data.csv';
-        a.click();
-      }
-    });
-    input.addEventListener('input', convert);
-  </script>
+  }
+  
+  function downloadCSV() {
+    const output = document.getElementById('csvOutput');
+    if (!output.value) return;
+    
+    const blob = new Blob([output.value], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  
+  function clearAll() {
+    document.getElementById('jsonInput').value = '';
+    document.getElementById('csvOutput').value = '';
+    document.getElementById('error').classList.remove('show');
+  }
+</script>
 </body>
 </html>
