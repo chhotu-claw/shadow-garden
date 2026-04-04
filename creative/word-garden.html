@@ -4,283 +4,250 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Garden — Shadow's Garden</title>
-<meta name="description" content="A meditative word garden where sentences grow, bloom, and mutate over time">
+<meta name="description" content="A generative word garden where you plant words and watch them grow into stories.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root {
-    --accent: #e066ff;
-    --bg: #0a0a0f;
-    --fg: #c8c8d0;
-  }
-  body {
-    background: var(--bg);
-    min-height: 100vh;
+  * { box-sizing: border-box; }
+  body { 
+    margin: 0; 
+    background: #0a0a0f; 
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Crimson Text', Georgia, serif;
-    overflow: hidden;
-    padding: 2rem;
-    box-sizing: border-box;
   }
-  
-  #garden {
-    position: relative;
-    width: 100%;
-    height: 70vh;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-  
-  .word {
-    position: absolute;
-    font-size: 1.2rem;
-    color: var(--fg);
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.5s ease;
-    user-select: none;
-  }
-  
-  .word.growing {
-    animation: grow 2s ease-out forwards;
-  }
-  
-  .word.blooming {
-    color: var(--accent);
-    text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
-    transform: scale(1.3);
-  }
-  
-  .word.drifting {
-    animation: drift 8s ease-in-out infinite;
-  }
-  
-  .word.fading {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  
-  @keyframes grow {
-    from { transform: translateY(50px) scale(0.5); opacity: 0; }
-    to { transform: translateY(0) scale(1); opacity: 1; }
-  }
-  
-  @keyframes drift {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(10px); }
-    75% { transform: translateX(-10px); }
-  }
-  
-  #input-area {
-    margin-top: 2rem;
-    width: 100%;
-    max-width: 600px;
-    display: flex;
-    gap: 1rem;
-  }
-  
-  #word-input {
+  .garden-canvas {
     flex: 1;
-    padding: 1rem 1.5rem;
-    font-size: 1.1rem;
-    font-family: inherit;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    color: var(--fg);
-    outline: none;
-    transition: border-color 0.3s;
+    position: relative;
+    cursor: crosshair;
   }
-  
-  #word-input:focus {
-    border-color: var(--accent);
-  }
-  
-  #mode-btn {
-    padding: 1rem 1.5rem;
-    font-family: inherit;
-    font-size: 0.9rem;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    color: var(--fg);
+  .word-node {
+    position: absolute;
+    font-size: 14px;
+    padding: 6px 12px;
+    background: rgba(20, 20, 30, 0.85);
+    border: 1px solid #333;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
+    user-select: none;
+    z-index: 10;
   }
-  
-  #mode-btn:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: var(--accent);
+  .word-node:hover {
+    background: rgba(40, 40, 60, 0.95);
+    border-color: #6cb6ff;
+    transform: scale(1.05);
   }
-  
-  #quote {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-style: italic;
-    color: rgba(200,200,210,0.4);
-    font-size: 0.9rem;
-    text-align: center;
-    max-width: 80%;
+  .word-node.connected {
+    border-color: #7af782;
   }
-  
-  #stats {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    font-size: 0.75rem;
-    color: rgba(200,200,210,0.3);
+  .word-node.selected {
+    background: rgba(106, 178, 255, 0.2);
+    border-color: #6cb6ff;
+    box-shadow: 0 0 20px rgba(106, 178, 255, 0.3);
+  }
+  .connection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .input-panel {
+    background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%);
+    border-top: 1px solid #222;
+    padding: 16px 24px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    z-index: 20;
+  }
+  .word-input {
+    flex: 1;
+    max-width: 300px;
+    padding: 12px 16px;
+    background: #0d0d12;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+  }
+  .word-input:focus {
+    outline: none;
+    border-color: #6cb6ff;
+  }
+  .plant-btn {
+    padding: 12px 24px;
+    background: #1a2e1a;
+    color: #7af782;
+    border: 1px solid #7af782;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    transition: all 0.2s;
+  }
+  .plant-btn:hover {
+    background: #2a3e2a;
+    box-shadow: 0 0 15px rgba(122, 247, 130, 0.2);
+  }
+  .hint {
+    color: #666;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+  }
+  @media (max-width: 600px) {
+    .input-panel {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .word-input {
+      max-width: 100%;
+    }
   }
 </style>
 </head>
 <body data-page-type="app">
-  <div id="garden"></div>
-  
-  <div id="input-area">
-    <input type="text" id="word-input" placeholder="Plant a word..." autocomplete="off" autofocus>
-    <button id="mode-btn">Mode: GROW</button>
+  <div class="garden-canvas" id="garden">
+    <svg class="connection" id="connections"></svg>
   </div>
+  <div class="input-panel">
+    <input type="text" class="word-input" id="wordInput" placeholder="plant a word..." maxlength="20">
+    <button class="plant-btn" id="plantBtn">plant</button>
+    <span class="hint">click words to connect • click canvas to scatter</span>
+  </div>
+<script>
+  const garden = document.getElementById('garden');
+  const svg = document.getElementById('connections');
+  const wordInput = document.getElementById('wordInput');
+  const plantBtn = document.getElementById('plantBtn');
   
-  <div id="quote"></div>
-  <div id="stats">words: 0</div>
-  
-  <script>
-    const garden = document.getElementById('garden');
-    const input = document.getElementById('word-input');
-    const modeBtn = document.getElementById('mode-btn');
-    const quoteEl = document.getElementById('quote');
-    const statsEl = document.getElementById('stats');
+  const words = [];
+  let selectedWord = null;
+  let wordId = 0;
+
+  const wordPrompts = [
+    'dream', 'echo', 'void', 'seed', 'root', 'grow', 'silent', 'drift',
+    'light', 'shadow', 'pulse', 'flow', 'bloom', 'fade', 'connect',
+    'memories', 'whisper', 'anchor', 'orbit', 'spark', 'tide', 'wake'
+  ];
+
+  function randomPrompt() {
+    return wordPrompts[Math.floor(Math.random() * wordPrompts.length)];
+  }
+
+  function createWordElement(text, x, y) {
+    const el = document.createElement('div');
+    el.className = 'word-node';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.dataset.id = wordId++;
     
-    const modes = ['grow', 'bloom', 'drift', 'fade'];
-    const modeNames = ['GROW', 'BLOOM', 'DRIFT', 'FADE'];
-    let currentMode = 0;
-    
-    const quotes = [
-      "A word is a garden you tend with attention",
-      "Language grows where silence feeds it",
-      "Seeds of thought, blooms of understanding",
-      "Every sentence begins with a single word",
-      "The garden knows no seasons",
-      "Words take root in patient minds",
-      "Thinking grows in quiet spaces",
-      "A sentence is a walk through a garden"
-    ];
-    
-    const words = [];
-    let wordId = 0;
-    
-    function setQuote() {
-      quoteEl.textContent = quotes[Math.floor(Math.random() * quotes.length)];
-    }
-    
-    function updateStats() {
-      statsEl.textContent = `words: ${words.length}`;
-    }
-    
-    function getRandomPosition() {
-      const rect = garden.getBoundingClientRect();
-      const padding = 50;
-      return {
-        x: padding + Math.random() * (rect.width - padding * 2),
-        y: padding + Math.random() * (rect.height - padding * 2)
-      };
-    }
-    
-    function plantWord(text) {
-      if (!text.trim()) return;
-      
-      const pos = getRandomPosition();
-      const word = document.createElement('div');
-      word.className = 'word';
-      word.textContent = text;
-      word.style.left = pos.x + 'px';
-      word.style.top = pos.y + 'px';
-      
-      word.dataset.id = wordId++;
-      word.dataset.mode = modes[currentMode];
-      
-      garden.appendChild(word);
-      words.push(word);
-      
-      // Apply mode
-      applyMode(word);
-      
-      updateStats();
-    }
-    
-    function applyMode(word) {
-      const mode = word.dataset.mode;
-      
-      word.classList.remove('growing', 'blooming', 'drifting', 'fading');
-      
-      void word.offsetWidth; // Trigger reflow
-      
-      if (mode === 'grow') {
-        word.classList.add('growing');
-      } else if (mode === 'bloom') {
-        word.classList.add('blooming');
-      } else if (mode === 'drift') {
-        word.classList.add('drifting');
-      } else if (mode === 'fade') {
-        word.classList.add('fading');
-        setTimeout(() => {
-          if (word.parentNode) {
-            word.remove();
-            const idx = words.indexOf(word);
-            if (idx > -1) words.splice(idx, 1);
-            updateStats();
-          }
-        }, 2000);
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (selectedWord && selectedWord !== el) {
+        connectWords(selectedWord, el);
+        selectedWord.classList.remove('selected');
+        selectedWord = null;
+      } else {
+        if (selectedWord) selectedWord.classList.remove('selected');
+        selectedWord = el;
+        el.classList.add('selected');
       }
-    }
+    });
+
+    garden.appendChild(el);
     
-    function cycleMode() {
-      currentMode = (currentMode + 1) % modes.length;
-      modeBtn.textContent = `Mode: ${modeNames[currentMode]}`;
-      
-      // Apply new mode to all existing words
-      words.forEach(word => {
-        word.dataset.mode = modes[currentMode];
-        applyMode(word);
+    const wordObj = { el, text, x, y, connections: [] };
+    words.push(wordObj);
+    return wordObj;
+  }
+
+  function connectWords(w1, w2) {
+    if (w1.connections.includes(w2)) return;
+    
+    w1.connections.push(w2);
+    w2.connections.push(w1);
+    w1.el.classList.add('connected');
+    w2.el.classList.add('connected');
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', w1.x + 40);
+    line.setAttribute('y1', w1.y + 20);
+    line.setAttribute('x2', w2.x + 40);
+    line.setAttribute('y2', w2.y + 20);
+    line.setAttribute('stroke', 'rgba(122, 247, 130, 0.3)');
+    line.setAttribute('stroke-width', '2');
+    svg.appendChild(line);
+  }
+
+  function plantWord() {
+    const text = wordInput.value.trim() || randomPrompt();
+    const rect = garden.getBoundingClientRect();
+    const x = Math.random() * (rect.width - 100) + 20;
+    const y = Math.random() * (rect.height - 100) + 20;
+    createWordElement(text, x, y);
+    wordInput.value = '';
+  }
+
+  function scatterWords() {
+    if (words.length < 2) return;
+    words.forEach(w => {
+      w.x += (Math.random() - 0.5) * 100;
+      w.y += (Math.random() - 0.5) * 100;
+      w.el.style.left = w.x + 'px';
+      w.el.style.top = w.y + 'px';
+    });
+    updateConnections();
+  }
+
+  function updateConnections() {
+    const lines = svg.querySelectorAll('line');
+    lines.forEach(l => l.remove());
+    
+    words.forEach(w => {
+      w.connections.forEach(c => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', w.x + 40);
+        line.setAttribute('y1', w.y + 20);
+        line.setAttribute('x2', c.x + 40);
+        line.setAttribute('y2', c.y + 20);
+        line.setAttribute('stroke', 'rgba(122, 247, 130, 0.3)');
+        line.setAttribute('stroke-width', '2');
+        svg.appendChild(line);
       });
+    });
+  }
+
+  plantBtn.addEventListener('click', plantWord);
+  wordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') plantWord();
+  });
+
+  garden.addEventListener('click', (e) => {
+    if (e.target === garden || e.target === svg) {
+      const text = randomPrompt();
+      createWordElement(text, e.clientX - 40, e.clientY - 20);
     }
-    
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        plantWord(input.value);
-        input.value = '';
-      }
-    });
-    
-    modeBtn.addEventListener('click', cycleMode);
-    
-    // Spacebar cycles mode
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && document.activeElement !== input) {
-        e.preventDefault();
-        cycleMode();
-      }
-    });
-    
-    // Click word to remove it
-    garden.addEventListener('click', (e) => {
-      if (e.target.classList.contains('word')) {
-        e.target.remove();
-        const idx = words.indexOf(e.target);
-        if (idx > -1) words.splice(idx, 1);
-        updateStats();
-      }
-    });
-    
-    // Initial quote
-    setQuote();
-    setInterval(setQuote, 15000);
-    
-    // Plant a starter word
-    setTimeout(() => plantWord('hello'), 500);
-  </script>
+  });
+
+  // Initialize with a few words
+  for (let i = 0; i < 5; i++) {
+    const rect = garden.getBoundingClientRect();
+    const x = Math.random() * (rect.width - 100) + 20;
+    const y = Math.random() * (rect.height - 100) + 20;
+    createWordElement(randomPrompt(), x, y);
+  }
+
+  // Connect first two words
+  if (words.length >= 2) {
+    connectWords(words[0], words[1]);
+  }
+</script>
 </body>
 </html>
