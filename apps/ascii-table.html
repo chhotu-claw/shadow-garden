@@ -4,44 +4,94 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ASCII Table — Shadow's Garden</title>
-<meta name="description" content="Complete ASCII character table with decimal, hex, octal, binary, and HTML entities. Click to copy.">
+<meta name="description" content="ASCII character table with decimal, hex, octal, binary, and HTML entity. All local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: 'SF Mono', Monaco, 'Courier New', monospace; max-width: 900px; margin: 0 auto; padding: 2rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .filters { margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
-  .filters input, .filters select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
-  .filters input { width: 200px; }
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #eee; }
-  th { background: #f5f5f5; position: sticky; top: 0; }
-  tr:hover { background: #f9f9f9; cursor: pointer; }
-  tr:hover td { background: #f0f0f0; }
-  .char { font-size: 1.2rem; width: 50px; text-align: center; }
-  .desc { color: #666; font-size: 0.8rem; }
-  .hidden { display: none; }
-  .copied { background: #d4edda !important; }
-  .legend { font-size: 0.8rem; color: #666; margin-top: 1rem; }
+  .ascii-table { max-width: 900px; margin: 0 auto; }
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .search:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    padding: 12px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+  }
+  button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+  th {
+    text-align: left;
+    padding: 12px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  td {
+    padding: 10px 12px;
+    border: 2px solid var(--border);
+    color: var(--text);
+  }
+  tr:hover td {
+    background: rgba(108, 182, 255, 0.05);
+  }
+  tr.filtered {
+    display: none;
+  }
+  .copy-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>ASCII Table</h1>
-  <p>Complete ASCII character reference. Click any row to copy the character.</p>
-  
-  <div class="filters">
-    <input type="text" id="search" placeholder="Search by char, dec, hex, or name..." oninput="filter()">
-    <select id="range" onchange="filter()">
-      <option value="all">All (0-127)</option>
-      <option value="printable">Printable (32-126)</option>
-      <option value="control">Control (0-31)</option>
-      <option value="extended">Extended (128-255)</option>
-    </select>
-  </div>
-
-  <div class="table-wrap">
+<div class="container">
+  <div class="ascii-table">
+    <h1>ASCII Table</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">ASCII characters (0-127). Click any to copy.</p>
+    
+    <div class="controls">
+      <input type="text" class="search" id="search" placeholder="Search by char, dec, hex, or name..." oninput="filter()">
+      <button class="active" onclick="setFilter('all')" id="filterAll">All</button>
+      <button onclick="setFilter('control')" id="filterControl">Control</button>
+      <button onclick="setFilter('printable')" id="filterPrintable">Printable</button>
+    </div>
+    
     <table>
       <thead>
         <tr>
@@ -50,99 +100,90 @@
           <th>Oct</th>
           <th>Bin</th>
           <th>Char</th>
-          <th>Description</th>
+          <th>HTML</th>
+          <th>Name</th>
+          <th></th>
         </tr>
       </thead>
-      <tbody id="table"></tbody>
+      <tbody id="tableBody"></tbody>
     </table>
   </div>
-  <p class="legend">Extended ASCII (128-255) varies by code page. Shown as CP437.</p>
-
-  <script>
-    const controlChars = [
-      'NUL', 'SOH', 'STX', 'ETX', 'EOT', 'ENQ', 'ACK', 'BEL', 'BS', 'TAB', 'LF', 'VT', 'FF', 'CR', 'SO', 'SI',
-      'DLE', 'DC1', 'DC2', 'DC3', 'DC4', 'NAK', 'SYN', 'ETB', 'CAN', 'EM', 'SUB', 'ESC', 'FS', 'GS', 'RS', 'US', 'SPACE'
-    ];
+</div>
+<script>
+  const ascii = [];
+  for (let i = 0; i <= 127; i++) {
+    const names = {
+      0: 'NUL', 1: 'SOH', 2: 'STX', 3: 'ETX', 4: 'EOT', 5: 'ENQ', 6: 'ACK',
+      7: 'BEL', 8: 'BS', 9: 'TAB', 10: 'LF', 11: 'VT', 12: 'FF', 13: 'CR',
+      14: 'SO', 15: 'SI', 16: 'DLE', 17: 'DC1', 18: 'DC2', 19: 'DC3', 20: 'DC4',
+      21: 'NAK', 22: 'SYN', 23: 'ETB', 24: 'CAN', 25: 'EM', 26: 'SUB',
+      27: 'ESC', 28: 'FS', 29: 'GS', 30: 'RS', 31: 'US', 32: 'SP', 127: 'DEL'
+    };
     
-    const extended = [
-      'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å',
-      'É', 'æ', 'Æ', 'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₹', 'Pt', '§', '©',
-      '®', '™', '°', '±', '²', '³', 'µ', '¶', '·', '¸', '¹', 'º', '»', '¼', '½', '¾', '¿', '×', '÷', '√', '∞', '≠', '≤', '≥'
-    ];
-
-    function toBin(n) { return n.toString(2).padStart(8, '0'); }
-    function toOct(n) { return n.toString(8).padStart(3, '0'); }
+    let char = String.fromCharCode(i);
+    if (i < 32 || i === 127) char = '□';
+    if (i === 32) char = 'SPC';
     
-    function getDesc(n) {
-      if (n <= 32) return controlChars[n] || 'CTRL';
-      if (n === 32) return 'SPACE';
-      if (n === 127) return 'DEL';
-      if (n >= 128) return extended[n - 128] || 'EXT';
-      return '';
-    }
-
-    function getChar(n) {
-      if (n <= 31 || n === 127) return ' ';
-      if (n === 32) return '␣';
-      return String.fromCharCode(n);
-    }
-
-    let rows = [];
+    ascii.push({
+      dec: i,
+      hex: i.toString(16).toUpperCase().padStart(2, '0'),
+      oct: i.toString(8).padStart(3, '0'),
+      bin: i.toString(2).padStart(8, '0'),
+      char: char,
+      html: i === 32 ? '&nbsp;' : (i < 33 || i === 127) ? `&#${i};` : char === '□' ? `&#${i};` : char,
+      name: names[i] || char,
+      isControl: i < 32 || i === 127,
+      isPrintable: i >= 32 && i < 127
+    });
+  }
+  
+  let currentFilter = 'all';
+  
+  function render() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = ascii.map(a => `
+      <tr data-dec="${a.dec}" data-hex="${a.hex}" data-name="${a.name}" data-char="${a.char}" class="${a.isControl ? 'control' : 'printable'}">
+        <td>${a.dec}</td>
+        <td>0x${a.hex}</td>
+        <td>${a.oct}</td>
+        <td>${a.bin}</td>
+        <td>${a.char}</td>
+        <td>${a.html}</td>
+        <td>${a.name}</td>
+        <td><button class="copy-btn" onclick="copy('${a.char === 'SPC' ? ' ' : a.char}', '${a.dec}')">Copy</button></td>
+      </tr>
+    `).join('');
+  }
+  
+  function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    document.getElementById('filter' + filter.charAt(0).toUpperCase() + filter.slice(1)).classList.add('active');
+    filter();
+  }
+  
+  function filter() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const rows = document.querySelectorAll('#tableBody tr');
     
-    function render() {
-      const tbody = document.getElementById('table');
-      tbody.innerHTML = '';
-      rows = [];
-      
-      for (let i = 0; i < 256; i++) {
-        const row = { dec: i, hex: i.toString(16).toUpperCase().padStart(2, '0'), oct: toOct(i), bin: toBin(i), char: getChar(i), desc: getDesc(i) };
-        rows.push(row);
-        
-        const tr = document.createElement('tr');
-        tr.dataset.dec = i;
-        tr.onclick = () => copy(row.char, tr);
-        tr.innerHTML = `
-          <td>${row.dec}</td>
-          <td>0x${row.hex}</td>
-          <td>${row.oct}</td>
-          <td>${row.bin}</td>
-          <td class="char">${row.char === ' ' ? '␣' : row.char}</td>
-          <td class="desc">${row.desc}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
-
-    function filter() {
-      const search = document.getElementById('search').value.toLowerCase();
-      const range = document.getElementById('range').value;
-      
-      document.querySelectorAll('tr').forEach(tr => {
-        const dec = parseInt(tr.dataset.dec);
-        let show = true;
-        
-        if (range === 'printable' && (dec < 32 || dec > 126)) show = false;
-        if (range === 'control' && (dec < 0 || dec > 31)) show = false;
-        if (range === 'extended' && dec < 128) show = false;
-        
-        if (search) {
-          const text = tr.textContent.toLowerCase();
-          if (!text.includes(search)) show = false;
-        }
-        
-        tr.classList.toggle('hidden', !show);
-      });
-    }
-
-    function copy(char, row) {
-      const text = char === '␣' ? ' ' : char;
-      navigator.clipboard.writeText(text).then(() => {
-        row.classList.add('copied');
-        setTimeout(() => row.classList.remove('copied'), 500);
-      });
-    }
-
-    render();
-  </script>
+    rows.forEach(row => {
+      const text = row.getAttribute('data-dec') + row.getAttribute('data-hex') + row.getAttribute('data-name') + row.getAttribute('data-char');
+      const showFilter = currentFilter === 'all' || 
+        (currentFilter === 'control' && row.classList.contains('control')) ||
+        (currentFilter === 'printable' && row.classList.contains('printable'));
+      const showSearch = !search || text.includes(search);
+      row.classList.toggle('filtered', !showFilter || !showSearch);
+    });
+  }
+  
+  function copy(char, dec) {
+    const actual = dec === '32' ? ' ' : char;
+    navigator.clipboard.writeText(actual).then(() => {
+      // Brief feedback handled by button state
+    });
+  }
+  
+  render();
+</script>
 </body>
 </html>
