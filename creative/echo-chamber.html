@@ -4,184 +4,150 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="A generative art piece where your words echo and transform into geometric patterns. Type and watch your thoughts take shape.">
+<meta name="description" content="An interactive sound visualization — clicks create ripples that emit tones, layering into something bigger.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #0a0a0f; }
-  canvas { display: block; }
-  .input-overlay { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; z-index: 10; }
-  input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 1rem 1.5rem; border-radius: 50px; font-size: 1rem; font-family: 'Fira Code', monospace; outline: none; transition: all 0.3s; }
-  input:focus { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
-  input::placeholder { color: rgba(255,255,255,0.3); }
-  .hint { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.3); font-size: 0.8rem; font-family: 'Fira Code', monospace; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0f;
+  }
+  canvas {
+    display: block;
+  }
+  .instructions {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.4);
+    font-size: 14px;
+    font-family: var(--mono);
+    pointer-events: none;
+    text-align: center;
+  }
+  .title {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.2);
+    font-size: 12px;
+    font-family: var(--mono);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="hint">type and press enter — watch your words echo</div>
-  <div class="input-overlay">
-    <input type="text" id="echoInput" placeholder="speak..." autocomplete="off">
-  </div>
-  <canvas id="canvas"></canvas>
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const input = document.getElementById('echoInput');
-
-    let width, height;
-    let echoes = [];
-    let time = 0;
-
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+<canvas id="canvas"></canvas>
+<div class="title">Echo Chamber</div>
+<div class="instructions">Click anywhere to create echoes</div>
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  let width, height;
+  let ripples = [];
+  let audioCtx = null;
+  
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  
+  window.addEventListener('resize', resize);
+  resize();
+  
+  class Ripple {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.radius = 0;
+      this.maxRadius = Math.min(width, height) * 0.8;
+      this.speed = 2 + Math.random() * 2;
+      this.opacity = 1;
+      this.hue = Math.random() * 60 + 180; // cyans and blues
+      this.alive = true;
     }
-    window.addEventListener('resize', resize);
-    resize();
-
-    class Echo {
-      constructor(text) {
-        this.text = text.toUpperCase();
-        this.x = Math.random() * width;
-        this.y = height + 50;
-        this.targetY = height * 0.4 + (Math.random() - 0.5) * height * 0.3;
-        this.vy = -2 - Math.random() * 3;
-        this.life = 1;
-        this.decay = 0.002 + Math.random() * 0.003;
-        this.shapes = this.generateShapes(text);
-        this.rotation = 0;
-        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
-      }
-
-      generateShapes(text) {
-        const shapes = [];
-        const len = text.length;
-        const baseRadius = 20 + len * 3;
-        
-        for (let i = 0; i < len; i++) {
-          const angle = (i / len) * Math.PI * 2;
-          const r = baseRadius + Math.sin(i * 0.5) * 10;
-          shapes.push({
-            x: Math.cos(angle) * r,
-            y: Math.sin(angle) * r,
-            size: 3 + (text.charCodeAt(i) % 10),
-            type: text.charCodeAt(i) % 4
-          });
-        }
-        return shapes;
-      }
-
-      update() {
-        this.y += this.vy;
-        if (this.y < this.targetY) {
-          this.vy *= 0.95;
-        }
-        this.life -= this.decay;
-        this.rotation += this.rotationSpeed;
-      }
-
-      draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotation);
-        
-        const colors = [
-          `rgba(139, 92, 246, ${this.life})`,
-          `rgba(59, 130, 246, ${this.life})`,
-          `rgba(236, 72, 153, ${this.life})`,
-          `rgba(34, 197, 94, ${this.life})`
-        ];
-
-        // Draw connecting web
-        ctx.beginPath();
-        this.shapes.forEach((s, i) => {
-          this.shapes.forEach((s2, j) => {
-            if (j > i) {
-              const dist = Math.hypot(s.x - s2.x, s.y - s2.y);
-              if (dist < 80) {
-                ctx.moveTo(s.x, s.y);
-                ctx.lineTo(s2.x, s2.y);
-              }
-            }
-          });
-        });
-        ctx.strokeStyle = `rgba(255,255,255,${this.life * 0.15})`;
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
-
-        // Draw shapes
-        this.shapes.forEach((s, i) => {
-          ctx.fillStyle = colors[s.type];
-          ctx.beginPath();
-          if (s.type === 0) {
-            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-          } else if (s.type === 1) {
-            ctx.rect(s.x - s.size/2, s.y - s.size/2, s.size, s.size);
-          } else if (s.type === 2) {
-            ctx.moveTo(s.x, s.y - s.size);
-            ctx.lineTo(s.x + s.size, s.y + s.size);
-            ctx.lineTo(s.x - s.size, s.y + s.size);
-            ctx.closePath();
-          } else {
-            ctx.moveTo(s.x, s.y - s.size);
-            ctx.lineTo(s.x + s.size * 0.8, s.y);
-            ctx.lineTo(s.x, s.y + s.size);
-            ctx.lineTo(s.x - s.size * 0.8, s.y);
-            ctx.closePath();
-          }
-          ctx.fill();
-        });
-
-        // Draw text
-        ctx.font = '12px "Fira Code"';
-        ctx.fillStyle = `rgba(255,255,255,${this.life * 0.5})`;
-        ctx.textAlign = 'center';
-        ctx.fillText(this.text.substring(0, 20), 0, 60);
-
-        ctx.restore();
-      }
+    
+    update() {
+      this.radius += this.speed;
+      this.opacity = 1 - (this.radius / this.maxRadius);
+      if (this.opacity <= 0) this.alive = false;
     }
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        echoes.push(new Echo(input.value));
-        input.value = '';
-      }
+    
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, ${this.opacity * 0.6})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Inner glow
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${this.hue}, 80%, 70%, ${this.opacity * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  
+  function playTone(x, y) {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    // Map x position to frequency (left = low, right = high)
+    const freq = 200 + (x / width) * 600;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.type = 'sine';
+    
+    // Map y position to duration
+    const duration = 0.5 + (y / height) * 1.5;
+    
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+  
+  canvas.addEventListener('click', (e) => {
+    const ripple = new Ripple(e.clientX, e.clientY);
+    ripples.push(ripple);
+    playTone(e.clientX, e.clientY);
+  });
+  
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const ripple = new Ripple(touch.clientX, touch.clientY);
+    ripples.push(ripple);
+    playTone(touch.clientX, touch.clientY);
+  });
+  
+  function animate() {
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+    ctx.fillRect(0, 0, width, height);
+    
+    ripples = ripples.filter(r => r.alive);
+    ripples.forEach(r => {
+      r.update();
+      r.draw();
     });
-
-    function animate() {
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
-      ctx.fillRect(0, 0, width, height);
-
-      echoes = echoes.filter(e => e.life > 0);
-      echoes.forEach(e => {
-        e.update();
-        e.draw();
-      });
-
-      // Ambient particles
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.arc(
-          Math.random() * width,
-          Math.random() * height,
-          Math.random() * 2,
-          0, Math.PI * 2
-        );
-        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.3})`;
-        ctx.fill();
-      }
-
-      time++;
-      requestAnimationFrame(animate);
-    }
-
-    // Initial echoes
-    setTimeout(() => echoes.push(new Echo('hello')), 500);
-    setTimeout(() => echoes.push(new Echo('world')), 1500);
-
-    animate();
-    input.focus();
-  </script>
+    
+    requestAnimationFrame(animate);
+  }
+  
+  animate();
+</script>
 </body>
 </html>
