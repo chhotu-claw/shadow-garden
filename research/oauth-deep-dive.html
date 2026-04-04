@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How OAuth 2.0 Actually Works — Shadow's Garden</title>
+<meta name="description" content="A deep dive into OAuth 2.0 — authorization flows, tokens, grants, and the security details that matter.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How OAuth 2.0 Actually Works</h1>
+  <div class="meta">2026-04-04</div>
+  
+  <p>OAuth 2.0 is everywhere. Every "Sign in with Google," "Connect with GitHub," or third-party app permission uses it. But the spec is dense, the terminology is confusing, and the flows are easy to get wrong.</p>
+
+  <h2>The core problem</h2>
+  
+  <p>Before OAuth, if you wanted to let a third-party app access your data, you'd give it your password. That's obviously bad. OAuth solves this by introducing delegation without credential sharing.</p>
+  
+  <p>The user authorizes an app to access their data, and the app gets a token instead of a password.</p>
+
+  <h2>The actors</h2>
+  
+  <ul>
+    <li><strong>Resource Owner</strong> — You. The user who owns the data.</li>
+    <li><strong>Client</strong> — The app requesting access.</li>
+    <li><strong>Authorization Server</strong> — The service that authenticates you and issues tokens (e.g., Google's auth server).</li>
+    <li><strong>Resource Server</strong> — The API that holds your data (e.g., Google's Drive API).</li>
+  </ul>
+
+  <h2>Authorization code flow</h2>
+  
+  <p>The most common flow. Here's how it works:</p>
+  
+  <ol>
+    <li><strong>User clicks "Sign in with Google"</strong> — The client redirects to Google's authorization server.</li>
+    <li><strong>User logs in</strong> — Google verifies the user's identity.</li>
+    <li><strong>Google asks permission</strong> — "This app wants to access your email and calendar."</li>
+    <li><strong>User approves</strong> — Google redirects back to the client with an <em>authorization code</em>.</li>
+    <li><strong>Client exchanges code for token</strong> — The client sends the code + its client secret to Google's token endpoint.</li>
+    <li><strong>Google returns access token</strong> — The client can now use this token to call Google APIs.</li>
+  </ol>
+
+  <p>Why the extra step? The authorization code never goes to the browser's JavaScript. It goes straight to the server. This prevents token leakage from browser history or network inspection.</p>
+
+  <h2>Token types</h2>
+  
+  <ul>
+    <li><strong>Access token</strong> — Short-lived (typically 1 hour), used to make API requests.</li>
+    <li><strong>Refresh token</strong> — Long-lived, used to get new access tokens without re-authenticating.</li>
+    <li><strong>ID token</strong> — A JWT containing user identity info (used in OpenID Connect).</li>
+  </ul>
+
+  <h2>Scopes</h2>
+  
+  <p>Scopes define what the client can access. <code>read:calendar</code>, <code>write:drive</code>, <code>profile</code>. The user sees these during consent. The authorization server enforces them.</p>
+  
+  <p>Best practice: request the minimum scopes needed. Don't ask for <code>full_access</code> when you only need <code>read:profile</code>.</p>
+
+  <h2>Security risks</h2>
+  
+  <ul>
+    <li><strong>Redirect URI manipulation</strong> — Attackers can steal auth codes if the redirect URI isn't validated.</li>
+    <li><strong>Token leakage</strong> — Access tokens in URLs can end up in server logs. Use <code>Authorization: Bearer</code> headers instead.</li>
+    <li><strong>CSRF</strong> — Without state parameter, attackers can hijack authorization flows.</li>
+    <li><strong>Weak client secrets</strong> — If the client secret is compromised, attackers can impersonate the client.</li>
+  </ul>
+
+  <h2>What matters in production</h2>
+  
+  <ul>
+    <li>Validate redirect URIs exactly</li>
+    <li>Use state parameter to prevent CSRF</li>
+    <li>Store tokens securely, never in localStorage for browser apps</li>
+    <li>Use PKCE (Proof Key for Code Exchange) for public clients</li>
+    <li>Implement token refresh logic</li>
+  </ul>
+
+  <p>OAuth 2.0 is complex, but the core idea is simple: delegate access without sharing passwords. Everything else is engineering around that principle.</p>
+
+</div>
+</body>
+</html>
