@@ -4,116 +4,197 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Case Converter — Shadow's Garden</title>
-<meta name="description" content="Convert text between different cases — camelCase, snake_case, kebab-case, PascalCase, and more. All local.">
+<meta name="description">Convert text between different case formats. All local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .intro { color: var(--fg-muted); margin-bottom: 1.5rem; }
-  textarea { width: 100%; height: 150px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--fg); font-family: var(--font-mono); font-size: 14px; resize: vertical; box-sizing: border-box; }
-  .buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
-  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; transition: background 0.2s; }
-  button:hover { background: var(--bg-secondary); }
-  .result-section { margin-top: 1.5rem; }
-  .result-label { font-weight: 600; margin-bottom: 0.5rem; display: block; }
-  .copy-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-  .copy-btn { padding: 0.3rem 0.6rem; font-size: 12px; }
-  .copied { color: var(--accent); font-size: 12px; }
+  .case-converter { max-width: 700px; margin: 0 auto; }
+  .input-section { margin-bottom: 20px; }
+  .input-section label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    font-family: var(--mono);
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .case-btn {
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .case-btn:hover {
+    border-color: var(--accent);
+  }
+  .case-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .results {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .result-item {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .result-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .result-value {
+    font-size: 15px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .copy-btn {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .copy-btn:hover {
+    border-color: var(--accent);
+  }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Case Converter</h1>
-  <p class="intro">Paste text, pick a case format, copy the result.</p>
-
-  <label class="result-label" for="input">Input</label>
-  <textarea id="input" placeholder="Paste your text here..."></textarea>
-
-  <div class="buttons">
-    <button onclick="convert('camel')">camelCase</button>
-    <button onclick="convert('pascal')">PascalCase</button>
-    <button onclick="convert('snake')">snake_case</button>
-    <button onclick="convert('kebab')">kebab-case</button>
-    <button onclick="convert('constant')">CONSTANT_CASE</button>
-    <button onclick="convert('title')">Title Case</button>
-    <button onclick="convert('lower')">lowercase</button>
-    <button onclick="convert('upper')">UPPERCASE</button>
-    <button onclick="convert('sentence')">Sentence case</button>
-  </div>
-
-  <div class="result-section">
-    <label class="result-label">Result</label>
-    <textarea id="output" readonly></textarea>
-    <div class="copy-row">
-      <button class="copy-btn" onclick="copyResult()">Copy</button>
-      <span id="copyStatus" class="copied"></span>
+  <div class="case-converter">
+    <h1>Case Converter</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Convert text between case formats.</p>
+    
+    <div class="input-section">
+      <label>Enter text</label>
+      <textarea id="inputText" placeholder="Enter text to convert..." oninput="convert()"></textarea>
+    </div>
+    
+    <div class="results" id="results">
+      <div style="color: var(--text-secondary); font-size: 14px;">Enter text above to see conversions...</div>
     </div>
   </div>
 </div>
-
 <script>
-  const input = document.getElementById('input');
-  const output = document.getElementById('output');
-  const copyStatus = document.getElementById('copyStatus');
-
-  function toWords(str) {
-    return str.replace(/([a-z])([A-Z])/g, '$1 $2')
-              .replace(/[\s_]+/g, ' ')
-              .replace(/[^a-zA-Z0-9\s]/g, '')
-              .trim()
-              .split(' ')
-              .filter(w => w.length > 0);
+  const cases = [
+    { name: 'camelCase', fn: toCamelCase },
+    { name: 'snake_case', fn: toSnakeCase },
+    { name: 'kebab-case', fn: toKebabCase },
+    { name: 'PascalCase', fn: toPascalCase },
+    { name: 'CONSTANT_CASE', fn: toConstantCase },
+    { name: 'Sentence case', fn: toSentenceCase },
+    { name: 'Title Case', fn: toTitleCase },
+    { name: 'lowercase', fn: toLowerCase },
+    { name: 'UPPERCASE', fn: toUpperCase }
+  ];
+  
+  function toCamelCase(str) {
+    return str.replace(/(?:^\w|[A-Z]|\b\w)/g, (m, i) => 
+      i === 0 ? m.toLowerCase() : m.toUpperCase()
+    ).replace(/\s+/g, '');
   }
-
-  function convert(type) {
-    const words = toWords(input.value);
-    if (words.length === 0) {
-      output.value = '';
+  
+  function toSnakeCase(str) {
+    return str.replace(/([A-Z])/g, '_$1').trim().replace(/[\s-]+/g, '_')
+      .toLowerCase().replace(/^_/, '');
+  }
+  
+  function toKebabCase(str) {
+    return str.replace(/([A-Z])/g, '-$1').trim().replace(/[\s_]+/g, '-')
+      .toLowerCase().replace(/^-/, '');
+  }
+  
+  function toPascalCase(str) {
+    return str.replace(/(?:^\w|[A-Z]|\b\w)/g, m => m.toUpperCase()).replace(/\s+/g, '');
+  }
+  
+  function toConstantCase(str) {
+    return toSnakeCase(str).toUpperCase();
+  }
+  
+  function toSentenceCase(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+  
+  function toTitleCase(str) {
+    return str.replace(/\w\S*/g, m => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+  }
+  
+  function toLowerCase(str) {
+    return str.toLowerCase();
+  }
+  
+  function toUpperCase(str) {
+    return str.toUpperCase();
+  }
+  
+  function convert() {
+    const text = document.getElementById('inputText').value;
+    const resultsDiv = document.getElementById('results');
+    
+    if (!text) {
+      resultsDiv.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">Enter text above to see conversions...</div>';
       return;
     }
-
-    let result;
-    switch (type) {
-      case 'camel':
-        result = words[0].toLowerCase() + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
-        break;
-      case 'pascal':
-        result = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
-        break;
-      case 'snake':
-        result = words.map(w => w.toLowerCase()).join('_');
-        break;
-      case 'kebab':
-        result = words.map(w => w.toLowerCase()).join('-');
-        break;
-      case 'constant':
-        result = words.map(w => w.toUpperCase()).join('_');
-        break;
-      case 'title':
-        result = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-        break;
-      case 'lower':
-        result = words.map(w => w.toLowerCase()).join(' ');
-        break;
-      case 'upper':
-        result = words.map(w => w.toUpperCase()).join(' ');
-        break;
-      case 'sentence':
-        result = words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() + ' ' + words.slice(1).map(w => w.toLowerCase()).join(' ');
-        break;
-      default:
-        result = input.value;
+    
+    if (!text.trim()) {
+      resultsDiv.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">Enter text above to see conversions...</div>';
+      return;
     }
-    output.value = result;
-    copyStatus.textContent = '';
+    
+    resultsDiv.innerHTML = cases.map(c => {
+      let result = c.fn(text.trim());
+      if (result === text.trim() && c.name !== 'lowercase' && c.name !== 'UPPERCASE') {
+        result = `(${c.name})`;
+      }
+      return `<div class="result-item">
+        <div class="result-label">${c.name}</div>
+        <div class="result-value">${result}</div>
+        <button class="copy-btn" onclick="copy('${result.replace(/'/g, "\\'")}')">Copy</button>
+      </div>`;
+    }).join('');
   }
-
-  function copyResult() {
-    if (!output.value) return;
-    navigator.clipboard.writeText(output.value);
-    copyStatus.textContent = 'Copied!';
-    setTimeout(() => copyStatus.textContent = '', 2000);
+  
+  function copy(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      event.target.textContent = 'Copied!';
+      setTimeout(() => event.target.textContent = 'Copy', 1500);
+    });
   }
 </script>
 </body>
