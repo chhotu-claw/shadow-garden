@@ -4,46 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Echo Chamber — Shadow's Garden</title>
-<meta name="description" content="An interactive sound visualization — clicks create ripples that emit tones, layering into something bigger.">
+<meta name="description">A generative piece where clicks create ripples that emit tones. Position controls pitch and duration.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #0a0a0f;
-  }
-  canvas {
-    display: block;
-  }
-  .instructions {
+  body { margin: 0; overflow: hidden; background: #080810; }
+  canvas { display: block; }
+  .hint {
     position: fixed;
-    bottom: 24px;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    color: rgba(255,255,255,0.4);
+    color: #444;
     font-size: 14px;
     font-family: var(--mono);
-    pointer-events: none;
-    text-align: center;
-  }
-  .title {
-    position: fixed;
-    top: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255,255,255,0.2);
-    font-size: 12px;
-    font-family: var(--mono);
-    letter-spacing: 4px;
-    text-transform: uppercase;
   }
 </style>
 </head>
 <body data-page-type="app">
 <canvas id="canvas"></canvas>
-<div class="title">Echo Chamber</div>
-<div class="instructions">Click anywhere to create echoes</div>
+<div class="hint">click to create · x = pitch · y = duration</div>
 <script>
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -65,83 +45,82 @@
       this.x = x;
       this.y = y;
       this.radius = 0;
-      this.maxRadius = Math.min(width, height) * 0.8;
-      this.speed = 2 + Math.random() * 2;
+      this.maxRadius = 150 + Math.random() * 100;
+      this.speed = 2 + Math.random();
       this.opacity = 1;
-      this.hue = Math.random() * 60 + 180; // cyans and blues
-      this.alive = true;
+      // x position = pitch, y position = duration
+      this.frequency = 200 + (x / width) * 800;
+      this.duration = 0.2 + (y / height) * 1.5;
+      this.played = false;
     }
     
     update() {
       this.radius += this.speed;
       this.opacity = 1 - (this.radius / this.maxRadius);
-      if (this.opacity <= 0) this.alive = false;
+      
+      if (!this.played && this.radius > 10) {
+        this.playTone();
+        this.played = true;
+      }
+      
+      return this.opacity > 0;
+    }
+    
+    playTone() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.value = this.frequency;
+      
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + this.duration);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + this.duration);
     }
     
     draw() {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, ${this.opacity * 0.6})`;
+      ctx.strokeStyle = `rgba(100, 180, 255, ${this.opacity * 0.8})`;
       ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Inner glow
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
-      ctx.strokeStyle = `hsla(${this.hue}, 80%, 70%, ${this.opacity * 0.3})`;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      // Inner ring
+      if (this.radius > 20) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(100, 180, 255, ${this.opacity * 0.4})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
-  }
-  
-  function playTone(x, y) {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    
-    // Map x position to frequency (left = low, right = high)
-    const freq = 200 + (x / width) * 600;
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.type = 'sine';
-    
-    // Map y position to duration
-    const duration = 0.5 + (y / height) * 1.5;
-    
-    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-    
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
   }
   
   canvas.addEventListener('click', (e) => {
-    const ripple = new Ripple(e.clientX, e.clientY);
-    ripples.push(ripple);
-    playTone(e.clientX, e.clientY);
-  });
-  
-  canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const ripple = new Ripple(touch.clientX, touch.clientY);
-    ripples.push(ripple);
-    playTone(touch.clientX, touch.clientY);
+    for (let i = 0; i < 3; i++) {
+      const offsetX = (Math.random() - 0.5) * 40;
+      const offsetY = (Math.random() - 0.5) * 40;
+      ripples.push(new Ripple(e.clientX + offsetX, e.clientY + offsetY));
+    }
   });
   
   function animate() {
-    ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+    ctx.fillStyle = 'rgba(8, 8, 16, 0.15)';
     ctx.fillRect(0, 0, width, height);
     
-    ripples = ripples.filter(r => r.alive);
-    ripples.forEach(r => {
-      r.update();
+    ripples = ripples.filter(r => {
+      const alive = r.update();
       r.draw();
+      return alive;
     });
     
     requestAnimationFrame(animate);
