@@ -4,265 +4,301 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Habit Tracker — Shadow's Garden</title>
-<meta name="description" content="Track your daily habits with streaks, localStorage, and no account required">
+<meta name="description" content="Track daily habits with streaks and visual progress. All local, data persists to localStorage.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .tracker {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-  h1 { text-align: center; margin-bottom: 2rem; }
+  .tracker { max-width: 700px; margin: 0 auto; }
   .add-habit {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
+    gap: 12px;
+    margin-bottom: 24px;
   }
   .add-habit input {
     flex: 1;
-    padding: 0.75rem;
-    border: 1px solid var(--border, #313244);
+    padding: 12px 14px;
+    border: 2px solid var(--border);
     border-radius: 8px;
-    background: var(--input-bg, #11111b);
-    color: var(--text, #cdd6f4);
-    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .add-habit input:focus {
+    outline: none;
+    border-color: var(--accent);
   }
   .add-habit button {
-    padding: 0.75rem 1.25rem;
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
-    border: none;
+    padding: 12px 20px;
+    background: var(--accent);
+    border: 2px solid var(--accent);
     border-radius: 8px;
-    font-weight: 600;
+    color: white;
+    font-size: 15px;
     cursor: pointer;
+    transition: opacity 0.2s;
   }
-  .habits-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
+  .add-habit button:hover { opacity: 0.9; }
   .habit-card {
-    background: var(--card-bg, #1e1e2e);
-    border: 1px solid var(--border, #313244);
-    border-radius: 12px;
-    padding: 1.25rem;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
   }
   .habit-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 12px;
   }
   .habit-name {
-    font-size: 1.1rem;
+    font-size: 16px;
     font-weight: 600;
+    color: var(--text);
   }
   .habit-streak {
-    font-size: 0.9rem;
-    color: var(--accent, #cba6f7);
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 500;
   }
   .habit-delete {
     background: none;
     border: none;
-    color: var(--text-secondary, #a6adc8);
+    color: #666;
     cursor: pointer;
-    font-size: 1.2rem;
-    padding: 0 0.5rem;
-    opacity: 0.6;
+    font-size: 18px;
+    padding: 4px 8px;
   }
-  .habit-delete:hover {
-    opacity: 1;
-    color: #f38ba8;
-  }
+  .habit-delete:hover { color: #f77; }
   .week-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 0.5rem;
+    gap: 6px;
   }
-  .day {
+  .day-cell {
     aspect-ratio: 1;
-    border-radius: 8px;
-    background: var(--button-bg, #313244);
+    border-radius: 4px;
+    background: #222;
+    cursor: pointer;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
-    color: var(--text-secondary, #a6adc8);
-    cursor: pointer;
-    transition: all 0.15s;
-    user-select: none;
+    font-size: 12px;
+    color: #444;
   }
-  .day:hover {
-    transform: scale(1.1);
+  .day-cell:hover { border-color: var(--accent); }
+  .day-cell.completed {
+    background: var(--accent);
+    color: white;
   }
-  .day.done {
-    background: var(--accent, #cba6f7);
-    color: var(--bg, #11111b);
+  .day-cell.today {
+    border: 2px solid var(--accent);
   }
-  .day.today {
-    border: 2px solid var(--accent, #cba6f7);
-  }
-  .day-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: var(--text-secondary, #a6adc8);
+  .day-labels {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
     text-align: center;
-    margin-bottom: 0.5rem;
   }
-  .stats-row {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border, #313244);
-    font-size: 0.85rem;
-    color: var(--text-secondary, #a6adc8);
+  .day-labels span {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat-label {
+    font-size: 12px;
+    color: #666;
   }
   .empty-state {
     text-align: center;
-    padding: 3rem;
-    color: var(--text-secondary, #a6adc8);
-  }
-  .habit-row-header {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: var(--text-secondary, #a6adc8);
-  }
-  .habit-row-header span {
-    flex: 1;
-    text-align: center;
+    color: #666;
+    padding: 40px 20px;
   }
 </style>
 </head>
 <body data-page-type="app">
-<div class="tracker">
-  <h1>🎯 Habit Tracker</h1>
-  
-  <div class="add-habit">
-    <input type="text" id="new-habit" placeholder="New habit..." maxlength="50">
-    <button onclick="addHabit()">Add</button>
-  </div>
-
-  <div id="habits-container" class="habits-list">
-    <div class="empty-state">No habits yet. Add one above!</div>
+<div class="container">
+  <div class="tracker">
+    <h1>Habit Tracker</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Track your daily habits. Click days to toggle. Data stays local.</p>
+    
+    <div class="add-habit">
+      <input type="text" id="newHabit" placeholder="Enter habit name..." onkeypress="if(event.key==='Enter')addHabit()">
+      <button onclick="addHabit()">Add Habit</button>
+    </div>
+    
+    <div id="habitsContainer"></div>
   </div>
 </div>
-
 <script>
-  let habits = JSON.parse(localStorage.getItem('shadowHabits') || '[]');
-
-  function save() {
-    localStorage.setItem('shadowHabits', JSON.stringify(habits));
-    render();
+  const STORAGE_KEY = 'shadow-habits';
+  let habits = [];
+  
+  function loadHabits() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      habits = JSON.parse(saved);
+    }
   }
-
+  
+  function saveHabits() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+  }
+  
   function addHabit() {
-    const input = document.getElementById('new-habit');
+    const input = document.getElementById('newHabit');
     const name = input.value.trim();
     if (!name) return;
     
     habits.push({
-      id: Date.now(),
       name: name,
       completed: {}
     });
     input.value = '';
-    save();
+    saveHabits();
+    render();
   }
-
-  function deleteHabit(id) {
-    if (!confirm('Delete this habit?')) return;
-    habits = habits.filter(h => h.id !== id);
-    save();
+  
+  function deleteHabit(index) {
+    habits.splice(index, 1);
+    saveHabits();
+    render();
   }
-
-  function toggleDay(habitId, dateStr) {
-    const habit = habits.find(h => h.id === habitId);
+  
+  function toggleDay(habitIndex, dateStr) {
+    const habit = habits[habitIndex];
     if (habit.completed[dateStr]) {
       delete habit.completed[dateStr];
     } else {
       habit.completed[dateStr] = true;
     }
-    save();
+    saveHabits();
+    render();
   }
-
-  function getStreak(completed) {
-    let streak = 0;
-    const today = new Date();
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const str = d.toISOString().split('T')[0];
-      if (completed[str]) streak++;
-      else if (i > 0) break;
-    }
-    return streak;
-  }
-
-  function getWeekDates() {
-    const dates = [];
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() - 6);
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      dates.push(d);
-    }
-    return dates;
-  }
-
-  function render() {
-    const container = document.getElementById('habits-container');
+  
+  function getStats(habit) {
+    const dates = Object.keys(habit.completed).sort();
+    if (dates.length === 0) return { current: 0, best: 0, total: 0 };
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Current streak
+    let current = 0;
+    let checkDate = new Date(today);
+    while (true) {
+      const d = checkDate.toISOString().split('T')[0];
+      if (habit.completed[d]) {
+        current++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else if (d === todayStr) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    
+    // Best streak
+    let best = 0;
+    let streak = 0;
+    const sorted = [...dates].sort();
+    for (let i = 0; i < sorted.length; i++) {
+      if (i === 0) {
+        streak = 1;
+      } else {
+        const prev = new Date(sorted[i-1]);
+        const curr = new Date(sorted[i]);
+        const diff = (curr - prev) / (1000 * 60 * 60 * 24);
+        if (diff === 1) {
+          streak++;
+        } else {
+          streak = 1;
+        }
+      }
+      best = Math.max(best, streak);
+    }
+    
+    return { current, best, total: dates.length };
+  }
+  
+  function render() {
+    const container = document.getElementById('habitsContainer');
     if (habits.length === 0) {
-      container.innerHTML = '<div class="empty-state">No habits yet. Add one above!</div>';
+      container.innerHTML = '<div class="empty-state">No habits yet. Add one above to get started.</div>';
       return;
     }
-
-    const weekDates = getWeekDates();
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    container.innerHTML = habits.map(habit => {
-      const streak = getStreak(habit.completed);
-      const total = Object.keys(habit.completed).length;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      days.push(d);
+    }
+    
+    let html = '';
+    
+    habits.forEach((habit, idx) => {
+      const stats = getStats(habit);
       
-      return `
-        <div class="habit-card">
-          <div class="habit-header">
-            <span class="habit-name">${habit.name}</span>
-            <span class="habit-streak">🔥 ${streak} day streak</span>
-            <button class="habit-delete" onclick="deleteHabit(${habit.id})">×</button>
-          </div>
-          <div class="habit-row-header">
-            ${weekDates.map(d => `<span>${d.toLocaleDateString('en-US', {weekday:'short'})}</span>`).join('')}
-          </div>
-          <div class="week-grid">
-            ${weekDates.map(d => {
-              const str = d.toISOString().split('T')[0];
-              const isDone = habit.completed[str];
-              const isToday = str === todayStr;
-              return `<div class="day ${isDone ? 'done' : ''} ${isToday ? 'today' : ''}" 
-                           onclick="toggleDay(${habit.id}, '${str}')">${d.getDate()}</div>`;
-            }).join('')}
-          </div>
-          <div class="stats-row">
-            <span>Total completions: ${total}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
+      html += '<div class="habit-card">';
+      html += '<div class="habit-header">';
+      html += `<span class="habit-name">${habit.name}</span>`;
+      html += `<span class="habit-streak">🔥 ${stats.current} day streak</span>`;
+      html += `<button class="habit-delete" onclick="deleteHabit(${idx})" title="Delete">×</button>`;
+      html += '</div>';
+      
+      html += '<div class="day-labels">';
+      days.forEach(d => {
+        const dayName = d.toLocaleDateString('en', { weekday: 'short' });
+        html += `<span>${dayName}</span>`;
+      });
+      html += '</div>';
+      
+      html += '<div class="week-grid">';
+      days.forEach(d => {
+        const dateStr = d.toISOString().split('T')[0];
+        const isToday = dateStr === todayStr;
+        const isCompleted = habit.completed[dateStr];
+        html += `<div class="day-cell ${isCompleted ? 'completed' : ''} ${isToday ? 'today' : ''}" onclick="toggleDay(${idx}, '${dateStr}')">${d.getDate()}</div>`;
+      });
+      html += '</div>';
+      
+      html += '<div class="stats">';
+      html += `<div class="stat"><div class="stat-value">${stats.current}</div><div class="stat-label">Current</div></div>`;
+      html += `<div class="stat"><div class="stat-value">${stats.best}</div><div class="stat-label">Best</div></div>`;
+      html += `<div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">Total</div></div>`;
+      html += '</div>';
+      
+      html += '</div>';
+    });
+    
+    container.innerHTML = html;
   }
-
-  // Handle Enter key
-  document.getElementById('new-habit').addEventListener('keypress', e => {
-    if (e.key === 'Enter') addHabit();
-  });
-
+  
+  loadHabits();
   render();
 </script>
 </body>
