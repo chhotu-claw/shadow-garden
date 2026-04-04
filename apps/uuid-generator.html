@@ -4,145 +4,155 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UUID Generator — Shadow's Garden</title>
-<meta name="description" content="Generate UUIDs instantly — v4, v7, bulk generation, and format options. All local, all fast.">
+<meta name="description" content="Generate UUIDs v4. Copy individual or batch generate. All local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
-  .container { max-width: 600px; width: 100%; }
-  h1 { text-align: center; margin-bottom: 0.5rem; font-size: 1.8rem; }
-  .subtitle { text-align: center; color: #666; margin-bottom: 2rem; }
-  .output { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1rem; font-family: 'Monaco', 'Menlo', monospace; font-size: 1.1rem; margin-bottom: 1rem; word-break: break-all; min-height: 60px; display: flex; align-items: center; color: #7aa2f7; }
-  .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-  button { background: #1a1a2e; color: #7aa2f7; border: 1px solid #333; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
-  button:hover { background: #2a2a4e; border-color: #7aa2f7; }
-  button.primary { background: #7aa2f7; color: #0d0d0d; font-weight: 600; }
-  button.primary:hover { background: #89b4ff; }
-  .options { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; }
-  .option-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem; }
-  .option-row:last-child { margin-bottom: 0; }
-  label { color: #888; font-size: 0.9rem; }
-  select, input[type="number"] { background: #1a1a1a; color: #e5e5e5; border: 1px solid #333; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.9rem; }
-  select:focus, input:focus { outline: none; border-color: #7aa2f7; }
-  input[type="number"] { width: 80px; }
-  .formats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  .format-btn { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
-  .format-btn.active { background: #2a2a4e; border-color: #7aa2f7; }
-  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #1a2e1a; color: #7af782; padding: 0.75rem 1.5rem; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
+  .uuid-gen { max-width: 600px; margin: 0 auto; }
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 12px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  .count-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .count-control input {
+    width: 60px;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    text-align: center;
+  }
+  .count-control input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .uuid-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .uuid-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+  }
+  .uuid-text {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .copy-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .uppercase .uuid-text {
+    text-transform: uppercase;
+  }
+  .lowercase .uuid-text {
+    text-transform: lowercase;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
+<div class="container">
+  <div class="uuid-gen">
     <h1>UUID Generator</h1>
-    <p class="subtitle">Generate UUIDs instantly — all local, all fast</p>
-    
-    <div class="output" id="output">Click generate</div>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Generate UUID v4 (random). All local, no tracking.</p>
     
     <div class="controls">
-      <button class="primary" onclick="generate()">Generate</button>
-      <button onclick="copy()">Copy</button>
-      <button onclick="copyRaw()">Copy Raw</button>
-    </div>
-    
-    <div class="options">
-      <div class="option-row">
-        <label>Type:</label>
-        <div class="formats">
-          <button class="format-btn active" data-format="v4" onclick="setFormat('v4')">UUID v4</button>
-          <button class="format-btn" data-format="v7" onclick="setFormat('v7')">UUID v7</button>
-        </div>
-      </div>
-      <div class="option-row">
-        <label>Quantity:</label>
+      <button class="primary" onclick="generate()">Generate UUID</button>
+      <div class="count-control">
+        <label>Count:</label>
         <input type="number" id="count" value="1" min="1" max="100">
       </div>
-      <div class="option-row">
-        <label>Format:</label>
-        <div class="formats">
-          <button class="format-btn active" data-display="standard" onclick="setDisplay('standard')">Standard</button>
-          <button class="format-btn" data-display="uppercase" onclick="setDisplay('uppercase')">Uppercase</button>
-          <button class="format-btn" data-display="braces" onclick="setDisplay('braces')">With Braces</button>
-          <button class="format-btn" data-display="urn" onclick="setDisplay('urn')">URN</button>
-        </div>
-      </div>
+      <button onclick="setCase('uppercase')">UPPERCASE</button>
+      <button onclick="setCase('lowercase')">lowercase</button>
     </div>
+    
+    <div class="uuid-list" id="uuidList"></div>
   </div>
+</div>
+<script>
+  let currentCase = 'lowercase';
   
-  <div class="toast" id="toast">Copied!</div>
+  function uuidv4() {
+    return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => {
+      const v = crypto.getRandomValues(new Uint8Array(1))[0];
+      return (c ^ v & 15 >> c / 4).toString(16);
+    });
+  }
   
-  <script>
-    let currentFormat = 'v4';
-    let displayFormat = 'standard';
+  function generate() {
+    const count = parseInt(document.getElementById('count').value) || 1;
+    const list = document.getElementById('uuidList');
+    list.innerHTML = '';
+    list.className = currentCase === 'uppercase' ? 'uuid-list uppercase' : 'uuid-list lowercase';
     
-    function setFormat(f) {
-      currentFormat = f;
-      document.querySelectorAll('[data-format]').forEach(b => b.classList.remove('active'));
-      document.querySelector(`[data-format="${f}"]`).classList.add('active');
-      generate();
+    for (let i = 0; i < Math.min(count, 100); i++) {
+      let uuid = uuidv4();
+      if (currentCase === 'uppercase') uuid = uuid.toUpperCase();
+      
+      const item = document.createElement('div');
+      item.className = 'uuid-item';
+      item.innerHTML = `
+        <span class="uuid-text">${uuid}</span>
+        <button class="copy-btn" onclick="copy('${uuid}', this)">Copy</button>
+      `;
+      list.appendChild(item);
     }
-    
-    function setDisplay(d) {
-      displayFormat = d;
-      document.querySelectorAll('[data-display]').forEach(b => b.classList.remove('active'));
-      document.querySelector(`[data-display="${d}"]`).classList.add('active');
-      generate();
-    }
-    
-    function formatUUID(uuid) {
-      let formatted = uuid;
-      if (displayFormat === 'uppercase') formatted = formatted.toUpperCase();
-      if (displayFormat === 'braces') formatted = '{' + formatted + '}';
-      if (displayFormat === 'urn') formatted = 'urn:uuid:' + formatted;
-      return formatted;
-    }
-    
-    function generateUUIDv4() {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-    }
-    
-    function generateUUIDv7() {
-      const timestamp = Date.now();
-      const hex = timestamp.toString(16).padStart(12, '0');
-      const random = 'xxxxxxxxxxxx'.replace(/x/g, () => Math.random().toString(16)[0]);
-      const part = random.slice(0, 10) + '0' + random.slice(10);
-      return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-7' + part.slice(2, 6) + '-' + part.slice(6, 8) + part.slice(0, 2) + part.slice(8, 12);
-    }
-    
-    function generate() {
-      const count = Math.min(Math.max(parseInt(document.getElementById('count').value) || 1, 1), 100);
-      const uuids = [];
-      for (let i = 0; i < count; i++) {
-        uuids.push(currentFormat === 'v7' ? generateUUIDv7() : generateUUIDv4());
-      }
-      const formatted = uuids.map(formatUUID).join('\n');
-      document.getElementById('output').textContent = formatted || 'Click generate';
-    }
-    
-    function copy() {
-      const text = document.getElementById('output').textContent;
-      navigator.clipboard.writeText(text);
-      showToast();
-    }
-    
-    function copyRaw() {
-      const text = document.getElementById('output').textContent;
-      const raw = text.split('\n').map(u => u.replace(/[{}-]/g, '')).join('');
-      navigator.clipboard.writeText(raw);
-      showToast();
-    }
-    
-    function showToast() {
-      const t = document.getElementById('toast');
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 1500);
-    }
-    
+  }
+  
+  function copy(uuid, btn) {
+    navigator.clipboard.writeText(uuid).then(() => {
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
+    });
+  }
+  
+  function setCase(caseType) {
+    currentCase = caseType;
     generate();
-  </script>
+  }
+  
+  // Generate one on load
+  generate();
+</script>
 </body>
 </html>
