@@ -4,108 +4,208 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorem Ipsum Generator — Shadow's Garden</title>
-<meta name="description" content="Generate placeholder text in multiple flavors — classic, hipster, cupcake, and Samuel L. Ipsum. Words, paragraphs, or bytes mode.">
+<meta name="description" content="Generate placeholder text for designs. Paragraphs, sentences, or words — all local, no tracking.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
-  .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
-  label { display: flex; align-items: center; gap: 0.5rem; }
-  select, input[type="number"] { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
-  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
-  button:hover { background: var(--bg-secondary); }
-  textarea { width: 100%; height: 300px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font-family: monospace; resize: vertical; }
-  .flavor-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px; background: var(--accent); color: var(--bg); }
-  h1 { display: flex; align-items: center; }
+  .generator { max-width: 700px; margin: 0 auto; }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  input[type="number"], select {
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+  }
+  input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  button {
+    padding: 12px 24px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: white;
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  .output {
+    padding: 20px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    min-height: 150px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .output:empty::before {
+    content: 'Click Generate to create placeholder text...';
+    color: var(--text-secondary);
+  }
+  .copy-btn {
+    margin-top: 12px;
+    width: 100%;
+  }
+  @media (max-width: 500px) {
+    .controls { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Lorem Ipsum Generator <span class="flavor-tag" id="flavorTag">Classic</span></h1>
-  <div class="controls">
-    <label>Flavor:
-      <select id="flavor">
-        <option value="classic">Classic</option>
-        <option value="hipster">Hipster</option>
-        <option value="cupcake">Cupcake</option>
-        <option value="samuel">Samuel L. Ipsum</option>
-      </select>
-    </label>
-    <label>Mode:
-      <select id="mode">
-        <option value="words">Words</option>
-        <option value="paragraphs">Paragraphs</option>
-        <option value="bytes">Bytes</option>
-      </select>
-    </label>
-    <label>Count: <input type="number" id="count" value="5" min="1" max="50"></label>
-    <button id="generate">Generate</button>
-    <button id="copy">Copy</button>
+<div class="container">
+  <div class="generator">
+    <h1>Lorem Ipsum Generator</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">Generate placeholder text for your designs. All local, no tracking.</p>
+    
+    <div class="controls">
+      <div class="control-group">
+        <label>Type</label>
+        <select id="type">
+          <option value="paragraphs">Paragraphs</option>
+          <option value="sentences">Sentences</option>
+          <option value="words">Words</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Count</label>
+        <input type="number" id="count" value="3" min="1" max="50">
+      </div>
+    </div>
+    
+    <div class="btn-row">
+      <button class="primary" onclick="generate()">Generate</button>
+      <button onclick="copyOutput()">Copy Text</button>
+    </div>
+    
+    <div class="output" id="output"></div>
+    <button class="copy-btn" onclick="copyOutput()">Copy to Clipboard</button>
   </div>
-  <textarea id="output" readonly placeholder="Your generated text will appear here..."></textarea>
-  <script>
-    const flavors = {
-      classic: "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum",
-      hipster: "chillwave kombucha scenester affogato, ramps normcore vinyl pour-over. Sriracha chartreuse VHS, pop-up artisan kitsch small batch godard. Echo park flexitarian irony helvetica. Twee fam 8-bit, Intelligentsia messenger bag viral next level. Mustache pickled disrupt, swag blog stumptown. Austin hella craft beer, leggings forage.",
-      cupcake: "sweet tart jelly candy canes. Gummi bears chocolate cake chocolate bar sugar plum. Ice cream candy canes ice cream candy. Cotton candy candy canes cookie. Sweet roll sweet roll gummies. Donut candy canes cookie. Candy chocolate bar sugar plum. Cheesecake candy sweet roll.",
-      samuel: "I don't know who you are. I don't know what you want. If you are looking for ransom, I can tell you I don't have money. But what I do have are a very particular set of skills. Skills I have acquired over a very long career. Skills that make me a nightmare for people like you. If you let my daughter go now, that'll be the end of it. I will not look for you. I will not pursue you. But if you don't, I will look for you. I will find you. And I will kill you."
-    };
+</div>
+<script>
+  const loremWords = [
+    'lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit',
+    'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore',
+    'magna', 'aliqua', 'ut', 'enim', 'ad', 'minim', 'veniam', 'quis', 'nostrud',
+    'exercitation', 'ullamco', 'laboris', 'nisi', 'ut', 'aliquip', 'ex', 'ea',
+    'commodo', 'consequat', 'duis', 'aute', 'irure', 'dolor', 'in', 'reprehenderit',
+    'in', 'voluptate', 'velit', 'esse', 'cillum', 'dolore', 'eu', 'fugiat', 'nulla',
+    'pariatur', 'excepteur', 'sint', 'occaecat', 'cupidatat', 'non', 'proident',
+    'sunt', 'in', 'culpa', 'qui', 'officia', 'deserunt', 'mollit', 'anim', 'id',
+    'est', 'laborum', 'nam', 'libero', 'justo', 'laoreet', 'sit', 'amet', 'viverra',
+    'maecenas', 'accumsan', 'lacus', 'vel', 'facilisis', 'praesent', 'interdum',
+    'massa', 'tincidunt', 'nibh', 'ipsum', 'donec', 'odio', 'quis', 'nisl', 'tincidunt',
+    'bibendum', 'nulla', 'vitae', 'ultricies', 'leo', 'integer', 'feugiat', 'scelerisque',
+    'metus', 'vitae', 'justo', 'sollicitudin', 'tellus', 'nisi', 'quis', 'nunc', 'vel',
+    'eros', 'donec', 'odio', 'ante', 'primis', 'faucibus', 'orci', 'luctus', 'ultrices',
+    'posuere', 'cubilia', 'curae', 'morbi', 'leo', 'rhoncus', 'sed', 'interdum', 'sit'
+  ];
 
-    const flavorSelect = document.getElementById('flavor');
-    const modeSelect = document.getElementById('mode');
-    const countInput = document.getElementById('count');
-    const output = document.getElementById('output');
-    const generateBtn = document.getElementById('generate');
-    const copyBtn = document.getElementById('copy');
-    const flavorTag = document.getElementById('flavorTag');
+  function randomWord() {
+    return loremWords[Math.floor(Math.random() * loremWords.length)];
+  }
 
-    const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
 
-    flavorSelect.addEventListener('change', () => {
-      flavorTag.textContent = capitalize(flavorSelect.value);
-    });
+  function generateSentence(minWords = 5, maxWords = 15) {
+    const count = Math.floor(Math.random() * (maxWords - minWords + 1)) + minWords;
+    const words = [];
+    for (let i = 0; i < count; i++) {
+      words.push(randomWord());
+    }
+    let sentence = words.join(' ');
+    sentence = capitalize(sentence);
+    return sentence + '.';
+  }
 
-    function generate() {
-      const flavor = flavors[flavorSelect.value];
-      const mode = modeSelect.value;
-      const count = parseInt(countInput.value);
-      
-      let result = '';
-      
-      if (mode === 'words') {
-        const words = flavor.split(' ');
-        for (let i = 0; i < count; i++) {
-          result += words[Math.floor(Math.random() * words.length)] + ' ';
-        }
-        result = result.trim();
-      } else if (mode === 'paragraphs') {
-        for (let p = 0; p < count; p++) {
-          const paraWords = [];
-          const len = 20 + Math.floor(Math.random() * 40);
-          for (let i = 0; i < len; i++) {
-            paraWords.push(flavor.split(' ')[Math.floor(Math.random() * flavor.split(' ').length)]);
-          }
-          result += paraWords.join(' ') + '\n\n';
-        }
-        result = result.trim();
-      } else if (mode === 'bytes') {
-        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
-        for (let i = 0; i < count; i++) {
-          result += chars[Math.floor(Math.random() * chars.length)];
-        }
+  function generateParagraph(sentences = 5) {
+    const paraSentences = [];
+    for (let i = 0; i < sentences; i++) {
+      paraSentences.push(generateSentence());
+    }
+    return paraSentences.join(' ');
+  }
+
+  function generate() {
+    const type = document.getElementById('type').value;
+    const count = parseInt(document.getElementById('count').value) || 3;
+    let output = '';
+
+    if (type === 'paragraphs') {
+      const paragraphs = [];
+      for (let i = 0; i < count; i++) {
+        paragraphs.push('<p>' + generateParagraph(5 + Math.floor(Math.random() * 4)) + '</p>');
       }
-      
-      output.value = result;
+      output = paragraphs.join('\n');
+    } else if (type === 'sentences') {
+      const sentences = [];
+      for (let i = 0; i < count; i++) {
+        sentences.push(generateSentence());
+      }
+      output = sentences.join(' ');
+    } else if (type === 'words') {
+      const words = [];
+      for (let i = 0; i < count; i++) {
+        words.push(randomWord());
+      }
+      output = words.join(' ');
     }
 
-    generateBtn.addEventListener('click', generate);
-    copyBtn.addEventListener('click', () => {
-      output.select();
-      document.execCommand('copy');
-      copyBtn.textContent = 'Copied!';
-      setTimeout(() => copyBtn.textContent = 'Copy', 1500);
-    });
+    document.getElementById('output').innerHTML = output;
+  }
 
-    generate();
-  </script>
+  function copyOutput() {
+    const output = document.getElementById('output');
+    const text = output.innerText;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
+    });
+  }
+
+  // Generate on load
+  generate();
+</script>
 </body>
 </html>
