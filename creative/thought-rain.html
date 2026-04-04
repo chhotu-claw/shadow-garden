@@ -4,173 +4,118 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thought Rain — Shadow's Garden</title>
-<meta name="description" content="A meditative visualizer where philosophical thoughts fall like rain.">
+<meta name="description">A meditative visualizer where philosophical thoughts fall like rain. Click to spawn drops.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0f;
-    overflow: hidden;
-    font-family: 'Courier New', monospace;
-  }
-  #canvas {
-    display: block;
-    cursor: crosshair;
-  }
-  .thought {
-    position: absolute;
-    color: rgba(100, 180, 255, 0.15);
-    font-size: 14px;
-    pointer-events: none;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    white-space: nowrap;
-  }
-  .thought.falling {
-    animation: fall linear forwards;
-  }
-  @keyframes fall {
-    0% { transform: translateY(-20px); opacity: 0; }
-    10% { opacity: 0.3; }
-    90% { opacity: 0.3; }
-    100% { transform: translateY(100vh); opacity: 0; }
-  }
-  .info {
+  body { margin: 0; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; }
+  .hint {
     position: fixed;
     bottom: 20px;
-    left: 20px;
-    color: rgba(100, 180, 255, 0.4);
-    font-size: 12px;
-  }
-  .title {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: rgba(100, 180, 255, 0.6);
-    font-size: 24px;
-    font-weight: 300;
-  }
-  .subtitle {
-    position: fixed;
-    top: 50px;
-    left: 20px;
-    color: rgba(100, 180, 255, 0.3);
-    font-size: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-size: 14px;
+    font-family: var(--mono);
+    pointer-events: none;
   }
 </style>
 </head>
 <body data-page-type="app">
 <canvas id="canvas"></canvas>
-<div class="title">thought rain</div>
-<div class="subtitle">click to plant a thought</div>
-<div class="info">— philosophical drops —</div>
-
+<div class="hint">click to add thoughts</div>
 <script>
-const thoughts = [
-  "what remains",
-  "the space between",
-  "unbecoming",
-  "stillness",
-  "the gap",
-  "fading light",
-  "echo",
-  "dissolve",
-  "the question",
-  "becoming",
-  "no self",
-  "the void",
-  "not knowing",
-  "remaining",
-  "the silence",
-  "here now",
-  "let go",
-  "be here",
-  "no where",
-  "the trace",
-  "what was",
-  "the breath",
-  "finitude",
-  "the edge",
-  "no thing",
-  "pure attention",
-  "the moment",
-  "open empty",
-  "the flow",
-  "let be",
-  "no mind",
-  "the source",
-  "undivided",
-  "the field",
-  "simply",
-  "the now"
-];
-
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-let width, height;
-
-function resize() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
-
-// Drop class
-class Drop {
-  constructor(x) {
-    this.x = x || Math.random() * width;
-    this.y = -20;
-    this.thought = thoughts[Math.floor(Math.random() * thoughts.length)];
-    this.speed = 0.3 + Math.random() * 0.5;
-    this.opacity = 0;
-    this.element = document.createElement('div');
-    this.element.className = 'thought';
-    this.element.textContent = this.thought;
-    this.element.style.left = this.x + 'px';
-    this.element.style.top = this.y + 'px';
-    document.body.appendChild(this.element);
-    this.element.classList.add('falling');
-    this.element.style.animationDuration = (15 + Math.random() * 10) + 's';
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  const thoughts = [
+    'the gap', 'unbecoming', 'the silence', 'be here', 
+    'what if', 'echo', 'void', 'flow', 'stillness',
+    'the question', 'before thought', 'between',
+    'already', 'not yet', 'the wait', 'fading'
+  ];
+  
+  let drops = [];
+  let width, height;
+  
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
   }
   
-  update() {
-    this.y += this.speed;
-    this.element.style.top = this.y + 'px';
+  window.addEventListener('resize', resize);
+  resize();
+  
+  class Drop {
+    constructor(x, y) {
+      this.x = x || Math.random() * width;
+      this.y = y || -20;
+      this.text = thoughts[Math.floor(Math.random() * thoughts.length)];
+      this.speed = 0.5 + Math.random() * 1.5;
+      this.opacity = 0;
+      this.fadeIn = true;
+      this.life = 1;
+      this.size = 14 + Math.random() * 8;
+    }
+    
+    update() {
+      this.y += this.speed;
+      this.speed *= 0.995;
+      
+      if (this.fadeIn) {
+        this.opacity += 0.02;
+        if (this.opacity >= 0.8) this.fadeIn = false;
+      } else {
+        this.opacity -= 0.003;
+      }
+      
+      if (this.opacity <= 0 || this.y > height + 50) {
+        return false;
+      }
+      return true;
+    }
+    
+    draw() {
+      ctx.font = `${this.size}px Georgia, serif`;
+      ctx.fillStyle = `rgba(180, 190, 200, ${this.opacity})`;
+      ctx.textAlign = 'center';
+      ctx.fillText(this.text, this.x, this.y);
+    }
   }
   
-  isOffscreen() {
-    return this.y > height;
+  canvas.addEventListener('click', (e) => {
+    for (let i = 0; i < 5; i++) {
+      drops.push(new Drop(e.clientX + (Math.random() - 0.5) * 100, e.clientY));
+    }
+  });
+  
+  // Initial drops
+  for (let i = 0; i < 15; i++) {
+    const drop = new Drop(Math.random() * width, Math.random() * height);
+    drop.opacity = Math.random() * 0.6;
+    drops.push(drop);
   }
   
-  remove() {
-    this.element.remove();
+  function animate() {
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+    ctx.fillRect(0, 0, width, height);
+    
+    drops = drops.filter(d => {
+      const alive = d.update();
+      d.draw();
+      return alive;
+    });
+    
+    // Spawn naturally
+    if (drops.length < 30 && Math.random() < 0.02) {
+      drops.push(new Drop());
+    }
+    
+    requestAnimationFrame(animate);
   }
-}
-
-const drops = [];
-
-// Spawn drops periodically
-function spawnDrop() {
-  if (drops.length < 30) {
-    drops.push(new Drop());
-  }
-}
-
-// Auto-spawn
-setInterval(spawnDrop, 800);
-
-// Click to add thought
-canvas.addEventListener('click', (e) => {
-  const drop = new Drop(e.clientX);
-  drops.push(drop);
-});
-
-// Initial drops
-for (let i = 0; i < 10; i++) {
-  setTimeout(() => spawnDrop(), i * 200);
-}
+  
+  animate();
 </script>
 </body>
 </html>
