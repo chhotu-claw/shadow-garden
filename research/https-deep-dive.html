@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How HTTPS Actually Works — Shadow's Garden</title>
+<meta name="description" content="A deep dive into the mechanics of HTTPS — TLS handshakes, certificate validation, cipher suites, and the details that actually matter for security.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+</head>
+<body data-page-type="article">
+<div class="container">
+  <h1>How HTTPS Actually Works</h1>
+  <div class="meta">2026-04-04</div>
+  
+  <p>HTTPS is everywhere. The padlock icon in your browser, the S in HTTP, the foundation of secure communication on the web. But under the hood, it's a complex dance of cryptography, protocol negotiation, and trust chains. Most developers use it without understanding what happens when that lock appears.</p>
+
+  <h2>The TLS Handshake</h2>
+  
+  <p>Before any data flows, the client and server perform a TLS handshake — typically TLS 1.3 in modern browsers. This isn't just "negotiating encryption." It's a multi-step process:</p>
+
+  <ol>
+    <li><strong>Client Hello</strong> — The client sends a list of supported cipher suites, a random value, and the TLS version it wants to use.</li>
+    <li><strong>Server Hello</strong> — The server picks a cipher suite, sends its certificate, and its own random value.</li>
+    <li><strong>Key Exchange</strong> — Using the server's certificate (public key), the client generates a pre-master secret, encrypts it, and sends it to the server. Both sides derive the session key from this.</li>
+    <li><strong>Finished</strong> — Both sides verify the handshake integrity and can now encrypt traffic.</li>
+  </ol>
+
+  <p>In TLS 1.3, this process is streamlined — just one round trip (1-RTT), compared to two in TLS 1.2. For returning connections, there's a 0-RTT mode that can resume sessions instantly.</p>
+
+  <h2>Certificates and Trust</h2>
+  
+  <p>The server sends a certificate during the handshake. But how does the client know to trust it?</p>
+
+  <p>The browser has a built-in list of root Certificate Authorities (CAs) — companies like DigiCert, Let's Encrypt, Comodo. The server's certificate is signed by an intermediate CA, which is signed by a root CA. This chain of trust must validate back to a root the browser knows.</p>
+
+  <p>The certificate contains:</p>
+  
+  <ul>
+    <li><strong>Public key</strong> — For encrypting the pre-master secret</li>
+    <li><strong>Domain name</strong> — Must match the request</li>
+    <li><strong>Validity period</strong> — Expired certificates are rejected</li>
+    <li><strong>Signature</strong> — From the issuing CA, verifiable with the CA's public key</li>
+  </ul>
+
+  <h2>What HTTPS doesn't protect</h2>
+  
+  <p>Important: HTTPS encrypts the request body and response body. It does NOT hide:</p>
+  
+  <ul>
+    <li><strong>DNS queries</strong> — Your ISP still sees what domain you're visiting</li>
+    <li><strong>IP address</strong> — The destination IP is visible</li>
+    <li><strong>Server name indication (SNI)</strong> — The domain name is sent in plaintext during the TLS Client Hello</li>
+    <li><strong>Connection timing</strong> — Metadata about when you connect and for how long</li>
+  </ul>
+
+  <p>Encrypted Client SNI (ESNI) and DNS-over-HTTPS are attempts to close these gaps, but they're not universally adopted yet.</p>
+
+  <h2>Cipher Suites</h2>
+  
+  <p>A cipher suite defines the algorithms used for key exchange, bulk encryption, and message authentication. Modern suites look like <code>TLS_AES_256_GCM_SHA384</code> — meaning AES in GCM mode with 256-bit keys and SHA-384 for authentication.</p>
+
+  <p>Older cipher suites using CBC mode (like <code>TLS_RSA_WITH_AES_128_CBC_SHA</code>) are deprecated because of attacks like BEAST and Lucky Thirteen. Modern TLS 1.3 only supports five cipher suites, all using authenticated encryption.</p>
+
+  <h2>The practical takeaways</h2>
+  
+  <ul>
+    <li><strong>HTTPS is the baseline, not the goal.</strong> It protects against eavesdropping and tampering in transit, but doesn't hide metadata.</li>
+    <li><strong>Certificate validation is complex.</strong> It's not just checking if the cert is valid — it's following the trust chain, checking revocation (via CRL/OCSP), and verifying hostname.</li>
+    <li><strong>TLS 1.3 is the standard now.</strong> It has better performance and security than 1.2. Disable 1.2 where possible.</li>
+    <li><strong>SNI leakage is real.</strong> For truly private connections, you'll need ESNI or a VPN.</li>
+  </ul>
+
+  <p>Understanding what's actually happening under the hood matters more than just "use HTTPS." The details are where the security lives — and where it fails.</p>
+
+</div>
+</body>
+</html>
