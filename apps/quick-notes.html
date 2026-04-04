@@ -4,276 +4,430 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quick Notes — Shadow's Garden</title>
-<meta name="description" content="Simple local-first notes app with no accounts, no sync, just localStorage">
+<meta name="description" content="Quick notes with markdown support. Search, pin, delete. All local, persists to localStorage.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  :root { --accent: #22c55e; }
-  body { --accent: #22c55e; }
-  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-  
-  .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-  .notes-header h1 { margin: 0; }
-  
-  .btn { padding: 0.6rem 1.2rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.15s; }
-  .btn-primary { background: var(--accent); color: #0d1117; }
-  .btn-primary:hover { filter: brightness(1.1); }
-  .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-  .btn-secondary:hover { background: #30363d; }
-  .btn-danger { background: #f85149; color: white; }
-  .btn-danger:hover { filter: brightness(1.1); }
-  .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-  
-  .notes-list { display: flex; flex-direction: column; gap: 0.75rem; }
-  .note-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; transition: border-color 0.2s; }
-  .note-card:hover { border-color: #58a6ff; }
-  .note-card.empty { text-align: center; color: #8b949e; padding: 3rem; }
-  
-  .note-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
-  .note-title { font-weight: 600; font-size: 1rem; color: #c9d1d9; margin: 0; }
-  .note-date { font-size: 0.75rem; color: #8b949e; }
-  .note-preview { color: #8b949e; font-size: 0.9rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .note-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-  
-  .note-editor { display: none; }
-  .note-editor.active { display: block; }
-  .editor-title { width: 100%; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; box-sizing: border-box; }
-  .editor-title:focus { outline: none; border-color: var(--accent); }
-  .editor-body { width: 100%; min-height: 300px; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.95rem; line-height: 1.6; resize: vertical; font-family: inherit; box-sizing: border-box; }
-  .editor-body:focus { outline: none; border-color: var(--accent); }
-  .editor-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
-  
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
-  .modal-overlay.active { display: flex; }
-  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 1.5rem; max-width: 400px; width: 100%; }
-  .modal h3 { margin: 0 0 1rem 0; }
-  .modal p { color: #8b949e; margin-bottom: 1.5rem; }
-  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-  
-  .search-box { width: 100%; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; margin-bottom: 1rem; }
-  .search-box:focus { outline: none; border-color: var(--accent); }
-  
-  .note-count { color: #8b949e; font-size: 0.85rem; margin-top: 1.5rem; text-align: center; }
+  .notes-app { max-width: 800px; margin: 0 auto; }
+  .notes-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  .search-box {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .search-box:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .new-note-btn {
+    padding: 12px 20px;
+    background: var(--accent);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .note-card {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 120px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .note-card:hover {
+    border-color: var(--accent);
+  }
+  .note-card.pinned {
+    border-color: #f7b731;
+  }
+  .note-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .note-title .pin {
+    color: #f7b731;
+    font-size: 12px;
+  }
+  .note-preview {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+  .note-date {
+    font-size: 11px;
+    color: #555;
+    margin-top: 10px;
+  }
+  .note-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .note-card:hover .note-delete {
+    opacity: 1;
+  }
+  .note-delete:hover {
+    color: #f77;
+  }
+  .empty-state {
+    text-align: center;
+    color: #666;
+    padding: 60px 20px;
+  }
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal.active {
+    display: flex;
+  }
+  .modal-content {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 20px;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .modal-header input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .modal-header input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .modal-actions button {
+    padding: 8px 14px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .modal-actions button:hover {
+    border-color: var(--accent);
+  }
+  .modal-actions button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  textarea.note-input {
+    width: 100%;
+    min-height: 200px;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--mono);
+    line-height: 1.6;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea.note-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .note-view {
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .note-view h1 { font-size: 1.4em; margin: 0.5em 0; }
+  .note-view h2 { font-size: 1.2em; margin: 0.5em 0; }
+  .note-view code {
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--mono);
+  }
+  .note-view pre {
+    background: #222;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  .note-view a {
+    color: var(--accent);
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
+<div class="container">
+  <div class="notes-app">
+    <h1>Quick Notes</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Notes with markdown support. Search, pin, delete. All local.</p>
+    
     <div class="notes-header">
-      <div>
-        <h1>Quick Notes</h1>
-        <p class="subtitle">Simple notes, localStorage, no accounts</p>
-      </div>
-      <button class="btn btn-primary" id="newNoteBtn">+ New Note</button>
+      <input type="text" class="search-box" id="search" placeholder="Search notes..." oninput="renderNotes()">
+      <button class="new-note-btn" onclick="openModal()">+ New Note</button>
     </div>
     
-    <input type="text" class="search-box" id="searchBox" placeholder="Search notes...">
-    
-    <div class="notes-list" id="notesList"></div>
-    
-    <div class="note-count" id="noteCount"></div>
+    <div class="notes-grid" id="notesGrid"></div>
   </div>
-  
-  <div class="note-editor" id="noteEditor">
-    <input type="text" class="editor-title" id="editorTitle" placeholder="Note title...">
-    <textarea class="editor-body" id="editorBody" placeholder="Write your note..."></textarea>
-    <div class="editor-actions">
-      <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
-      <button class="btn btn-primary" id="saveNoteBtn">Save</button>
-    </div>
-  </div>
-  
-  <div class="modal-overlay" id="deleteModal">
-    <div class="modal">
-      <h3>Delete Note?</h3>
-      <p>This cannot be undone.</p>
+</div>
+
+<div class="modal" id="noteModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <input type="text" id="noteTitle" placeholder="Note title...">
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
-        <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+        <button id="pinBtn" onclick="togglePin()">📌 Pin</button>
+        <button class="primary" onclick="saveNote()">Save</button>
+        <button onclick="closeModal()">Cancel</button>
       </div>
     </div>
+    <textarea class="note-input" id="noteContent" placeholder="Write your note here... (supports markdown)"></textarea>
   </div>
+</div>
+
+<div class="modal" id="viewModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <input type="text" id="viewTitle" readonly>
+      <div class="modal-actions">
+        <button onclick="editNote()">Edit</button>
+        <button onclick="closeViewModal()">Close</button>
+      </div>
+    </div>
+    <div class="note-view" id="viewContent"></div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'shadow-quick-notes';
+  let notes = [];
+  let editingIndex = -1;
+  let viewingIndex = -1;
   
-  <script>
-    const STORAGE_KEY = 'quick-notes';
-    let notes = [];
-    let editingId = null;
-    let deletingId = null;
-    
-    const notesList = document.getElementById('notesList');
-    const noteEditor = document.getElementById('noteEditor');
-    const editorTitle = document.getElementById('editorTitle');
-    const editorBody = document.getElementById('editorBody');
-    const searchBox = document.getElementById('searchBox');
-    const noteCount = document.getElementById('noteCount');
-    const deleteModal = document.getElementById('deleteModal');
-    
-    function loadNotes() {
-      try {
-        notes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-      } catch (e) {
-        notes = [];
-      }
+  function loadNotes() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      notes = JSON.parse(saved);
     }
+  }
+  
+  function saveNotes() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  }
+  
+  function renderNotes() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const grid = document.getElementById('notesGrid');
     
-    function saveNotes() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-    }
+    const filtered = notes.filter(n => 
+      n.title.toLowerCase().includes(search) || 
+      n.content.toLowerCase().includes(search)
+    );
     
-    function generateId() {
-      return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    }
-    
-    function formatDate(timestamp) {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diff = now - date;
-      
-      if (diff < 60000) return 'Just now';
-      if (diff < 3600000) return Math.floor(diff / 60000) + ' min ago';
-      if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
-      if (diff < 604800000) return Math.floor(diff / 86400000) + ' days ago';
-      
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
-    }
-    
-    function renderNotes(filter = '') {
-      const filtered = filter 
-        ? notes.filter(n => n.title.toLowerCase().includes(filter.toLowerCase()) || n.body.toLowerCase().includes(filter.toLowerCase()))
-        : notes;
-      
-      const sorted = [...filtered].sort((a, b) => b.updated - a.updated);
-      
-      if (sorted.length === 0) {
-        notesList.innerHTML = `<div class="note-card empty">${filter ? 'No notes match your search' : 'No notes yet. Click "+ New Note" to create one.'}</div>`;
-      } else {
-        notesList.innerHTML = sorted.map(note => `
-          <div class="note-card" data-id="${note.id}">
-            <div class="note-title-row">
-              <h3 class="note-title">${escapeHtml(note.title) || 'Untitled'}</h3>
-              <span class="note-date">${formatDate(note.updated)}</span>
-            </div>
-            <p class="note-preview">${escapeHtml(note.body) || 'Empty note'}</p>
-            <div class="note-actions">
-              <button class="btn btn-secondary btn-sm edit-btn" data-id="${note.id}">Edit</button>
-              <button class="btn btn-danger btn-sm delete-btn" data-id="${note.id}">Delete</button>
-            </div>
-          </div>
-        `).join('');
-      }
-      
-      noteCount.textContent = `${sorted.length} note${sorted.length !== 1 ? 's' : ''}`;
-    }
-    
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    
-    function openEditor(note = null) {
-      if (note) {
-        editingId = note.id;
-        editorTitle.value = note.title;
-        editorBody.value = note.body;
-      } else {
-        editingId = null;
-        editorTitle.value = '';
-        editorBody.value = '';
-      }
-      noteEditor.classList.add('active');
-      editorTitle.focus();
-    }
-    
-    function closeEditor() {
-      noteEditor.classList.remove('active');
-      editingId = null;
-    }
-    
-    function saveNote() {
-      const title = editorTitle.value.trim();
-      const body = editorBody.value;
-      
-      if (editingId) {
-        const note = notes.find(n => n.id === editingId);
-        if (note) {
-          note.title = title;
-          note.body = body;
-          note.updated = Date.now();
-        }
-      } else {
-        notes.push({
-          id: generateId(),
-          title,
-          body,
-          created: Date.now(),
-          updated: Date.now()
-        });
-      }
-      
-      saveNotes();
-      closeEditor();
-      renderNotes(searchBox.value);
-    }
-    
-    function deleteNote(id) {
-      notes = notes.filter(n => n.id !== id);
-      saveNotes();
-      renderNotes(searchBox.value);
-      deleteModal.classList.remove('active');
-    }
-    
-    document.getElementById('newNoteBtn').addEventListener('click', () => openEditor());
-    document.getElementById('saveNoteBtn').addEventListener('click', saveNote);
-    document.getElementById('cancelEditBtn').addEventListener('click', closeEditor);
-    
-    notesList.addEventListener('click', (e) => {
-      const editBtn = e.target.closest('.edit-btn');
-      const deleteBtn = e.target.closest('.delete-btn');
-      
-      if (editBtn) {
-        const id = editBtn.dataset.id;
-        const note = notes.find(n => n.id === id);
-        if (note) openEditor(note);
-      }
-      
-      if (deleteBtn) {
-        deletingId = deleteBtn.dataset.id;
-        deleteModal.classList.add('active');
-      }
+    // Sort: pinned first, then by date
+    filtered.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updated - a.updated;
     });
     
-    document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
-      if (deletingId) deleteNote(deletingId);
-    });
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="empty-state">' + (search ? 'No notes match your search.' : 'No notes yet. Click "+ New Note" to create one.') + '</div>';
+      return;
+    }
     
-    document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
-      deleteModal.classList.remove('active');
-      deletingId = null;
-    });
-    
-    searchBox.addEventListener('input', (e) => renderNotes(e.target.value));
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (deleteModal.classList.contains('active')) {
-          deleteModal.classList.remove('active');
-        } else if (noteEditor.classList.contains('active')) {
-          closeEditor();
-        }
-      }
+    grid.innerHTML = filtered.map((note, idx) => {
+      const originalIndex = notes.indexOf(note);
+      const preview = note.content.substring(0, 100).replace(/[#*`]/g, '');
+      const date = new Date(note.updated).toLocaleDateString();
       
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (noteEditor.classList.contains('active')) {
-          saveNote();
-        }
-      }
-    });
+      return `<div class="note-card ${note.pinned ? 'pinned' : ''}" onclick="viewNote(${originalIndex})">
+        <button class="note-delete" onclick="event.stopPropagation(); deleteNote(${originalIndex})">×</button>
+        <div class="note-title">${note.title || 'Untitled'}<span class="pin">${note.pinned ? '📌' : ''}</span></div>
+        <div class="note-preview">${preview || 'Empty note'}</div>
+        <div class="note-date">${date}</div>
+      </div>`;
+    }).join('');
+  }
+  
+  function openModal(index = -1) {
+    editingIndex = index;
+    const modal = document.getElementById('noteModal');
+    const titleInput = document.getElementById('noteTitle');
+    const contentInput = document.getElementById('noteContent');
+    const pinBtn = document.getElementById('pinBtn');
     
-    // Init
-    loadNotes();
+    if (index >= 0) {
+      const note = notes[index];
+      titleInput.value = note.title;
+      contentInput.value = note.content;
+      pinBtn.textContent = note.pinned ? '📌 Pinned' : '📌 Pin';
+    } else {
+      titleInput.value = '';
+      contentInput.value = '';
+      pinBtn.textContent = '📌 Pin';
+    }
+    
+    modal.classList.add('active');
+    titleInput.focus();
+  }
+  
+  function closeModal() {
+    document.getElementById('noteModal').classList.remove('active');
+    editingIndex = -1;
+  }
+  
+  function togglePin() {
+    const btn = document.getElementById('pinBtn');
+    btn.textContent = btn.textContent.includes('Pinned') ? '📌 Pin' : '📌 Pinned';
+  }
+  
+  function saveNote() {
+    const title = document.getElementById('noteTitle').value.trim() || 'Untitled';
+    const content = document.getElementById('noteContent').value;
+    const isPinned = document.getElementById('pinBtn').textContent.includes('Pinned');
+    const now = Date.now();
+    
+    if (editingIndex >= 0) {
+      notes[editingIndex] = { title, content, pinned: isPinned, updated: now };
+    } else {
+      notes.push({ title, content, pinned: isPinned, created: now, updated: now });
+    }
+    
+    saveNotes();
     renderNotes();
-  </script>
+    closeModal();
+  }
+  
+  function deleteNote(index) {
+    if (confirm('Delete this note?')) {
+      notes.splice(index, 1);
+      saveNotes();
+      renderNotes();
+    }
+  }
+  
+  function viewNote(index) {
+    viewingIndex = index;
+    const note = notes[index];
+    
+    document.getElementById('viewTitle').value = note.title;
+    document.getElementById('viewContent').innerHTML = renderMarkdown(note.content);
+    document.getElementById('viewModal').classList.add('active');
+  }
+  
+  function closeViewModal() {
+    document.getElementById('viewModal').classList.remove('active');
+    viewingIndex = -1;
+  }
+  
+  function editNote() {
+    closeViewModal();
+    openModal(viewingIndex);
+  }
+  
+  function renderMarkdown(text) {
+    if (!text) return '<em>Empty note</em>';
+    
+    // Basic markdown rendering
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Headers
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Code blocks
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      // Line breaks
+      .replace(/\n/g, '<br>');
+    
+    return html;
+  }
+  
+  // Keyboard shortcut
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeViewModal();
+    }
+    if (e.ctrlKey && e.key === 'n') {
+      e.preventDefault();
+      openModal();
+    }
+  });
+  
+  loadNotes();
+  renderNotes();
+</script>
 </body>
 </html>
