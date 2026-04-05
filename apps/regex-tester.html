@@ -4,129 +4,101 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Regex Tester — Shadow's Garden</title>
-<meta name="description" content="Test and debug regular expressions with real-time matching, flags, and syntax highlighting — all local.</meta>
+<meta name="description">Test regular expressions with live matching. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; padding: 2rem; max-width: 900px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .subtitle { color: #666; margin-bottom: 2rem; }
-  .section { margin-bottom: 1.5rem; }
-  label { display: block; font-size: 0.85rem; color: #888; margin-bottom: 0.5rem; }
-  input[type="text"], textarea { width: 100%; padding: 0.75rem; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; color: #e5e5e5; font-family: 'Monaco', 'Consolas', monospace; font-size: 0.95rem; }
-  input[type="text"]:focus, textarea:focus { outline: none; border-color: #6cb6ff; }
-  textarea { min-height: 120px; resize: vertical; }
-  .flags { display: flex; gap: 1rem; margin-top: 0.5rem; }
-  .flag label { display: inline; color: #e5e5e5; cursor: pointer; }
-  .results { background: #141414; border: 1px solid #333; border-radius: 6px; padding: 1rem; min-height: 100px; }
-  .match { background: #1a2e1a; color: #7af782; padding: 0.25rem 0.5rem; border-radius: 3px; margin: 0.25rem 0; display: inline-block; }
-  .no-match { color: #666; }
-  .error { color: #f77a7a; }
-  .hint { font-size: 0.8rem; color: #666; margin-top: 0.5rem; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
-  button { padding: 0.5rem 1rem; background: #1a1a2e; color: #7aa2f7; border: 1px solid #333; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-  button:hover { border-color: #7aa2f7; }
-  .output-info { font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; }
+  .regex-tool { max-width: 700px; margin: 0 auto; }
+  .input-group { margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+  textarea {
+    width: 100%; min-height: 100px; padding: 14px; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font-size: 14px; font-family: var(--mono); resize: vertical; box-sizing: border-box;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .flags { display: flex; gap: 8px; margin-bottom: 16px; }
+  .flag-btn {
+    padding: 8px 14px; border: 2px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer;
+  }
+  .flag-btn:hover { border-color: var(--accent); }
+  .flag-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .matches { margin-top: 20px; }
+  .match-item {
+    padding: 10px 14px; background: var(--bg); border: 2px solid var(--border); border-radius: 8px; margin-bottom: 8px;
+  }
+  .match-text { font-family: var(--mono); font-size: 14px; color: var(--text); word-break: break-all; }
+  .match-index { font-size: 12px; color: var(--text-secondary); }
+  .no-matches { color: #666; font-size: 14px; padding: 20px; text-align: center; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="nav" style="margin-bottom: 2rem;">
-    <a href="index.html">← Back</a>
-  </div>
-  
-  <h1>Regex Tester</h1>
-  <p class="subtitle">Test regular expressions with real-time matching</p>
-
-  <div class="section">
-    <label>Regular Expression</label>
-    <input type="text" id="regex" placeholder="e.g., \b\w{4}\b" value="">
-    <div class="flags">
-      <span class="flag"><label><input type="checkbox" id="flag-g" checked> Global</label></span>
-      <span class="flag"><label><input type="checkbox" id="flag-i"> Case Insensitive</label></span>
-      <span class="flag"><label><input type="checkbox" id="flag-m"> Multiline</label></span>
+<div class="container">
+  <div class="regex-tool">
+    <h1>Regex Tester</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Test regular expressions with live matching.</p>
+    
+    <div class="input-group">
+      <label>Regular Expression</label>
+      <textarea id="regex" placeholder="e.g., \d+,[a-z]+"></textarea>
     </div>
+    
+    <div class="flags">
+      <button class="flag-btn active" onclick="toggleFlag('g', this)">global (g)</button>
+      <button class="flag-btn active" onclick="toggleFlag('i', this)">case-insensitive (i)</button>
+      <button class="flag-btn" onclick="toggleFlag('m', this)">multiline (m)</button>
+    </div>
+    
+    <div class="input-group">
+      <label>Test String</label>
+      <textarea id="test" placeholder="Enter text to test..." oninput="testRegex()"></textarea>
+    </div>
+    
+    <div class="matches" id="matches"></div>
   </div>
-
-  <div class="section">
-    <label>Test String</label>
-    <textarea id="testString" placeholder="Enter text to test against...">The quick brown fox jumps over the lazy dog.</textarea>
-  </div>
-
-  <div class="section">
-    <div class="output-info" id="matchCount"></div>
-    <div class="results" id="results"></div>
-  </div>
-
-  <div class="actions">
-    <button onclick="testRegex()">Test</button>
-    <button onclick="clearAll()">Clear</button>
-  </div>
-
-  <p class="hint">Pattern updates automatically as you type.</p>
-
-  <script>
-    const regexInput = document.getElementById('regex');
-    const testInput = document.getElementById('testString');
-    const resultsDiv = document.getElementById('results');
-    const matchCountDiv = document.getElementById('matchCount');
-    const flagG = document.getElementById('flag-g');
-    const flagI = document.getElementById('flag-i');
-    const flagM = document.getElementById('flag-m');
-
-    function testRegex() {
-      const pattern = regexInput.value;
-      const testStr = testInput.value;
+</div>
+<script>
+  let flags = 'gi';
+  
+  function toggleFlag(flag, btn) {
+    if (flags.includes(flag)) {
+      flags = flags.replace(flag, '');
+      btn.classList.remove('active');
+    } else {
+      flags += flag;
+      btn.classList.add('active');
+    }
+    testRegex();
+  }
+  
+  function testRegex() {
+    const regex = document.getElementById('regex').value;
+    const test = document.getElementById('test').value;
+    const matchesDiv = document.getElementById('matches');
+    
+    if (!regex || !test) {
+      matchesDiv.innerHTML = '';
+      return;
+    }
+    
+    try {
+      const re = new RegExp(regex, flags);
+      const matches = test.match(re);
       
-      if (!pattern) {
-        resultsDiv.innerHTML = '<span class="no-match">Enter a pattern to test</span>';
-        matchCountDiv.textContent = '';
+      if (!matches) {
+        matchesDiv.innerHTML = '<div class="no-matches">No matches found</div>';
         return;
       }
-
-      try {
-        let flags = 'g';
-        if (flagI.checked) flags += 'i';
-        if (flagM.checked) flags += 'm';
-        
-        const re = new RegExp(pattern, flags);
-        const matches = testStr.match(re);
-        
-        if (matches) {
-          let html = '';
-          matches.forEach((m, i) => {
-            html += `<span class="match">${escapeHtml(m)}</span>${i < matches.length - 1 ? ' ' : ''}`;
-          });
-          resultsDiv.innerHTML = html;
-          matchCountDiv.textContent = `${matches.length} match${matches.length !== 1 ? 'es' : ''} found`;
-        } else {
-          resultsDiv.innerHTML = '<span class="no-match">No matches</span>';
-          matchCountDiv.textContent = '0 matches';
-        }
-      } catch (e) {
-        resultsDiv.innerHTML = `<span class="error">Error: ${escapeHtml(e.message)}</span>`;
-        matchCountDiv.textContent = '';
-      }
+      
+      matchesDiv.innerHTML = matches.map((m, i) => `
+        <div class="match-item">
+          <div class="match-text">${m}</div>
+          <div class="match-index">Match ${i + 1}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      matchesDiv.innerHTML = '<div class="no-matches">Invalid regex: ' + e.message + '</div>';
     }
-
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function clearAll() {
-      regexInput.value = '';
-      testInput.value = '';
-      resultsDiv.innerHTML = '';
-      matchCountDiv.textContent = '';
-    }
-
-    regexInput.addEventListener('input', testRegex);
-    testInput.addEventListener('input', testRegex);
-    flagG.addEventListener('change', testRegex);
-    flagI.addEventListener('change', testRegex);
-    flagM.addEventListener('change', testRegex);
-
-    // Initial test
-    testRegex();
-  </script>
+  }
+</script>
 </body>
 </html>
