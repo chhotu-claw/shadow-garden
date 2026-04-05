@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Crystal — Shadow's Garden</title>
+<meta name="description">Words crystallize into geometric shapes. Click to add.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; }
+  .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: #444; font-size: 14px; font-family: var(--mono); }
+</style>
+</head>
+<body data-page-type="app">
+<canvas id="canvas"></canvas>
+<div class="hint">click to crystallize words</div>
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const words = ['know', 'think', 'feel', 'be', 'see', 'make', 'seek', 'find', 'lose', 'gain', 'change', 'stay', 'grow', 'fade', 'rise', 'fall'];
+  let crystals = [];
+  let width, height;
+  
+  function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize);
+  resize();
+  
+  class Crystal {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.word = words[Math.floor(Math.random() * words.length)];
+      this.angle = Math.random() * Math.PI * 2;
+      this.speed = 0.3 + Math.random() * 0.5;
+      this.rotation = 0;
+      this.opacity = 0;
+      this.size = 30 + Math.random() * 20;
+    }
+    update() {
+      this.y += this.speed;
+      this.rotation += 0.005;
+      this.opacity += 0.015;
+      if (this.opacity > 0.8) this.opacity -= 0.003;
+      return this.opacity > 0 && this.y < height + 50;
+    }
+    draw() {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI * 2 / 6) * i;
+        const px = Math.cos(a) * this.size / 2;
+        const py = Math.sin(a) * this.size / 2;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(100, 200, 255, ${this.opacity})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      ctx.font = '12px Georgia, serif';
+      ctx.fillStyle = `rgba(150, 200, 255, ${this.opacity})`;
+      ctx.textAlign = 'center';
+      ctx.fillText(this.word, 0, 4);
+      ctx.restore();
+    }
+  }
+  
+  canvas.addEventListener('click', e => { for (let i = 0; i < 5; i++) crystals.push(new Crystal(e.clientX + (Math.random() - 0.5) * 60, e.clientY + (Math.random() - 0.5) * 60)); });
+  
+  for (let i = 0; i < 15; i++) crystals.push(new Crystal(Math.random() * width, Math.random() * height));
+  
+  function animate() {
+    ctx.fillStyle = 'rgba(10, 10, 18, 0.1)';
+    ctx.fillRect(0, 0, width, height);
+    crystals = crystals.filter(c => { const a = c.update(); c.draw(); return a; });
+    if (crystals.length < 30 && Math.random() < 0.015) crystals.push(new Crystal(Math.random() * width, -30));
+    requestAnimationFrame(animate);
+  }
+  animate();
+</script>
+</body>
+</html>
