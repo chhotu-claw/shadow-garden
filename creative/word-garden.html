@@ -4,250 +4,195 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Garden — Shadow's Garden</title>
-<meta name="description" content="A generative word garden where you plant words and watch them grow into stories.">
+<meta name="description">Plant words and connect them into stories. A visual story-builder.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  * { box-sizing: border-box; }
-  body { 
-    margin: 0; 
-    background: #0a0a0f; 
-    color: #e0e0e0;
-    font-family: 'Courier New', monospace;
-    overflow: hidden;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .garden-canvas {
-    flex: 1;
-    position: relative;
-    cursor: crosshair;
-  }
-  .word-node {
-    position: absolute;
+  body { margin: 0; overflow: hidden; background: #0a0a0f; font-family: Georgia, serif; }
+  .hint {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #555;
     font-size: 14px;
-    padding: 6px 12px;
-    background: rgba(20, 20, 30, 0.85);
-    border: 1px solid #333;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    user-select: none;
     z-index: 10;
   }
-  .word-node:hover {
-    background: rgba(40, 40, 60, 0.95);
-    border-color: #6cb6ff;
-    transform: scale(1.05);
+  .word {
+    position: absolute;
+    padding: 8px 14px;
+    background: rgba(20, 20, 30, 0.8);
+    border: 1px solid #333;
+    border-radius: 20px;
+    color: #ccc;
+    font-size: 16px;
+    cursor: move;
+    user-select: none;
+    transition: transform 0.1s;
   }
-  .word-node.connected {
+  .word:hover {
+    border-color: #6cb6ff;
+    color: #fff;
+  }
+  .word.selected {
     border-color: #7af782;
-  }
-  .word-node.selected {
-    background: rgba(106, 178, 255, 0.2);
-    border-color: #6cb6ff;
-    box-shadow: 0 0 20px rgba(106, 178, 255, 0.3);
+    background: rgba(30, 40, 30, 0.9);
   }
   .connection {
     position: absolute;
-    top: 0;
-    left: 0;
+    background: rgba(100, 150, 200, 0.3);
     pointer-events: none;
-    z-index: 5;
   }
-  .input-panel {
-    background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%);
-    border-top: 1px solid #222;
-    padding: 16px 24px;
+  .input-area {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    gap: 12px;
-    align-items: center;
-    z-index: 20;
+    gap: 8px;
+    z-index: 10;
   }
-  .word-input {
-    flex: 1;
-    max-width: 300px;
+  .input-area input {
     padding: 12px 16px;
-    background: #0d0d12;
-    border: 1px solid #333;
-    border-radius: 6px;
-    color: #e0e0e0;
-    font-size: 14px;
-    font-family: 'Courier New', monospace;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #111;
+    color: #ccc;
+    font-size: 15px;
+    width: 200px;
   }
-  .word-input:focus {
+  .input-area input:focus {
     outline: none;
     border-color: #6cb6ff;
   }
-  .plant-btn {
-    padding: 12px 24px;
-    background: #1a2e1a;
-    color: #7af782;
-    border: 1px solid #7af782;
-    border-radius: 6px;
+  .input-area button {
+    padding: 12px 20px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #222;
+    color: #ccc;
+    font-size: 15px;
     cursor: pointer;
-    font-size: 14px;
-    font-family: 'Courier New', monospace;
-    transition: all 0.2s;
   }
-  .plant-btn:hover {
-    background: #2a3e2a;
-    box-shadow: 0 0 15px rgba(122, 247, 130, 0.2);
-  }
-  .hint {
-    color: #666;
-    font-size: 12px;
-    font-family: 'Courier New', monospace;
-  }
-  @media (max-width: 600px) {
-    .input-panel {
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .word-input {
-      max-width: 100%;
-    }
+  .input-area button:hover {
+    border-color: #6cb6ff;
   }
 </style>
 </head>
-<body data-page-type="app">
-  <div class="garden-canvas" id="garden">
-    <svg class="connection" id="connections"></svg>
-  </div>
-  <div class="input-panel">
-    <input type="text" class="word-input" id="wordInput" placeholder="plant a word..." maxlength="20">
-    <button class="plant-btn" id="plantBtn">plant</button>
-    <span class="hint">click words to connect • click canvas to scatter</span>
-  </div>
+<body>
+<div class="hint">click to select · drag to move · click canvas to scatter</div>
+<div id="garden"></div>
+<div class="input-area">
+  <input type="text" id="wordInput" placeholder="Plant a word..." onkeypress="if(event.key==='Enter')addWord()">
+  <button onclick="addWord()">Plant</button>
+</div>
 <script>
   const garden = document.getElementById('garden');
-  const svg = document.getElementById('connections');
-  const wordInput = document.getElementById('wordInput');
-  const plantBtn = document.getElementById('plantBtn');
-  
-  const words = [];
+  const input = document.getElementById('wordInput');
+  let words = [];
   let selectedWord = null;
-  let wordId = 0;
-
-  const wordPrompts = [
-    'dream', 'echo', 'void', 'seed', 'root', 'grow', 'silent', 'drift',
-    'light', 'shadow', 'pulse', 'flow', 'bloom', 'fade', 'connect',
-    'memories', 'whisper', 'anchor', 'orbit', 'spark', 'tide', 'wake'
-  ];
-
-  function randomPrompt() {
-    return wordPrompts[Math.floor(Math.random() * wordPrompts.length)];
-  }
-
-  function createWordElement(text, x, y) {
-    const el = document.createElement('div');
-    el.className = 'word-node';
-    el.textContent = text;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.dataset.id = wordId++;
+  let connections = [];
+  
+  function addWord() {
+    const text = input.value.trim();
+    if (!text) return;
     
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (selectedWord && selectedWord !== el) {
-        connectWords(selectedWord, el);
-        selectedWord.classList.remove('selected');
-        selectedWord = null;
-      } else {
-        if (selectedWord) selectedWord.classList.remove('selected');
-        selectedWord = el;
-        el.classList.add('selected');
+    const word = document.createElement('div');
+    word.className = 'word';
+    word.textContent = text;
+    word.style.left = (Math.random() * (window.innerWidth - 200) + 50) + 'px';
+    word.style.top = (Math.random() * (window.innerHeight - 200) + 50) + 'px';
+    
+    let isDragging = false;
+    let offsetX, offsetY;
+    
+    word.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      offsetX = e.clientX - word.offsetLeft;
+      offsetY = e.clientY - word.offsetTop;
+      word.style.zIndex = 100;
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      word.style.left = (e.clientX - offsetX) + 'px';
+      word.style.top = (e.clientY - offsetY) + 'px';
+      drawConnections();
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        word.style.zIndex = '';
       }
     });
-
-    garden.appendChild(el);
     
-    const wordObj = { el, text, x, y, connections: [] };
-    words.push(wordObj);
-    return wordObj;
-  }
-
-  function connectWords(w1, w2) {
-    if (w1.connections.includes(w2)) return;
-    
-    w1.connections.push(w2);
-    w2.connections.push(w1);
-    w1.el.classList.add('connected');
-    w2.el.classList.add('connected');
-
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', w1.x + 40);
-    line.setAttribute('y1', w1.y + 20);
-    line.setAttribute('x2', w2.x + 40);
-    line.setAttribute('y2', w2.y + 20);
-    line.setAttribute('stroke', 'rgba(122, 247, 130, 0.3)');
-    line.setAttribute('stroke-width', '2');
-    svg.appendChild(line);
-  }
-
-  function plantWord() {
-    const text = wordInput.value.trim() || randomPrompt();
-    const rect = garden.getBoundingClientRect();
-    const x = Math.random() * (rect.width - 100) + 20;
-    const y = Math.random() * (rect.height - 100) + 20;
-    createWordElement(text, x, y);
-    wordInput.value = '';
-  }
-
-  function scatterWords() {
-    if (words.length < 2) return;
-    words.forEach(w => {
-      w.x += (Math.random() - 0.5) * 100;
-      w.y += (Math.random() - 0.5) * 100;
-      w.el.style.left = w.x + 'px';
-      w.el.style.top = w.y + 'px';
+    word.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (selectedWord && selectedWord !== word) {
+        // Create connection
+        connections.push({ from: selectedWord, to: word });
+        selectedWord.classList.remove('selected');
+        selectedWord = null;
+        drawConnections();
+      } else if (!selectedWord) {
+        selectedWord = word;
+        word.classList.add('selected');
+      }
     });
-    updateConnections();
-  }
-
-  function updateConnections() {
-    const lines = svg.querySelectorAll('line');
-    lines.forEach(l => l.remove());
     
-    words.forEach(w => {
-      w.connections.forEach(c => {
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', w.x + 40);
-        line.setAttribute('y1', w.y + 20);
-        line.setAttribute('x2', c.x + 40);
-        line.setAttribute('y2', c.y + 20);
-        line.setAttribute('stroke', 'rgba(122, 247, 130, 0.3)');
-        line.setAttribute('stroke-width', '2');
-        svg.appendChild(line);
+    garden.appendChild(word);
+    words.push(word);
+    input.value = '';
+  }
+  
+  function drawConnections() {
+    document.querySelectorAll('.connection').forEach(c => c.remove());
+    
+    connections.forEach(conn => {
+      const line = document.createElement('div');
+      line.className = 'connection';
+      
+      const fromRect = conn.from.getBoundingClientRect();
+      const toRect = conn.to.getBoundingClientRect();
+      
+      const x1 = fromRect.left + fromRect.width / 2;
+      const y1 = fromRect.top + fromRect.height / 2;
+      const x2 = toRect.left + toRect.width / 2;
+      const y2 = toRect.top + toRect.height / 2;
+      
+      const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+      const angle = Math.atan2(y2-y1, x2-x1) * 180 / Math.PI;
+      
+      line.style.width = length + 'px';
+      line.style.height = '2px';
+      line.style.left = x1 + 'px';
+      line.style.top = y1 + 'px';
+      line.style.transform = `rotate(${angle}deg)`;
+      line.style.transformOrigin = '0 0';
+      
+      garden.appendChild(line);
+    });
+  }
+  
+  document.addEventListener('click', (e) => {
+    if (e.target === document.body || e.target === garden) {
+      if (selectedWord) {
+        selectedWord.classList.remove('selected');
+        selectedWord = null;
+      }
+      // Scatter effect
+      words.forEach(w => {
+        w.style.transition = 'all 0.3s';
+        w.style.left = (Math.random() * (window.innerWidth - 200) + 50) + 'px';
+        w.style.top = (Math.random() * (window.innerHeight - 200) + 50) + 'px';
       });
-    });
-  }
-
-  plantBtn.addEventListener('click', plantWord);
-  wordInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') plantWord();
-  });
-
-  garden.addEventListener('click', (e) => {
-    if (e.target === garden || e.target === svg) {
-      const text = randomPrompt();
-      createWordElement(text, e.clientX - 40, e.clientY - 20);
+      setTimeout(() => {
+        words.forEach(w => w.style.transition = '');
+        drawConnections();
+      }, 300);
     }
   });
-
-  // Initialize with a few words
-  for (let i = 0; i < 5; i++) {
-    const rect = garden.getBoundingClientRect();
-    const x = Math.random() * (rect.width - 100) + 20;
-    const y = Math.random() * (rect.height - 100) + 20;
-    createWordElement(randomPrompt(), x, y);
-  }
-
-  // Connect first two words
-  if (words.length >= 2) {
-    connectWords(words[0], words[1]);
-  }
 </script>
 </body>
 </html>
