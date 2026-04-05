@@ -4,134 +4,184 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Email & URL Extractor — Shadow's Garden</title>
-<meta name="description" content="Extract emails and URLs from any text. Paste text, get all matches. All local.">
+<meta name="description">Extract emails and URLs from text. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .intro { color: var(--fg-muted); margin-bottom: 1.5rem; }
-  textarea { width: 100%; height: 150px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--fg); font-family: var(--font-mono); font-size: 14px; resize: vertical; box-sizing: border-box; }
-  .btn-row { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
-  button { padding: 0.6rem 1.2rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 14px; }
-  button:hover { background: var(--bg-secondary); }
-  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .extractor { max-width: 700px; margin: 0 auto; }
+  textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--mono);
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .output-section { margin-top: 20px; }
+  .output-section label { margin-bottom: 12px; }
+  .result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+  }
+  .result-value {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .copy-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { border-color: var(--accent); }
+  .buttons { display: flex; gap: 12px; margin-top: 16px; }
+  button {
+    flex: 1;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
   button.primary:hover { opacity: 0.9; }
-  .results { margin-top: 1.5rem; }
-  .result-section { margin-bottom: 1rem; }
-  .result-label { font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
-  .count { background: var(--bg-secondary); padding: 2px 8px; border-radius: 10px; font-size: 12px; color: var(--fg-muted); }
-  .result-list { background: var(--bg-secondary); border-radius: 8px; padding: 0.5rem; max-height: 200px; overflow-y: auto; }
-  .result-item { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 13px; word-break: break-all; }
-  .result-item:last-child { border-bottom: none; }
-  .result-item:hover { background: var(--bg); }
-  .copy-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-  .copy-btn { padding: 0.3rem 0.6rem; font-size: 12px; }
-  .copied { color: var(--accent); font-size: 12px; }
-  .empty { color: var(--fg-muted); font-style: italic; padding: 0.5rem; }
+  .stats {
+    display: flex;
+    gap: 16px;
+    margin: 16px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .stats span { font-weight: 600; color: var(--text); }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Email & URL Extractor</h1>
-  <p class="intro">Paste text to extract all emails and URLs.</p>
-
-  <label class="result-label" for="input">Input Text</label>
-  <textarea id="input" placeholder="Paste your text here..."></textarea>
-
-  <div class="btn-row">
-    <button class="primary" onclick="extract()">Extract</button>
-    <button onclick="clearAll()">Clear</button>
-  </div>
-
-  <div class="results">
-    <div class="result-section">
-      <div class="result-label">
-        Emails <span id="emailCount" class="count">0</span>
-      </div>
-      <div class="result-list" id="emails"></div>
-      <div class="copy-row" id="emailCopyRow" style="display:none">
-        <button class="copy-btn" onclick="copyList('emails')">Copy All</button>
-        <span id="emailCopied" class="copied"></span>
-      </div>
+  <div class="extractor">
+    <h1>Email & URL Extractor</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Extract emails and URLs from any text.</p>
+    
+    <div>
+      <label>Text to extract from</label>
+      <textarea id="input" placeholder="Paste text containing emails and URLs..."></textarea>
     </div>
-
-    <div class="result-section">
-      <div class="result-label">
-        URLs <span id="urlCount" class="count">0</span>
-      </div>
+    
+    <div class="buttons">
+      <button class="primary" onclick="extract()">Extract</button>
+      <button onclick="clearAll()">Clear</button>
+    </div>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <div>Emails: <span id="emailCount">0</span></div>
+      <div>URLs: <span id="urlCount">0</span></div>
+    </div>
+    
+    <div class="output-section">
+      <label>Emails</label>
+      <div class="result-list" id="emails"></div>
+    </div>
+    
+    <div class="output-section" style="margin-top: 20px;">
+      <label>URLs</label>
       <div class="result-list" id="urls"></div>
-      <div class="copy-row" id="urlCopyRow" style="display:none">
-        <button class="copy-btn" onclick="copyList('urls')">Copy All</button>
-        <span id="urlCopied" class="copied"></span>
-      </div>
     </div>
   </div>
 </div>
-
 <script>
-  const input = document.getElementById('input');
-  const emailsEl = document.getElementById('emails');
-  const urlsEl = document.getElementById('urls');
-  const emailCount = document.getElementById('emailCount');
-  const urlCount = document.getElementById('urlCount');
-  const emailCopyRow = document.getElementById('emailCopyRow');
-  const urlCopyRow = document.getElementById('urlCopyRow');
-
-  let extractedEmails = [];
-  let extractedUrls = [];
-
   function extract() {
-    const text = input.value;
+    const text = document.getElementById('input').value;
     
     // Email regex
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    extractedEmails = [...new Set(text.match(emailRegex) || [])];
+    const emails = text.match(emailRegex) || [];
     
-    // URL regex
-    const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
-    extractedUrls = [...new Set(text.match(urlRegex) || [])];
-
-    renderList(emailsEl, extractedEmails);
-    renderList(urlsEl, extractedUrls);
-    emailCount.textContent = extractedEmails.length;
-    urlCount.textContent = extractedUrls.length;
-    emailCopyRow.style.display = extractedEmails.length ? 'flex' : 'none';
-    urlCopyRow.style.display = extractedUrls.length ? 'flex' : 'none';
-  }
-
-  function renderList(el, items) {
-    if (!items.length) {
-      el.innerHTML = '<div class="empty">No matches found</div>';
-      return;
+    // URL regex (http/https URLs)
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+    const urls = text.match(urlRegex) || [];
+    
+    // Remove duplicates
+    const uniqueEmails = [...new Set(emails)];
+    const uniqueUrls = [...new Set(urls)];
+    
+    // Update stats
+    document.getElementById('stats').style.display = 'flex';
+    document.getElementById('emailCount').textContent = uniqueEmails.length;
+    document.getElementById('urlCount').textContent = uniqueUrls.length;
+    
+    // Render emails
+    const emailsDiv = document.getElementById('emails');
+    if (uniqueEmails.length === 0) {
+      emailsDiv.innerHTML = '<div style="color: #666; font-size: 14px;">No emails found</div>';
+    } else {
+      emailsDiv.innerHTML = uniqueEmails.map(e => `
+        <div class="result-item">
+          <span class="result-value">${e}</span>
+          <button class="copy-btn" onclick="copy('${e}')">Copy</button>
+        </div>
+      `).join('');
     }
-    el.innerHTML = items.map(item => `<div class="result-item">${escapeHtml(item)}</div>`).join('');
-  }
-
-  function escapeHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function clearAll() {
-    input.value = '';
-    extractedEmails = [];
-    extractedUrls = [];
-    renderList(emailsEl, []);
-    renderList(urlsEl, []);
-    emailCount.textContent = '0';
-    urlCount.textContent = '0';
-    emailCopyRow.style.display = 'none';
-    urlCopyRow.style.display = 'none';
-  }
-
-  function copyList(type) {
-    const items = type === 'emails' ? extractedEmails : extractedUrls;
-    const statusEl = document.getElementById(type === 'emails' ? 'emailCopied' : 'urlCopied');
     
-    if (!items.length) return;
-    navigator.clipboard.writeText(items.join('\n'));
-    statusEl.textContent = 'Copied!';
-    setTimeout(() => statusEl.textContent = '', 2000);
+    // Render URLs
+    const urlsDiv = document.getElementById('urls');
+    if (uniqueUrls.length === 0) {
+      urlsDiv.innerHTML = '<div style="color: #666; font-size: 14px;">No URLs found</div>';
+    } else {
+      urlsDiv.innerHTML = uniqueUrls.map(u => `
+        <div class="result-item">
+          <span class="result-value">${u}</span>
+          <button class="copy-btn" onclick="copy('${u.replace(/'/g, "\\'")}')">Copy</button>
+        </div>
+      `).join('');
+    }
+  }
+  
+  function copy(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      event.target.textContent = 'Copied!';
+      setTimeout(() => event.target.textContent = 'Copy', 1500);
+    });
+  }
+  
+  function clearAll() {
+    document.getElementById('input').value = '';
+    document.getElementById('emails').innerHTML = '';
+    document.getElementById('urls').innerHTML = '';
+    document.getElementById('stats').style.display = 'none';
   }
 </script>
 </body>
