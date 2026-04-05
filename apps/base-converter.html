@@ -3,164 +3,159 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Number Base Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between binary, octal, decimal, hexadecimal, and base-32. Instant conversion, copy buttons.">
+<title>Base Converter — Shadow's Garden</title>
+<meta name="description">Convert between binary, octal, decimal, hex. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
-  h1 { margin-bottom: 0.5rem; }
-  .input-group { margin-bottom: 1.5rem; }
-  .input-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
-  .input-group input, .input-group select { 
-    width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; 
-    background: var(--bg); color: var(--fg); font-size: 16px; font-family: 'Fira Code', monospace;
+  .converter { max-width: 600px; margin: 0 auto; }
+  .input-group { margin-bottom: 20px; }
+  .input-group label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
   }
-  .input-group input:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .results { display: grid; gap: 1rem; margin-top: 2rem; }
-  .result-row { display: flex; align-items: center; gap: 1rem; background: var(--bg-secondary); padding: 1rem; border-radius: 8px; }
-  .result-row .label { min-width: 80px; font-weight: 600; color: var(--fg-muted); }
-  .result-row .value { flex: 1; font-family: 'Fira Code', monospace; word-break: break-all; }
-  .result-row button { padding: 0.5rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--fg); }
-  .result-row button:hover { background: var(--border); }
-  .error { color: #ff6b6b; margin-top: 0.5rem; display: none; }
-  .error.show { display: block; }
-  .note { color: var(--fg-muted); font-size: 0.9rem; margin-top: 2rem; }
+  .input-group input {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 18px;
+    font-family: var(--mono);
+    box-sizing: border-box;
+  }
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .bases {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .base-item {
+    padding: 14px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+  }
+  .base-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .base-value {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .copy-btn {
+    margin-top: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--accent); }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Number Base Converter</h1>
-  <p class="note">Enter a number in any base to see it converted to all formats.</p>
-  
-  <div class="input-group">
-    <label for="inputValue">Enter value</label>
-    <input type="text" id="inputValue" placeholder="e.g., 255, 0xFF, 11111111, 0o377" autocomplete="off">
-  </div>
-  
-  <div class="input-group">
-    <label for="inputBase">Input base</label>
-    <select id="inputBase">
-      <option value="auto">Auto-detect</option>
-      <option value="2">Binary (2)</option>
-      <option value="8">Octal (8)</option>
-      <option value="10">Decimal (10)</option>
-      <option value="16">Hexadecimal (16)</option>
-      <option value="32">Base-32 (32)</option>
-    </select>
-  </div>
-  
-  <div id="error" class="error">Invalid number format</div>
-  
-  <div class="results">
-    <div class="result-row">
-      <span class="label">Binary</span>
-      <span class="value" id="binary">—</span>
-      <button onclick="copy('binary')">Copy</button>
+  <div class="converter">
+    <h1>Base Converter</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Convert between binary, octal, decimal, hex.</p>
+    
+    <div class="input-group">
+      <label>Enter a number (any base)</label>
+      <input type="text" id="input" placeholder="e.g., 42, 0x2A, 0b101010" oninput="convert()">
     </div>
-    <div class="result-row">
-      <span class="label">Octal</span>
-      <span class="value" id="octal">—</span>
-      <button onclick="copy('octal')">Copy</button>
-    </div>
-    <div class="result-row">
-      <span class="label">Decimal</span>
-      <span class="value" id="decimal">—</span>
-      <button onclick="copy('decimal')">Copy</button>
-    </div>
-    <div class="result-row">
-      <span class="label">Hex</span>
-      <span class="value" id="hex">—</span>
-      <button onclick="copy('hex')">Copy</button>
-    </div>
-    <div class="result-row">
-      <span class="label">Base-32</span>
-      <span class="value" id="base32">—</span>
-      <button onclick="copy('base32')">Copy</button>
+    
+    <div class="bases">
+      <div class="base-item">
+        <div class="base-label">Decimal (10)</div>
+        <div class="base-value" id="decimal">--</div>
+        <button class="copy-btn" onclick="copy('decimal')">Copy</button>
+      </div>
+      <div class="base-item">
+        <div class="base-label">Binary (2)</div>
+        <div class="base-value" id="binary">--</div>
+        <button class="copy-btn" onclick="copy('binary')">Copy</button>
+      </div>
+      <div class="base-item">
+        <div class="base-label">Octal (8)</div>
+        <div class="base-value" id="octal">--</div>
+        <button class="copy-btn" onclick="copy('octal')">Copy</button>
+      </div>
+      <div class="base-item">
+        <div class="base-label">Hexadecimal (16)</div>
+        <div class="base-value" id="hex">--</div>
+        <button class="copy-btn" onclick="copy('hex')">Copy</button>
+      </div>
     </div>
   </div>
 </div>
-
 <script>
-const inputEl = document.getElementById('inputValue');
-const baseEl = document.getElementById('inputBase');
-const errorEl = document.getElementById('error');
-
-function detectBase(str) {
-  str = str.trim().toLowerCase();
-  if (str.startsWith('0x') || str.startsWith('0x')) return 16;
-  if (str.startsWith('0o') || str.startsWith('0o')) return 8;
-  if (str.startsWith('0b') || str.startsWith('0b')) return 2;
-  if (/^[01]+$/.test(str)) return 2;
-  if (/^[0-7]+$/.test(str)) return 8;
-  if (/^[0-9]+$/.test(str)) return 10;
-  if (/^[0-9a-f]+$/.test(str)) return 16;
-  return 10;
-}
-
-function toBase(str, base) {
-  try {
-    const bigInt = BigInt(str);
-    if (base === 2) return bigInt.toString(2);
-    if (base === 8) return bigInt.toString(8);
-    if (base === 10) return bigInt.toString(10);
-    if (base === 16) return bigInt.toString(16).toUpperCase();
-    if (base === 32) return bigInt.toString(32).toUpperCase();
-  } catch (e) {
-    return null;
-  }
-}
-
-function convert() {
-  const val = inputEl.value.trim();
-  if (!val) {
-    ['binary', 'octal', 'decimal', 'hex', 'base32'].forEach(id => document.getElementById(id).textContent = '—');
-    errorEl.classList.remove('show');
-    return;
-  }
-  
-  let base = baseEl.value;
-  if (base === 'auto') {
-    base = detectBase(val);
-  }
-  base = parseInt(base);
-  
-  // Normalize input
-  let normalized = val.toLowerCase();
-  if (base === 16 && normalized.startsWith('0x')) normalized = normalized.slice(2);
-  else if (base === 8 && normalized.startsWith('0o')) normalized = normalized.slice(2);
-  else if (base === 2 && normalized.startsWith('0b')) normalized = normalized.slice(2);
-  
-  const results = {
-    binary: toBase(normalized, 2),
-    octal: toBase(normalized, 8),
-    decimal: toBase(normalized, 10),
-    hex: toBase(normalized, 16),
-    base32: toBase(normalized, 32)
-  };
-  
-  if (Object.values(results).some(v => v === null)) {
-    errorEl.classList.add('show');
-    ['binary', 'octal', 'decimal', 'hex', 'base32'].forEach(id => document.getElementById(id).textContent = '—');
-    return;
+  function convert() {
+    const input = document.getElementById('input').value.trim();
+    
+    if (!input) {
+      ['decimal', 'binary', 'octal', 'hex'].forEach(id => {
+        document.getElementById(id).textContent = '--';
+      });
+      return;
+    }
+    
+    let decimal;
+    
+    // Try to parse the input
+    if (input.startsWith('0x') || input.startsWith('0X')) {
+      // Hex
+      decimal = parseInt(input, 16);
+    } else if (input.startsWith('0b') || input.startsWith('0B')) {
+      // Binary
+      decimal = parseInt(input, 2);
+    } else if (input.startsWith('0o') || input.startsWith('0O')) {
+      // Octal
+      decimal = parseInt(input, 8);
+    } else if (input.startsWith('0') && input.length > 1) {
+      // Octal
+      decimal = parseInt(input, 8);
+    } else {
+      // Decimal or auto-detect
+      decimal = parseInt(input, 10);
+    }
+    
+    if (isNaN(decimal)) {
+      ['decimal', 'binary', 'octal', 'hex'].forEach(id => {
+        document.getElementById(id).textContent = 'Invalid';
+      });
+      return;
+    }
+    
+    document.getElementById('decimal').textContent = decimal.toString(10);
+    document.getElementById('binary').textContent = '0b' + decimal.toString(2);
+    document.getElementById('octal').textContent = '0o' + decimal.toString(8);
+    document.getElementById('hex').textContent = '0x' + decimal.toString(16).toUpperCase();
   }
   
-  errorEl.classList.remove('show');
-  document.getElementById('binary').textContent = '0b' + results.binary;
-  document.getElementById('octal').textContent = '0o' + results.octal;
-  document.getElementById('decimal').textContent = results.decimal;
-  document.getElementById('hex').textContent = '0x' + results.hex;
-  document.getElementById('base32').textContent = results.base32.toUpperCase();
-}
-
-function copy(id) {
-  const text = document.getElementById(id).textContent;
-  if (text === '—') return;
-  navigator.clipboard.writeText(text);
-}
-
-inputEl.addEventListener('input', convert);
-baseEl.addEventListener('change', convert);
+  function copy(id) {
+    const val = document.getElementById(id).textContent;
+    if (!val || val === '--' || val === 'Invalid') return;
+    
+    navigator.clipboard.writeText(val).then(() => {
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
+    });
+  }
 </script>
 </body>
 </html>
