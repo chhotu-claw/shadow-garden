@@ -4,128 +4,152 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Age Calculator — Shadow's Garden</title>
-<meta name="description" content="Calculate your exact age in years, months, days, and weeks. Shows next birthday countdown too.">
+<meta name="description">Calculate age from birthdate. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { padding: 2rem; max-width: 600px; margin: 0 auto; }
-  h1 { text-align: center; margin-bottom: 2rem; }
-  .input-group { margin-bottom: 1.5rem; }
-  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-  input[type="date"] { width: 100%; padding: 0.8rem; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); }
-  .result { background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-top: 1.5rem; display: none; }
-  .result.show { display: block; }
-  .age-display { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; text-align: center; }
-  .age-item { padding: 1rem; background: var(--bg); border-radius: 8px; }
-  .age-value { font-size: 2rem; font-weight: 700; color: var(--accent); }
-  .age-label { font-size: 0.85rem; color: var(--fg-muted); margin-top: 0.25rem; }
-  .next-birthday { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: center; }
-  .next-birthday-value { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
-  .checkbox-group { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
-  .checkbox-group input { width: auto; }
-  .checkbox-group label { margin: 0; font-weight: 400; }
-  @media (max-width: 500px) { .age-display { grid-template-columns: 1fr; } }
+  .age-calc { max-width: 500px; margin: 0 auto; }
+  .input-group {
+    margin-bottom: 20px;
+  }
+  .input-group label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  input[type="date"] {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+  input[type="date"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .result {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .age-value {
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .age-label {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+  .details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+  .detail-item {
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .detail-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .detail-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  button {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
 </style>
 </head>
 <body data-page-type="app">
-  <h1>Age Calculator</h1>
-  <div class="input-group">
-    <label for="birthday">Enter your birthday</label>
-    <input type="date" id="birthday">
-  </div>
-  <div class="result" id="result">
-    <div class="age-display">
-      <div class="age-item">
-        <div class="age-value" id="years">—</div>
-        <div class="age-label">Years</div>
+<div class="container">
+  <div class="age-calc">
+    <h1>Age Calculator</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Calculate your age from your birthdate.</p>
+    
+    <div class="input-group">
+      <label>Birthdate</label>
+      <input type="date" id="birthdate" onchange="calculate()">
+    </div>
+    
+    <button onclick="calculate()">Calculate Age</button>
+    
+    <div class="result" id="result" style="display: none;">
+      <div class="age-value" id="ageValue">--</div>
+      <div class="age-label">years old</div>
+    </div>
+    
+    <div class="details" id="details" style="display: none;">
+      <div class="detail-item">
+        <div class="detail-value" id="daysValue">--</div>
+        <div class="detail-label">days old</div>
       </div>
-      <div class="age-item">
-        <div class="age-value" id="months">—</div>
-        <div class="age-label">Months</div>
-      </div>
-      <div class="age-item">
-        <div class="age-value" id="days">—</div>
-        <div class="age-label">Days</div>
-      </div>
-      <div class="age-item">
-        <div class="age-value" id="weeks">—</div>
-        <div class="age-label">Weeks</div>
+      <div class="detail-item">
+        <div class="detail-value" id="nextBirthday">--</div>
+        <div class="detail-label">days until birthday</div>
       </div>
     </div>
-    <div class="next-birthday">
-      <div>Next birthday in</div>
-      <div class="next-birthday-value" id="next-birthday">—</div>
-    </div>
   </div>
-  <script>
-    const birthdayInput = document.getElementById('birthday');
-    const result = document.getElementById('result');
-    const yearsEl = document.getElementById('years');
-    const monthsEl = document.getElementById('months');
-    const daysEl = document.getElementById('days');
-    const weeksEl = document.getElementById('weeks');
-    const nextBirthdayEl = document.getElementById('next-birthday');
-
-    function calculateAge(birthDate) {
-      const today = new Date();
-      const birth = new Date(birthDate);
-      
-      if (birth > today) {
-        alert('Birthday cannot be in the future!');
-        return;
-      }
-
-      let years = today.getFullYear() - birth.getFullYear();
-      let months = today.getMonth() - birth.getMonth();
-      let days = today.getDate() - birth.getDate();
-
-      if (days < 0) {
-        months--;
-        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-        days += prevMonth.getDate();
-      }
-
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
-
-      const totalDays = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
-      const totalWeeks = Math.floor(totalDays / 7);
-
-      yearsEl.textContent = years;
-      monthsEl.textContent = months;
-      daysEl.textContent = days;
-      weeksEl.textContent = totalWeeks;
-
-      // Next birthday
-      let nextBirthday = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-      if (nextBirthday < today) {
-        nextBirthday.setFullYear(today.getFullYear() + 1);
-      }
-      const daysUntilNext = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24));
-      
-      if (daysUntilNext === 1) {
-        nextBirthdayEl.textContent = '1 day (tomorrow!)';
-      } else if (nextBirthday.getMonth() === birth.getMonth() && nextBirthday.getDate() === birth.getDate()) {
-        nextBirthdayEl.textContent = 'TODAY! 🎂';
-      } else {
-        const nextMonths = Math.floor(daysUntilNext / 30);
-        if (nextMonths >= 1) {
-          nextBirthdayEl.textContent = `${nextMonths} month${nextMonths > 1 ? 's' : ''} (${daysUntilNext} days)`;
-        } else {
-          nextBirthdayEl.textContent = `${daysUntilNext} days`;
-        }
-      }
-
-      result.classList.add('show');
+</div>
+<script>
+  function calculate() {
+    const birthdate = document.getElementById('birthdate').value;
+    if (!birthdate) return;
+    
+    const birth = new Date(birthdate);
+    const today = new Date();
+    
+    // Calculate age
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
     }
-
-    birthdayInput.addEventListener('change', (e) => {
-      if (e.target.value) {
-        calculateAge(e.target.value);
-      }
-    });
-  </script>
+    
+    // Total days
+    const totalDays = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
+    
+    // Days until next birthday
+    let nextBirthday = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+    if (nextBirthday < today) {
+      nextBirthday.setFullYear(today.getFullYear() + 1);
+    }
+    const daysUntil = Math.floor((nextBirthday - today) / (1000 * 60 * 60 * 24));
+    
+    // Display
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('details').style.display = 'grid';
+    document.getElementById('ageValue').textContent = age;
+    document.getElementById('daysValue').textContent = totalDays.toLocaleString();
+    document.getElementById('nextBirthday').textContent = daysUntil;
+  }
+</script>
 </body>
 </html>
