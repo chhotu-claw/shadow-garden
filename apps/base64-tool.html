@@ -4,33 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Base64 Encoder/Decoder — Shadow's Garden</title>
-<meta name="description" content="Encode and decode Base64 strings. All local, no tracking.">
+<meta name="description">Encode text to Base64 or decode Base64 to text. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container {
-    max-width: 700px;
+  .base64-tool { max-width: 700px; margin: 0 auto; }
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
   }
-  .panel {
-    margin-bottom: 24px;
+  .mode-toggle button {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
   }
-  .panel-label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
+  .mode-toggle button:hover { border-color: var(--accent); }
+  .mode-toggle button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }
   textarea {
     width: 100%;
-    min-height: 120px;
+    min-height: 150px;
     padding: 14px;
     border: 2px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--mono);
     font-size: 14px;
+    font-family: var(--mono);
     resize: vertical;
     box-sizing: border-box;
   }
@@ -38,132 +47,131 @@
     outline: none;
     border-color: var(--accent);
   }
-  .button-row {
+  .output-area { margin: 20px 0; }
+  .output-area label {
+    display: block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .buttons {
     display: flex;
     gap: 12px;
-    margin-top: 12px;
-    flex-wrap: wrap;
+    margin-top: 16px;
   }
   button {
-    padding: 10px 20px;
+    flex: 1;
+    padding: 14px;
     border: 2px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
     color: var(--text);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
     cursor: pointer;
-    transition: all 0.2s;
   }
-  button:hover {
-    border-color: var(--accent);
+  button:hover { border-color: var(--accent); }
+  button.primary {
     background: var(--accent);
+    border-color: var(--accent);
     color: white;
   }
-  button.secondary {
-    background: transparent;
-  }
-  .info-box {
-    padding: 16px;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 20px;
-  }
+  button.primary:hover { opacity: 0.9; }
   .error {
-    color: #e74c3c;
-    font-size: 13px;
+    color: #f77;
+    font-size: 14px;
     margin-top: 8px;
     display: none;
   }
-  .error.show {
-    display: block;
-  }
+  .error.show { display: block; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Base64 Encoder/Decoder</h1>
-  <p style="color: var(--text-secondary); margin-bottom: 24px;">Encode text to Base64 or decode Base64 to text. All local, no tracking.</p>
-
-  <div class="panel">
-    <div class="panel-label">Input</div>
-    <textarea id="input" placeholder="Enter text to encode OR Base64 string to decode..."></textarea>
-    <div class="error" id="error">Invalid Base64 string</div>
-    <div class="button-row">
-      <button onclick="encode()">Encode →</button>
-      <button onclick="decode()">← Decode</button>
-      <button class="secondary" onclick="clearAll()">Clear</button>
-      <button class="secondary" onclick="copyOutput()">Copy Output</button>
+  <div class="base64-tool">
+    <h1>Base64 Encoder/Decoder</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Encode text to Base64 or decode Base64 to text. All local.</p>
+    
+    <div class="mode-toggle">
+      <button class="active" onclick="setMode('encode', this)" id="btnEncode">Encode</button>
+      <button onclick="setMode('decode', this)" id="btnDecode">Decode</button>
     </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-label">Output</div>
-    <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
-  </div>
-
-  <div class="info-box">
-    <strong>What is Base64?</strong> A binary-to-text encoding scheme that represents binary data in ASCII string format. Commonly used for encoding data in URLs, emails, and storing binary in text-based formats like JSON.
+    
+    <div class="input-area">
+      <label id="inputLabel">Text to encode</label>
+      <textarea id="input" placeholder="Enter text to encode..."></textarea>
+    </div>
+    
+    <div class="buttons">
+      <button class="primary" onclick="convert()">Convert</button>
+      <button onclick="copyOutput()">Copy</button>
+      <button onclick="clearAll()">Clear</button>
+    </div>
+    
+    <div class="output-area">
+      <label id="outputLabel">Base64 output</label>
+      <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
+    </div>
+    
+    <div class="error" id="error"></div>
   </div>
 </div>
-
 <script>
-  const input = document.getElementById('input');
-  const output = document.getElementById('output');
-  const error = document.getElementById('error');
-
-  function encode() {
-    error.classList.remove('show');
-    const text = input.value;
-    if (!text) return;
-    try {
-      // Handle UTF-8 properly
-      const bytes = new TextEncoder().encode(text);
-      let binary = '';
-      bytes.forEach(b => binary += String.fromCharCode(b));
-      output.value = btoa(binary);
-    } catch (e) {
-      output.value = '';
-      error.classList.add('show');
-    }
+  let mode = 'encode';
+  
+  function setMode(m, btn) {
+    mode = m;
+    document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('inputLabel').textContent = mode === 'encode' ? 'Text to encode' : 'Base64 to decode';
+    document.getElementById('outputLabel').textContent = mode === 'encode' ? 'Base64 output' : 'Decoded text';
+    document.getElementById('input').placeholder = mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...';
+    document.getElementById('output').value = '';
+    document.getElementById('error').classList.remove('show');
   }
-
-  function decode() {
+  
+  function convert() {
+    const input = document.getElementById('input').value;
+    const output = document.getElementById('output');
+    const error = document.getElementById('error');
+    
     error.classList.remove('show');
-    const text = input.value.trim();
-    if (!text) return;
-    try {
-      const binary = atob(text);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      output.value = new TextDecoder().decode(bytes);
-    } catch (e) {
-      output.value = '';
-      error.classList.add('show');
-    }
-  }
-
-  function clearAll() {
-    input.value = '';
     output.value = '';
-    error.classList.remove('show');
-  }
-
-  function copyOutput() {
-    if (output.value) {
-      navigator.clipboard.writeText(output.value);
+    
+    if (!input) return;
+    
+    try {
+      if (mode === 'encode') {
+        // UTF-8 support
+        const encoded = btoa(unescape(encodeURIComponent(input)));
+        output.value = encoded;
+      } else {
+        // Decode with UTF-8 support
+        const decoded = decodeURIComponent(escape(atob(input)));
+        output.value = decoded;
+      }
+    } catch (e) {
+      error.textContent = 'Error: Invalid input for ' + mode + ' mode';
+      error.classList.add('show');
     }
   }
-
-  // Auto-detect: if input looks like Base64, show hint
-  input.addEventListener('input', () => {
-    error.classList.remove('show');
-  });
+  
+  function copyOutput() {
+    const output = document.getElementById('output');
+    if (!output.value) return;
+    
+    navigator.clipboard.writeText(output.value).then(() => {
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
+    });
+  }
+  
+  function clearAll() {
+    document.getElementById('input').value = '';
+    document.getElementById('output').value = '';
+    document.getElementById('error').classList.remove('show');
+  }
 </script>
 </body>
 </html>
