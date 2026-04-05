@@ -4,84 +4,62 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How Cookies and Sessions Actually Work — Shadow's Garden</title>
-<meta name="description" content="A deep dive into HTTP cookies, session management, and the security implications that most developers don't think about.">
+<meta name="description">A deep dive into HTTP cookies, session management, and the security implications.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 </head>
 <body data-page-type="article">
 <div class="container">
   <h1>How Cookies and Sessions Actually Work</h1>
-  <div class="meta">April 4th, 2026</div>
+  <div class="meta">2026-04-05</div>
   
-  <p>Every web developer uses cookies. Every web developer gets them wrong. Here's what actually happens when you log into a website.</p>
+  <p>Every web developer uses cookies. Every web developer gets them wrong. This is a deep dive into what actually happens when you log into a website.</p>
 
-  <h2>The basic problem</h2>
-  <p>HTTP is stateless. Each request is independent. The server has no idea who you are from one request to the next. That's the core problem cookies solve.</p>
+  <h2>The cookie header</h2>
   
-  <p>But "solving" it opened a can of worms that we're still dealing with today.</p>
-
-  <h2>What a cookie actually is</h2>
-  <p>A cookie is just a key-value pair the server sends in a response header:</p>
-  <pre><code>Set-Cookie: session_id=abc123; Path=/; HttpOnly; Secure; SameSite=Strict</code></pre>
+  <p>When you log in, the server sends this in the response header:</p>
   
-  <p>The browser stores this and sends it back with every subsequent request:</p>
+  <pre><code>Set-Cookie: session_id=abc123; Path=/; HttpOnly; Secure; SameSite=Lax</code></pre>
+  
+  <p>Your browser stores this and sends it back with every request:</p>
+  
   <pre><code>Cookie: session_id=abc123</code></pre>
   
-  <p>That's it. That's the whole mechanism. Everything else is built on top of this.</p>
+  <p>That's the basics. Here's where it gets complicated.</p>
 
-  <h2>Types of cookies</h2>
-  <p><strong>Session cookies</strong> — No expiration. Deleted when the browser closes. Used for temporary login states.</p>
-  <p><strong>Persistent cookies</strong> — Have an Expires or Max-Age directive. Can survive browser restarts. Used for "remember me" features.</p>
-  <p><strong>Third-party cookies</strong> — Set by domains other than the one you're visiting. The basis of ad tracking. Safari and Firefox are blocking these by default now.</p>
-
-  <h2>The session cookie problem</h2>
-  <p>Here's where it gets dangerous. A session cookie is just a magic token. If someone steals it, they become you. There's no way to tell the difference between the real user and the cookie thief.</p>
+  <h2>The flags matter</h2>
   
-  <p>This is called session hijacking. And it's easier than you'd think:</p>
   <ul>
-    <li>Network sniffing on public WiFi</li>
-    <li>XSS attacks that read document.cookie</li>
-    <li>Log files that accidentally leak session IDs</li>
-    <li>SQL injection that dumps the entire session table</li>
+    <li><strong>HttpOnly</strong> — JavaScript can't read this cookie. Prevents XSS attacks stealing the session.</li>
+    <li><strong>Secure</strong> — Only sent over HTTPS. Prevents eavesdropping on HTTP.</li>
+    <li><strong>SameSite</strong> — Controls when cookies are sent with cross-site requests. Lax (default) allows normal navigation. Strict prevents all cross-site. None disables cross-site restriction (requires Secure).</li>
   </ul>
 
-  <h2>What the flags actually do</h2>
-  <p><strong>HttpOnly</strong> — JavaScript can't read this cookie. Prevents XSS-based theft. Always use this for session tokens.</p>
-  <p><strong>Secure</strong> — Only sent over HTTPS. Prevents network-level sniffing.</p>
-  <p><strong>SameSite</strong> — Controls when the cookie is sent:
-    <ul>
-      <li>Strict — Only sent to the exact origin. Best for security.</li>
-      <li>Lax — Sent on top-level navigations and GET requests. The default.</li>
-      <li>None — Sent on all requests. Required for cross-site APIs but enables CSRF.</li>
-    </ul>
-  </p>
-
-  <h2>The better approach: JWTs (and their problems)</h2>
-  <p>JSON Web Tokens moved session data from the server to the client. The server verifies a signature instead of looking up a session in a database.</p>
+  <h2>Session hijacking</h2>
   
-  <p>But JWTs have their own problems:</p>
+  <p>If an attacker gets your session cookie, they're logged in as you. Methods:</p>
+  
   <ul>
-    <li>No built-in expiration (you have to check exp claim)</li>
-    <li>No built-in revocation (once issued, it's valid until it expires)</li>
-    <li>Stored in localStorage (vulnerable to XSS)</li>
-    <li>Can be stolen just like session cookies</li>
+    <li><strong>XSS</strong> — Inject JavaScript to read document.cookie</li>
+    <li><strong>Network sniffing</strong> — Unencrypted HTTP traffic</li>
+    <li><strong>Social engineering</strong> — Convincing you to click a link that sends the cookie</li>
   </ul>
+
+  <h2>JWTs aren't the answer</h2>
+  
+  <p>Many switch to JWTs thinking they're more secure. They're not. A JWT is just a signed token — if it's stored in localStorage and vulnerable to XSS, it's no more secure than a cookie. The HttpOnly protection is the key, and JWTs in localStorage don't have it.</p>
 
   <h2>What actually works</h2>
-  <p>The most secure approach combines multiple mechanisms:</p>
+  
   <ul>
-    <li>Short session expiry (15-30 minutes)</li>
-    <li>Refresh tokens for longer sessions</li>
-    <li>IP address and user-agent validation</li>
-    <li>Device fingerprinting</li>
-    <li>Rate limiting on authentication endpoints</li>
-    <li>HTTP-only, Secure, SameSite=Strict flags</li>
+    <li>Always use HttpOnly + Secure + SameSite=Strict for session cookies</li>
+    <li>Implement session expiration</li>
+    <li>Rotate session IDs on login</li>
+    <li>Use secure, random session IDs</li>
+    <li>Consider fingerprinting beyond just the cookie</li>
   </ul>
 
-  <p>There's no perfect solution. There's only layers of defense.</p>
-
-  <h2>The take</h2>
-  <p>Cookies are a 1997 solution to a 2026 problem. They work, but they're not designed for the security landscape we live in. Every session token is a potential attack vector. The best you can do is make exploitation hard enough that attackers move on to easier targets.</p>
+  <p>Cookies are simple to use, hard to get right. Understanding the mechanics is the only way to secure them properly.</p>
 
 </div>
 </body>
