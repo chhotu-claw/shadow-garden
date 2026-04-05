@@ -4,190 +4,148 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Date Calculator — Shadow's Garden</title>
-<meta name="description">Calculate days between dates, add/subtract days, find day of week. All local, no tracking.</meta>
+<meta name="description">Calculate days between dates, add/subtract days. All local, no tracking.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .date-calc { max-width: 600px; margin: 0 auto; }
-  .tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 24px;
+  .date-calc { max-width: 500px; margin: 0 auto; }
+  .input-group { margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+  input[type="date"] {
+    width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font-size: 16px; box-sizing: border-box;
   }
-  .tab {
-    flex: 1;
-    padding: 12px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
+  input:focus { outline: none; border-color: var(--accent); }
+  .options { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .option-btn {
+    flex: 1; min-width: 120px; padding: 12px; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer;
   }
-  .tab:hover { border-color: var(--accent); }
-  .tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  .panel { display: none; }
-  .panel.active { display: block; }
-  .input-group {
-    margin-bottom: 20px;
-  }
-  .input-group label {
-    display: block;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-  }
-  .input-group input {
-    width: 100%;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 18px;
-    box-sizing: border-box;
-  }
-  .input-group input:focus {
-    outline: none;
-    border-color: var(--accent);
+  .option-btn:hover { border-color: var(--accent); }
+  .option-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .input-group.num input {
+    width: 80px; padding: 12px; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font-size: 16px; text-align: center;
   }
   .result {
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--text);
+    background: var(--bg); border: 2px solid var(--border); border-radius: 8px;
+    padding: 20px; text-align: center; margin-bottom: 20px;
   }
-  .quick-btns {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
+  .result-date { font-size: 28px; font-weight: 600; color: var(--text); }
+  .result-label { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+  .details {
+    display: flex; justify-content: space-around; padding: 12px; border-top: 1px solid var(--border);
   }
-  .quick-btn {
-    padding: 8px 12px;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
+  .detail-item { text-align: center; }
+  .detail-value { font-size: 20px; font-weight: 600; color: var(--text); }
+  .detail-label { font-size: 12px; color: var(--text-secondary); }
+  button.calculate {
+    width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--accent); border-color: var(--accent); color: white; font-size: 16px; cursor: pointer;
   }
-  .quick-btn:hover { border-color: var(--accent); }
+  button.calculate:hover { opacity: 0.9; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
   <div class="date-calc">
     <h1>Date Calculator</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Calculate days between dates, add/subtract days, day of week.</p>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Calculate days between dates or add/subtract.</p>
     
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('diff')">Days Between</button>
-      <button class="tab" onclick="switchTab('add')">Add/Subtract</button>
-      <button class="tab" onclick="switchTab('info')">Day Info</button>
+    <div class="options">
+      <button class="option-btn active" onclick="setMode('diff', this)" id="modeDiff">Days Between</button>
+      <button class="option-btn" onclick="setMode('add', this)" id="modeAdd">Add Days</button>
+      <button class="option-btn" onclick="setMode('sub', this)" id="modeSub">Subtract Days</button>
     </div>
     
-    <!-- Days Between -->
-    <div class="panel active" id="diffPanel">
-      <div class="input-group">
-        <label>From</label>
-        <input type="date" id="diffFrom" onchange="calcDiff()">
-      </div>
-      <div class="input-group">
-        <label>To</label>
-        <input type="date" id="diffTo" onchange="calcDiff()">
-      </div>
-      <div class="result" id="diffResult">Select dates</div>
+    <div class="input-group">
+      <label id="date1Label">Start Date</label>
+      <input type="date" id="date1">
     </div>
     
-    <!-- Add/Subtract -->
-    <div class="panel" id="addPanel">
-      <div class="input-group">
-        <label>Start Date</label>
-        <input type="date" id="addStart" onchange="calcAdd()">
-      </div>
-      <div class="input-group">
-        <label>Add or Subtract Days</label>
-        <input type="number" id="addDays" value="7" onchange="calcAdd()">
-      </div>
-      <div class="result" id="addResult">Select a date</div>
+    <div class="input-group num" id="daysInput" style="display:none;">
+      <label>Days</label>
+      <input type="number" id="daysNum" value="1">
     </div>
     
-    <!-- Day Info -->
-    <div class="panel" id="infoPanel">
-      <div class="input-group">
-        <label>Date</label>
-        <input type="date" id="infoDate" onchange="calcInfo()">
+    <div class="input-group">
+      <label id="date2Label" style="display:none;">End Date</label>
+      <input type="date" id="date2" style="display:none;">
+    </div>
+    
+    <button class="calculate" onclick="calculate()">Calculate</button>
+    
+    <div class="result" id="result" style="display:none;">
+      <div class="result-date" id="resultDate">--</div>
+      <div class="result-label" id="resultLabel">days</div>
+      <div class="details" id="details" style="display:none;">
+        <div class="detail-item"><div class="detail-value" id="weekNum">0</div><div class="detail-label">weeks</div></div>
+        <div class="detail-item"><div class="detail-value" id="monthNum">0</div><div class="detail-label">months</div></div>
       </div>
-      <div class="result" id="infoResult">Select a date</div>
     </div>
   </div>
 </div>
 <script>
-  function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById(tab + 'Panel').classList.add('active');
+  let mode = 'diff';
+  
+  function setMode(m, btn) {
+    mode = m;
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    const daysInput = document.getElementById('daysInput');
+    const date2Input = document.getElementById('date2');
+    const date2Label = document.getElementById('date2Label');
+    
+    if (mode === 'diff') {
+      daysInput.style.display = 'none';
+      date2Input.style.display = 'block';
+      date2Label.style.display = 'block';
+      document.getElementById('date1Label').textContent = 'Start Date';
+      document.getElementById('resultLabel').textContent = 'days between';
+    } else {
+      daysInput.style.display = 'block';
+      date2Input.style.display = 'none';
+      date2Label.style.display = 'none';
+      document.getElementById('date1Label').textContent = 'Start Date';
+      document.getElementById('resultLabel').textContent = 'days later';
+    }
+    
+    document.getElementById('result').style.display = 'none';
   }
   
-  function calcDiff() {
-    const from = document.getElementById('diffFrom').value;
-    const to = document.getElementById('diffTo').value;
-    if (!from || !to) return;
+  function calculate() {
+    const date1 = new Date(document.getElementById('date1').value);
+    let date2, resultDate, days;
     
-    const d1 = new Date(from);
-    const d2 = new Date(to);
-    const diff = Math.abs(Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+    if (mode === 'diff') {
+      date2 = new Date(document.getElementById('date2').value);
+      days = Math.round((date2 - date1) / (1000 * 60 * 60 * 24));
+      resultDate = date2;
+    } else if (mode === 'add') {
+      const daysNum = parseInt(document.getElementById('daysNum').value) || 0;
+      resultDate = new Date(date1.getTime() + daysNum * 24 * 60 * 60 * 1000);
+      days = daysNum;
+    } else {
+      const daysNum = parseInt(document.getElementById('daysNum').value) || 0;
+      resultDate = new Date(date1.getTime() - daysNum * 24 * 60 * 60 * 1000);
+      days = daysNum;
+    }
     
-    const nights = d2 > d1 ? diff : diff;
-    document.getElementById('diffResult').innerHTML = diff + ' day' + (diff !== 1 ? 's' : '');
+    if (isNaN(date1.getTime())) return;
+    
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('resultDate').textContent = resultDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    document.getElementById('resultLabel').textContent = mode === 'diff' ? 'days between' : 'days ' + (mode === 'add' ? 'later' : 'earlier');
+    
+    if (mode !== 'diff') {
+      document.getElementById('details').style.display = 'flex';
+      document.getElementById('weekNum').textContent = Math.floor(days / 7);
+      document.getElementById('monthNum').textContent = Math.floor(days / 30);
+    } else {
+      document.getElementById('details').style.display = 'none';
+    }
   }
-  
-  function calcAdd() {
-    const start = document.getElementById('addStart').value;
-    const days = parseInt(document.getElementById('addDays').value) || 0;
-    if (!start) return;
-    
-    const d = new Date(start);
-    d.setDate(d.getDate() + days);
-    
-    document.getElementById('addResult').textContent = d.toLocaleDateString('en-US', { 
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-    });
-  }
-  
-  function calcInfo() {
-    const date = document.getElementById('infoDate').value;
-    if (!date) return;
-    
-    const d = new Date(date);
-    const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'long' });
-    const weekNum = getWeekNumber(d);
-    
-    document.getElementById('infoResult').innerHTML = dayOfWeek + '<br><span style="font-size:16px;color:#888">Week ' + weekNum + '</span>';
-  }
-  
-  function getWeekNumber(d) {
-    const oneJan = new Date(d.getFullYear(), 0, 1);
-    const weekNum = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-    return weekNum;
-  }
-  
-  // Set default dates
-  document.getElementById('diffTo').valueAsDate = new Date();
-  document.getElementById('addStart').valueAsDate = new Date();
-  document.getElementById('infoDate').valueAsDate = new Date();
 </script>
 </body>
 </html>
