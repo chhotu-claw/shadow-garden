@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Agent Parser — Shadow's Garden</title>
+<meta name="description" content="Parse user agent strings to identify browser, OS, device, and engine. Debug analytics and logs easily.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .ua-parser { max-width: 800px; margin: 0 auto; }
+  .input-section { margin-bottom: 2rem; }
+  textarea {
+    width: 100%;
+    height: 100px;
+    padding: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: monospace;
+    font-size: 14px;
+    resize: vertical;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 12px 24px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover {
+    opacity: 0.9;
+  }
+  .results {
+    display: none;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .results.visible {
+    display: flex;
+  }
+  .result-card {
+    flex: 1;
+    min-width: 200px;
+    padding: 1.5rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg);
+  }
+  .result-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+  }
+  .result-card .value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .result-card .detail {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+  .raw-ua {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+    display: none;
+  }
+  .raw-ua.visible {
+    display: block;
+  }
+  .presets {
+    margin-bottom: 1rem;
+  }
+  .presets span {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-right: 8px;
+  }
+  .preset-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container ua-parser">
+  <h1>User Agent Parser</h1>
+  <p class="subtitle">Parse user agent strings to identify browser, OS, device, and engine.</p>
+  
+  <div class="input-section">
+    <div class="presets">
+      <span>Quick presets:</span>
+      <button class="preset-btn" onclick="setUA('chrome')">Chrome</button>
+      <button class="preset-btn" onclick="setUA('firefox')">Firefox</button>
+      <button class="preset-btn" onclick="setUA('safari')">Safari</button>
+      <button class="preset-btn" onclick="setUA('mobile')">Mobile</button>
+      <button class="preset-btn" onclick="setUA('bot')">Bot</button>
+    </div>
+    <textarea id="uaInput" placeholder="Paste a user agent string here..."></textarea>
+    <div class="controls">
+      <button class="primary" onclick="parseUA()">Parse</button>
+      <button onclick="clearInput()">Clear</button>
+    </div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-card">
+      <h3>Browser</h3>
+      <div class="value" id="browser">-</div>
+      <div class="detail" id="browserDetail"></div>
+    </div>
+    <div class="result-card">
+      <h3>Operating System</h3>
+      <div class="value" id="os">-</div>
+      <div class="detail" id="osDetail"></div>
+    </div>
+    <div class="result-card">
+      <h3>Device</h3>
+      <div class="value" id="device">-</div>
+      <div class="detail" id="deviceDetail"></div>
+    </div>
+    <div class="result-card">
+      <h3>Engine</h3>
+      <div class="value" id="engine">-</div>
+      <div class="detail" id="engineDetail"></div>
+    </div>
+  </div>
+
+  <div class="raw-ua" id="rawUA"></div>
+</div>
+
+<script>
+const presets = {
+  chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  firefox: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  safari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+  mobile: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+  bot: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+};
+
+function setUA(type) {
+  document.getElementById('uaInput').value = presets[type];
+  parseUA();
+}
+
+function clearInput() {
+  document.getElementById('uaInput').value = '';
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('rawUA').classList.remove('visible');
+}
+
+function parseUA() {
+  const ua = document.getElementById('uaInput').value.trim();
+  if (!ua) return;
+
+  const parsed = parseUserAgent(ua);
+  
+  document.getElementById('browser').textContent = parsed.browser.name || 'Unknown';
+  document.getElementById('browserDetail').textContent = parsed.browser.version || '';
+  
+  document.getElementById('os').textContent = parsed.os.name || 'Unknown';
+  document.getElementById('osDetail').textContent = parsed.os.version || '';
+  
+  document.getElementById('device').textContent = parsed.device.type || 'Desktop';
+  document.getElementById('deviceDetail').textContent = parsed.device.model || '';
+  
+  document.getElementById('engine').textContent = parsed.engine.name || 'Unknown';
+  document.getElementById('engineDetail').textContent = parsed.engine.version || '';
+
+  document.getElementById('rawUA').textContent = ua;
+  
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('rawUA').classList.add('visible');
+}
+
+function parseUserAgent(ua) {
+  const result = {
+    browser: { name: null, version: null },
+    os: { name: null, version: null },
+    device: { type: 'Desktop', model: null },
+    engine: { name: null, version: null }
+  };
+
+  // Browser detection
+  const browsers = [
+    { name: 'Chrome', regex: /Chrome\/(\d+)/, exclude: /Edg/ },
+    { name: 'Edge', regex: /Edg\/(\d+)/ },
+    { name: 'Firefox', regex: /Firefox\/(\d+)/ },
+    { name: 'Safari', regex: /Version\/(\d+).*Safari/, exclude: /Chrome/ },
+    { name: 'Opera', regex: /OPR\/(\d+)|Opera\s*(\d+)/ },
+    { name: 'IE', regex: /MSIE\s*(\d+)|Trident.*rv:(\d+)/ },
+    { name: 'Samsung', regex: /SamsungBrowser\/(\d+)/ }
+  ];
+
+  for (const b of browsers) {
+    const match = ua.match(b.regex);
+    if (match && (!b.exclude || !b.exclude.test(ua))) {
+      result.browser.name = b.name;
+      result.browser.version = match[1] || match[2];
+      break;
+    }
+  }
+
+  // Engine detection
+  if (/AppleWebKit/.test(ua)) {
+    result.engine.name = 'WebKit';
+    const match = ua.match(/AppleWebKit\/(\d+)/);
+    if (match) result.engine.version = match[1];
+  } else if (/Gecko/.test(ua)) {
+    result.engine.name = 'Gecko';
+    const match = ua.match(/Gecko\/(\d+)/);
+    if (match) result.engine.version = match[1];
+  } else if (/Presto/.test(ua)) {
+    result.engine.name = 'Presto';
+  }
+
+  // OS detection
+  const oss = [
+    { name: 'Windows', regex: /Windows\s*(NT\s*(\d+\.\d+)|(\d+))/, versions: { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7', '6.0': 'Vista', '5.1': 'XP', '5.0': '2000' } },
+    { name: 'macOS', regex: /Mac\s*OS\s*X\s*(\d+[._]\d+)/ },
+    { name: 'iOS', regex: /(iPhone|iPad|iPod)\s*OS\s*(\d+[._]\d+)/ },
+    { name: 'Android', regex: /Android\s*(\d+\.\d+)/ },
+    { name: 'Linux', regex: /Linux/ },
+    { name: 'Chrome OS', regex: /CrOS/ },
+    { name: 'FreeBSD', regex: /FreeBSD/ }
+  ];
+
+  for (const os of oss) {
+    const match = ua.match(os.regex);
+    if (match) {
+      result.os.name = os.name;
+      if (os.name === 'Windows' && os.versions && match[2]) {
+        result.os.version = os.versions[match[2]] || match[2];
+      } else if (os.name === 'iOS' || os.name === 'macOS') {
+        result.os.version = match[2] ? match[2].replace(/_/g, '.') : (match[1] ? match[1].replace(/_/g, '.') : '');
+        if (os.name === 'iOS') {
+          result.device.type = match[1] || 'iPhone';
+        }
+      } else if (os.name === 'Android') {
+        result.os.version = match[1];
+      }
+      break;
+    }
+  }
+
+  // Device type detection
+  if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|Opera Mini|IEMobile/.test(ua)) {
+    if (/iPad/.test(ua)) {
+      result.device.type = 'Tablet';
+      result.device.model = 'iPad';
+    } else if (/iPod/.test(ua)) {
+      result.device.type = 'Mobile';
+      result.device.model = 'iPod';
+    } else if (/iPhone/.test(ua)) {
+      result.device.type = 'Mobile';
+      result.device.model = 'iPhone';
+    } else if (/Android/.test(ua)) {
+      result.device.type = 'Mobile';
+      const modelMatch = ua.match(/Android[^;]*;\s*([^)]+)/);
+      result.device.model = modelMatch ? modelMatch[1].trim() : 'Android Device';
+    } else {
+      result.device.type = 'Mobile';
+    }
+  }
+
+  // Bot detection
+  if (/bot|crawler|spider|google|yahoo|bing|crawl|slurp|duckduck/i.test(ua) && !/Chrome/.test(ua)) {
+    result.device.type = 'Bot/Crawler';
+  }
+
+  return result;
+}
+</script>
+</body>
+</html>
