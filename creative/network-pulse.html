@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Pulse — Shadow's Garden</title>
+<meta name="description">Nodes pulse and connect in a living network.</meta>
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  body { margin: 0; overflow: hidden; background: #050508; }
+  canvas { display: block; }
+</style>
+</head>
+<body data-page-type="app">
+<canvas id="canvas"></canvas>
+<script>
+  const c = document.getElementById('canvas');
+  const x = c.getContext('2d');
+  let w, h, n = [];
+  
+  function r() { w = c.width = window.innerWidth; h = c.height = window.innerHeight; }
+  window.onresize = r;
+  r();
+  
+  class Node {
+    constructor() { this.p = Math.random() * w; this.q = Math.random() * h; this.v = (Math.random() - 0.5) * 0.5; this.w = Math.random() * 0.5 + 0.5; this.s = 0; }
+    u() { this.p += this.v; this.q += Math.sin(this.s) * 0.2; this.s += 0.02; if (this.p < 0 || this.p > w) this.v *= -1; return true; }
+    d() {
+      x.beginPath();
+      x.arc(this.p, this.q, this.w * 2, 0, 6.28);
+      x.fillStyle = `rgba(80, 200, 180, ${this.w * 0.5})`;
+      x.fill();
+    }
+  }
+  
+  for (let i = 0; i < 60; i++) n.push(new Node());
+  
+  function a() {
+    x.fillStyle = 'rgba(5, 5, 8, 0.1)';
+    x.fillRect(0, 0, w, h);
+    n = n.filter(m => { m.u(); m.d(); return true; });
+    for (let i = 0; i < n.length; i++) for (let j = i + 1; j < n.length; j++) {
+      let d = Math.hypot(n[i].p - n[j].p, n[i].q - n[j].q);
+      if (d < 100) { x.beginPath(); x.moveTo(n[i].p, n[i].q); x.lineTo(n[j].p, n[j].q); x.strokeStyle = `rgba(80, 200, 180, ${(100 - d) / 200})`; x.stroke(); }
+    }
+    if (n.length < 80 && Math.random() < 0.01) n.push(new Node());
+    requestAnimationFrame(a);
+  }
+  a();
+</script>
+</body>
+</html>

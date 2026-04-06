@@ -4,118 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Epoch Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between Unix timestamps and human-readable dates. See current time, copy to clipboard, convert any timestamp.</meta>
+<meta name="description">Convert Unix timestamps to human dates and vice versa.</meta>
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-  .container { max-width: 600px; margin: 0 auto; padding: 2rem; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
-  .card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-  .label { font-size: 0.8rem; color: #888; text-transform: uppercase; margin-bottom: 0.5rem; display: block; }
-  input { width: 100%; padding: 0.75rem; font-size: 1.1rem; background: #0d0d0d; border: 1px solid #333; border-radius: 6px; color: #e5e5e5; font-family: monospace; }
-  input:focus { outline: none; border-color: #6cb6ff; }
-  .current-time { font-size: 2rem; font-weight: 600; color: #6cb6ff; font-family: monospace; margin-bottom: 1rem; }
-  .copy-btn { background: #333; color: #e5e5e5; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-top: 0.5rem; }
-  .copy-btn:hover { background: #444; }
-  .copy-btn:active { background: #555; }
-  .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-top: 1.5rem; }
-  .zone { background: #0d0d0d; padding: 0.5rem; border-radius: 4px; font-size: 0.85rem; }
-  .zone-name { color: #666; font-size: 0.75rem; }
-  .zone-time { color: #e5e5e5; font-family: monospace; }
+  .conv { max-width: 500px; margin: 0 auto; }
+  .input-group { margin-bottom: 16px; }
+  .input-group label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+  .input-group input { width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 18px; font-family: var(--mono); box-sizing: border-box; }
+  .input-group input:focus { outline: none; border-color: var(--accent); }
+  .result { background: var(--bg); border: 2px solid var(--border); border-radius: 8px; padding: 20px; margin-top: 20px; text-align: center; }
+  .result-date { font-size: 20px; font-family: var(--mono); color: var(--text); }
+  .live { font-size: 14px; color: var(--text-secondary); margin-top: 12px; }
+  .live span { font-family: var(--mono); color: var(--accent); }
+  button { width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 8px; background: var(--accent); border-color: var(--accent); color: white; font-size: 16px; cursor: pointer; margin-top: 16px; }
+  button:hover { opacity: 0.9; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Epoch Converter</h1>
-  <div class="meta">2026-03-26</div>
-  
-  <div class="card">
-    <div class="label">Current Unix Timestamp</div>
-    <div class="current-time" id="currentEpoch">---</div>
-    <button class="copy-btn" onclick="copyToClipboard(document.getElementById('currentEpoch').textContent)">Copy</button>
-  </div>
-
-  <div class="card">
-    <div class="label">Convert Epoch → Date</div>
-    <input type="number" id="epochInput" placeholder="Enter timestamp (e.g., 1743024000)" oninput="convertFromEpoch()">
-    <div id="epochResult" style="margin-top: 1rem; color: #7af782; font-family: monospace;"></div>
-  </div>
-
-  <div class="card">
-    <div class="label">Convert Date → Epoch</div>
-    <input type="datetime-local" id="dateInput" onchange="convertToEpoch()">
-    <div id="dateResult" style="margin-top: 1rem; color: #7af782; font-family: monospace;"></div>
-  </div>
-
-  <div class="card">
-    <div class="label">Common Timezones</div>
-    <div class="zone-grid" id="zoneGrid"></div>
+  <div class="conv">
+    <h1>Epoch Converter</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Convert Unix timestamps to dates.</p>
+    <div class="input-group">
+      <label>Unix Timestamp (seconds)</label>
+      <input type="number" id="ts" placeholder="1775500000" oninput="convert()">
+    </div>
+    <button onclick="convert()">Convert</button>
+    <div class="result" id="result" style="display:none;">
+      <div class="result-date" id="date">--</div>
+      <div class="live">Now: <span id="now">--</span></div>
+    </div>
   </div>
 </div>
-
 <script>
-  const zones = [
-    { name: 'UTC', offset: 0 },
-    { name: 'New York (EST)', offset: -5 },
-    { name: 'Los Angeles (PST)', offset: -8 },
-    { name: 'London (GMT)', offset: 0 },
-    { name: 'Paris (CET)', offset: 1 },
-    { name: 'Dubai', offset: 4 },
-    { name: 'Mumbai (IST)', offset: 5.5 },
-    { name: 'Singapore', offset: 8 },
-    { name: 'Tokyo (JST)', offset: 9 },
-    { name: 'Sydney (AEST)', offset: 11 }
-  ];
-
-  function updateCurrentTime() {
-    const now = Math.floor(Date.now() / 1000);
-    document.getElementById('currentEpoch').textContent = now;
-    updateZones(now);
+  function convert() {
+    const ts = document.getElementById('ts').value;
+    if (!ts) return;
+    const d = new Date(parseInt(ts) * 1000);
+    document.getElementById('date').textContent = d.toLocaleString();
+    document.getElementById('result').style.display = 'block';
   }
-
-  function updateZones(timestamp) {
-    const grid = document.getElementById('zoneGrid');
-    const date = new Date(timestamp * 1000);
-    grid.innerHTML = zones.map(z => {
-      const offsetMs = z.offset * 3600000;
-      const local = new Date(date.getTime() + offsetMs);
-      const fmt = local.toISOString().replace('T', ' ').slice(0, 16);
-      return `<div class="zone"><div class="zone-name">${z.name}</div><div class="zone-time">${fmt}</div></div>`;
-    }).join('');
-  }
-
-  function convertFromEpoch() {
-    const input = document.getElementById('epochInput').value;
-    const result = document.getElementById('epochResult');
-    if (!input) { result.textContent = ''; return; }
-    try {
-      const date = new Date(parseInt(input) * 1000);
-      result.textContent = date.toString();
-    } catch (e) {
-      result.textContent = 'Invalid timestamp';
-    }
-  }
-
-  function convertToEpoch() {
-    const input = document.getElementById('dateInput').value;
-    const result = document.getElementById('dateResult');
-    if (!input) { result.textContent = ''; return; }
-    try {
-      const date = new Date(input);
-      result.textContent = Math.floor(date.getTime() / 1000);
-    } catch (e) {
-      result.textContent = 'Invalid date';
-    }
-  }
-
-  function copyToClipboard(text) {
-    navigator.clipboard.writeText(text);
-  }
-
-  updateCurrentTime();
-  setInterval(updateCurrentTime, 1000);
+  setInterval(() => document.getElementById('now').textContent = Math.floor(Date.now() / 1000), 1000);
 </script>
 </body>
 </html>
