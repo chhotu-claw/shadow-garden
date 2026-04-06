@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CURL Builder — Shadow's Garden</title>
+<meta name="description" content="Build curl commands visually — add headers, body, auth, and copy the ready-to-use command">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  
+  .builder-section {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  
+  .input-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    align-items: center;
+  }
+  
+  .input-row input, .input-row select, .input-row textarea {
+    flex: 1;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9375rem;
+  }
+  
+  .input-row textarea {
+    min-height: 80px;
+    font-family: ui-monospace, monospace;
+    resize: vertical;
+  }
+  
+  .input-row input:focus, .input-row textarea:focus, .select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+  }
+  
+  .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  
+  .btn-secondary:hover {
+    background: var(--border);
+  }
+  
+  .btn-danger {
+    background: #dc2626;
+    color: white;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .btn-danger:hover {
+    background: #b91c1c;
+  }
+  
+  .btn-small {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.8125rem;
+  }
+  
+  .url-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  
+  .method-select {
+    width: 120px;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+  }
+  
+  .header-key {
+    width: 200px;
+    flex: none;
+  }
+  
+  .output-section {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 1.5rem;
+    position: relative;
+  }
+  
+  .output-code {
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.9375rem;
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+  
+  .output-code:focus {
+    outline: none;
+  }
+  
+  .copy-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+  }
+  
+  .auth-options {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .auth-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .auth-option input[type="radio"] {
+    accent-color: var(--accent);
+  }
+  
+  .auth-fields {
+    display: none;
+  }
+  
+  .auth-fields.active {
+    display: block;
+  }
+  
+  .auth-fields .input-row {
+    margin-bottom: 0.5rem;
+  }
+  
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    background: var(--bg-tertiary);
+    padding: 0.25rem;
+    border-radius: 8px;
+    width: fit-content;
+  }
+  
+  .tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  
+  .tab.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  
+  .tab-content {
+    display: none;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  @media (max-width: 640px) {
+    .input-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .header-key {
+      width: 100%;
+    }
+    .method-select, .url-input {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>CURL Builder</h1>
+  <p class="subtitle">Build curl commands visually — copy the ready-to-use command</p>
+  
+  <div class="builder-section">
+    <div class="section-title">Request</div>
+    <div class="input-row">
+      <select id="method" class="method-select">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+        <option value="HEAD">HEAD</option>
+        <option value="OPTIONS">OPTIONS</option>
+      </select>
+      <input type="text" id="url" class="url-input" placeholder="https://api.example.com/endpoint">
+    </div>
+  </div>
+  
+  <div class="builder-section">
+    <div class="section-title">Headers</div>
+    <div id="headers-list"></div>
+    <button class="btn btn-secondary btn-small" onclick="addHeader()">+ Add Header</button>
+  </div>
+  
+  <div class="builder-section">
+    <div class="section-title">Authentication</div>
+    <div class="auth-options">
+      <label class="auth-option">
+        <input type="radio" name="auth" value="none" checked> None
+      </label>
+      <label class="auth-option">
+        <input type="radio" name="auth" value="basic"> Basic Auth
+      </label>
+      <label class="auth-option">
+        <input type="radio" name="auth" value="bearer"> Bearer Token
+      </label>
+      <label class="auth-option">
+        <input type="radio" name="auth" value="apiKey"> API Key
+      </label>
+    </div>
+    
+    <div id="auth-basic" class="auth-fields">
+      <div class="input-row">
+        <input type="text" id="basic-user" placeholder="Username">
+        <input type="password" id="basic-pass" placeholder="Password">
+      </div>
+    </div>
+    
+    <div id="auth-bearer" class="auth-fields">
+      <div class="input-row">
+        <input type="text" id="bearer-token" placeholder="Token">
+      </div>
+    </div>
+    
+    <div id="auth-apikey" class="auth-fields">
+      <div class="input-row">
+        <input type="text" id="apikey-name" placeholder="Header Name (e.g., X-API-Key)">
+        <input type="text" id="apikey-value" placeholder="API Key Value">
+      </div>
+    </div>
+  </div>
+  
+  <div class="builder-section">
+    <div class="section-title">Body</div>
+    <div class="tabs">
+      <button class="tab active" data-tab="none">None</button>
+      <button class="tab" data-tab="json">JSON</button>
+      <button class="tab" data-tab="form">Form Data</button>
+      <button class="tab" data-tab="raw">Raw</button>
+    </div>
+    
+    <div id="tab-none" class="tab-content active">
+      <p style="color: var(--text-muted); font-size: 0.875rem;">No body for this request</p>
+    </div>
+    
+    <div id="tab-json" class="tab-content">
+      <textarea id="body-json" placeholder='{"key": "value"}'></textarea>
+    </div>
+    
+    <div id="tab-form" class="tab-content">
+      <textarea id="body-form" placeholder="key1=value1&key2=value2"></textarea>
+    </div>
+    
+    <div id="tab-raw" class="tab-content">
+      <textarea id="body-raw" placeholder="Raw body content"></textarea>
+    </div>
+  </div>
+  
+  <div class="output-section">
+    <div class="section-title" style="color: #a0a0a0;">Generated Curl Command</div>
+    <textarea id="output" class="output-code" readonly></textarea>
+    <button class="btn btn-primary copy-btn" onclick="copyOutput()">Copy</button>
+  </div>
+</div>
+
+<script>
+  // State
+  let headers = [];
+  
+  // Initialize
+  document.addEventListener('DOMContentLoaded', () => {
+    addHeader('Content-Type', 'application/json');
+    updateCurl();
+    
+    // Event listeners
+    document.getElementById('method').addEventListener('change', updateCurl);
+    document.getElementById('url').addEventListener('input', updateCurl);
+    
+    document.querySelectorAll('input[name="auth"]').forEach(radio => {
+      radio.addEventListener('change', toggleAuth);
+    });
+    
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+    
+    ['body-json', 'body-form', 'body-raw'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateCurl);
+    });
+    
+    ['basic-user', 'basic-pass', 'bearer-token', 'apikey-name', 'apikey-value'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateCurl);
+    });
+  });
+  
+  function addHeader(key = '', value = '') {
+    headers.push({ key, value });
+    renderHeaders();
+    updateCurl();
+  }
+  
+  function removeHeader(index) {
+    headers.splice(index, 1);
+    renderHeaders();
+    updateCurl();
+  }
+  
+  function updateHeader(index, field, val) {
+    headers[index][field] = val;
+    updateCurl();
+  }
+  
+  function renderHeaders() {
+    const container = document.getElementById('headers-list');
+    container.innerHTML = headers.map((h, i) => `
+      <div class="input-row">
+        <input type="text" class="header-key" placeholder="Header-Name" value="${h.key}" onchange="updateHeader(${i}, 'key', this.value)">
+        <input type="text" placeholder="Header Value" value="${h.value}" onchange="updateHeader(${i}, 'value', this.value)">
+        <button class="btn btn-danger btn-small" onclick="removeHeader(${i})">×</button>
+      </div>
+    `).join('');
+  }
+  
+  function toggleAuth() {
+    const authType = document.querySelector('input[name="auth"]:checked').value;
+    document.querySelectorAll('.auth-fields').forEach(el => el.classList.remove('active'));
+    if (authType !== 'none') {
+      document.getElementById('auth-' + authType).classList.add('active');
+    }
+    updateCurl();
+  }
+  
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    
+    updateCurl();
+  }
+  
+  function getActiveBody() {
+    const activeTab = document.querySelector('.tab.active').dataset.tab;
+    if (activeTab === 'json') return { type: 'json', content: document.getElementById('body-json').value };
+    if (activeTab === 'form') return { type: 'form', content: document.getElementById('body-form').value };
+    if (activeTab === 'raw') return { type: 'raw', content: document.getElementById('body-raw').value };
+    return null;
+  }
+  
+  function escapeShell(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "'\\''");
+  }
+  
+  function updateCurl() {
+    const method = document.getElementById('method').value;
+    const url = document.getElementById('url').value || 'https://example.com';
+    
+    let parts = ['curl'];
+    
+    // Method
+    if (method !== 'GET') {
+      parts.push(`-X ${method}`);
+    }
+    
+    // Headers
+    headers.forEach(h => {
+      if (h.key && h.value) {
+        parts.push(`-H '${h.key}: ${escapeShell(h.value)}'`);
+      }
+    });
+    
+    // Auth
+    const authType = document.querySelector('input[name="auth"]:checked').value;
+    if (authType === 'basic') {
+      const user = document.getElementById('basic-user').value;
+      const pass = document.getElementById('basic-pass').value;
+      if (user) {
+        parts.push(`-u '${escapeShell(user)}:${escapeShell(pass)}'`);
+      }
+    } else if (authType === 'bearer') {
+      const token = document.getElementById('bearer-token').value;
+      if (token) {
+        parts.push(`-H 'Authorization: Bearer ${escapeShell(token)}'`);
+      }
+    } else if (authType === 'apikey') {
+      const name = document.getElementById('apikey-name').value;
+      const val = document.getElementById('apikey-value').value;
+      if (name && val) {
+        parts.push(`-H '${name}: ${escapeShell(val)}'`);
+      }
+    }
+    
+    // Body
+    const body = getActiveBody();
+    if (body && body.content) {
+      if (body.type === 'json') {
+        parts.push(`-d '${escapeShell(body.content)}'`);
+      } else if (body.type === 'form') {
+        parts.push(`--data-urlencode '${escapeShell(body.content)}'`);
+      } else {
+        parts.push(`-d '${escapeShell(body.content)}'`);
+      }
+    }
+    
+    // URL (last)
+    parts.push(`'${url}'`);
+    
+    document.getElementById('output').value = parts.join(' \\\n  ');
+  }
+  
+  function copyOutput() {
+    const output = document.getElementById('output');
+    output.select();
+    document.execCommand('copy');
+    
+    const btn = document.querySelector('.copy-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 1500);
+  }
+</script>
+</body>
+</html>
