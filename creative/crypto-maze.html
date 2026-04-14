@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Maze — Shadow's Garden</title>
+<meta name="description" content="Navigate a maze where walls shift based on cryptocurrency prices.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --wall: #1a1a2e;
+    --open: #0f0f0f;
+    --player: #00ff88;
+    --exit: #ff6b00;
+  }
+  body {
+    background: var(--bg);
+    color: #ccc;
+    font-family: 'Fira Code', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+  }
+  h1 {
+    font-size: 1.2rem;
+    color: var(--player);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  #game {
+    display: grid;
+    gap: 2px;
+    background: var(--bg);
+    padding: 4px;
+    border: 2px solid var(--wall);
+    border-radius: 4px;
+  }
+  .cell {
+    width: 20px;
+    height: 20px;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .wall { background: var(--wall); }
+  .open { background: var(--open); }
+  .player { 
+    background: var(--player); 
+    box-shadow: 0 0 8px var(--player);
+    border-radius: 50%;
+  }
+  .exit { 
+    background: var(--exit); 
+    box-shadow: 0 0 8px var(--exit);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  #status {
+    margin-top: 16px;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  #price {
+    color: var(--player);
+    font-weight: bold;
+  }
+  #instructions {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: #444;
+  }
+</style>
+</head>
+<body data-page-type="app">
+  <h1>CRYPTO MAZE</h1>
+  <div id="game"></div>
+  <div id="status">BTC: <span id="price">...</span></div>
+  <div id="instructions">Arrow keys · Orange = exit</div>
+
+<script>
+  const SIZE = 15;
+  const game = document.getElementById('game');
+  const priceDisplay = document.getElementById('price');
+  
+  let player = { x: 1, y: 1 };
+  let exit = { x: SIZE - 2, y: SIZE - 2 };
+  let maze = [];
+  let price = 0;
+  
+  function initMaze(seed) {
+    maze = [];
+    const rng = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return (seed / 0x7fffffff);
+    };
+    
+    for (let y = 0; y < SIZE; y++) {
+      const row = [];
+      for (let x = 0; x < SIZE; x++) {
+        if (x === 0 || x === SIZE - 1 || y === 0 || y === SIZE - 1) {
+          row.push(1);
+        } else if (rng() < 0.25) {
+          row.push(1);
+        } else {
+          row.push(0);
+        }
+      }
+      maze.push(row);
+    }
+    // Ensure start and exit are clear
+    maze[1][1] = 0;
+    maze[1][2] = 0;
+    maze[2][1] = 0;
+    maze[exit.y][exit.x] = 0;
+    maze[exit.y][exit.x - 1] = 0;
+    maze[exit.y - 1][exit.x] = 0;
+  }
+  
+  function render() {
+    game.style.gridTemplateColumns = `repeat(${SIZE}, 20px)`;
+    game.innerHTML = '';
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ';
+        if (x === player.x && y === player.y) {
+          cell.className += 'player';
+        } else if (x === exit.x && y === exit.y) {
+          cell.className += 'exit';
+        } else if (maze[y][x]) {
+          cell.className += 'wall';
+        } else {
+          cell.className += 'open';
+        }
+        game.appendChild(cell);
+      }
+    }
+  }
+  
+  function move(dx, dy) {
+    const nx = player.x + dx;
+    const ny = player.y + dy;
+    if (maze[ny] && !maze[ny][nx]) {
+      player.x = nx;
+      player.y = ny;
+      render();
+      if (player.x === exit.x && player.y === exit.y) {
+        document.getElementById('status').innerHTML = '🎉 ESCAPED!';
+        setTimeout(() => {
+          player = { x: 1, y: 1 };
+          initMaze(price);
+          render();
+          document.getElementById('status').innerHTML = 'BTC: <span id="price">' + priceDisplay.textContent + '</span>';
+        }, 1500);
+      }
+    }
+  }
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') { e.preventDefault(); move(0, -1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); move(0, 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1, 0); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); move(1, 0); }
+  });
+  
+  async function fetchPrice() {
+    try {
+      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+      const data = await res.json();
+      price = data.bitcoin.usd;
+      priceDisplay.textContent = '$' + price.toLocaleString();
+      // Regenerate maze based on price
+      initMaze(Math.floor(price));
+      render();
+    } catch (e) {
+      priceDisplay.textContent = 'offline';
+    }
+  }
+  
+  initMaze(42000);
+  render();
+  fetchPrice();
+</script>
+</body>
+</html>

@@ -4,323 +4,315 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QR Code Generator — Shadow's Garden</title>
-<meta name="description" content="Generate QR codes for URLs, text, WiFi, and more. Clean, fast, client-side.">
+<meta name="description" content="Generate QR codes instantly. No tracking, all client-side.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .container {
-    max-width: 700px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
+  :root {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e0e0e0;
+    --accent: #00d4aa;
+    --muted: #666;
   }
-  h1 { margin-bottom: 0.5rem; }
-  .tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-  .tab {
-    padding: 0.5rem 1rem;
-    background: var(--card);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  .tab:hover { background: var(--border); }
-  .tab.active {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-  }
-  .panel { display: none; }
-  .panel.active { display: block; }
-  .input-group { margin-bottom: 1rem; }
-  .input-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-  }
-  .input-group input, .input-group textarea, .input-group select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    font-size: 1rem;
+  body {
     background: var(--bg);
     color: var(--text);
-    box-sizing: border-box;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
   }
-  .input-group textarea {
-    min-height: 100px;
-    resize: vertical;
+  .container {
+    background: var(--card);
+    padding: 32px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 8px 0;
+    color: var(--accent);
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+  .input-group {
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  input[type="text"], input[type="url"], input[type="email"], textarea {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    background: var(--bg);
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: var(--text);
+    box-sizing: border-box;
+    transition: border-color 0.2s;
     font-family: inherit;
   }
-  .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+  input:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
   }
-  .row {
-    display: flex;
-    gap: 1rem;
+  textarea {
+    min-height: 100px;
+    resize: vertical;
   }
-  .row .input-group { flex: 1; }
-  button {
-    background: var(--accent);
-    color: var(--bg);
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
     border: none;
-    padding: 0.75rem 2rem;
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .tab:hover {
+    color: var(--text);
+  }
+  .tab.active {
+    background: var(--card);
+    color: var(--accent);
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  .generate-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #000;
     font-size: 1rem;
     font-weight: 600;
-    border-radius: 8px;
     cursor: pointer;
-    transition: transform 0.1s, opacity 0.2s;
+    transition: opacity 0.2s;
+    margin-top: 8px;
   }
-  button:hover { opacity: 0.9; }
-  button:active { transform: scale(0.98); }
-  button.secondary {
-    background: var(--card);
-    color: var(--text);
-    border: 2px solid var(--border);
+  .generate-btn:hover {
+    opacity: 0.9;
   }
-  #qrcode {
-    margin-top: 2rem;
+  .qr-output {
+    margin-top: 24px;
     text-align: center;
+    padding: 24px;
+    background: #fff;
+    border-radius: 12px;
     display: none;
   }
-  #qrcode.show {
+  .qr-output.show {
     display: block;
-    animation: fadeIn 0.3s ease;
   }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  #qrcode canvas {
-    max-width: 100%;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  }
-  #qrcode img {
-    max-width: 100%;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  .qr-output img {
+    max-width: 200px;
+    height: auto;
   }
   .download-btn {
-    margin-top: 1rem;
-    display: inline-flex;
-    gap: 0.5rem;
+    display: inline-block;
+    margin-top: 16px;
+    padding: 10px 20px;
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .download-btn:hover {
+    background: var(--accent);
+    color: #000;
   }
   .error {
-    color: #e74c3c;
-    margin-top: 1rem;
+    color: #ff6b6b;
+    font-size: 0.85rem;
+    margin-top: 8px;
     display: none;
   }
-  .error.show { display: block; }
-  .checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .checkbox-group input {
-    width: auto;
+  .error.show {
+    display: block;
   }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
   <h1>QR Code Generator</h1>
-  <p style="color: var(--muted); margin-bottom: 1.5rem;">Generate QR codes for URLs, text, WiFi, and more. Everything stays in your browser.</p>
+  <p class="subtitle">Turn anything into a QR code</p>
   
   <div class="tabs">
-    <button class="tab active" data-tab="url">URL</button>
-    <button class="tab" data-tab="text">Text</button>
+    <button class="tab active" data-tab="text">Text</button>
+    <button class="tab" data-tab="url">URL</button>
     <button class="tab" data-tab="wifi">WiFi</button>
-    <button class="tab" data-tab="email">Email</button>
+    <button class="tab" data-tab="vcard">Contact</button>
   </div>
   
-  <!-- URL Panel -->
-  <div class="panel active" id="panel-url">
+  <div class="tab-content active" data-tab="text">
     <div class="input-group">
-      <label for="url-input">URL</label>
-      <input type="url" id="url-input" placeholder="https://example.com">
+      <label>Text or Message</label>
+      <textarea id="textContent" placeholder="Enter any text..."></textarea>
     </div>
-    <button onclick="generateQR('url')">Generate QR Code</button>
   </div>
   
-  <!-- Text Panel -->
-  <div class="panel" id="panel-text">
+  <div class="tab-content" data-tab="url">
     <div class="input-group">
-      <label for="text-input">Text</label>
-      <textarea id="text-input" placeholder="Enter any text..."></textarea>
+      <label>URL</label>
+      <input type="url" id="urlContent" placeholder="https://example.com">
     </div>
-    <button onclick="generateQR('text')">Generate QR Code</button>
   </div>
   
-  <!-- WiFi Panel -->
-  <div class="panel" id="panel-wifi">
+  <div class="tab-content" data-tab="wifi">
     <div class="input-group">
-      <label for="wifi-ssid">Network Name (SSID)</label>
-      <input type="text" id="wifi-ssid" placeholder="MyWiFi">
+      <label>Network Name (SSID)</label>
+      <input type="text" id="wifiSSID" placeholder="MyWiFi">
     </div>
     <div class="input-group">
-      <label for="wifi-password">Password</label>
-      <input type="text" id="wifi-password" placeholder="Password">
+      <label>Password</label>
+      <input type="text" id="wifiPassword" placeholder="Password">
     </div>
     <div class="input-group">
-      <label for="wifi-encryption">Encryption</label>
-      <select id="wifi-encryption">
+      <label>Encryption</label>
+      <select id="wifiEncryption" style="width:100%;padding:14px 16px;background:var(--bg);border:2px solid #333;border-radius:8px;color:var(--text);font-size:1rem;">
         <option value="WPA">WPA/WPA2</option>
         <option value="WEP">WEP</option>
         <option value="nopass">None</option>
       </select>
     </div>
-    <div class="input-group checkbox-group">
-      <input type="checkbox" id="wifi-hidden">
-      <label for="wifi-hidden">Hidden Network</label>
-    </div>
-    <button onclick="generateQR('wifi')">Generate QR Code</button>
   </div>
   
-  <!-- Email Panel -->
-  <div class="panel" id="panel-email">
+  <div class="tab-content" data-tab="vcard">
     <div class="input-group">
-      <label for="email-to">To</label>
-      <input type="email" id="email-to" placeholder="person@example.com">
+      <label>Name</label>
+      <input type="text" id="vcardName" placeholder="John Doe">
     </div>
     <div class="input-group">
-      <label for="email-subject">Subject</label>
-      <input type="text" id="email-subject" placeholder="Subject">
+      <label>Phone</label>
+      <input type="tel" id="vcardPhone" placeholder="+1 234 567 8900">
     </div>
     <div class="input-group">
-      <label for="email-body">Body</label>
-      <textarea id="email-body" placeholder="Message..."></textarea>
+      <label>Email</label>
+      <input type="email" id="vcardEmail" placeholder="john@example.com">
     </div>
-    <button onclick="generateQR('email')">Generate QR Code</button>
   </div>
   
-  <div class="error" id="error"></div>
+  <button class="generate-btn" id="generateBtn">Generate QR Code</button>
+  <p class="error" id="error"></p>
   
-  <div id="qrcode">
-    <canvas id="canvas"></canvas>
-    <div class="download-btn">
-      <button class="secondary" onclick="downloadQR('png')">Download PNG</button>
-    </div>
+  <div class="qr-output" id="qrOutput">
+    <img id="qrImage" alt="QR Code">
+    <br>
+    <a class="download-btn" id="downloadBtn" download="qrcode.png">Download PNG</a>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
-  // Tab switching
-  document.querySelectorAll('.tab').forEach(tab => {
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  const generateBtn = document.getElementById('generateBtn');
+  const qrOutput = document.getElementById('qrOutput');
+  const qrImage = document.getElementById('qrImage');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const error = document.getElementById('error');
+  
+  let currentData = '';
+  
+  tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-      document.getElementById('qrcode').classList.remove('show');
+      const tabName = tab.dataset.tab;
+      tabContents.forEach(c => {
+        c.classList.toggle('active', c.dataset.tab === tabName);
+      });
+      qrOutput.classList.remove('show');
+      error.classList.remove('show');
     });
   });
   
-  function showError(msg) {
-    const err = document.getElementById('error');
-    err.textContent = msg;
-    err.classList.add('show');
-  }
-  
-  function hideError() {
-    document.getElementById('error').classList.remove('show');
-  }
-  
-  function getQRData(type) {
-    hideError();
-    switch(type) {
-      case 'url':
-        const url = document.getElementById('url-input').value.trim();
-        if (!url) { showError('Please enter a URL'); return null; }
-        // Add https if missing
-        if (!url.match(/^https?:\/\//i)) {
-          return 'https://' + url;
-        }
-        return url;
+  function getQRData() {
+    const activeTab = document.querySelector('.tab.active').dataset.tab;
+    
+    switch(activeTab) {
       case 'text':
-        const text = document.getElementById('text-input').value;
-        if (!text) { showError('Please enter some text'); return null; }
-        return text;
+        return document.getElementById('textContent').value;
+      case 'url':
+        return document.getElementById('urlContent').value;
       case 'wifi':
-        const ssid = document.getElementById('wifi-ssid').value.trim();
-        if (!ssid) { showError('Please enter the network name (SSID)'); return null; }
-        const password = document.getElementById('wifi-password').value;
-        const encryption = document.getElementById('wifi-encryption').value;
-        const hidden = document.getElementById('wifi-hidden').checked;
-        let wifi = 'WIFI:T:' + encryption + ';S:' + ssid.replace(/[\\;,":]/g, '\\$&') + ';';
-        if (password && encryption !== 'nopass') {
-          wifi += 'P:' + password.replace(/[\\;,":]/g, '\\$&') + ';';
-        }
-        if (hidden) wifi += 'H:true;';
-        wifi += ';';
-        return wifi;
-      case 'email':
-        const to = document.getElementById('email-to').value.trim();
-        if (!to) { showError('Please enter an email address'); return null; }
-        let mailto = 'mailto:' + to;
-        const subject = document.getElementById('email-subject').value.trim();
-        const body = document.getElementById('email-body').value;
-        const params = [];
-        if (subject) params.push('subject=' + encodeURIComponent(subject));
-        if (body) params.push('body=' + encodeURIComponent(body));
-        if (params.length > 0) {
-          mailto += '?' + params.join('&');
-        }
-        return mailto;
-      default:
-        return null;
+        const ssid = document.getElementById('wifiSSID').value;
+        const password = document.getElementById('wifiPassword').value;
+        const enc = document.getElementById('wifiEncryption').value;
+        if (!ssid) return null;
+        return `WIFI:T:${enc};S:${ssid};P:${password};;`;
+      case 'vcard':
+        const name = document.getElementById('vcardName').value;
+        const phone = document.getElementById('vcardPhone').value;
+        const email = document.getElementById('vcardEmail').value;
+        if (!name) return null;
+        return `BEGIN:VCARD\nVERSION:3.0\nN:${name}\nTEL:${phone}\nEMAIL:${email}\nEND:VCARD`;
     }
   }
   
-  function generateQR(type) {
-    const data = getQRData(type);
-    if (!data) return;
+  generateBtn.addEventListener('click', async () => {
+    error.classList.remove('show');
+    qrOutput.classList.remove('show');
     
-    const canvas = document.getElementById('canvas');
-    const qrDiv = document.getElementById('qrcode');
+    const data = getQRData();
+    if (!data || data.trim() === '') {
+      error.textContent = 'Please enter some content';
+      error.classList.add('show');
+      return;
+    }
     
-    QRCode.toCanvas(canvas, data, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#1a1a2e',
-        light: '#ffffff'
-      },
-      errorCorrectionLevel: 'M'
-    }, (error) => {
-      if (error) {
-        showError('Error generating QR code: ' + error.message);
-        return;
-      }
-      qrDiv.classList.add('show');
-    });
-  }
-  
-  function downloadQR(format) {
-    const canvas = document.getElementById('canvas');
-    const link = document.createElement('a');
-    link.download = 'qrcode.' + format;
-    link.href = canvas.toDataURL('image/' + format);
-    link.click();
-  }
-  
-  // Generate on Enter
-  document.querySelectorAll('input').forEach(input => {
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const panel = input.closest('.panel');
-        const type = panel.id.replace('panel-', '');
-        generateQR(type);
-      }
-    });
+    try {
+      const canvas = document.createElement('canvas');
+      await QRCode.toCanvas(canvas, data, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      
+      qrImage.src = canvas.toDataURL('image/png');
+      currentData = data;
+      downloadBtn.href = canvas.toDataURL('image/png');
+      qrOutput.classList.add('show');
+    } catch(e) {
+      error.textContent = 'Error generating QR code';
+      error.classList.add('show');
+    }
   });
 </script>
 </body>
