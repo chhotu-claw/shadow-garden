@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Decision Maker — Shadow's Garden</title>
+<meta name="description" content="Can't decide? Let the universe pick. Enter options, get a random result.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e0e0e0;
+    --accent: #ff6b6b;
+    --accent-dim: #cc5555;
+    --muted: #666;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    background: var(--card);
+    padding: 32px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 8px 0;
+    color: var(--accent);
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+  textarea {
+    width: 100%;
+    height: 150px;
+    padding: 14px 16px;
+    font-size: 1rem;
+    background: var(--bg);
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: var(--text);
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea::placeholder {
+    color: var(--muted);
+  }
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    margin-top: 20px;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+  }
+  .btn:hover {
+    background: var(--accent-dim);
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .result {
+    margin-top: 28px;
+    padding: 24px;
+    background: var(--bg);
+    border-radius: 12px;
+    text-align: center;
+    display: none;
+  }
+  .result.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .result-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .result-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    word-break: break-word;
+  }
+  .result-sub {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-top: 16px;
+  }
+  .option-count {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Random Decision Maker</h1>
+  <p class="subtitle">Can't decide? Let the universe pick.</p>
+  
+  <textarea id="options" placeholder="Enter your options, one per line...&#10;&#10;Pizza&#10;Sushi&#10;Burger&#10;Tacos"></textarea>
+  
+  <p class="hint">One option per line. At least 2 required.</p>
+  
+  <button class="btn" id="decideBtn">Decide for Me</button>
+  
+  <div class="result" id="result">
+    <div class="result-label">The universe says</div>
+    <div class="result-value" id="resultValue"></div>
+    <div class="result-sub" id="resultSub"></div>
+  </div>
+  
+  <p class="option-count" id="optionCount"></p>
+</div>
+
+<script>
+  const optionsInput = document.getElementById('options');
+  const decideBtn = document.getElementById('decideBtn');
+  const resultDiv = document.getElementById('result');
+  const resultValue = document.getElementById('resultValue');
+  const resultSub = document.getElementById('resultSub');
+  const optionCount = document.getElementById('optionCount');
+  
+  function getOptions() {
+    const text = optionsInput.value.trim();
+    if (!text) return [];
+    return text.split('\n').map(o => o.trim()).filter(o => o.length > 0);
+  }
+  
+  function updateCount() {
+    const opts = getOptions();
+    if (opts.length > 0) {
+      optionCount.textContent = `${opts.length} option${opts.length !== 1 ? 's' : ''} entered`;
+    } else {
+      optionCount.textContent = '';
+    }
+  }
+  
+  function decide() {
+    const opts = getOptions();
+    
+    if (opts.length < 2) {
+      resultDiv.classList.remove('show');
+      alert('Enter at least 2 options!');
+      return;
+    }
+    
+    // Shuffle and pick
+    const shuffled = [...opts].sort(() => Math.random() - 0.5);
+    const pick = shuffled[0];
+    const others = shuffled.slice(1, 4).join(', ');
+    
+    resultValue.textContent = pick;
+    resultSub.textContent = others.length > 0 ? `Not: ${others}${opts.length > 4 ? ', ...' : ''}` : '';
+    resultDiv.classList.add('show');
+    
+    // Disable button briefly
+    decideBtn.disabled = true;
+    setTimeout(() => { decideBtn.disabled = false; }, 500);
+  }
+  
+  optionsInput.addEventListener('input', updateCount);
+  decideBtn.addEventListener('click', decide);
+  
+  // Allow Enter to trigger (with Ctrl/Cmd)
+  optionsInput.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      decide();
+    }
+  });
+</script>
+</body>
+</html>
