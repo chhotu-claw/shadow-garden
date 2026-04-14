@@ -4,64 +4,121 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Word Rain — Shadow's Garden</title>
-<meta name="description">A meditative word rain visualizer — words fall like rain.</meta>
+<meta name="description" content="Words fall like rain. Click to spawn more.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { margin: 0; overflow: hidden; background: #080810; }
+  body { margin: 0; overflow: hidden; background: #0a0a0f; cursor: crosshair; }
   canvas { display: block; }
-  .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: #444; font-size: 14px; font-family: var(--mono); }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #444;
+    font-family: monospace;
+    font-size: 14px;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body data-page-type="app">
 <canvas id="canvas"></canvas>
-<div class="hint">click to add words</div>
+<div class="hint">click to rain words</div>
 <script>
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  const words = ['the', 'silence', 'echo', 'void', 'flow', 'drift', 'fall', 'fade', 'still', 'here', 'now', 'breath', 'time', 'space', 'wave', 'glide'];
-  let drops = [];
-  let width, height;
-  
-  function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
-  window.addEventListener('resize', resize);
-  resize();
-  
-  class Drop {
-    constructor(x, y) {
-      this.x = x || Math.random() * width;
-      this.y = y || -20;
-      this.word = words[Math.floor(Math.random() * words.length)];
-      this.speed = 0.5 + Math.random();
-      this.opacity = 0;
-      this.size = 16 + Math.random() * 8;
-    }
-    update() {
-      this.y += this.speed;
-      this.opacity += 0.02;
-      if (this.opacity > 0.8) this.opacity -= 0.003;
-      return this.opacity > 0 && this.y < height + 50;
-    }
-    draw() {
-      ctx.font = `${this.size}px Georgia, serif`;
-      ctx.fillStyle = `rgba(150, 170, 200, ${this.opacity})`;
-      ctx.textAlign = 'center';
-      ctx.fillText(this.word, this.x, this.y);
-    }
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const words = [
+  'void', 'null', 'undefined', 'NaN', 'false', 'true', '0', '1',
+  'error', 'debug', 'log', 'try', 'catch', 'throw', 'async', 'await',
+  'import', 'export', 'const', 'let', 'var', 'function', 'class',
+  'return', 'yield', 'break', 'continue', 'if', 'else', 'switch',
+  'for', 'while', 'do', 'case', 'default', 'new', 'this', 'super',
+  'static', 'get', 'set', 'typeof', 'instanceof', 'in', 'of',
+  'delete', 'void', 'with', 'label', 'goto', 'enum', 'implements',
+  'interface', 'package', 'private', 'protected', 'public', 'extends',
+  'abstract', 'final', 'native', 'synchronized', 'transient', 'volatile'
+];
+
+const particles = [];
+const WORD_SPEED = 1.5;
+const FONT_SIZE = 16;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Word {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.word = words[Math.floor(Math.random() * words.length)];
+    this.speed = WORD_SPEED + Math.random() * 0.5;
+    this.alpha = 0.7 + Math.random() * 0.3;
+    this.size = FONT_SIZE + Math.floor(Math.random() * 6) - 3;
+    this.color = Math.random() > 0.85 ? '#ff6b6b' : (Math.random() > 0.5 ? '#6cb6ff' : '#7af782');
   }
   
-  canvas.addEventListener('click', e => { for (let i = 0; i < 8; i++) drops.push(new Drop(e.clientX + (Math.random() - 0.5) * 80, e.clientY)); });
-  
-  for (let i = 0; i < 20; i++) { const d = new Drop(Math.random() * width, Math.random() * height); d.opacity = Math.random() * 0.6; drops.push(d); }
-  
-  function animate() {
-    ctx.fillStyle = 'rgba(8, 8, 16, 0.15)';
-    ctx.fillRect(0, 0, width, height);
-    drops = drops.filter(d => { const a = d.update(); d.draw(); return a; });
-    if (drops.length < 40 && Math.random() < 0.02) drops.push(new Drop());
-    requestAnimationFrame(animate);
+  update() {
+    this.y += this.speed;
+    this.alpha -= 0.003;
   }
-  animate();
+  
+  draw() {
+    ctx.font = `${this.size}px monospace`;
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = this.color;
+    ctx.fillText(this.word, this.x, this.y);
+    ctx.globalAlpha = 1;
+  }
+  
+  alive() {
+    return this.y < canvas.height + 50 && this.alpha > 0;
+  }
+}
+
+function spawn(x, y, count = 5) {
+  for (let i = 0; i < count; i++) {
+    particles.push(new Word(
+      x + (Math.random() - 0.5) * 100,
+      y + (Math.random() - 0.5) * 30
+    ));
+  }
+}
+
+// Spawn initial batch
+for (let i = 0; i < 30; i++) {
+  setTimeout(() => spawn(Math.random() * window.innerWidth, -20), i * 100);
+}
+
+// Spawn on click
+canvas.addEventListener('click', e => {
+  spawn(e.clientX, e.clientY, 8);
+});
+
+function loop() {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.update();
+    p.draw();
+    if (!p.alive()) particles.splice(i, 1);
+  }
+  
+  // Random new drops
+  if (Math.random() < 0.1 && particles.length < 100) {
+    spawn(Math.random() * window.innerWidth, -20, 1);
+  }
+  
+  requestAnimationFrame(loop);
+}
+loop();
 </script>
 </body>
 </html>
