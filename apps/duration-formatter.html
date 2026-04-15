@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duration Formatter — Shadow's Garden</title>
+<meta name="description" content="Convert seconds to human-readable duration format.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .formatter-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .input-section {
+    margin-bottom: 1.5rem;
+  }
+  .input-section input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.25rem;
+    text-align: center;
+  }
+  .quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .quick-buttons button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .result-box {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  .result-output {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'SF Mono', Monaco, monospace;
+    word-break: break-all;
+  }
+  .result-detail {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 0.75rem;
+  }
+  .copy-btn {
+    margin-top: 1rem;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .tabs button {
+    flex: 1;
+  }
+  .tabs button.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Duration Formatter</h1>
+    <p>Convert seconds to human-readable format</p>
+  </div>
+  
+  <div class="formatter-card">
+    <div class="tabs">
+      <button class="active" onclick="setMode('sec2hms')" id="btn-sec2hms">Seconds → HH:MM:SS</button>
+      <button onclick="setMode('hms2sec')" id="btn-hms2sec">HH:MM:SS → Seconds</button>
+    </div>
+    
+    <div id="sec2hms-mode">
+      <div class="input-section">
+        <input type="number" id="seconds-input" placeholder="Enter seconds" oninput="convertSecToHms()">
+      </div>
+      <div class="quick-buttons">
+        <button onclick="setSec(60)">1 min</button>
+        <button onclick="setSec(3600)">1 hour</button>
+        <button onclick="setSec(86400)">1 day</button>
+        <button onclick="setSec(3600*24*7)">1 week</button>
+        <button onclick="setSec(3600*24*30)">30 days</button>
+      </div>
+      <div class="result-box">
+        <div class="result-output" id="hms-result">—</div>
+        <div class="result-detail" id="hms-detail">Enter seconds to convert</div>
+        <button class="copy-btn" onclick="copyResult('hms-result')">Copy</button>
+      </div>
+    </div>
+    
+    <div id="hms2sec-mode" style="display:none;">
+      <div class="input-section">
+        <input type="text" id="hms-input" placeholder="HH:MM:SS" oninput="convertHmsToSec()">
+      </div>
+      <div class="result-box">
+        <div class="result-output" id="sec-result">—</div>
+        <div class="result-detail" id="sec-detail">Enter HH:MM:SS to convert</div>
+        <button class="copy-btn" onclick="copyResult('sec-result')">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentMode = 'sec2hms';
+  
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('sec2hms-mode').style.display = mode === 'sec2hms' ? 'block' : 'none';
+    document.getElementById('hms2sec-mode').style.display = mode === 'hms2sec' ? 'block' : 'none';
+    document.getElementById('btn-sec2hms').classList.toggle('active', mode === 'sec2hms');
+    document.getElementById('btn-hms2sec').classList.toggle('active', mode === 'hms2sec');
+  }
+  
+  function setSec(val) {
+    document.getElementById('seconds-input').value = val;
+    convertSecToHms();
+  }
+  
+  function convertSecToHms() {
+    const secs = parseInt(document.getElementById('seconds-input').value);
+    const result = document.getElementById('hms-result');
+    const detail = document.getElementById('hms-detail');
+    
+    if (isNaN(secs) || secs < 0) {
+      result.textContent = '—';
+      detail.textContent = 'Enter seconds to convert';
+      return;
+    }
+    
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    
+    const hms = [hours, minutes, seconds]
+      .map(v => v.toString().padStart(2, '0'))
+      .join(':');
+    
+    result.textContent = hms;
+    
+    let parts = [];
+    if (hours > 0) parts.push(hours + ' hour' + (hours !== 1 ? 's' : ''));
+    if (minutes > 0) parts.push(minutes + ' min' + (minutes !== 1 ? 's' : ''));
+    if (seconds > 0 || parts.length === 0) parts.push(seconds + ' sec' + (seconds !== 1 ? 's' : ''));
+    detail.textContent = parts.join(', ');
+  }
+  
+  function convertHmsToSec() {
+    const input = document.getElementById('hms-input').value;
+    const result = document.getElementById('sec-result');
+    const detail = document.getElementById('sec-detail');
+    
+    const parts = input.split(':').map(p => parseInt(p));
+    
+    if (parts.some(isNaN) || parts.length < 2 || parts.length > 3) {
+      result.textContent = '—';
+      detail.textContent = 'Enter HH:MM:SS format';
+      return;
+    }
+    
+    let seconds = 0;
+    if (parts.length === 3) {
+      seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      seconds = parts[0] * 60 + parts[1];
+    }
+    
+    result.textContent = seconds;
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    let parts2 = [];
+    if (hours > 0) parts2.push(hours + ' hour' + (hours !== 1 ? 's' : ''));
+    if (minutes > 0) parts2.push(minutes + ' min' + (minutes !== 1 ? 's' : ''));
+    if (secs > 0 || parts2.length === 0) parts2.push(secs + ' sec' + (secs !== 1 ? 's' : ''));
+    detail.textContent = parts2.join(', ');
+  }
+  
+  function copyResult(id) {
+    const text = document.getElementById(id).textContent;
+    if (text && text !== '—') {
+      navigator.clipboard.writeText(text);
+    }
+  }
+</script>
+</body>
+</html>
