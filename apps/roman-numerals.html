@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roman Numerals Converter — Shadow's Garden</title>
+<meta name="description" content="Convert between Roman numerals and Arabic numbers instantly.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter-container {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .direction-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .direction-toggle button {
+    flex: 1;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .direction-toggle button.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+  .input-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+  .input-group input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+  }
+  .input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .result-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .result-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  .result-value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: Georgia, serif;
+    letter-spacing: 0.05em;
+  }
+  .result-value.arabic {
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+  .error-msg {
+    color: var(--error);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    display: none;
+  }
+  .error-msg.show {
+    display: block;
+  }
+  .quick-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+  .quick-values button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .quick-values button:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Roman Numerals</h1>
+    <p>Convert between Roman and Arabic instantly</p>
+  </div>
+
+  <div class="converter-container">
+    <div class="direction-toggle">
+      <button id="btn-to-roman" class="active" onclick="setMode('to-roman')">Number → Roman</button>
+      <button id="btn-to-arabic" onclick="setMode('to-arabic')">Roman → Number</button>
+    </div>
+
+    <div class="input-group">
+      <label id="input-label">Enter a number</label>
+      <input type="text" id="input-value" placeholder="e.g., 42 or XLII" oninput="convert()">
+      <div id="error-msg" class="error-msg">Invalid input</div>
+    </div>
+
+    <div class="result-box">
+      <div class="result-label" id="result-label">Roman Numeral</div>
+      <div class="result-value" id="result-value">—</div>
+    </div>
+
+    <div class="quick-values">
+      <button onclick="setValue(1)">I</button>
+      <button onclick="setValue(5)">V</button>
+      <button onclick="setValue(10)">X</button>
+      <button onclick="setValue(50)">L</button>
+      <button onclick="setValue(100)">C</button>
+      <button onclick="setValue(500)">D</button>
+      <button onclick="setValue(1000)">M</button>
+      <button onclick="setValue(2026)">MMXXVI</button>
+      <button onclick="setValue(3999)">MMMCMXCIX</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'to-roman';
+
+  function setMode(newMode) {
+    mode = newMode;
+    document.getElementById('btn-to-roman').classList.toggle('active', mode === 'to-roman');
+    document.getElementById('btn-to-arabic').classList.toggle('active', mode === 'to-arabic');
+    document.getElementById('input-label').textContent = mode === 'to-roman' ? 'Enter a number' : 'Enter Roman numeral';
+    document.getElementById('result-label').textContent = mode === 'to-roman' ? 'Roman Numeral' : 'Arabic Number';
+    document.getElementById('result-value').className = mode === 'to-roman' ? 'result-value' : 'result-value arabic';
+    document.getElementById('input-value').value = '';
+    document.getElementById('result-value').textContent = '—';
+    document.getElementById('error-msg').classList.remove('show');
+  }
+
+  function setValue(val) {
+    if (typeof val === 'number') {
+      document.getElementById('input-value').value = val;
+    } else {
+      document.getElementById('input-value').value = val;
+    }
+    convert();
+  }
+
+  function toRoman(num) {
+    if (num < 1 || num > 3999) return null;
+    const lookup = [
+      ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'],
+      ['', 'X', 'XX', 'XXX', 'XL', 'L', 'LX', 'LXX', 'LXXX', 'XC'],
+      ['', 'C', 'CC', 'CCC', 'CD', 'D', 'DC', 'DCC', 'DCCC', 'CM'],
+      ['', 'M', 'MM', 'MMM', '', '', '', '', '', '']
+    ];
+    const digits = String(num).split('').map(Number);
+    let result = '';
+    for (let i = 0; i < digits.length; i++) {
+      const pos = digits.length - 1 - i;
+      result += lookup[pos][digits[i]];
+    }
+    return result;
+  }
+
+  function toArabic(str) {
+    str = str.toUpperCase().replace(/[^IVXLCDM]/g, '');
+    if (!str) return null;
+    const values = { M: 1000, D: 500, C: 100, L: 50, X: 10, V: 5, I: 1 };
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const current = values[str[i]];
+      const next = values[str[i + 1]];
+      if (next && current < next) {
+        total -= current;
+      } else {
+        total += current;
+      }
+    }
+    return total;
+  }
+
+  function convert() {
+    const input = document.getElementById('input-value').value.trim();
+    const result = document.getElementById('result-value');
+    const error = document.getElementById('error-msg');
+
+    if (!input) {
+      result.textContent = '—';
+      error.classList.remove('show');
+      return;
+    }
+
+    if (mode === 'to-roman') {
+      const num = parseInt(input, 10);
+      if (isNaN(num) || num < 1 || num > 3999) {
+        result.textContent = '—';
+        error.classList.toggle('show', input.length > 0);
+        return;
+      }
+      error.classList.remove('show');
+      result.textContent = toRoman(num);
+    } else {
+      const arabic = toArabic(input);
+      if (arabic === null || arabic < 1) {
+        result.textContent = '—';
+        error.classList.toggle('show', input.length > 0);
+        return;
+      }
+      error.classList.remove('show');
+      result.textContent = arabic;
+    }
+  }
+</script>
+</body>
+</html>
