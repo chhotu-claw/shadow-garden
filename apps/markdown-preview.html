@@ -4,112 +4,273 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Markdown Preview — Shadow's Garden</title>
-<meta name="description">Write markdown and see live preview. Split view. All local, no tracking.</meta>
+<meta name="description" content="Live markdown preview with split view. Write markdown, see the result instantly.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .preview-app {
+  .split-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    height: calc(100vh - 120px);
+    gap: 1rem;
+    height: calc(100vh - 200px);
+    min-height: 500px;
   }
-  @media(max-width: 768px) {
-    .preview-app { grid-template-columns: 1fr; }
+  @media (max-width: 768px) {
+    .split-container {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
   }
-  textarea {
-    width: 100%;
-    height: 100%;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
+  .editor-pane, .preview-pane {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .pane-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .editor {
+    flex: 1;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background: transparent;
     color: var(--text);
-    font-size: 14px;
-    font-family: var(--mono);
+    border: none;
     resize: none;
-    box-sizing: border-box;
-  }
-  textarea:focus {
     outline: none;
-    border-color: var(--accent);
   }
-  .preview-pane {
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    overflow: auto;
+  .preview-content {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    line-height: 1.7;
   }
-  .preview-pane h1 { font-size: 1.5em; margin: 0.5em 0; }
-  .preview-pane h2 { font-size: 1.3em; margin: 0.5em 0; }
-  .preview-pane p { margin: 0.5em 0; }
-  .preview-pane code {
-    background: #222;
-    padding: 2px 6px;
+  .preview-content h1, .preview-content h2, .preview-content h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .preview-content h1:first-child, .preview-content h2:first-child, .preview-content h3:first-child {
+    margin-top: 0;
+  }
+  .preview-content p {
+    margin-bottom: 1rem;
+  }
+  .preview-content code {
+    background: var(--bg-tertiary);
+    padding: 0.2rem 0.4rem;
     border-radius: 4px;
-    font-family: var(--mono);
+    font-family: monospace;
+    font-size: 0.9em;
   }
-  .preview-pane pre {
-    background: #222;
-    padding: 12px;
-    border-radius: 6px;
+  .preview-content pre {
+    background: var(--bg-tertiary);
+    padding: 1rem;
+    border-radius: 8px;
     overflow-x: auto;
+    margin: 1rem 0;
   }
-  .preview-pane blockquote {
+  .preview-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .preview-content blockquote {
     border-left: 3px solid var(--accent);
-    padding-left: 12px;
+    padding-left: 1rem;
+    margin: 1rem 0;
     color: var(--text-secondary);
   }
-  .preview-pane a { color: var(--accent); }
+  .preview-content ul, .preview-content ol {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+  .preview-content li {
+    margin-bottom: 0.5rem;
+  }
+  .preview-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .preview-content th, .preview-content td {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    text-align: left;
+  }
+  .preview-content th {
+    background: var(--bg-tertiary);
+  }
+  .preview-content a {
+    color: var(--accent);
+  }
+  .preview-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+  .hero {
+    text-align: center;
+    padding: 1.5rem 0;
+  }
+  .hero h1 {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .toolbar button {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <h1>Markdown Preview</h1>
-  <p style="color: var(--text-secondary); margin-bottom: 20px;">Write markdown, see live preview.</p>
-  
-  <div class="preview-app">
-    <textarea id="markdown" placeholder="Write markdown here..." oninput="render()"># Hello World
+  <div class="hero">
+    <h1>Markdown Preview</h1>
+    <p>Live split-view markdown editor</p>
+  </div>
 
-This is a **markdown** preview.
+  <div class="split-container">
+    <div class="editor-pane">
+      <div class="pane-header">Markdown</div>
+      <textarea class="editor" id="markdown-input" placeholder="# Write your markdown here..."># Welcome
+
+This is a **live** markdown preview.
 
 ## Features
 
-- Live preview
-- Support for headers, lists, code blocks
-- All local, no tracking
+- Live rendering as you type
+- Support for:
+  - **Bold** and *italic*
+  - Code blocks and inline `code`
+  - Links and images
+  - Lists (ordered and unordered)
+  - Blockquotes
+  - Tables
 
-```js
-console.log('hello');
+## Code Example
+
+```
+function hello() {
+  return "Hello, World!";
+}
 ```
 
-> A blockquote
-</textarea>
-    
-    <div class="preview-pane" id="preview"></div>
+> This is a blockquote
+
+---
+
+Start typing to see the magic!</textarea>
+    </div>
+    <div class="preview-pane">
+      <div class="pane-header">Preview</div>
+      <div class="preview-content" id="preview-output"></div>
+    </div>
+  </div>
+  
+  <div class="toolbar">
+    <button onclick="insertFormat('**', '**')">Bold</button>
+    <button onclick="insertFormat('*', '*')">Italic</button>
+    <button onclick="insertFormat('`', '`')">Code</button>
+    <button onclick="insertFormat('```\n', '\n```')">Code Block</button>
+    <button onclick="insertFormat('[', '](url)')">Link</button>
   </div>
 </div>
+
 <script>
+  const input = document.getElementById('markdown-input');
+  const output = document.getElementById('preview-output');
+
   function render() {
-    const md = document.getElementById('markdown').value;
-    let html = md
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    let md = input.value;
     
-    html = '<p>' + html + '</p>';
+    // Headers
+    md = md.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+    md = md.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+    md = md.replace(/^# (.*)$/gm, '<h1>$1</h1>');
     
-    document.getElementById('preview').innerHTML = html;
+    // Bold and italic
+    md = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    md = md.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    md = md.replace(/__(.*?)__/g, '<strong>$1</strong>');
+    md = md.replace(/_(.*?)_/g, '<em>$1</em>');
+    
+    // Code blocks
+    md = md.replace(/```(\w*)\n([\s\S]*?)```/g, (m, lang, code) => {
+      return '<pre><code>' + escapeHtml(code.trim()) + '</code></pre>';
+    });
+    
+    // Inline code
+    md = md.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Links
+    md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    
+    // Blockquotes
+    md = md.replace(/^&gt; (.*)$/gm, '<blockquote>$1</blockquote>');
+    
+    // Horizontal rule
+    md = md.replace(/^---$/gm, '<hr>');
+    
+    // Unordered lists
+    md = md.replace(/^- (.*)$/gm, '<li>$1</li>');
+    md = md.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    
+    // Ordered lists
+    md = md.replace(/^\d+\. (.*)$/gm, '<li>$1</li>');
+    
+    // Paragraphs (lines that aren't already wrapped)
+    md = md.replace(/^(?!<[huploqbtd]|<li>|<hr>)(.*)$/gm, '$1');
+    md = md.replace(/\n\n+/g, '</p><p>');
+    md = '<p>' + md + '</p>';
+    
+    // Clean up empty paragraphs
+    md = md.replace(/<p><\/p>/g, '');
+    md = md.replace(/<p>(<[huploqbtd])/g, '$1');
+    md = md.replace(/(<\/[huploqbtd][^>]*>)<\/p>/g, '$1');
+    
+    output.innerHTML = md;
   }
   
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+  }
+  
+  function insertFormat(before, after) {
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+    const selected = text.substring(start, end);
+    
+    input.value = text.substring(0, start) + before + selected + after + text.substring(end);
+    input.focus();
+    render();
+  }
+  
+  input.addEventListener('input', render);
+  
+  // Initial render
   render();
 </script>
 </body>
