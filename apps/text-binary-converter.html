@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text to Binary Converter — Shadow's Garden</title>
+<meta name="description" content="Convert text to binary and back. Encode and decode binary to text instantly.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  @media (max-width: 700px) {
+    .converter-grid { grid-template-columns: 1fr; }
+  }
+  .converter-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .converter-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  textarea {
+    width: 100%;
+    height: 200px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    color: var(--text);
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .quick-btns {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+  .info-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Text to Binary Converter</h1>
+    <p>Convert text to binary and back</p>
+  </div>
+  
+  <div class="converter-grid">
+    <!-- Text to Binary -->
+    <div class="converter-card">
+      <h3>Text → Binary</h3>
+      <div class="quick-btns">
+        <button onclick="setSampleText()">Sample</button>
+        <button onclick="clearText()">Clear</button>
+      </div>
+      <textarea id="text-input" placeholder="Enter text here..." oninput="textToBinary()"></textarea>
+      <div class="info-text">Each character becomes 8 bits</div>
+      <div class="actions">
+        <button onclick="copyToClipboard(document.getElementById('binary-output').value)">Copy Binary</button>
+      </div>
+    </div>
+
+    <!-- Binary to Text -->
+    <div class="converter-card">
+      <h3>Binary → Text</h3>
+      <textarea id="binary-input" placeholder="Enter binary here (e.g., 01001000 01101001)..." oninput="binaryToText()"></textarea>
+      <div class="info-text">Spaces optional between bytes</div>
+      <div class="actions">
+        <button onclick="copyToClipboard(document.getElementById('text-output').value)">Copy Text</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="converter-card" style="margin-top: 1.5rem;">
+    <h3>Binary Output</h3>
+    <textarea id="binary-output" readonly placeholder="Binary output will appear here..."></textarea>
+  </div>
+  
+  <div class="converter-card" style="margin-top: 1.5rem;">
+    <h3>Text Output</h3>
+    <textarea id="text-output" readonly placeholder="Decoded text will appear here..."></textarea>
+  </div>
+</div>
+
+<script>
+  function textToBinary() {
+    const input = document.getElementById('text-input').value;
+    const output = document.getElementById('binary-output');
+    
+    if (!input) {
+      output.value = '';
+      return;
+    }
+    
+    let binary = '';
+    for (let i = 0; i < input.length; i++) {
+      const bin = input.charCodeAt(i).toString(2).padStart(8, '0');
+      binary += bin + ' ';
+    }
+    output.value = binary.trim();
+  }
+
+  function binaryToText() {
+    const input = document.getElementById('binary-input').value.trim();
+    const output = document.getElementById('text-output');
+    
+    if (!input) {
+      output.value = '';
+      return;
+    }
+    
+    try {
+      // Split by spaces or newlines, filter empty
+      const bytes = input.split(/[\s\n]+/).filter(b => b.match(/^[01]+$/));
+      
+      if (bytes.length === 0) {
+        output.value = 'No valid binary data found';
+        return;
+      }
+      
+      let text = '';
+      for (const byte of bytes) {
+        // Pad to 8 bits if needed
+        const padded = byte.padStart(8, '0').slice(-8);
+        const charCode = parseInt(padded, 2);
+        text += String.fromCharCode(charCode);
+      }
+      output.value = text;
+    } catch (e) {
+      output.value = 'Error: Invalid binary format';
+    }
+  }
+
+  function setSampleText() {
+    document.getElementById('text-input').value = 'Hello, World!';
+    textToBinary();
+  }
+
+  function clearText() {
+    document.getElementById('text-input').value = '';
+    document.getElementById('binary-output').value = '';
+  }
+
+  function copyToClipboard(text) {
+    if (!text || text.startsWith('Error') || text.startsWith('No valid')) return;
+    navigator.clipboard.writeText(text).then(() => {
+      // Could add toast notification here
+    });
+  }
+</script>
+</body>
+</html>
