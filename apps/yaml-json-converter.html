@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YAML to JSON Converter — Shadow's Garden</title>
+<meta name="description" content="Convert between YAML and JSON instantly. Paste, convert, copy.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .converter-container {
+      grid-template-columns: 1fr;
+    }
+    .converter-container .arrow {
+      transform: rotate(90deg);
+      margin: 0.5rem auto;
+    }
+  }
+  .converter-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .converter-panel label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  .converter-textarea {
+    width: 100%;
+    height: 400px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 0.85rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text);
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .converter-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    padding-top: 2rem;
+  }
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .error-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--error);
+    border-radius: 8px;
+    padding: 1rem;
+    color: var(--error);
+    font-size: 0.9rem;
+    display: none;
+  }
+  .error-box.visible {
+    display: block;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>YAML ⇄ JSON Converter</h1>
+    <p>Convert between YAML and JSON instantly</p>
+  </div>
+
+  <div class="converter-container">
+    <div class="converter-panel">
+      <label>YAML</label>
+      <textarea class="converter-textarea" id="yaml-input" placeholder="Paste YAML here..."></textarea>
+      <div class="action-buttons">
+        <button class="btn secondary" onclick="convertYAML2JSON()">YAML → JSON</button>
+        <button class="btn" onclick="clearPanel('yaml')">Clear</button>
+        <button class="btn secondary" onclick="copyToClipboard('yaml-input')">Copy</button>
+      </div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="converter-panel">
+      <label>JSON</label>
+      <textarea class="converter-textarea" id="json-input" placeholder="Paste JSON here..."></textarea>
+      <div class="action-buttons">
+        <button class="btn secondary" onclick="convertJSON2YAML()">JSON → YAML</button>
+        <button class="btn" onclick="clearPanel('json')">Clear</button>
+        <button class="btn secondary" onclick="copyToClipboard('json-input')">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-display"></div>
+</div>
+
+<script>
+  // Simple YAML parser
+  function parseYAML(str) {
+    const result = {};
+    const lines = str.split('\n');
+    let currentKey = null;
+    let currentIndent = 0;
+    const stack = [{ obj: result, indent: -1 }];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim() || line.trim().startsWith('#')) continue;
+
+      const indent = line.search(/\S/);
+      const trimmed = line.trim();
+
+      // Array item
+      if (trimmed.startsWith('- ')) {
+        const value = trimmed.substring(1).trim();
+        const parent = stack[stack.length - 1].obj;
+        
+        if (!Array.isArray(parent)) {
+          // Convert to array if needed
+          const keys = Object.keys(parent);
+          if (keys.length > 0) {
+            // This is an array of objects, handled differently
+            if (!parent._array) {
+              parent._array = [];
+              delete Object.keys(parent).forEach(k => {
+                parent._array.push(parent[k]);
+                delete parent[k];
+              });
+            }
+            parent._array.push(parseValue(value));
+          }
+        } else {
+          if (!parent._arr) parent._arr = [];
+          parent._arr.push(parseValue(value));
+        }
+        continue;
+      }
+
+      // Key-value pair
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > -1) {
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+
+        // Pop stack to correct indent
+        while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
+          stack.pop();
+        }
+
+        if (value === '') {
+          // New object
+          const newObj = {};
+          stack[stack.length - 1].obj[key] = newObj;
+          stack.push({ obj: newObj, indent });
+        } else {
+          stack[stack.length - 1].obj[key] = parseValue(value);
+        }
+      }
+    }
+
+    // Clean up array markers
+    function clean(obj) {
+      if (Array.isArray(obj)) return obj.map(clean);
+      if (obj && typeof obj === 'object') {
+        if (obj._arr) {
+          const arr = obj._arr;
+          delete obj._arr;
+          return arr.map(clean);
+        }
+        const result = {};
+        for (const k in obj) {
+          if (k !== '_arr') result[k] = clean(obj[k]);
+        }
+        return result;
+      }
+      return obj;
+    }
+
+    return clean(result);
+  }
+
+  function parseValue(value) {
+    if (value === 'null' || value === '~') return null;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value === '') return '';
+    // Number
+    if (!isNaN(value) && value !== '') return Number(value);
+    // Quoted string
+    if ((value.startsWith('"') && value.endsWith('"')) || 
+        (value.startsWith("'") && value.endsWith("'"))) {
+      return value.slice(1, -1);
+    }
+    return value;
+  }
+
+  // Simple YAML serializer
+  function toYAML(obj, indent = 0) {
+    if (obj === null) return 'null';
+    if (obj === true) return 'true';
+    if (obj === false) return 'false';
+    if (typeof obj === 'number') return String(obj);
+    if (typeof obj === 'string') {
+      if (obj.includes(':') || obj.includes('#') || obj.includes('\n') || 
+          obj.startsWith(' ') || obj.endsWith(' ')) {
+        return '"' + obj.replace(/"/g, '\\"') + '"';
+      }
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) return '[]';
+      return obj.map(item => '  '.repeat(indent) + '- ' + toYAML(item, indent + 1).trim()).join('\n');
+    }
+
+    if (typeof obj === 'object') {
+      const keys = Object.keys(obj);
+      if (keys.length === 0) return '{}';
+      return keys.map(key => {
+        const val = obj[key];
+        if (val === null || val === '' || 
+            (typeof val === 'object' && (Object.keys(val).length === 0 || Array.isArray(val) && val.length === 0))) {
+          return '  '.repeat(indent) + key + ':';
+        }
+        return '  '.repeat(indent) + key + ': ' + toYAML(val, indent + 1).trim();
+      }).join('\n');
+    }
+
+    return String(obj);
+  }
+
+  function showError(msg) {
+    const err = document.getElementById('error-display');
+    err.textContent = msg;
+    err.classList.add('visible');
+  }
+
+  function hideError() {
+    document.getElementById('error-display').classList.remove('visible');
+  }
+
+  function convertYAML2JSON() {
+    hideError();
+    const yaml = document.getElementById('yaml-input').value;
+    if (!yaml.trim()) return;
+
+    try {
+      const obj = parseYAML(yaml);
+      const json = JSON.stringify(obj, null, 2);
+      document.getElementById('json-input').value = json;
+    } catch (e) {
+      showError('YAML Parse Error: ' + e.message);
+    }
+  }
+
+  function convertJSON2YAML() {
+    hideError();
+    const json = document.getElementById('json-input').value;
+    if (!json.trim()) return;
+
+    try {
+      const obj = JSON.parse(json);
+      const yaml = toYAML(obj);
+      document.getElementById('yaml-input').value = yaml;
+    } catch (e) {
+      showError('JSON Parse Error: ' + e.message);
+    }
+  }
+
+  function clearPanel(panel) {
+    document.getElementById(panel + '-input').value = '';
+    hideError();
+  }
+
+  function copyToClipboard(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    textarea.select();
+    navigator.clipboard.writeText(textarea.value);
+  }
+</script>
+</body>
+</html>
