@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Cloud Generator — Shadow's Garden</title>
+<meta name="description" content="Generate word clouds from text. Paste text, see word frequency visualization.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 900px; margin: 0 auto; }
+  .input-section { margin-bottom: 1.5rem; }
+  .input-section textarea {
+    width: 100%;
+    height: 150px;
+    padding: 1rem;
+    font-size: 0.95rem;
+    resize: vertical;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .control-group label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  .control-group input[type="number"] {
+    width: 70px;
+  }
+  .word-cloud {
+    min-height: 400px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem 1rem;
+  }
+  .word {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    cursor: default;
+    transition: transform 0.2s;
+  }
+  .word:hover { transform: scale(1.1); }
+  .word-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+    text-align: center;
+  }
+  .hero { text-align: center; padding: 2rem 0; }
+  .hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .hero p { color: var(--text-secondary); }
+  button.generate-btn {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Word Cloud Generator</h1>
+    <p>Visualize word frequency from any text</p>
+  </div>
+  
+  <div class="input-section">
+    <textarea id="input-text" placeholder="Paste your text here to generate a word cloud..."></textarea>
+  </div>
+  
+  <div class="controls">
+    <button class="generate-btn" onclick="generateCloud()">Generate Cloud</button>
+    <div class="control-group">
+      <label>Max words:</label>
+      <input type="number" id="max-words" value="50" min="5" max="200">
+    </div>
+    <div class="control-group">
+      <label>Min length:</label>
+      <input type="number" id="min-length" value="3" min="1" max="10">
+    </div>
+  </div>
+  
+  <div class="word-cloud" id="cloud-container">
+    <span style="color: var(--text-secondary)">Word cloud will appear here</span>
+  </div>
+  <div class="word-count" id="word-count"></div>
+</div>
+
+<script>
+  const stopWords = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','as','is','was','are','were','been','be','have','has','had','do','does','did','will','would','could','should','may','might','must','shall','can','need','dare','ought','used','it','its','this','that','these','those','i','you','he','she','we','they','me','him','her','us','them','my','your','his','our','their','mine','yours','hers','ours','theirs','what','which','who','whom','whose','where','when','why','how','all','each','every','both','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','also','now','here','there','then','once','if','else','because','until','while','about','against','between','into','through','during','before','after','above','below','up','down','out','off','over','under','again','further','then','once']);
+  
+  function generateCloud() {
+    const text = document.getElementById('input-text').value;
+    const maxWords = parseInt(document.getElementById('max-words').value) || 50;
+    const minLength = parseInt(document.getElementById('min-length').value) || 3;
+    const container = document.getElementById('cloud-container');
+    const countDisplay = document.getElementById('word-count');
+    
+    if (!text.trim()) {
+      container.innerHTML = '<span style="color: var(--text-secondary)">Enter some text to generate a word cloud</span>';
+      return;
+    }
+    
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= minLength && !stopWords.has(w));
+    
+    const freq = {};
+    words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+    
+    const sorted = Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, maxWords);
+    
+    if (sorted.length === 0) {
+      container.innerHTML = '<span style="color: var(--text-secondary)">No words found (try lowering min length)</span>';
+      return;
+    }
+    
+    const maxCount = sorted[0][1];
+    const minCount = sorted[sorted.length - 1][1];
+    const range = maxCount - minCount || 1;
+    
+    // Generate colors
+    const colors = ['#7aa2f7', '#bb9af7', '#7dcfff', '#9ece6a', '#e0af68', '#f7768e', '#73daca', '#ff9e64'];
+    
+    container.innerHTML = sorted.map(([word, count], i) => {
+      const size = 0.8 + ((count - minCount) / range) * 2;
+      const color = colors[i % colors.length];
+      return `<span class="word" style="font-size: ${size}rem; color: ${color};">${word}</span>`;
+    }).join('');
+    
+    countDisplay.textContent = `Found ${words.length} words, showing top ${sorted.length}`;
+  }
+  
+  // Allow Ctrl+Enter to generate
+  document.getElementById('input-text').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') generateCloud();
+  });
+</script>
+</body>
+</html>
