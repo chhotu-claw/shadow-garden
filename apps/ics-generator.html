@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICS Event Generator — Shadow's Garden</title>
+<meta name="description" content="Generate .ics calendar files for events with one click.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .generator-form {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .form-group input, .form-group textarea {
+    width: 100%;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .btn-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .preview {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: var(--text-secondary);
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .hero p { color: var(--text-secondary); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>ICS Event Generator</h1>
+    <p>Create calendar events anyone can import</p>
+  </div>
+
+  <div class="generator-form">
+    <div class="form-group">
+      <label>Event Title</label>
+      <input type="text" id="event-title" placeholder="Team Meeting" value="New Event">
+    </div>
+
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="event-desc" rows="3" placeholder="Meeting details..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Start Date & Time</label>
+        <input type="datetime-local" id="start-datetime">
+      </div>
+      <div class="form-group">
+        <label>End Date & Time</label>
+        <input type="datetime-local" id="end-datetime">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Location (optional)</label>
+      <input type="text" id="event-location" placeholder="Conference Room A">
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="all-day" onchange="toggleAllDay()"> All-day event
+      </label>
+    </div>
+
+    <div class="btn-group">
+      <button onclick="generateICS()">Download .ics</button>
+      <button onclick="previewICS()">Preview</button>
+    </div>
+
+    <div class="preview" id="preview" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  // Set default dates to tomorrow
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(10, 0, 0, 0);
+  
+  const endTime = new Date(tomorrow);
+  endTime.setHours(11, 0, 0, 0);
+  
+  document.getElementById('start-datetime').value = formatDatetimeLocal(tomorrow);
+  document.getElementById('end-datetime').value = formatDatetimeLocal(endTime);
+
+  function formatDatetimeLocal(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hour = String(d.getHours()).padStart(2, '0');
+    const minute = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  }
+
+  function toICSDate(d) {
+    return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  }
+
+  function toICSDateNoTime(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  }
+
+  function escapeICS(text) {
+    return text.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
+  }
+
+  function generateICS() {
+    const title = document.getElementById('event-title').value || 'Event';
+    const desc = document.getElementById('event-desc').value;
+    const location = document.getElementById('event-location').value;
+    const allDay = document.getElementById('all-day').checked;
+    const start = new Date(document.getElementById('start-datetime').value);
+    const end = new Date(document.getElementById('end-datetime').value);
+
+    if (isNaN(start.getTime())) {
+      alert('Please select a start date');
+      return;
+    }
+
+    const uid = Date.now() + '-' + Math.random().toString(36).substr(2, 9) + '@shadow-garden';
+    const nowStr = toICSDate(new Date());
+
+    let ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Shadow Garden//ICS Generator//EN',
+      'BEGIN:VEVENT',
+      'UID:' + uid,
+      'DTSTAMP:' + nowStr,
+      'DTSTART:' + (allDay ? toICSDateNoTime(start) : toICSDate(start)),
+      'DTEND:' + (allDay ? toICSDateNoTime(end) : toICSDate(end)),
+      'SUMMARY:' + escapeICS(title)
+    ];
+
+    if (desc) ics.push('DESCRIPTION:' + escapeICS(desc));
+    if (location) ics.push('LOCATION:' + escapeICS(location));
+
+    ics.push('END:VEVENT');
+    ics.push('END:VCALENDAR');
+
+    const blob = new Blob([ics.join('\r\n')], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = title.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.ics';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function previewICS() {
+    const title = document.getElementById('event-title').value || 'Event';
+    const desc = document.getElementById('event-desc').value;
+    const location = document.getElementById('event-location').value;
+    const allDay = document.getElementById('all-day').checked;
+    const start = new Date(document.getElementById('start-datetime').value);
+    const end = new Date(document.getElementById('end-datetime').value);
+
+    const preview = document.getElementById('preview');
+    preview.style.display = 'block';
+    preview.textContent = 'Title: ' + title + '\n' +
+      'Start: ' + start.toLocaleString() + '\n' +
+      'End: ' + end.toLocaleString() + '\n' +
+      'All-day: ' + allDay + '\n' +
+      (location ? 'Location: ' + location + '\n' : '') +
+      (desc ? 'Description: ' + desc : '');
+  }
+
+  function toggleAllDay() {
+    const allDay = document.getElementById('all-day').checked;
+    const startInput = document.getElementById('start-datetime');
+    const endInput = document.getElementById('end-datetime');
+
+    if (allDay) {
+      // Store current values
+      const start = new Date(startInput.value);
+      const end = new Date(endInput.value);
+
+      startInput.type = 'date';
+      endInput.type = 'date';
+
+      startInput.value = start.toISOString().split('T')[0];
+      endInput.value = end.toISOString().split('T')[0];
+    } else {
+      startInput.type = 'datetime-local';
+      endInput.type = 'datetime-local';
+    }
+  }
+</script>
+</body>
+</html>
