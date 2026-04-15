@@ -4,153 +4,181 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Base Converter — Shadow's Garden</title>
-<meta name="description">Convert between binary, octal, decimal, hex. All local, no tracking.</meta>
+<meta name="description" content="Convert between binary, decimal, hexadecimal, and octal instantly. Copy any result with one click.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .converter { max-width: 600px; margin: 0 auto; }
-  .input-group { margin-bottom: 20px; }
-  .input-group label {
-    display: block;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
+  .converter {
+    max-width: 600px;
+    margin: 0 auto;
   }
-  .input-group input {
-    width: 100%;
-    padding: 14px;
-    border: 2px solid var(--border);
+  .base-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    background: var(--bg-secondary);
+    padding: 1rem;
     border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 18px;
-    font-family: var(--mono);
-    box-sizing: border-box;
-  }
-  .input-group input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .bases {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .base-item {
-    padding: 14px;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
+    border: 1px solid var(--border);
   }
   .base-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
+    font-weight: 600;
+    min-width: 70px;
+    font-size: 0.9rem;
   }
-  .base-value {
-    font-family: var(--mono);
-    font-size: 14px;
-    color: var(--text);
-    word-break: break-all;
+  .base-label span {
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    display: block;
+  }
+  .base-input {
+    flex: 1;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 1rem;
   }
   .copy-btn {
-    margin-top: 8px;
-    padding: 6px 12px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 12px;
-    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    min-width: 60px;
   }
-  .copy-btn:hover { border-color: var(--accent); }
+  .quick-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .quick-actions button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+  }
+  .base-2 { color: #7aa2f7; }
+  .base-8 { color: #7af782; }
+  .base-10 { color: #f7c8e0; }
+  .base-16 { color: #e0af68; }
+  .note {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 1.5rem;
+  }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
+  <h1 style="text-align: center; margin-bottom: 0.5rem;">Base Converter</h1>
+  <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem;">Convert between number bases instantly</p>
+
   <div class="converter">
-    <h1>Base Converter</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Convert between binary, octal, decimal, hex.</p>
-    
-    <div class="input-group">
-      <label>Enter a number (any base)</label>
-      <input type="text" id="input" placeholder="e.g., 42, 0x2A, 0b101010" oninput="convert()">
+    <div class="quick-actions">
+      <button onclick="setQuickValue('1010')">1010 (dec 10)</button>
+      <button onclick="setQuickValue('255')">255 (hex FF)</button>
+      <button onclick="setQuickValue('65535')">65535 (hex FFFF)</button>
+      <button onclick="setQuickValue('16777215')">16777215 (hex FFFFFF)</button>
     </div>
-    
-    <div class="bases">
-      <div class="base-item">
-        <div class="base-label">Decimal (10)</div>
-        <div class="base-value" id="decimal">--</div>
-        <button class="copy-btn" onclick="copy('decimal')">Copy</button>
-      </div>
-      <div class="base-item">
-        <div class="base-label">Binary (2)</div>
-        <div class="base-value" id="binary">--</div>
-        <button class="copy-btn" onclick="copy('binary')">Copy</button>
-      </div>
-      <div class="base-item">
-        <div class="base-label">Octal (8)</div>
-        <div class="base-value" id="octal">--</div>
-        <button class="copy-btn" onclick="copy('octal')">Copy</button>
-      </div>
-      <div class="base-item">
-        <div class="base-label">Hexadecimal (16)</div>
-        <div class="base-value" id="hex">--</div>
-        <button class="copy-btn" onclick="copy('hex')">Copy</button>
-      </div>
+
+    <div class="base-row">
+      <div class="base-label base-2">Binary<span>base 2</span></div>
+      <input type="text" class="base-input" id="binary" placeholder="0" oninput="convertFrom('binary')">
+      <button class="copy-btn" onclick="copyToClipboard('binary')">Copy</button>
     </div>
+
+    <div class="base-row">
+      <div class="base-label base-8">Octal<span>base 8</span></div>
+      <input type="text" class="base-input" id="octal" placeholder="0" oninput="convertFrom('octal')">
+      <button class="copy-btn" onclick="copyToClipboard('octal')">Copy</button>
+    </div>
+
+    <div class="base-row">
+      <div class="base-label base-10">Decimal<span>base 10</span></div>
+      <input type="text" class="base-input" id="decimal" placeholder="0" oninput="convertFrom('decimal')">
+      <button class="copy-btn" onclick="copyToClipboard('decimal')">Copy</button>
+    </div>
+
+    <div class="base-row">
+      <div class="base-label base-16">Hex<span>base 16</span></div>
+      <input type="text" class="base-input" id="hex" placeholder="0" oninput="convertFrom('hex')">
+      <button class="copy-btn" onclick="copyToClipboard('hex')">Copy</button>
+    </div>
+
+    <p class="note">All conversions happen locally — no data leaves your browser.</p>
   </div>
 </div>
+
 <script>
-  function convert() {
-    const input = document.getElementById('input').value.trim();
-    
-    if (!input) {
-      ['decimal', 'binary', 'octal', 'hex'].forEach(id => {
-        document.getElementById(id).textContent = '--';
-      });
-      return;
-    }
-    
-    let decimal;
-    
-    // Try to parse the input
-    if (input.startsWith('0x') || input.startsWith('0X')) {
-      // Hex
-      decimal = parseInt(input, 16);
-    } else if (input.startsWith('0b') || input.startsWith('0B')) {
-      // Binary
-      decimal = parseInt(input, 2);
-    } else if (input.startsWith('0o') || input.startsWith('0O')) {
-      // Octal
-      decimal = parseInt(input, 8);
-    } else if (input.startsWith('0') && input.length > 1) {
-      // Octal
-      decimal = parseInt(input, 8);
-    } else {
-      // Decimal or auto-detect
-      decimal = parseInt(input, 10);
-    }
-    
-    if (isNaN(decimal)) {
-      ['decimal', 'binary', 'octal', 'hex'].forEach(id => {
-        document.getElementById(id).textContent = 'Invalid';
-      });
-      return;
-    }
-    
-    document.getElementById('decimal').textContent = decimal.toString(10);
-    document.getElementById('binary').textContent = '0b' + decimal.toString(2);
-    document.getElementById('octal').textContent = '0o' + decimal.toString(8);
-    document.getElementById('hex').textContent = '0x' + decimal.toString(16).toUpperCase();
+  const bases = ['binary', 'octal', 'decimal', 'hex'];
+  let isConverting = false;
+
+  function setQuickValue(val) {
+    document.getElementById('decimal').value = val;
+    convertFrom('decimal');
   }
-  
-  function copy(id) {
-    const val = document.getElementById(id).textContent;
-    if (!val || val === '--' || val === 'Invalid') return;
+
+  function convertFrom(source) {
+    if (isConverting) return;
+    isConverting = true;
+
+    const sourceEl = document.getElementById(source);
+    let value = sourceEl.value.trim();
+
+    if (!value) {
+      bases.forEach(b => {
+        if (b !== source) document.getElementById(b).value = '';
+      });
+      isConverting = false;
+      return;
+    }
+
+    try {
+      let decimal;
+      
+      switch (source) {
+        case 'binary':
+          if (!/^[01]+$/.test(value)) { isConverting = false; return; }
+          decimal = parseInt(value, 2);
+          break;
+        case 'octal':
+          if (!/^[0-7]+$/.test(value)) { isConverting = false; return; }
+          decimal = parseInt(value, 8);
+          break;
+        case 'decimal':
+          if (!/^\d+$/.test(value)) { isConverting = false; return; }
+          decimal = parseInt(value, 10);
+          break;
+        case 'hex':
+          if (!/^[0-9a-fA-F]+$/.test(value)) { isConverting = false; return; }
+          decimal = parseInt(value, 16);
+          break;
+      }
+
+      if (decimal > Number.MAX_SAFE_INTEGER || decimal < 0) {
+        isConverting = false;
+        return;
+      }
+
+      if (source !== 'binary') document.getElementById('binary').value = decimal.toString(2);
+      if (source !== 'octal') document.getElementById('octal').value = decimal.toString(8);
+      if (source !== 'decimal') document.getElementById('decimal').value = decimal.toString(10);
+      if (source !== 'hex') document.getElementById('hex').value = decimal.toString(16).toUpperCase();
+
+    } catch (e) {
+      // Invalid input, clear other fields
+      bases.forEach(b => {
+        if (b !== source) document.getElementById(b).value = '';
+      });
+    }
+
+    isConverting = false;
+  }
+
+  function copyToClipboard(id) {
+    const el = document.getElementById(id);
+    const value = el.value;
+    if (!value) return;
     
-    navigator.clipboard.writeText(val).then(() => {
-      const btn = event.target;
+    navigator.clipboard.writeText(value).then(() => {
+      const btn = el.nextElementSibling;
       const original = btn.textContent;
       btn.textContent = 'Copied!';
       setTimeout(() => btn.textContent = original, 1500);
