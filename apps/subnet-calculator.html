@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subnet Calculator — Shadow's Garden</title>
+<meta name="description" content="Calculate subnet masks, network addresses, and IP ranges. Fast and clean.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .calc-container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .input-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .input-row input {
+    flex: 1;
+    min-width: 150px;
+  }
+  .input-row select {
+    min-width: 120px;
+  }
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .result-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .result-card label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .result-card .value {
+    font-size: 1.1rem;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    word-break: break-all;
+  }
+  .quick-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .quick-buttons button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .error {
+    color: var(--error);
+    padding: 1rem;
+    background: rgba(255, 100, 100, 0.1);
+    border-radius: 8px;
+    display: none;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Subnet Calculator</h1>
+    <p>Calculate network addresses, ranges, and masks</p>
+  </div>
+  
+  <div class="calc-container">
+    <div class="quick-buttons">
+      <button onclick="setCIDR(24)">/24</button>
+      <button onclick="setCIDR(25)">/25</button>
+      <button onclick="setCIDR(26)">/26</button>
+      <button onclick="setCIDR(27)">/27</button>
+      <button onclick="setCIDR(28)">/28</button>
+      <button onclick="setCIDR(29)">/29</button>
+      <button onclick="setCIDR(30)">/30</button>
+      <button onclick="setCIDR(16)">/16</button>
+      <button onclick="setCIDR(8)">/8</button>
+    </div>
+    
+    <div class="input-row">
+      <input type="text" id="ip-address" placeholder="IP Address (e.g. 192.168.1.100)" value="192.168.1.0">
+      <select id="cidr-select">
+        <option value="32">/32</option>
+        <option value="31">/31</option>
+        <option value="30">/30</option>
+        <option value="29">/29</option>
+        <option value="28">/28</option>
+        <option value="27">/27</option>
+        <option value="26">/26</option>
+        <option value="25">/25</option>
+        <option value="24" selected>/24</option>
+        <option value="23">/23</option>
+        <option value="22">/22</option>
+        <option value="21">/21</option>
+        <option value="20">/20</option>
+        <option value="19">/19</option>
+        <option value="18">/18</option>
+        <option value="17">/17</option>
+        <option value="16" selected>/16</option>
+        <option value="15">/15</option>
+        <option value="14">/14</option>
+        <option value="13">/13</option>
+        <option value="12">/12</option>
+        <option value="11">/11</option>
+        <option value="10">/10</option>
+        <option value="9">/9</option>
+        <option value="8">/8</option>
+      </select>
+    </div>
+    
+    <div class="error" id="error"></div>
+    
+    <div class="result-grid" id="results">
+      <div class="result-card">
+        <label>Network Address</label>
+        <div class="value" id="network">192.168.1.0</div>
+      </div>
+      <div class="result-card">
+        <label>Broadcast Address</label>
+        <div class="value" id="broadcast">192.168.1.255</div>
+      </div>
+      <div class="result-card">
+        <label>First Usable IP</label>
+        <div class="value" id="first">192.168.1.1</div>
+      </div>
+      <div class="result-card">
+        <label>Last Usable IP</label>
+        <div class="value" id="last">192.168.1.254</div>
+      </div>
+      <div class="result-card">
+        <label>Subnet Mask</label>
+        <div class="value" id="mask">255.255.255.0</div>
+      </div>
+      <div class="result-card">
+        <label>Wildcard Mask</label>
+        <div class="value" id="wildcard">0.0.0.255</div>
+      </div>
+      <div class="result-card">
+        <label>Total Hosts</label>
+        <div class="value" id="total">254</div>
+      </div>
+      <div class="result-card">
+        <label>Usable Hosts</label>
+        <div class="value" id="usable">252</div>
+      </div>
+      <div class="result-card">
+        <label>CIDR Notation</label>
+        <div class="value" id="cidr">192.168.1.0/24</div>
+      </div>
+      <div class="result-card">
+        <label>IP Class</label>
+        <div class="value" id="class">C</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ipInput = document.getElementById('ip-address');
+  const cidrSelect = document.getElementById('cidr-select');
+  const errorDiv = document.getElementById('error');
+  
+  ipInput.addEventListener('input', calculate);
+  cidrSelect.addEventListener('change', calculate);
+  
+  function setCIDR(val) {
+    cidrSelect.value = val;
+    calculate();
+  }
+  
+  function ipToLong(ip) {
+    const parts = ip.split('.');
+    if (parts.length !== 4) return null;
+    for (let p of parts) {
+      if (p === '' || isNaN(p) || p < 0 || p > 255) return null;
+    }
+    return (parseInt(parts[0]) << 24) + (parseInt(parts[1]) << 16) + (parseInt(parts[2]) << 8) + parseInt(parts[3]);
+  }
+  
+  function longToIp(long) {
+    return [
+      (long >>> 24) & 255,
+      (long >>> 16) & 255,
+      (long >>> 8) & 255,
+      long & 255
+    ].join('.');
+  }
+  
+  function calculate() {
+    const ip = ipInput.value.trim();
+    const cidr = parseInt(cidrSelect.value);
+    const ipLong = ipToLong(ip);
+    
+    if (!ipLong) {
+      errorDiv.style.display = 'block';
+      errorDiv.textContent = 'Invalid IP address';
+      return;
+    }
+    
+    errorDiv.style.display = 'none';
+    
+    // Calculate network address
+    const maskLong = cidr === 0 ? 0 : ~((1 << (32 - cidr)) - 1) >>> 0;
+    const networkLong = (ipLong & maskLong) >>> 0;
+    const broadcastLong = (networkLong | ~maskLong) >>> 0;
+    
+    // First and last usable
+    let firstLong, lastLong;
+    if (cidr === 32) {
+      firstLong = lastLong = networkLong;
+    } else if (cidr === 31) {
+      firstLong = networkLong;
+      lastLong = broadcastLong;
+    } else {
+      firstLong = networkLong + 1;
+      lastLong = broadcastLong - 1;
+    }
+    
+    // Wildcard mask
+    const wildcardLong = ~maskLong >>> 0;
+    
+    // Total and usable hosts
+    const totalHosts = cidr === 32 ? 1 : Math.pow(2, 32 - cidr);
+    const usableHosts = cidr >= 31 ? totalHosts : totalHosts - 2;
+    
+    // IP Class
+    const firstOctet = (ipLong >>> 24) & 255;
+    let ipClass = 'E';
+    if (firstOctet < 128) ipClass = 'A';
+    else if (firstOctet < 192) ipClass = 'B';
+    else if (firstOctet < 224) ipClass = 'C';
+    else if (firstOctet < 240) ipClass = 'D';
+    
+    // Update UI
+    document.getElementById('network').textContent = longToIp(networkLong);
+    document.getElementById('broadcast').textContent = longToIp(broadcastLong);
+    document.getElementById('first').textContent = longToIp(firstLong);
+    document.getElementById('last').textContent = longToIp(lastLong);
+    document.getElementById('mask').textContent = longToIp(maskLong);
+    document.getElementById('wildcard').textContent = longToIp(wildcardLong);
+    document.getElementById('total').textContent = totalHosts.toLocaleString();
+    document.getElementById('usable').textContent = usableHosts.toLocaleString();
+    document.getElementById('cidr').textContent = longToIp(networkLong) + '/' + cidr;
+    document.getElementById('class').textContent = ipClass;
+  }
+  
+  // Initial calculation
+  calculate();
+</script>
+</body>
+</html>
