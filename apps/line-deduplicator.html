@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Line Deduplicator — Shadow's Garden</title>
+<meta name="description" content="Remove duplicate lines from text. Keep first, last, or all unique occurrences.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .dedupe-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  @media (max-width: 800px) {
+    .dedupe-container { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .panel-header h3 {
+    margin: 0;
+  }
+  textarea {
+    flex: 1;
+    min-height: 300px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  .options-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .option-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .option-group label {
+    font-weight: 500;
+  }
+  .option-group select {
+    padding: 0.5rem;
+  }
+  .stats-bar {
+    display: flex;
+    gap: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  .stat {
+    font-size: 0.9rem;
+  }
+  .stat strong {
+    color: var(--accent);
+  }
+  .btn-small {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .hero p { color: var(--text-secondary); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Line Deduplicator</h1>
+    <p>Remove duplicate lines from any text</p>
+  </div>
+
+  <div class="options-row">
+    <div class="option-group">
+      <label>Keep:</label>
+      <select id="keep-mode" onchange="dedupe()">
+        <option value="first">First occurrence</option>
+        <option value="last">Last occurrence</option>
+        <option value="all">All unique (sorted)</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <label>Case:</label>
+      <select id="case-mode" onchange="dedupe()">
+        <option value="sensitive">Case sensitive</option>
+        <option value="insensitive">Case insensitive</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <label>Sort:</label>
+      <select id="sort-mode" onchange="dedupe()">
+        <option value="none">Preserve order</option>
+        <option value="asc">A-Z</option>
+        <option value="desc">Z-A</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <label>Empty lines:</label>
+      <select id="empty-mode" onchange="dedupe()">
+        <option value="keep">Keep</option>
+        <option value="remove">Remove</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="dedupe-container">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Input</h3>
+        <button class="btn-small" onclick="clearInput()">Clear</button>
+      </div>
+      <textarea id="input-text" placeholder="Paste your text here..." oninput="dedupe()"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Output</h3>
+        <button class="btn-small" onclick="copyOutput()">Copy</button>
+      </div>
+      <textarea id="output-text" readonly></textarea>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">Lines: <strong id="stat-input">0</strong> → <strong id="stat-output">0</strong></div>
+    <div class="stat">Removed: <strong id="stat-removed">0</strong></div>
+    <div class="stat">Saved: <strong id="stat-percent">0%</strong></div>
+  </div>
+</div>
+
+<script>
+  function dedupe() {
+    const input = document.getElementById('input-text').value;
+    const keepMode = document.getElementById('keep-mode').value;
+    const caseMode = document.getElementById('case-mode').value;
+    const sortMode = document.getElementById('sort-mode').value;
+    const emptyMode = document.getElementById('empty-mode').value;
+    
+    let lines = input.split('\n');
+    const inputCount = lines.length;
+    
+    // Handle empty lines
+    if (emptyMode === 'remove') {
+      lines = lines.filter(l => l.trim() !== '');
+    }
+    
+    // Case handling
+    const getKey = caseMode === 'insensitive' 
+      ? (line) => line.toLowerCase() 
+      : (line) => line;
+    
+    if (keepMode === 'all') {
+      // Keep all unique
+      const seen = new Set();
+      lines = lines.filter(line => {
+        const key = getKey(line);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      
+      // Sort if needed
+      if (sortMode === 'asc') {
+        lines.sort((a,b) => getKey(a).localeCompare(getKey(b)));
+      } else if (sortMode === 'desc') {
+        lines.sort((a,b) => getKey(b).localeCompare(getKey(a)));
+      }
+    } else {
+      // Keep first or last occurrence
+      const seen = new Map();
+      
+      if (keepMode === 'first') {
+        lines.forEach((line, idx) => {
+          const key = getKey(line);
+          if (!seen.has(key)) seen.set(key, idx);
+        });
+        lines = lines.filter((_, idx) => seen.get(getKey(_)) === idx);
+      } else {
+        // Last occurrence
+        lines.forEach((line, idx) => {
+          const key = getKey(line);
+          seen.set(key, idx);
+        });
+        const lastIndices = new Set(seen.values());
+        lines = lines.filter((_, idx) => lastIndices.has(idx));
+      }
+      
+      // Sort if needed (after dedupe)
+      if (sortMode === 'asc') {
+        lines.sort((a,b) => getKey(a).localeCompare(getKey(b)));
+      } else if (sortMode === 'desc') {
+        lines.sort((a,b) => getKey(b).localeCompare(getKey(a)));
+      }
+    }
+    
+    const output = lines.join('\n');
+    const outputCount = lines.length;
+    const removed = inputCount - outputCount;
+    const saved = inputCount > 0 ? Math.round((removed / inputCount) * 100) : 0;
+    
+    document.getElementById('output-text').value = output;
+    document.getElementById('stat-input').textContent = inputCount;
+    document.getElementById('stat-output').textContent = outputCount;
+    document.getElementById('stat-removed').textContent = removed;
+    document.getElementById('stat-percent').textContent = saved + '%';
+  }
+  
+  function clearInput() {
+    document.getElementById('input-text').value = '';
+    dedupe();
+  }
+  
+  function copyOutput() {
+    const output = document.getElementById('output-text');
+    output.select();
+    document.execCommand('copy');
+  }
+</script>
+</body>
+</html>

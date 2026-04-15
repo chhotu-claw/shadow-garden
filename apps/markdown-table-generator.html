@@ -4,185 +4,189 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Markdown Table Generator — Shadow's Garden</title>
-<meta name="description" content="Build Markdown tables instantly with a visual grid editor and live preview.">
+<meta name="description" content="Generate markdown tables instantly. Define columns, add rows, get ready-to-use markdown.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; padding: 2rem; }
-  .container { max-width: 900px; margin: 0 auto; }
-  h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-  .editor { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  .panel { background: var(--card-bg); border-radius: 8px; padding: 1rem; }
-  .panel h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted); }
-  .table-controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-  .btn { padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-  .btn:hover { opacity: 0.9; }
-  .btn.secondary { background: var(--border); }
-  .grid-editor { display: grid; gap: 2px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .cell { background: var(--input-bg); padding: 0.5rem; border: none; font-family: monospace; font-size: 0.85rem; color: var(--text); min-width: 80px; }
-  .cell:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .cell.header { background: var(--highlight); font-weight: bold; }
-  .preview { font-family: monospace; white-space: pre-wrap; background: var(--input-bg); padding: 1rem; border-radius: 4px; min-height: 200px; overflow: auto; font-size: 0.85rem; color: var(--text); }
-  .add-row-col { display: flex; gap: 0.5rem; margin-top: 1rem; }
-  .row-input, .col-input { padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); width: 80px; }
-  .empty-state { color: var(--text-muted); text-align: center; padding: 2rem; }
-  @media (max-width: 700px) { .editor { grid-template-columns: 1fr; } }
+  .generator-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  @media (max-width: 800px) {
+    .generator-container { grid-template-columns: 1fr; }
+  }
+  .input-panel, .output-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  h3 { margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-secondary); }
+  .control-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .control-row input[type="number"] {
+    width: 80px;
+  }
+  textarea {
+    width: 100%;
+    height: 300px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+  }
+  .preview-box {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .btn-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .hero { text-align: center; padding: 2rem 0; }
+  .hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .hero p { color: var(--text-secondary); }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>📊 Markdown Table Generator</h1>
-    <div class="subtitle">Build Markdown tables instantly with a visual grid editor and live preview</div>
-    
-    <div class="editor">
-      <div class="panel">
-        <h2>Grid Editor</h2>
-        <div class="table-controls">
-          <button class="btn" id="add-row">+ Row</button>
-          <button class="btn" id="add-col">+ Column</button>
-          <button class="btn secondary" id="clear">Clear</button>
-        </div>
-        <div class="grid-editor" id="grid"></div>
-        <div class="add-row-col">
-          <input type="number" class="row-input" id="rows-input" value="3" min="1" max="20">
-          <span style="color: var(--text-muted); align-self: center;">rows</span>
-          <input type="number" class="col-input" id="cols-input" value="3" min="1" max="10">
-          <span style="color: var(--text-muted); align-self: center;">cols</span>
-          <button class="btn" id="resize-btn">Resize</button>
-        </div>
+<div class="container">
+  <div class="hero">
+    <h1>Markdown Table Generator</h1>
+    <p>Build markdown tables without the pain</p>
+  </div>
+
+  <div class="generator-container">
+    <div class="input-panel">
+      <h3>Table Configuration</h3>
+      <div class="control-row">
+        <label>Columns:</label>
+        <input type="number" id="col-count" value="3" min="1" max="10" onchange="updateDims()">
+        <label>Rows:</label>
+        <input type="number" id="row-count" value="3" min="1" max="20" onchange="updateDims()">
       </div>
-      <div class="panel">
-        <h2>Markdown Output</h2>
-        <div class="preview" id="output"></div>
-        <button class="btn" id="copy-btn" style="margin-top: 1rem;">Copy Markdown</button>
+      <div class="control-row">
+        <label>Alignment:</label>
+        <button onclick="setAlign('left')" class="active" id="btn-left">Left</button>
+        <button onclick="setAlign('center')" id="btn-center">Center</button>
+        <button onclick="setAlign('right')" id="btn-right">Right</button>
+      </div>
+      <h3>Column Headers (comma-separated)</h3>
+      <input type="text" id="headers" value="Name,Email,Role" style="width:100%;margin-bottom:1rem;" oninput="generate()">
+      <h3>Data (one row per line, comma-separated)</h3>
+      <textarea id="data" oninput="generate()">John,john@example.com,Admin
+Jane,jane@example.com,Editor
+Bob,bob@example.com,User</textarea>
+    </div>
+
+    <div class="output-panel">
+      <h3>Markdown Output</h3>
+      <div class="preview-box" id="output"></div>
+      <div class="btn-row">
+        <button onclick="copy()">Copy Markdown</button>
+        <button onclick="copyHtml()">Copy HTML</button>
       </div>
     </div>
   </div>
+</div>
+
+<script>
+  let align = 'left';
   
-  <script>
-    let rows = 3;
-    let cols = 3;
-    let grid = [];
+  function setAlignment(a) {
+    align = a;
+    document.querySelectorAll('.control-row button').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + a).classList.add('active');
+    generate();
+  }
+  
+  function updateDims() {
+    // Headers and data will stay — just regenerate
+    generate();
+  }
+  
+  function generate() {
+    const headers = document.getElementById('headers').value.split(',').map(h => h.trim()).filter(h => h);
+    const dataLines = document.getElementById('data').value.split('\n').filter(l => l.trim());
     
-    function initGrid() {
-      grid = [];
-      for (let r = 0; r < rows; r++) {
-        const row = [];
-        for (let c = 0; c < cols; c++) {
-          row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c}`);
-        }
-        grid.push(row);
-      }
-      renderGrid();
-      updateOutput();
+    if (headers.length === 0) {
+      document.getElementById('output').textContent = 'Add column headers to get started';
+      return;
     }
     
-    function renderGrid() {
-      const gridEl = document.getElementById('grid');
-      gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      gridEl.innerHTML = '';
-      
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const input = document.createElement('input');
-          input.className = 'cell' + (r === 0 ? ' header' : '');
-          input.value = grid[r][c];
-          input.addEventListener('input', (e) => {
-            grid[r][c] = e.target.value;
-            updateOutput();
-          });
-          gridEl.appendChild(input);
-        }
-      }
+    const alignChar = align === 'left' ? ':---' : align === 'center' ? ':---:' : '---:';
+    const separator = '| ' + headers.map(() => alignChar).join(' | ') + ' |';
+    
+    const headerRow = '| ' + headers.join(' | ') + ' |';
+    const dataRows = dataLines.map(line => {
+      const cells = line.split(',').map(c => c.trim());
+      // Pad cells to match header count
+      while (cells.length < headers.length) cells.push('');
+      return '| ' + cells.slice(0, headers.length).join(' | ') + ' |';
+    });
+    
+    const md = [headerRow, separator, ...dataRows].join('\n');
+    document.getElementById('output').textContent = md;
+  }
+  
+  function copy() {
+    const md = document.getElementById('output').textContent;
+    navigator.clipboard.writeText(md).then(() => {
+      alert('Copied!');
+    });
+  }
+  
+  function copyHtml() {
+    const md = document.getElementById('output').textContent;
+    const html = mdToHtml(md);
+    navigator.clipboard.writeText(html).then(() => {
+      alert('HTML copied!');
+    });
+  }
+  
+  function mdToHtml(md) {
+    const lines = md.split('\n');
+    if (lines.length < 2) return '';
+    
+    const headers = lines[0].split('|').map(c => c.trim()).filter(c => c);
+    const dataLines = lines.slice(2);
+    
+    let html = '<table>\n  <thead>\n    <tr>\n';
+    for (const h of headers) {
+      html += `      <th>${escapeHtml(h)}</th>\n`;
     }
+    html += '    </tr>\n  </thead>\n  <tbody>\n';
     
-    function updateOutput() {
-      if (grid.length === 0) {
-        document.getElementById('output').textContent = 'Add rows and columns to start';
-        return;
+    for (const line of dataLines) {
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length === 0) continue;
+      html += '    <tr>\n';
+      for (const c of cells) {
+        html += `      <td>${escapeHtml(c)}</td>\n`;
       }
-      
-      const colWidths = [];
-      for (let c = 0; c < cols; c++) {
-        let maxLen = 3;
-        for (let r = 0; r < rows; r++) {
-          maxLen = Math.max(maxLen, grid[r][c].length);
-        }
-        colWidths.push(maxLen);
-      }
-      
-      let md = '';
-      
-      // Header row
-      md += '| ' + grid[0].map((v, i) => v.padEnd(colWidths[i])).join(' | ') + ' |\n';
-      
-      // Separator row
-      md += '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |\n';
-      
-      // Data rows
-      for (let r = 1; r < rows; r++) {
-        md += '| ' + grid[r].map((v, i) => v.padEnd(colWidths[i])).join(' | ') + ' |\n';
-      }
-      
-      document.getElementById('output').textContent = md;
+      html += '    </tr>\n';
     }
-    
-    document.getElementById('add-row').addEventListener('click', () => {
-      const newRow = [];
-      for (let c = 0; c < cols; c++) {
-        newRow.push(`Row ${rows}`);
-      }
-      grid.push(newRow);
-      rows++;
-      renderGrid();
-      updateOutput();
-    });
-    
-    document.getElementById('add-col').addEventListener('click', () => {
-      for (let r = 0; r < rows; r++) {
-        grid[r].push(r === 0 ? `Header ${cols}` : `Cell ${r}-${cols}`);
-      }
-      cols++;
-      renderGrid();
-      updateOutput();
-    });
-    
-    document.getElementById('clear').addEventListener('click', initGrid);
-    
-    document.getElementById('resize-btn').addEventListener('click', () => {
-      const newRows = parseInt(document.getElementById('rows-input').value);
-      const newCols = parseInt(document.getElementById('cols-input').value);
-      
-      if (newRows < 1 || newCols < 1) return;
-      
-      const newGrid = [];
-      for (let r = 0; r < newRows; r++) {
-        const row = [];
-        for (let c = 0; c < newCols; c++) {
-          if (r < rows && c < cols) {
-            row.push(grid[r][c]);
-          } else {
-            row.push(r === 0 ? `Header ${c + 1}` : `Cell ${r}-${c}`);
-          }
-        }
-        newGrid.push(row);
-      }
-      
-      rows = newRows;
-      cols = newCols;
-      grid = newGrid;
-      renderGrid();
-      updateOutput();
-    });
-    
-    document.getElementById('copy-btn').addEventListener('click', () => {
-      navigator.clipboard.writeText(document.getElementById('output').textContent);
-      document.getElementById('copy-btn').textContent = 'Copied!';
-      setTimeout(() => document.getElementById('copy-btn').textContent = 'Copy Markdown', 1500);
-    });
-    
-    initGrid();
-  </script>
+    html += '  </tbody>\n</table>';
+    return html;
+  }
+  
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  
+  generate();
+</script>
 </body>
 </html>
