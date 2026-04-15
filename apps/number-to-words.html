@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number to Words Converter — Shadow's Garden</title>
+<meta name="description" content="Convert numbers to words and words to numbers. E.g., 42 → forty-two.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .input-group input, .input-group textarea {
+    width: 100%;
+  }
+  .result-box {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 500;
+    min-height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-break: break-word;
+  }
+  .copy-btn {
+    margin-top: 0.75rem;
+  }
+  .mode-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .mode-tabs button {
+    flex: 1;
+  }
+  .mode-tabs button.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+  .limits {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Number to Words Converter</h1>
+    <p>Convert numbers to words and vice versa</p>
+  </div>
+
+  <div class="converter-card">
+    <div class="mode-tabs">
+      <button class="active" onclick="setMode('number')" id="mode-number">Number → Words</button>
+      <button onclick="setMode('words')" id="mode-words">Words → Number</button>
+    </div>
+
+    <div class="input-group" id="group-number">
+      <label>Enter a number</label>
+      <input type="text" id="input-number" placeholder="e.g., 42" oninput="convertNumber()">
+    </div>
+
+    <div class="input-group hidden" id="group-words">
+      <label>Enter words</label>
+      <textarea id="input-words" placeholder="e.g., forty two" oninput="convertWords()" rows="2"></textarea>
+    </div>
+
+    <div class="result-box" id="result">—</div>
+    <button class="copy-btn" onclick="copyResult()">Copy</button>
+    
+    <div class="limits">
+      Supports numbers from -999,999,999,999 to 999,999,999,999
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentMode = 'number';
+  
+  const ones = ['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+  const tens = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+  const scales = ['','thousand','million','billion','trillion'];
+  
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-number').classList.toggle('active', mode === 'number');
+    document.getElementById('mode-words').classList.toggle('active', mode === 'words');
+    document.getElementById('group-number').classList.toggle('hidden', mode !== 'number');
+    document.getElementById('group-words').classList.toggle('hidden', mode !== 'words');
+    document.getElementById('result').textContent = '—';
+  }
+  
+  function convertNumber() {
+    const input = document.getElementById('input-number').value.replace(/,/g, '').trim();
+    const result = document.getElementById('result');
+    
+    if (!input) {
+      result.textContent = '—';
+      return;
+    }
+    
+    const num = parseInt(input, 10);
+    if (isNaN(num)) {
+      result.textContent = 'Invalid number';
+      return;
+    }
+    
+    if (num < -999999999999 || num > 999999999999) {
+      result.textContent = 'Number out of range';
+      return;
+    }
+    
+    result.textContent = numberToWords(num);
+  }
+  
+  function convertWords() {
+    const input = document.getElementById('input-words').value.toLowerCase().trim();
+    const result = document.getElementById('result');
+    
+    if (!input) {
+      result.textContent = '—';
+      return;
+    }
+    
+    try {
+      result.textContent = wordsToNumber(input);
+    } catch(e) {
+      result.textContent = 'Invalid input';
+    }
+  }
+  
+  function numberToWords(n) {
+    if (n === 0) return 'zero';
+    
+    let isNegative = n < 0;
+    n = Math.abs(n);
+    
+    let words = '';
+    let scaleIndex = 0;
+    
+    while (n > 0) {
+      let chunk = n % 1000;
+      if (chunk > 0) {
+        words = convertChunk(chunk) + (scales[scaleIndex] ? ' ' + scales[scaleIndex] : '') + (words ? ' ' + words : '');
+      }
+      n = Math.floor(n / 1000);
+      scaleIndex++;
+    }
+    
+    return (isNegative ? 'negative ' : '') + words.trim();
+  }
+  
+  function convertChunk(n) {
+    let words = '';
+    
+    if (n >= 100) {
+      words += ones[Math.floor(n / 100)] + ' hundred';
+      n = n % 100;
+      if (n > 0) words += ' ';
+    }
+    
+    if (n >= 20) {
+      words += tens[Math.floor(n / 10)];
+      if (n % 10 > 0) words += '-' + ones[n % 10];
+    } else if (n > 0) {
+      words += ones[n];
+    }
+    
+    return words;
+  }
+  
+  function wordsToNumber(str) {
+    str = str.toLowerCase().replace(/-/g, ' ').replace(/ and /g, ' ');
+    const parts = str.trim().split(/\s+/);
+    
+    let total = 0;
+    let current = 0;
+    let isNegative = false;
+    
+    if (parts[0] === 'negative') {
+      isNegative = true;
+      parts.shift();
+    }
+    
+    for (const part of parts) {
+      if (part === 'zero') { current += 0; }
+      else if (part === 'one') { current += 1; }
+      else if (part === 'two') { current += 2; }
+      else if (part === 'three') { current += 3; }
+      else if (part === 'four') { current += 4; }
+      else if (part === 'five') { current += 5; }
+      else if (part === 'six') { current += 6; }
+      else if (part === 'seven') { current += 7; }
+      else if (part === 'eight') { current += 8; }
+      else if (part === 'nine') { current += 9; }
+      else if (part === 'ten') { current += 10; }
+      else if (part === 'eleven') { current += 11; }
+      else if (part === 'twelve') { current += 12; }
+      else if (part === 'thirteen') { current += 13; }
+      else if (part === 'fourteen') { current += 14; }
+      else if (part === 'fifteen') { current += 15; }
+      else if (part === 'sixteen') { current += 16; }
+      else if (part === 'seventeen') { current += 17; }
+      else if (part === 'eighteen') { current += 18; }
+      else if (part === 'nineteen') { current += 19; }
+      else if (part === 'twenty') { current += 20; }
+      else if (part === 'thirty') { current += 30; }
+      else if (part === 'forty') { current += 40; }
+      else if (part === 'fifty') { current += 50; }
+      else if (part === 'sixty') { current += 60; }
+      else if (part === 'seventy') { current += 70; }
+      else if (part === 'eighty') { current += 80; }
+      else if (part === 'ninety') { current += 90; }
+      else if (part === 'hundred') { current = current === 0 ? 100 : current * 100; }
+      else if (part === 'thousand') { current = current * 1000; total += current; current = 0; }
+      else if (part === 'million') { current = current * 1000000; total += current; current = 0; }
+      else if (part === 'billion') { current = current * 1000000000; total += current; current = 0; }
+      else if (part === 'trillion') { current = current * 1000000000000; total += current; current = 0; }
+      else {
+        throw new Error('Unknown word: ' + part);
+      }
+    }
+    
+    total += current;
+    return isNegative ? -total : total;
+  }
+  
+  function copyResult() {
+    const result = document.getElementById('result').textContent;
+    if (result && result !== '—' && result !== 'Invalid number' && result !== 'Invalid input' && result !== 'Number out of range') {
+      navigator.clipboard.writeText(result);
+    }
+  }
+</script>
+</body>
+</html>
