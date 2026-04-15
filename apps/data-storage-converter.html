@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Storage Converter — Shadow's Garden</title>
+<meta name="description" content="Convert between bytes, KB, MB, GB, TB, PB. Data storage unit converter.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .converter-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .input-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .input-row input {
+    flex: 1;
+  }
+  .input-row select {
+    width: 100px;
+  }
+  .results {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-row:last-child {
+    border-bottom: none;
+  }
+  .result-label {
+    color: var(--text-secondary);
+  }
+  .result-value {
+    font-weight: 500;
+    font-family: monospace;
+  }
+  .copy-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+  }
+  .quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .quick-buttons button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Data Storage Converter</h1>
+    <p>Convert between bytes, KB, MB, GB, TB, and PB</p>
+  </div>
+  
+  <div class="converter-card">
+    <div class="quick-buttons">
+      <button onclick="setQuick(1024, 'B')">1 KB</button>
+      <button onclick="setQuick(1, 'MB')">1 MB</button>
+      <button onclick="setQuick(1, 'GB')">1 GB</button>
+      <button onclick="setQuick(1, 'TB')">1 TB</button>
+      <button onclick="setQuick(100, 'GB')">100 GB</button>
+      <button onclick="setQuick(512, 'MB')">512 MB</button>
+    </div>
+    
+    <div class="input-group">
+      <label>Enter value</label>
+      <div class="input-row">
+        <input type="number" id="input-value" placeholder="Enter number" oninput="convert()" step="any">
+        <select id="input-unit" onchange="convert()">
+          <option value="B">Bytes</option>
+          <option value="KB">KB</option>
+          <option value="MB" selected>MB</option>
+          <option value="GB">GB</option>
+          <option value="TB">TB</option>
+          <option value="PB">PB</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="results">
+      <div class="result-row">
+        <span class="result-label">Bytes</span>
+        <span class="result-value"><span id="bytes">0</span></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Kilobytes (KB)</span>
+        <span class="result-value"><span id="kb">0</span></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Megabytes (MB)</span>
+        <span class="result-value"><span id="mb">0</span></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Gigabytes (GB)</span>
+        <span class="result-value"><span id="gb">0</span></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Terabytes (TB)</span>
+        <span class="result-value"><span id="tb">0</span></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Petabytes (PB)</span>
+        <span class="result-value"><span id="pb">0</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const units = {
+    'B': 1,
+    'KB': 1024,
+    'MB': 1024 * 1024,
+    'GB': 1024 * 1024 * 1024,
+    'TB': 1024 * 1024 * 1024 * 1024,
+    'PB': 1024 * 1024 * 1024 * 1024 * 1024
+  };
+  
+  function formatNumber(num) {
+    if (num === 0) return '0';
+    if (num < 0.001) return num.toExponential(4);
+    if (num >= 1e15) return num.toExponential(4);
+    // Use locale string for better readability
+    if (Number.isInteger(num)) return num.toLocaleString();
+    // For decimals, show up to 6 significant figures
+    return num.toPrecision(6).replace(/\.?0+$/, '');
+  }
+  
+  function setQuick(value, unit) {
+    document.getElementById('input-value').value = value;
+    document.getElementById('input-unit').value = unit;
+    convert();
+  }
+  
+  function convert() {
+    const value = parseFloat(document.getElementById('input-value').value);
+    const unit = document.getElementById('input-unit').value;
+    
+    if (isNaN(value)) {
+      document.getElementById('bytes').textContent = '—';
+      document.getElementById('kb').textContent = '—';
+      document.getElementById('mb').textContent = '—';
+      document.getElementById('gb').textContent = '—';
+      document.getElementById('tb').textContent = '—';
+      document.getElementById('pb').textContent = '—';
+      return;
+    }
+    
+    const bytes = value * units[unit];
+    
+    document.getElementById('bytes').textContent = formatNumber(bytes);
+    document.getElementById('kb').textContent = formatNumber(bytes / units['KB']);
+    document.getElementById('mb').textContent = formatNumber(bytes / units['MB']);
+    document.getElementById('gb').textContent = formatNumber(bytes / units['GB']);
+    document.getElementById('tb').textContent = formatNumber(bytes / units['TB']);
+    document.getElementById('pb').textContent = formatNumber(bytes / units['PB']);
+  }
+  
+  // Initial conversion
+  convert();
+</script>
+</body>
+</html>

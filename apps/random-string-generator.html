@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random String Generator — Shadow's Garden</title>
+<meta name="description" content="Generate random strings for testing, tokens, and more.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .generator-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .option-group {
+    margin-bottom: 1.5rem;
+  }
+  .option-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+  }
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .option-row input[type="checkbox"] {
+    width: auto;
+  }
+  .option-row label {
+    font-weight: normal;
+    margin-bottom: 0;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .length-slider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .length-slider input[type="range"] {
+    flex: 1;
+  }
+  .length-value {
+    min-width: 3rem;
+    text-align: center;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .generate-btn {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .output-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .output-box code {
+    flex: 1;
+    font-size: 1.1rem;
+    word-break: break-all;
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .copy-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .preset-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .preset-btns button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Random String Generator</h1>
+    <p>Generate random strings for testing, tokens, and more</p>
+  </div>
+  
+  <div class="generator-card">
+    <div class="preset-btns">
+      <button onclick="setPreset(8, 'alphanumeric')">8 chars (alphanumeric)</button>
+      <button onclick="setPreset(16, 'alphanumeric')">16 chars (alphanumeric)</button>
+      <button onclick="setPreset(32, 'alphanumeric')">32 chars (alphanumeric)</button>
+      <button onclick="setPreset(64, 'hex')">64 chars (hex)</button>
+    </div>
+    
+    <div class="option-group">
+      <label>Length</label>
+      <div class="length-slider">
+        <input type="range" id="length" min="1" max="128" value="16" oninput="updateLength()">
+        <span class="length-value" id="length-display">16</span>
+      </div>
+    </div>
+    
+    <div class="option-group">
+      <label>Character Set</label>
+      <div class="option-row">
+        <input type="checkbox" id="use-upper" checked onchange="generate()">
+        <label for="use-upper">Uppercase (A-Z)</label>
+      </div>
+      <div class="option-row">
+        <input type="checkbox" id="use-lower" checked onchange="generate()">
+        <label for="use-lower">Lowercase (a-z)</label>
+      </div>
+      <div class="option-row">
+        <input type="checkbox" id="use-digits" checked onchange="generate()">
+        <label for="use-digits">Digits (0-9)</label>
+      </div>
+      <div class="option-row">
+        <input type="checkbox" id="use-special" onchange="generate()">
+        <label for="use-special">Special (!@#$%^&*)</label>
+      </div>
+      <div class="option-row">
+        <input type="checkbox" id="exclude-ambiguous" onchange="generate()">
+        <label for="exclude-ambiguous">Exclude ambiguous (0O1lI)</label>
+      </div>
+    </div>
+    
+    <button class="generate-btn" onclick="generate()">Generate</button>
+    
+    <div class="output-box">
+      <code id="output">—</code>
+      <button class="copy-btn" onclick="copyOutput()">Copy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ambiguous = '0O1lI';
+  
+  function updateLength() {
+    document.getElementById('length-display').textContent = document.getElementById('length').value;
+  }
+  
+  function setPreset(len, type) {
+    document.getElementById('length').value = len;
+    updateLength();
+    
+    if (type === 'hex') {
+      document.getElementById('use-upper').checked = true;
+      document.getElementById('use-lower').checked = false;
+      document.getElementById('use-digits').checked = true;
+      document.getElementById('use-special').checked = false;
+    } else {
+      document.getElementById('use-upper').checked = true;
+      document.getElementById('use-lower').checked = true;
+      document.getElementById('use-digits').checked = true;
+      document.getElementById('use-special').checked = false;
+    }
+    
+    generate();
+  }
+  
+  function generate() {
+    let chars = '';
+    
+    if (document.getElementById('use-upper').checked) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (document.getElementById('use-lower').checked) chars += 'abcdefghijklmnopqrstuvwxyz';
+    if (document.getElementById('use-digits').checked) chars += '0123456789';
+    if (document.getElementById('use-special').checked) chars += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    
+    if (document.getElementById('exclude-ambiguous').checked) {
+      for (const c of ambiguous) {
+        chars = chars.replace(new RegExp(c, 'g'), '');
+      }
+    }
+    
+    if (!chars) {
+      document.getElementById('output').textContent = 'Select at least one character type';
+      return;
+    }
+    
+    const length = parseInt(document.getElementById('length').value);
+    const array = new Uint32Array(length);
+    crypto.getRandomValues(array);
+    
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars[array[i] % chars.length];
+    }
+    
+    document.getElementById('output').textContent = result;
+  }
+  
+  function copyOutput() {
+    const text = document.getElementById('output').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+  }
+  
+  // Generate on load
+  generate();
+</script>
+</body>
+</html>

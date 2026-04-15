@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Character Counter — Shadow's Garden</title>
+<meta name="description" content="Count characters, words, lines, paragraphs, and analyze text density.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 300px;
+    padding: 1rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    resize: vertical;
+    line-height: 1.6;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+  }
+  .stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+  }
+  .density-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .density-card h3 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+  }
+  .density-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .density-row:last-child {
+    border-bottom: none;
+  }
+  .density-label {
+    color: var(--text-secondary);
+  }
+  .density-value {
+    font-weight: 500;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .hero {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero p {
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <div class="hero">
+    <h1>Text Character Counter</h1>
+    <p>Count characters, words, lines, paragraphs, and more</p>
+  </div>
+  
+  <div class="editor-container">
+    <textarea id="text-input" placeholder="Paste or type your text here..." oninput="updateStats()"></textarea>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="char-count">0</div>
+        <div class="stat-label">Characters</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="char-count-nospace">0</div>
+        <div class="stat-label">Characters (no spaces)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="word-count">0</div>
+        <div class="stat-label">Words</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="line-count">0</div>
+        <div class="stat-label">Lines</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="para-count">0</div>
+        <div class="stat-label">Paragraphs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="sentence-count">0</div>
+        <div class="stat-label">Sentences</div>
+      </div>
+    </div>
+    
+    <div class="density-card">
+      <h3>Text Density Analysis</h3>
+      <div class="density-row">
+        <span class="density-label">Avg word length</span>
+        <span class="density-value" id="avg-word-length">0</span>
+      </div>
+      <div class="density-row">
+        <span class="density-label">Avg sentence length</span>
+        <span class="density-value" id="avg-sentence-length">0</span>
+      </div>
+      <div class="density-row">
+        <span class="density-label">Words per line (avg)</span>
+        <span class="density-value" id="words-per-line">0</span>
+      </div>
+      <div class="density-row">
+        <span class="density-label">Characters per line (avg)</span>
+        <span class="density-value" id="chars-per-line">0</span>
+      </div>
+      <div class="density-row">
+        <span class="density-label">Reading time</span>
+        <span class="density-value" id="reading-time">0 sec</span>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button onclick="clearText()">Clear</button>
+      <button onclick="copyStats()">Copy All Stats</button>
+      <button onclick="useSample()">Sample Text</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const textInput = document.getElementById('text-input');
+  
+  function updateStats() {
+    const text = textInput.value;
+    
+    // Basic counts
+    const charCount = text.length;
+    const charCountNoSpace = text.replace(/\s/g, '').length;
+    
+    // Words (split by whitespace, filter empty)
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    const wordCount = words.length;
+    
+    // Lines
+    const lines = text.split('\n');
+    const lineCount = lines.length;
+    
+    // Paragraphs (separated by blank lines)
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+    const paraCount = paragraphs.length || (text.trim().length > 0 ? 1 : 0);
+    
+    // Sentences (ending with . ! or ?)
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const sentenceCount = sentences.length;
+    
+    // Update display
+    document.getElementById('char-count').textContent = charCount.toLocaleString();
+    document.getElementById('char-count-nospace').textContent = charCountNoSpace.toLocaleString();
+    document.getElementById('word-count').textContent = wordCount.toLocaleString();
+    document.getElementById('line-count').textContent = lineCount.toLocaleString();
+    document.getElementById('para-count').textContent = paraCount.toLocaleString();
+    document.getElementById('sentence-count').textContent = sentenceCount.toLocaleString();
+    
+    // Density analysis
+    const avgWordLength = wordCount > 0 
+      ? (charCountNoSpace / wordCount).toFixed(1) 
+      : 0;
+    const avgSentenceLength = sentenceCount > 0 
+      ? (wordCount / sentenceCount).toFixed(1) 
+      : 0;
+    const wordsPerLine = lineCount > 1 
+      ? (wordCount / (lineCount - 1)).toFixed(1) 
+      : wordCount;
+    const charsPerLine = lineCount > 1 
+      ? (charCount / (lineCount - 1)).toFixed(1) 
+      : charCount;
+    
+    // Reading time (avg 200 words per minute)
+    const readingTimeSec = wordCount > 0 ? Math.ceil(wordCount / 200 * 60) : 0;
+    const readingTime = readingTimeSec > 60 
+      ? Math.ceil(readingTimeSec / 60) + ' min' 
+      : readingTimeSec + ' sec';
+    
+    document.getElementById('avg-word-length').textContent = avgWordLength;
+    document.getElementById('avg-sentence-length').textContent = avgSentenceLength;
+    document.getElementById('words-per-line').textContent = wordsPerLine;
+    document.getElementById('chars-per-line').textContent = charsPerLine;
+    document.getElementById('reading-time').textContent = readingTime;
+  }
+  
+  function clearText() {
+    textInput.value = '';
+    updateStats();
+  }
+  
+  function copyStats() {
+    const stats = [
+      `Characters: ${document.getElementById('char-count').textContent}`,
+      `Characters (no spaces): ${document.getElementById('char-count-nospace').textContent}`,
+      `Words: ${document.getElementById('word-count').textContent}`,
+      `Lines: ${document.getElementById('line-count').textContent}`,
+      `Paragraphs: ${document.getElementById('para-count').textContent}`,
+      `Sentences: ${document.getElementById('sentence-count').textContent}`,
+      `Reading time: ${document.getElementById('reading-time').textContent}`,
+    ].join('\n');
+    
+    navigator.clipboard.writeText(stats).then(() => {
+      // Brief flash feedback
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1000);
+    });
+  }
+  
+  function useSample() {
+    textInput.value = `The quick brown fox jumps over the lazy dog. This is a sample paragraph to demonstrate the character counter tool.
+
+With multiple lines and paragraphs, you can see how the stats update in real-time. Try pasting your own text!`;
+    updateStats();
+  }
+  
+  // Initialize
+  updateStats();
+</script>
+</body>
+</html>
