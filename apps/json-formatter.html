@@ -4,108 +4,161 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JSON Formatter — Shadow's Garden</title>
-<meta name="description">Format and minify JSON. All local, no tracking.</meta>
+<meta name="description" content="Format, validate, and minify JSON. Paste JSON and get pretty-printed output with syntax highlighting.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .json-tool { max-width: 700px; margin: 0 auto; }
-  textarea {
-    width: 100%;
-    min-height: 200px;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    font-family: var(--mono);
-    resize: vertical;
-    box-sizing: border-box;
-  }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
-  .buttons { display: flex; gap: 12px; margin: 16px 0; }
-  button {
-    flex: 1;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
-  button.primary:hover { opacity: 0.9; }
-  .error { color: #f77; font-size: 14px; margin-top: 8px; display: none; }
-  .error.show { display: block; }
+  .app-container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; height: 500px; }
+  @media (max-width: 768px) { .editor-grid { grid-template-columns: 1fr; } }
+  .editor-box { display: flex; flex-direction: column; gap: 0.5rem; }
+  .editor-box label { font-weight: 600; font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .editor-box textarea { flex: 1; padding: 1rem; font-family: var(--font-mono); font-size: 0.875rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: none; }
+  .editor-box textarea:focus { outline: none; border-color: var(--accent); }
+  .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+  .controls button { padding: 0.75rem 1.25rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+  .controls button:hover { border-color: var(--accent); }
+  .controls button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .status { padding: 0.75rem; border-radius: 6px; margin-top: 1rem; font-size: 0.875rem; }
+  .status.valid { background: rgba(122, 247, 130, 0.1); border: 1px solid #7af782; color: #7af782; }
+  .status.invalid { background: rgba(247, 122, 122, 0.1); border: 1px solid #f77a7a; color: #f77a7a; }
+  .copy-btn { margin-left: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; color: var(--text-muted); }
+  .copy-btn:hover { background: var(--accent); color: var(--bg); }
+  .output-wrapper { position: relative; }
+  #output { white-space: pre-wrap; word-break: break-all; }
+  .string { color: #a5d6ff; }
+  .number { color: #79c0ff; }
+  .boolean { color: #ff7b72; }
+  .null { color: #ff7b72; }
+  .key { color: #7aa2f7; }
+  .punctuation { color: var(--text-muted); }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <div class="json-tool">
-    <h1>JSON Formatter</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Format or minify JSON.</p>
-    
-    <div><label>Input JSON</label>
-    <textarea id="input" placeholder='{"key": "value"}'></textarea></div>
-    
-    <div class="buttons">
-      <button class="primary" onclick="format()">Format</button>
-      <button onclick="minify()">Minify</button>
-      <button onclick="copy()">Copy</button>
-      <button onclick="clear()">Clear</button>
+<div class="app-container">
+  <h1>JSON Formatter</h1>
+  <p style="color: var(--text-muted); margin-bottom: 2rem;">Format, validate, and minify JSON. Paste your code, get pretty output.</p>
+  
+  <div class="editor-grid">
+    <div class="editor-box">
+      <label>Input JSON <button class="copy-btn" onclick="document.getElementById('input').value = ''">Clear</button></label>
+      <textarea id="input" placeholder='{"name": "test", "value": 42}'></textarea>
     </div>
-    
-    <div><label>Output</label>
-    <textarea id="output" readonly placeholder="Result..."></textarea></div>
-    
-    <div class="error" id="error"></div>
+    <div class="editor-box">
+      <label>Formatted Output <button class="copy-btn" onclick="copyOutput()">Copy</button></label>
+      <textarea id="output" readonly placeholder="Formatted JSON will appear here..."></textarea>
+    </div>
   </div>
+  
+  <div class="controls">
+    <button class="primary" id="formatBtn">Format</button>
+    <button id="minifyBtn">Minify</button>
+    <button id="validateBtn">Validate</button>
+    <button id="clearBtn">Clear All</button>
+  </div>
+  
+  <div id="status"></div>
 </div>
+
 <script>
-  function format() {
-    const input = document.getElementById('input').value;
-    const out = document.getElementById('output');
-    const err = document.getElementById('error');
-    err.classList.remove('show'); out.value = '';
-    if (!input) return;
-    try {
-      const obj = JSON.parse(input);
-      out.value = JSON.stringify(obj, null, 2);
-    } catch(e) {
-      err.textContent = 'Invalid JSON: ' + e.message;
-      err.classList.add('show');
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+
+function syntaxHighlight(json) {
+  if (typeof json !== 'string') {
+    json = JSON.stringify(json, null, 2);
+  }
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+    let cls = 'number';
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) {
+        cls = 'key';
+      } else {
+        cls = 'string';
+      }
+    } else if (/true|false/.test(match)) {
+      cls = 'boolean';
+    } else if (/null/.test(match)) {
+      cls = 'null';
     }
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
+function format() {
+  try {
+    const parsed = JSON.parse(input.value);
+    const formatted = JSON.stringify(parsed, null, 2);
+    output.value = formatted;
+    output.innerHTML = syntaxHighlight(formatted);
+    status.className = 'status valid';
+    status.textContent = '✓ Valid JSON';
+  } catch (e) {
+    output.value = '';
+    status.className = 'status invalid';
+    status.textContent = '✗ Invalid JSON: ' + e.message;
   }
-  function minify() {
-    const input = document.getElementById('input').value;
-    const out = document.getElementById('output');
-    const err = document.getElementById('error');
-    err.classList.remove('show'); out.value = '';
-    try {
-      const obj = JSON.parse(input);
-      out.value = JSON.stringify(obj);
-    } catch(e) {
-      err.textContent = 'Invalid JSON: ' + e.message;
-      err.classList.add('show');
-    }
+}
+
+function minify() {
+  try {
+    const parsed = JSON.parse(input.value);
+    const minified = JSON.stringify(parsed);
+    output.value = minified;
+    output.innerHTML = minified;
+    status.className = 'status valid';
+    status.textContent = '✓ Minified JSON';
+  } catch (e) {
+    output.value = '';
+    status.className = 'status invalid';
+    status.textContent = '✗ Invalid JSON: ' + e.message;
   }
-  function copy() {
-    const out = document.getElementById('output');
-    if (!out.value) return;
-    navigator.clipboard.writeText(out.value).then(() => {
-      const btn = event.target;
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
-    });
+}
+
+function validate() {
+  try {
+    JSON.parse(input.value);
+    status.className = 'status valid';
+    status.textContent = '✓ Valid JSON';
+  } catch (e) {
+    status.className = 'status invalid';
+    status.textContent = '✗ Invalid JSON: ' + e.message;
   }
-  function clear() {
-    document.getElementById('input').value = '';
-    document.getElementById('output').value = '';
-    document.getElementById('error').classList.remove('show');
+}
+
+function clearAll() {
+  input.value = '';
+  output.value = '';
+  output.innerHTML = '';
+  status.textContent = '';
+  status.className = 'status';
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(output.value);
+  status.className = 'status valid';
+  status.textContent = '✓ Copied to clipboard';
+  setTimeout(() => {
+    status.textContent = '';
+    status.className = 'status';
+  }, 2000);
+}
+
+document.getElementById('formatBtn').addEventListener('click', format);
+document.getElementById('minifyBtn').addEventListener('click', minify);
+document.getElementById('validateBtn').addEventListener('click', validate);
+document.getElementById('clearBtn').addEventListener('click', clearAll);
+
+input.addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
   }
+});
 </script>
 </body>
 </html>
