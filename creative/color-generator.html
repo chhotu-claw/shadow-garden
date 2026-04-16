@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Color Generator — Shadow's Garden</title>
+<meta name="description" content="Click to generate random hex colors. See the color visually, copy the hex code.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+  .color-display {
+    width: 100%;
+    height: 200px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+    border: 2px solid var(--border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .color-display:hover { transform: scale(1.01); }
+  .color-display:active { transform: scale(0.99); }
+  .hex-code {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+  .hex-code.dark { color: #000; text-shadow: none; }
+  .color-info { margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .color-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  .color-btn:hover { border-color: var(--accent); }
+  .palette { display: flex; gap: 0.5rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+  .palette-color {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .palette-color:hover { transform: scale(1.1); border-color: var(--text); }
+  .palette-color.copied { border-color: var(--accent); }
+  .hint { margin-top: 1rem; color: var(--text-muted); font-size: 0.875rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Random Color Generator</h1>
+  <p class="subtitle">Click the color to generate a new one</p>
+  
+  <div class="color-display" id="colorDisplay">
+    <span class="hex-code" id="hexCode">#FFFFFF</span>
+  </div>
+  
+  <div class="color-info">
+    <button class="color-btn" id="copyBtn">Copy Hex</button>
+    <button class="color-btn" id="copyRgbBtn">Copy RGB</button>
+  </div>
+  
+  <p class="hint" id="hint">Click anywhere on the color to generate a new one</p>
+  
+  <div class="palette" id="palette"></div>
+</div>
+
+<script>
+const display = document.getElementById('colorDisplay');
+const hexCode = document.getElementById('hexCode');
+const copyBtn = document.getElementById('copyBtn');
+const copyRgbBtn = document.getElementById('copyRgbBtn');
+const hint = document.getElementById('hint');
+const palette = document.getElementById('palette');
+
+let currentColor = '#ffffff';
+let currentRgb = { r: 255, g: 255, b: 255 };
+
+function randomColor() {
+  const r = Math.floor(Math.random() * 256);
+  const g = Math.floor(Math.random() * 256);
+  const b = Math.floor(Math.random() * 256);
+  return { r, g, b };
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function getLuminance(r, g, b) {
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+function generate() {
+  const rgb = randomColor();
+  currentRgb = rgb;
+  currentColor = rgbToHex(rgb.r, rgb.g, rgb.b);
+  
+  display.style.backgroundColor = currentColor;
+  hexCode.textContent = currentColor;
+  
+  // Adjust text color based on luminance
+  if (getLuminance(rgb.r, rgb.g, rgb.b) > 0.5) {
+    hexCode.classList.add('dark');
+  } else {
+    hexCode.classList.remove('dark');
+  }
+  
+  hint.textContent = `RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+}
+
+function addToPalette(color) {
+  const div = document.createElement('div');
+  div.className = 'palette-color';
+  div.style.backgroundColor = color;
+  div.title = color;
+  div.addEventListener('click', () => {
+    navigator.clipboard.writeText(color);
+    div.classList.add('copied');
+    setTimeout(() => div.classList.remove('copied'), 500);
+  });
+  palette.appendChild(div);
+  
+  // Keep only last 10 colors
+  if (palette.children.length > 10) {
+    palette.removeChild(palette.firstChild);
+  }
+}
+
+display.addEventListener('click', () => {
+  generate();
+});
+
+copyBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  navigator.clipboard.writeText(currentColor);
+  copyBtn.textContent = 'Copied!';
+  setTimeout(() => copyBtn.textContent = 'Copy Hex', 1000);
+});
+
+copyRgbBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const rgbStr = `rgb(${currentRgb.r}, ${currentRgb.g}, ${currentRgb.b})`;
+  navigator.clipboard.writeText(rgbStr);
+  copyRgbBtn.textContent = 'Copied!';
+  setTimeout(() => copyRgbBtn.textContent = 'Copy RGB', 1000);
+});
+
+// Initialize
+generate();
+</script>
+</body>
+</html>
