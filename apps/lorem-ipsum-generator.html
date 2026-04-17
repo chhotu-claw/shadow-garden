@@ -4,78 +4,108 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorem Ipsum Generator — Shadow's Garden</title>
-<meta name="description">Generate placeholder text. All local, no tracking.</meta>
+<meta name="description" content="Generate placeholder lorem ipsum text. Choose paragraphs, words, or bytes. Copy to clipboard.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .generator { max-width: 600px; margin: 0 auto; }
-  .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  select, input {
-    padding: 12px 14px; border: 2px solid var(--border); border-radius: 8px;
-    background: var(--bg); color: var(--text); font-size: 15px;
-  }
-  select:focus, input:focus { outline: none; border-color: var(--accent); }
-  button {
-    padding: 12px 20px; border: 2px solid var(--border); border-radius: 8px;
-    background: var(--bg); color: var(--text); font-size: 15px; cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  .controls { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; align-items: center; }
+  .control-group { display: flex; align-items: center; gap: 0.5rem; }
+  label { font-size: 0.9rem; }
+  select, input[type="number"] { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 0.9rem; }
+  input[type="number"] { width: 80px; }
+  .output { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; min-height: 200px; white-space: pre-wrap; font-size: 0.95rem; line-height: 1.7; max-height: 400px; overflow-y: auto; }
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+  button { padding: 0.6rem 1.2rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+  button:hover { background: var(--border); }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   button.primary:hover { opacity: 0.9; }
-  .output {
-    padding: 16px; background: var(--bg); border: 2px solid var(--border); border-radius: 8px;
-    min-height: 150px; line-height: 1.7; color: var(--text);
-  }
-  .output:empty::before { content: 'Click Generate...'; color: var(--text-secondary); }
-  .copy-btn { margin-top: 12px; width: 100%; }
+  .stats { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <div class="generator">
-    <h1>Lorem Ipsum Generator</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Generate placeholder text.</p>
-    
-    <div class="controls">
-      <select id="type"><option value="paragraphs">Paragraphs</option><option value="sentences">Sentences</option><option value="words">Words</option></select>
-      <input type="number" id="count" value="3" min="1" max="50" style="width: 80px;">
-      <button class="primary" onclick="generate()">Generate</button>
-      <button onclick="copy()">Copy</button>
+  <h1>Lorem Ipsum Generator</h1>
+  <div class="subtitle">Generate placeholder text for prototypes</div>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label>Type:</label>
+      <select id="type">
+        <option value="paragraphs">Paragraphs</option>
+        <option value="words">Words</option>
+        <option value="bytes">Bytes</option>
+      </select>
     </div>
-    
-    <div class="output" id="output"></div>
+    <div class="control-group">
+      <label>Count:</label>
+      <input type="number" id="count" value="3" min="1" max="100">
+    </div>
+  </div>
+  
+  <div class="output" id="output">Click Generate to create placeholder text...</div>
+  <div class="stats" id="stats"></div>
+  
+  <div class="btn-row">
+    <button class="primary" id="generateBtn">Generate</button>
+    <button id="copyBtn">Copy</button>
   </div>
 </div>
+
 <script>
-  const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore', 'magna', 'aliqua', 'enim', 'ad', 'minim', 'veniam', 'quis', 'nostrud', 'exercitation', 'ullamco', 'laboris', 'nisi', 'aliquip', 'ex', 'ea', 'commodo', 'consequat', 'duis', 'aute', 'irure', 'dolor', 'in', 'reprehenderit', 'voluptate', 'velit', 'esse', 'cillum', 'fugiat', 'nulla', 'pariatur', 'excepteur', 'sint', 'cupidatat', 'non', 'proident', 'sunt', 'culpa', 'qui', 'officia', 'deserunt', 'mollit', 'anim', 'id', 'est', 'laborum'];
-  function generate() {
-    const type = document.getElementById('type').value;
-    const count = parseInt(document.getElementById('count').value) || 3;
-    let out = '';
+const paragraphs = [
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+  "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+  "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+  "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+  "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
+  "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.",
+  "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
+  "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum.",
+  "Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat.",
+  "Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae."
+];
+
+function generateLorem() {
+  const type = document.getElementById('type').value;
+  const count = parseInt(document.getElementById('count').value) || 3;
+  let result = '';
+  
+  if (type === 'paragraphs') {
     for (let i = 0; i < count; i++) {
-      if (type === 'words') {
-        out += words.slice(0, count).join(' ');
-      } else if (type === 'sentences') {
-        let s = [];
-        for (let j = 0; j < 8; j++) s.push(words[Math.floor(Math.random() * words.length)]);
-        out += s.join(' ').replace(/^\w/, c => c.toUpperCase()) + '. ';
-      } else {
-        let p = [];
-        for (let k = 0; k < 5; k++) {
-          let s = [];
-          for (let j = 0; j < 10; j++) s.push(words[Math.floor(Math.random() * words.length)]);
-          p.push(s.join(' ').replace(/^\w/, c => c.toUpperCase()) + '.');
-        }
-        out += '<p>' + p.join(' ') + '</p>';
-      }
+      result += paragraphs[i % paragraphs.length] + '\n\n';
     }
-    document.getElementById('output').innerHTML = out;
+    result = result.trim();
+  } else if (type === 'words') {
+    const allWords = paragraphs.join(' ').split(' ');
+    result = allWords.slice(0, count).join(' ');
+  } else if (type === 'bytes') {
+    let text = '';
+    while (new Blob([text]).size < count) {
+      text += paragraphs[Math.floor(Math.random() * paragraphs.length)] + ' ';
+    }
+    const blob = new Blob([text]);
+    result = blob.slice(0, count).size > 0 ? blob.slice(0, count).toString().trim() : text.trim();
   }
-  function copy() {
-    const t = document.getElementById('output').innerText;
-    if (t) navigator.clipboard.writeText(t).then(() => { event.target.textContent = 'Copied!'; setTimeout(() => event.target.textContent = 'Copy', 1500); });
-  }
-  generate();
+  
+  document.getElementById('output').textContent = result;
+  document.getElementById('stats').textContent = `${result.split(/\s+/).filter(Boolean).length} words, ${result.length} chars`;
+}
+
+document.getElementById('generateBtn').addEventListener('click', generateLorem);
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('output').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+});
+
+generateLorem();
 </script>
 </body>
 </html>
