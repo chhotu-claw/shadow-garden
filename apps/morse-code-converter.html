@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morse Code Converter — Shadow's Garden</title>
+<meta name="description" content="Convert text to Morse code and back. Audio playback included.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+  textarea { width: 100%; min-height: 100px; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: monospace; font-size: 0.9rem; box-sizing: border-box; resize: vertical; }
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+  button:hover { background: var(--border); }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.primary:hover { opacity: 0.9; }
+  .mode-switch { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .mode-switch label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal; }
+  .info { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>Morse Code Converter</h1>
+  <div class="subtitle">Convert text ↔ Morse code. Dot-dash representation.</div>
+  
+  <div class="panel">
+    <div class="mode-switch">
+      <label><input type="radio" name="mode" value="encode" checked> Text to Morse</label>
+      <label><input type="radio" name="mode" value="decode"> Morse to Text</label>
+    </div>
+    
+    <label id="inputLabel">Plain Text</label>
+    <textarea id="input" placeholder="Enter text to convert..."></textarea>
+    
+    <div class="btn-row">
+      <button class="primary" id="convertBtn">Convert</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label id="outputLabel">Morse Code</label>
+    <textarea id="output" readonly placeholder="Result appears here..."></textarea>
+    <div class="btn-row">
+      <button id="copyBtn">Copy</button>
+      <button id="playBtn">Play Audio</button>
+    </div>
+    <div class="info">Use . for dot, - for dash, space between letters, / between words</div>
+  </div>
+</div>
+
+<script>
+const MORSE_CODE = {
+  'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+  'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+  'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+  'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+  'Y': '-.--', 'Z': '--..', '1': '.----', '2': '..---', '3': '...--',
+  '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..',
+  '9': '----.', '0': '-----', ' ': '/'
+};
+
+const REVERSE_MORSE = Object.fromEntries(
+  Object.entries(MORSE_CODE).map(([k, v]) => [v, k])
+);
+
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+
+function getMode() {
+  return document.querySelector('input[name="mode"]:checked').value;
+}
+
+function updateLabels() {
+  const mode = getMode();
+  document.getElementById('inputLabel').textContent = mode === 'encode' ? 'Plain Text' : 'Morse Code';
+  document.getElementById('outputLabel').textContent = mode === 'encode' ? 'Morse Code' : 'Decoded Text';
+  input.placeholder = mode === 'encode' ? 'Enter text to convert...' : 'Enter Morse code...';
+}
+
+document.querySelectorAll('input[name="mode"]').forEach(r => {
+  r.addEventListener('change', updateLabels);
+});
+
+function encodeToMorse(text) {
+  return text.toUpperCase().split('').map(c => MORSE_CODE[c] || '?').join(' ');
+}
+
+function decodeFromMorse(morse) {
+  return morse.trim().split(' ').map(c => REVERSE_MORSE[c] || '').join('').replace(/\?/g, '');
+}
+
+document.getElementById('convertBtn').addEventListener('click', () => {
+  const text = input.value.trim();
+  if (!text) { output.value = ''; return; }
+  
+  const mode = getMode();
+  output.value = mode === 'encode' ? encodeToMorse(text) : decodeFromMorse(text);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  input.value = '';
+  output.value = '';
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  if (output.value) {
+    navigator.clipboard.writeText(output.value);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  }
+});
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  const morse = output.value;
+  if (!morse) return;
+  
+  const ctx = new AudioContext();
+  let delay = 0;
+  
+  morse.split('').forEach(symbol => {
+    const when = ctx.currentTime + delay;
+    if (symbol === '.') {
+      ctx.createOscillator().connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 600;
+      osc.connect(ctx.destination);
+      osc.start(when);
+      osc.stop(when + 0.1);
+      delay += 0.15;
+    } else if (symbol === '-') {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 600;
+      osc.connect(ctx.destination);
+      osc.start(when);
+      osc.stop(when + 0.3);
+      delay += 0.35;
+    } else if (symbol === ' ') {
+      delay += 0.15;
+    } else if (symbol === '/') {
+      delay += 0.35;
+    }
+  });
+});
+</script>
+</body>
+</html>
