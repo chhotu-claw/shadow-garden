@@ -3,141 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Base64 Encoder & Decoder — Shadow's Garden</title>
-<meta name="description" content="Encode and decode Base64 instantly. Everything runs locally in your browser.">
+<title>Base64 Encoder/Decoder — Shadow's Garden</title>
+<meta name="description" content="Encode and decode Base64 strings instantly. Bidirectional conversion with copy buttons.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e5e5e5; line-height: 1.6; padding: 2rem; max-width: 800px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .container { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; }
-  label { display: block; margin-bottom: 0.5rem; color: #888; font-size: 0.9rem; }
-  textarea { width: 100%; height: 120px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #e5e5e5; padding: 0.75rem; font-family: monospace; font-size: 0.9rem; resize: vertical; }
-  textarea:focus { outline: none; border-color: #6cb6ff; }
-  .buttons { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
-  button { background: #222; color: #e5e5e5; border: 1px solid #333; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-  button:hover { background: #333; }
-  button.primary { background: #1a4d1a; border-color: #2d7a2d; }
-  button.primary:hover { background: #256625; }
-  .result { margin-top: 1rem; padding: 1rem; background: #1a1a1a; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 0.9rem; }
-  .error { color: #f77a7a; }
-  .success { color: #7af782; }
-  .copy-btn { margin-top: 0.5rem; }
-  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .tab { background: #222; color: #888; border: 1px solid #333; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-  .tab.active { background: #1a4d1a; color: #e5e5e5; border-color: #2d7a2d; }
-  .description { color: #666; font-size: 0.85rem; margin-bottom: 1rem; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+  textarea, input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: monospace; font-size: 0.9rem; box-sizing: border-box; }
+  textarea { min-height: 120px; resize: vertical; }
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+  button:hover { background: var(--border); }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.primary:hover { opacity: 0.9; }
+  .error { color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+  .error.show { display: block; }
+  .mode-switch { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .mode-switch label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Base64 Encoder & Decoder</h1>
-    <p class="description">Encode plain text to Base64 or decode Base64 to plain text. Everything runs locally — nothing leaves your browser.</p>
-    
-    <div class="tabs">
-      <button class="tab active" data-mode="encode">Encode</button>
-      <button class="tab" data-mode="decode">Decode</button>
+<div class="container">
+  <h1>Base64 Encoder/Decoder</h1>
+  <div class="subtitle">Encode plain text to Base64 or decode Base64 back to text</div>
+  
+  <div class="panel">
+    <div class="mode-switch">
+      <label><input type="radio" name="mode" value="encode" checked> Encode</label>
+      <label><input type="radio" name="mode" value="decode"> Decode</label>
     </div>
-    
-    <label for="input">Input</label>
+    <label id="inputLabel">Plain Text</label>
     <textarea id="input" placeholder="Enter text to encode..."></textarea>
-    
-    <div class="buttons">
-      <button id="convert" class="primary">Convert</button>
-      <button id="clear">Clear</button>
-      <button id="swap">Swap</button>
+    <div class="btn-row">
+      <button class="primary" id="convertBtn">Convert</button>
+      <button id="clearBtn">Clear</button>
+      <button id="sampleBtn">Sample</button>
     </div>
-    
-    <label for="output">Output</label>
-    <div id="output" class="result"></div>
-    <button id="copy" class="copy-btn">Copy to Clipboard</button>
+    <div class="error" id="error"></div>
   </div>
 
-  <script>
-    const input = document.getElementById('input');
-    const output = document.getElementById('output');
-    const convertBtn = document.getElementById('convert');
-    const clearBtn = document.getElementById('clear');
-    const swapBtn = document.getElementById('swap');
-    const copyBtn = document.getElementById('copy');
-    const tabs = document.querySelectorAll('.tab');
-    
-    let mode = 'encode';
-    
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        mode = tab.dataset.mode;
-        input.placeholder = mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...';
-        output.textContent = '';
-        output.className = 'result';
-      });
-    });
-    
-    convertBtn.addEventListener('click', () => {
-      const val = input.value.trim();
-      if (!val) {
-        output.textContent = 'Please enter some text';
-        output.className = 'result error';
-        return;
-      }
-      
-      try {
-        if (mode === 'encode') {
-          const encoded = btoa(unescape(encodeURIComponent(val)));
-          output.textContent = encoded;
-          output.className = 'result success';
-        } else {
-          const decoded = decodeURIComponent(escape(atob(val)));
-          output.textContent = decoded;
-          output.className = 'result success';
-        }
-      } catch (e) {
-        output.textContent = 'Invalid Base64 string';
-        output.className = 'result error';
-      }
-    });
-    
-    clearBtn.addEventListener('click', () => {
-      input.value = '';
-      output.textContent = '';
-      output.className = 'result';
-    });
-    
-    swapBtn.addEventListener('click', () => {
-      const val = input.value.trim();
-      const out = output.textContent.trim();
-      if (out) {
-        input.value = out;
-        mode = mode === 'encode' ? 'decode' : 'encode';
-        tabs.forEach(t => {
-          t.classList.toggle('active', t.dataset.mode === mode);
-        });
-        input.placeholder = mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...';
-        output.textContent = '';
-        output.className = 'result';
-      }
-    });
-    
-    copyBtn.addEventListener('click', async () => {
-      const text = output.textContent;
-      if (text && !output.classList.contains('error')) {
-        try {
-          await navigator.clipboard.writeText(text);
-          copyBtn.textContent = 'Copied!';
-          setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 1500);
-        } catch (e) {
-          copyBtn.textContent = 'Failed to copy';
-        }
-      }
-    });
-    
-    input.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'Enter') {
-        convertBtn.click();
-      }
-    });
-  </script>
+  <div class="panel">
+    <label id="outputLabel">Base64 Output</label>
+    <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
+    <div class="btn-row">
+      <button id="copyBtn">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const error = document.getElementById('error');
+const modeRadios = document.querySelectorAll('input[name="mode"]');
+const inputLabel = document.getElementById('inputLabel');
+const outputLabel = document.getElementById('outputLabel');
+
+function getMode() {
+  return document.querySelector('input[name="mode"]:checked').value;
+}
+
+function updateLabels() {
+  const mode = getMode();
+  inputLabel.textContent = mode === 'encode' ? 'Plain Text' : 'Base64 Input';
+  outputLabel.textContent = mode === 'encode' ? 'Base64 Output' : 'Decoded Text';
+  input.placeholder = mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...';
+}
+
+modeRadios.forEach(radio => {
+  radio.addEventListener('change', updateLabels);
+});
+
+document.getElementById('convertBtn').addEventListener('click', () => {
+  error.classList.remove('show');
+  const text = input.value;
+  const mode = getMode();
+  
+  if (!text) {
+    output.value = '';
+    return;
+  }
+  
+  try {
+    if (mode === 'encode') {
+      output.value = btoa(unescape(encodeURIComponent(text)));
+    } else {
+      output.value = decodeURIComponent(escape(atob(text)));
+    }
+  } catch (e) {
+    error.textContent = 'Invalid Base64 string';
+    error.classList.add('show');
+    output.value = '';
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  input.value = '';
+  output.value = '';
+  error.classList.remove('show');
+});
+
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  const sample = "Hello, World! 🌍";
+  input.value = sample;
+  document.querySelector('input[name="mode"][value="encode"]').checked = true;
+  updateLabels();
+  document.getElementById('convertBtn').click();
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  if (output.value) {
+    navigator.clipboard.writeText(output.value);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to Clipboard', 1500);
+  }
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    document.getElementById('convertBtn').click();
+  }
+});
+</script>
 </body>
 </html>
