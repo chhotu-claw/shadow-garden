@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Parameter Parser — Shadow's Garden</title>
+<meta name="description" content="Parse, view, and edit URL query parameters. Add, remove, or modify parameters easily.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+  input[type="text"], input[type="url"] { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: monospace; font-size: 0.9rem; box-sizing: border-box; }
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+  button:hover { background: var(--border); }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.danger { color: #ef4444; border-color: #ef4444; }
+  button.danger:hover { background: #fef2f2; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); }
+  td { font-family: monospace; font-size: 0.9rem; }
+  td input { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-family: monospace; }
+  .empty { color: var(--text-secondary); font-style: italic; text-align: center; padding: 2rem; }
+  .add-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .add-row input { flex: 1; }
+  .result-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; font-family: monospace; word-break: break-all; font-size: 0.9rem; }
+  .copy-feedback { color: var(--accent); font-size: 0.85rem; margin-left: 0.5rem; }
+</style>
+</head>
+<body data-page-type="app">
+<div class="container">
+  <h1>URL Parameter Parser</h1>
+  <div class="subtitle">Parse, view, edit, and rebuild URL query parameters</div>
+  
+  <div class="panel">
+    <label>Enter URL</label>
+    <input type="url" id="urlInput" placeholder="https://example.com/search?q=test&page=1">
+    <div class="btn-row">
+      <button class="primary" id="parseBtn">Parse</button>
+      <button id="clearBtn">Clear</button>
+      <button id="sampleBtn">Sample</button>
+    </div>
+  </div>
+
+  <div class="panel" id="paramsPanel" style="display:none;">
+    <label>Parameters</label>
+    <div class="add-row">
+      <input type="text" id="newKey" placeholder="Key">
+      <input type="text" id="newValue" placeholder="Value">
+      <button id="addBtn">Add</button>
+    </div>
+    <table id="paramsTable">
+      <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+      <tbody id="paramsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <label>Result URL</label>
+    <div class="result-box" id="resultUrl"></div>
+    <div class="btn-row">
+      <button class="primary" id="copyUrlBtn">Copy URL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let params = {};
+
+function parseUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj;
+  } catch {
+    return null;
+  }
+}
+
+function getParams(url) {
+  const urlObj = parseUrl(url);
+  if (!urlObj) return null;
+  const p = {};
+  urlObj.searchParams.forEach((v, k) => p[k] = v);
+  return p;
+}
+
+function buildUrl(base, params) {
+  const urlObj = parseUrl(base) || new URL(base);
+  urlObj.search = '';
+  Object.entries(params).forEach(([k, v]) => urlObj.searchParams.set(k, v));
+  return urlObj.toString();
+}
+
+const urlInput = document.getElementById('urlInput');
+const parseBtn = document.getElementById('parseBtn');
+const paramsPanel = document.getElementById('paramsPanel');
+const paramsBody = document.getElementById('paramsBody');
+const resultPanel = document.getElementById('resultPanel');
+const resultUrl = document.getElementById('resultUrl');
+
+function render() {
+  paramsBody.innerHTML = '';
+  const keys = Object.keys(params).sort();
+  if (keys.length === 0) {
+    paramsBody.innerHTML = '<tr><td colspan="3" class="empty">No parameters</td></tr>';
+  } else {
+    keys.forEach(key => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(key)}</td><td><input value="${escapeHtml(params[key])}" data-key="${escapeHtml(key)}"></td><td><button class="danger" data-delete="${escapeHtml(key)}">×</button></td>`;
+      paramsBody.appendChild(tr);
+    });
+  }
+  resultUrl.textContent = buildUrl(urlInput.value, params);
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+parseBtn.addEventListener('click', () => {
+  params = getParams(urlInput.value) || {};
+  paramsPanel.style.display = 'block';
+  resultPanel.style.display = 'block';
+  render();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  urlInput.value = '';
+  params = {};
+  paramsPanel.style.display = 'none';
+  resultPanel.style.display = 'none';
+});
+
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  urlInput.value = 'https://example.com/search?q=hello+world&page=2&lang=en';
+  parseBtn.click();
+});
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  const key = document.getElementById('newKey').value.trim();
+  const value = document.getElementById('newValue').value.trim();
+  if (key) { params[key] = value; render(); }
+  document.getElementById('newKey').value = '';
+  document.getElementById('newValue').value = '';
+});
+
+paramsBody.addEventListener('input', e => {
+  if (e.target.dataset.key) {
+    params[e.target.dataset.key] = e.target.value;
+    resultUrl.textContent = buildUrl(urlInput.value, params);
+  }
+});
+
+paramsBody.addEventListener('click', e => {
+  if (e.target.dataset.delete) {
+    delete params[e.target.dataset.delete];
+    render();
+  }
+});
+
+document.getElementById('copyUrlBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(resultUrl.textContent);
+  const btn = document.getElementById('copyUrlBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = orig, 1500);
+});
+</script>
+</body>
+</html>
