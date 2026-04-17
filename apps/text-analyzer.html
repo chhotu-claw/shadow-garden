@@ -4,132 +4,88 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Text Analyzer — Shadow's Garden</title>
-<meta name="description" content="Analyze text for word count, character count, reading time, sentence count, and more. All local, no server.">
+<meta name="description" content="Analyze text with character count, word count, reading time, and more.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { min-height: 100vh; padding: 2rem; box-sizing: border-box; }
-  .container { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
   h1 { margin-bottom: 0.5rem; }
-  .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; }
-  textarea { width: 100%; min-height: 200px; padding: 1rem; border: 2px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font-size: 1rem; line-height: 1.6; resize: vertical; box-sizing: border-box; }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
-  .stat-card { background: var(--card); border-radius: 12px; padding: 1rem; text-align: center; }
-  .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  textarea { width: 100%; min-height: 300px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 1rem; line-height: 1.6; box-sizing: border-box; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+  .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
   .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
-  button { padding: 0.5rem 1rem; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: var(--border); color: var(--text); }
-  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; opacity: 0; transition: opacity 0.3s; }
-  .toast.show { opacity: 1; }
+  .btn-row { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  button { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.85rem; }
+  button:hover { background: var(--border); }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Text Analyzer</h1>
-    <p class="subtitle">Count words, characters, sentences, paragraphs. Estimate reading time.</p>
-    
-    <textarea id="textInput" placeholder="Paste or type your text here..."></textarea>
-    
-    <div class="actions">
-      <button onclick="analyzeText()">Analyze</button>
-      <button class="secondary" onclick="clearText()">Clear</button>
-      <button class="secondary" onclick="pasteText()">Paste</button>
-    </div>
-    
-    <div class="stats-grid" id="statsGrid" style="display: none;">
-      <div class="stat-card">
-        <div class="stat-value" id="wordCount">0</div>
-        <div class="stat-label">Words</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="charCount">0</div>
-        <div class="stat-label">Characters</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="charCountNoSpaces">0</div>
-        <div class="stat-label">Characters (no spaces)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="sentenceCount">0</div>
-        <div class="stat-label">Sentences</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="paragraphCount">0</div>
-        <div class="stat-label">Paragraphs</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="readingTime">0</div>
-        <div class="stat-label">Minutes to read</div>
-      </div>
-    </div>
+<div class="container">
+  <h1>Text Analyzer</h1>
+  <div class="subtitle">Character count, word count, reading time, and density analysis</div>
+  
+  <textarea id="text" placeholder="Paste or type your text here..."></textarea>
+  
+  <div class="stats">
+    <div class="stat-box"><div class="stat-value" id="chars">0</div><div class="stat-label">Characters</div></div>
+    <div class="stat-box"><div class="stat-value" id="charsNoSpaces">0</div><div class="stat-label">Characters (no spaces)</div></div>
+    <div class="stat-box"><div class="stat-value" id="words">0</div><div class="stat-label">Words</div></div>
+    <div class="stat-box"><div class="stat-value" id="lines">0</div><div class="stat-label">Lines</div></div>
+    <div class="stat-box"><div class="stat-value" id="sentences">0</div><div class="stat-label">Sentences</div></div>
+    <div class="stat-box"><div class="stat-value" id="paragraphs">0</div><div class="stat-label">Paragraphs</div></div>
+    <div class="stat-box"><div class="stat-value" id="readingTime">0s</div><div class="stat-label">Reading Time</div></div>
+    <div class="stat-box"><div class="stat-value" id="avgWordLen">0</div><div class="stat-label">Avg Word Length</div></div>
   </div>
   
-  <div class="toast" id="toast">Analysis complete</div>
+  <div class="btn-row">
+    <button id="clearBtn">Clear</button>
+    <button id="sampleBtn">Load Sample</button>
+  </div>
+</div>
+
+<script>
+const text = document.getElementById('text');
+
+function analyze() {
+  const val = text.value;
+  const chars = val.length;
+  const charsNoSpaces = val.replace(/\s/g, '').length;
+  const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+  const lines = val.split('\n').length;
+  const sentences = (val.match(/[.!?]+/g) || []).length || (val.trim() ? 1 : 0);
+  const paragraphs = val.split(/\n\s*\n/).filter(p => p.trim()).length || (val.trim() ? 1 : 0);
   
-  <script>
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-    
-    async function pasteText() {
-      try {
-        const text = await navigator.clipboard.readText();
-        document.getElementById('textInput').value = text;
-        analyzeText();
-      } catch (e) {
-        showToast('Clipboard access denied');
-      }
-    }
-    
-    function clearText() {
-      document.getElementById('textInput').value = '';
-      document.getElementById('statsGrid').style.display = 'none';
-    }
-    
-    function analyzeText() {
-      const text = document.getElementById('textInput').value;
-      
-      // Word count - split by whitespace, filter empty
-      const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-      const wordCount = words.length;
-      
-      // Character counts
-      const charCount = text.length;
-      const charCountNoSpaces = text.replace(/\s/g, '').length;
-      
-      // Sentence count - split by . ! ?
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      const sentenceCount = sentences.length;
-      
-      // Paragraph count - split by double newline or more
-      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-      const paragraphCount = paragraphs.length || (text.trim() ? 1 : 0);
-      
-      // Reading time - average 200 words per minute
-      const readingTime = Math.ceil(wordCount / 200);
-      
-      // Update UI
-      document.getElementById('wordCount').textContent = wordCount;
-      document.getElementById('charCount').textContent = charCount;
-      document.getElementById('charCountNoSpaces').textContent = charCountNoSpaces;
-      document.getElementById('sentenceCount').textContent = sentenceCount;
-      document.getElementById('paragraphCount').textContent = paragraphCount;
-      document.getElementById('readingTime').textContent = readingTime;
-      
-      document.getElementById('statsGrid').style.display = 'grid';
-      showToast('Analysis complete');
-    }
-    
-    // Auto-analyze on paste
-    document.getElementById('textInput').addEventListener('paste', () => {
-      setTimeout(analyzeText, 10);
-    });
-  </script>
+  const wordsPerMinute = 200;
+  const readingSeconds = Math.ceil((words / wordsPerMinute) * 60);
+  const readingTime = readingSeconds < 60 ? `${readingSeconds}s` : `${Math.floor(readingSeconds / 60)}m ${readingSeconds % 60}s`;
+  
+  const avgWordLen = words ? Math.round((charsNoSpaces / words) * 10) / 10 : 0;
+  
+  document.getElementById('chars').textContent = chars;
+  document.getElementById('charsNoSpaces').textContent = charsNoSpaces;
+  document.getElementById('words').textContent = words;
+  document.getElementById('lines').textContent = lines;
+  document.getElementById('sentences').textContent = sentences;
+  document.getElementById('paragraphs').textContent = paragraphs;
+  document.getElementById('readingTime').textContent = readingTime;
+  document.getElementById('avgWordLen').textContent = avgWordLen;
+}
+
+text.addEventListener('input', analyze);
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  text.value = '';
+  analyze();
+});
+
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  text.value = 'The quick brown fox jumps over the lazy dog. This is a sample text for testing the analyzer. It contains multiple sentences, words, and characters to demonstrate the functionality.';
+  analyze();
+});
+
+analyze();
+</script>
 </body>
 </html>
