@@ -4,158 +4,138 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Countdown Timer — Shadow's Garden</title>
-<meta name="description" content="Set a target date and see exactly how much time remains. Days, hours, minutes, seconds. Also shows time since past dates.">
+<meta name="description" content="Count down to any date. Add multiple countdowns and see days remaining.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; font-family: var(--font-mono); }
-  .container { text-align: center; max-width: 600px; width: 100%; }
-  h1 { font-size: 1.5rem; font-weight: 400; margin-bottom: 2rem; color: var(--fg-muted); }
-  .input-group { margin-bottom: 2rem; }
-  input, button { font-size: 1.1rem; padding: 0.8rem 1.2rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); }
-  input[type="datetime-local"] { font-family: var(--font-mono); }
-  button { cursor: pointer; background: var(--bg-secondary); margin: 0.5rem; }
-  button:hover { background: var(--border); }
-  .display { font-size: clamp(2rem, 8vw, 4rem); font-weight: 600; margin: 2rem 0; line-height: 1.2; }
-  .display .unit { font-size: 0.35em; font-weight: 400; color: var(--fg-muted); display: block; margin-top: 0.3em; }
-  .display.counting-up { color: var(--accent); }
-  .display.counting-down { color: var(--fg); }
-  .event-name { font-size: 1.2rem; margin-bottom: 1rem; color: var(--accent); }
-  .presets { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; }
-  .presets button { font-size: 0.9rem; padding: 0.5rem 0.8rem; }
-  .status { font-size: 0.9rem; color: var(--fg-muted); margin-top: 1rem; }
-  .counting-up .status { color: var(--accent); }
+  .container { max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { margin-bottom: 0.5rem; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem; }
+  .input-group { margin-bottom: 1rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+  input[type="text"], input[type="date"], input[type="datetime-local"] { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 1rem; box-sizing: border-box; }
+  button { padding: 0.75rem 1.5rem; border: none; border-radius: 6px; background: var(--accent); color: var(--bg); cursor: pointer; font-size: 1rem; font-weight: 500; }
+  button:hover { opacity: 0.9; }
+  .countdowns { margin-top: 2rem; }
+  .countdown-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .countdown-info { flex: 1; }
+  .countdown-title { font-weight: 600; margin-bottom: 0.25rem; }
+  .countdown-date { font-size: 0.85rem; color: var(--text-secondary); }
+  .countdown-days { font-size: 1.5rem; font-weight: 700; color: var(--accent); min-width: 80px; text-align: right; }
+  .countdown-days.overdue { color: #ef4444; }
+  .delete-btn { background: transparent; color: var(--text-secondary); border: none; padding: 0.5rem; font-size: 1.2rem; cursor: pointer; margin-left: 0.5rem; }
+  .delete-btn:hover { color: #ef4444; }
+  .empty { text-align: center; color: var(--text-secondary); padding: 2rem; }
+  .presets { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .preset-btn { padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--border); color: var(--text); border-radius: 4px; border: none; cursor: pointer; }
+  .preset-btn:hover { background: var(--text-secondary); }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="container">
-    <h1>Countdown Timer</h1>
-    
-    <div class="presets">
-      <button data-days="1">Tomorrow</button>
-      <button data-days="7">Week</button>
-      <button data-days="30">Month</button>
-      <button data-days="365">Year</button>
-    </div>
+<div class="container">
+  <h1>Countdown Timer</h1>
+  <div class="subtitle">Track days until important dates</div>
 
-    <div class="input-group">
-      <input type="datetime-local" id="targetDate">
-    </div>
-    
-    <div class="input-group">
-      <input type="text" id="eventName" placeholder="Event name (optional)">
-    </div>
-
-    <button id="startBtn">Start Countdown</button>
-    <button id="stopBtn" style="display:none;">Stop</button>
-    <button id="resetBtn">Reset</button>
-
-    <div id="display" class="display" style="display:none;">
-      <div id="eventNameDisplay" class="event-name"></div>
-      <div id="countdownDisplay">00d 00h 00m 00s</div>
-    </div>
-    
-    <div id="status" class="status"></div>
+  <div class="input-group">
+    <label>Event Name</label>
+    <input type="text" id="eventName" placeholder="e.g., Vacation, Birthday, Deadline">
   </div>
 
-  <script>
-    const targetDateInput = document.getElementById('targetDate');
-    const eventNameInput = document.getElementById('eventName');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const display = document.getElementById('display');
-    const eventNameDisplay = document.getElementById('eventNameDisplay');
-    const countdownDisplay = document.getElementById('countdownDisplay');
-    const status = document.getElementById('status');
-    const presets = document.querySelectorAll('.presets button');
+  <div class="input-group">
+    <label>Date & Time</label>
+    <input type="datetime-local" id="eventDate">
+    <div class="presets">
+      <button class="preset-btn" onclick="setPreset(1)">Tomorrow</button>
+      <button class="preset-btn" onclick="setPreset(7)">1 Week</button>
+      <button class="preset-btn" onclick="setPreset(30)">1 Month</button>
+      <button class="preset-btn" onclick="setPreset(365)">1 Year</button>
+    </div>
+  </div>
 
-    let interval = null;
-    let isCountingDown = true;
+  <button onclick="addCountdown()">Add Countdown</button>
 
-    // Set default to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(12, 0, 0, 0);
-    targetDateInput.value = tomorrow.toISOString().slice(0, 16);
+  <div class="countdowns" id="countdowns"></div>
+</div>
 
-    presets.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const days = parseInt(btn.dataset.days);
-        const target = new Date();
-        target.setDate(target.getDate() + days);
-        target.setHours(12, 0, 0, 0);
-        targetDateInput.value = target.toISOString().slice(0, 16);
-      });
-    });
+<script>
+const countdowns = JSON.parse(localStorage.getItem('countdowns') || '[]');
 
-    function update() {
-      const target = new Date(targetDateInput.value);
-      const now = new Date();
-      const diff = target - now;
+function save() {
+  localStorage.setItem('countdowns', JSON.stringify(countdowns));
+  render();
+}
 
-      isCountingDown = diff > 0;
-      const absDiff = Math.abs(diff);
+function setPreset(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(23, 59, 59, 999);
+  document.getElementById('eventDate').value = d.toISOString().slice(0, 16);
+}
 
-      const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((absDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((absDiff % (1000 * 60)) / 1000);
+function addCountdown() {
+  const name = document.getElementById('eventName').value.trim();
+  const dateStr = document.getElementById('eventDate').value;
+  
+  if (!name || !dateStr) {
+    alert('Please enter event name and date');
+    return;
+  }
+  
+  countdowns.push({ name, date: dateStr, id: Date.now() });
+  document.getElementById('eventName').value = '';
+  document.getElementById('eventDate').value = '';
+  save();
+}
 
-      countdownDisplay.innerHTML = `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s<span class="unit">${isCountingDown ? 'remaining' : 'ago'}</span>`;
+function deleteCountdown(id) {
+  const idx = countdowns.findIndex(c => c.id === id);
+  if (idx > -1) {
+    countdowns.splice(idx, 1);
+    save();
+  }
+}
 
-      display.className = 'display ' + (isCountingDown ? 'counting-down' : 'counting-up');
-      status.textContent = isCountingDown ? 'Counting down' : 'Time since';
-    }
+function getDaysRemaining(dateStr) {
+  const target = new Date(dateStr);
+  const now = new Date();
+  const diff = target - now;
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
 
-    function start() {
-      if (!targetDateInput.value) return;
-      
-      const name = eventNameInput.value.trim();
-      if (name) {
-        eventNameDisplay.textContent = name;
-      } else {
-        eventNameDisplay.textContent = '';
-      }
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { 
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
 
-      display.style.display = 'block';
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'inline-block';
-      
-      update();
-      interval = setInterval(update, 1000);
-      
-      // Save to localStorage
-      localStorage.setItem('countdown_target', targetDateInput.value);
-      localStorage.setItem('countdown_name', eventNameInput.value);
-    }
+function render() {
+  const container = document.getElementById('countdowns');
+  
+  if (countdowns.length === 0) {
+    container.innerHTML = '<div class="empty">No countdowns yet. Add one above!</div>';
+    return;
+  }
+  
+  const sorted = [...countdowns].sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  container.innerHTML = sorted.map(c => {
+    const days = getDaysRemaining(c.date);
+    const isOverdue = days < 0;
+    const label = isOverdue ? 'days ago' : 'days left';
+    return `
+      <div class="countdown-card">
+        <div class="countdown-info">
+          <div class="countdown-title">${c.name}</div>
+          <div class="countdown-date">${formatDate(c.date)}</div>
+        </div>
+        <div class="countdown-days ${isOverdue ? 'overdue' : ''}">${Math.abs(days)} ${label}</div>
+        <button class="delete-btn" onclick="deleteCountdown(${c.id})">×</button>
+      </div>
+    `;
+  }).join('');
+}
 
-    function stop() {
-      clearInterval(interval);
-      startBtn.style.display = 'inline-block';
-      stopBtn.style.display = 'none';
-    }
-
-    function reset() {
-      stop();
-      display.style.display = 'none';
-      localStorage.removeItem('countdown_target');
-      localStorage.removeItem('countdown_name');
-    }
-
-    startBtn.addEventListener('click', start);
-    stopBtn.addEventListener('click', stop);
-    resetBtn.addEventListener('click', reset);
-    targetDateInput.addEventListener('change', update);
-
-    // Restore from localStorage
-    const savedTarget = localStorage.getItem('countdown_target');
-    const savedName = localStorage.getItem('countdown_name');
-    if (savedTarget) {
-      targetDateInput.value = savedTarget;
-      eventNameInput.value = savedName || '';
-      start();
-    }
-  </script>
+render();
+</script>
 </body>
 </html>
