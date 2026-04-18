@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bill Splitter — Shadow's Garden</title>
+<meta name="description" content="Split bills with tip easily. Enter total, tip %, people — get what each person pays. Saves to localStorage.">
+<link rel="stylesheet" href="../style.css">
+<script src="../nav.js" defer></script>
+<style>
+  .splitter { max-width: 420px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .input-group { margin-bottom: 1.25rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+  input[type="number"], input[type="text"] {
+    width: 100%; padding: 0.75rem; font-size: 1.1rem; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); box-sizing: border-box; transition: border-color 0.2s;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .tip-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.25rem; }
+  .tip-row input { flex: 1; }
+  .tip-presets { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .tip-btn {
+    padding: 0.4rem 0.7rem; font-size: 0.85rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; transition: all 0.15s;
+  }
+  .tip-btn:hover { border-color: var(--accent); }
+  .tip-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .result-card {
+    background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  .result-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 1rem; }
+  .result-row.total { font-size: 1.3rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem; }
+  .result-row .label { font-weight: 400; color: var(--text-secondary); }
+  .result-row .value { font-weight: 600; }
+  .result-row.highlight .value { font-size: 1.4rem; color: var(--accent); }
+  .btn-split {
+    width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: 600; background: var(--accent);
+    color: var(--bg); border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;
+    transition: transform 0.15s;
+  }
+  .btn-split:hover { transform: scale(1.02); }
+  .history { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+  .history h3 { font-size: 1rem; margin-bottom: 1rem; color: var(--text-secondary); }
+  .history-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem;
+    margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-details { font-size: 0.9rem; }
+  .history-result { font-weight: 600; color: var(--accent); }
+  .btn-clear { font-size: 0.8rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; text-decoration: underline; }
+  .btn-clear:hover { color: var(--text); }
+</style>
+</head>
+<body data-page-type="app">
+<div class="splitter">
+  <h1>Bill Splitter</h1>
+  
+  <div class="input-group">
+    <label>Bill Total</label>
+    <input type="number" id="billTotal" placeholder="0.00" step="0.01" min="0">
+  </div>
+  
+  <div class="tip-row">
+    <input type="number" id="tipPercent" placeholder="15" step="1" min="0">
+    <span style="color: var(--text-secondary)">%</span>
+  </div>
+  <div class="tip-presets">
+    <button class="tip-btn" data-tip="10">10%</button>
+    <button class="tip-btn active" data-tip="15">15%</button>
+    <button class="tip-btn" data-tip="18">18%</button>
+    <button class="tip-btn" data-tip="20">20%</button>
+    <button class="tip-btn" data-tip="25">25%</button>
+  </div>
+  
+  <div class="input-group">
+    <label>Number of People</label>
+    <input type="number" id="numPeople" placeholder="2" min="1" value="2">
+  </div>
+  
+  <button class="btn-split" id="splitBtn">Calculate</button>
+  
+  <div class="result-card" id="result" style="display:none">
+    <div class="result-row total">
+      <span class="label">Total with Tip</span>
+      <span class="value" id="totalWithTip">$0.00</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Tip Amount</span>
+      <span class="value" id="tipAmount">$0.00</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Per Person</span>
+      <span class="value highlight" id="perPerson">$0.00</span>
+    </div>
+  </div>
+  
+  <div class="history" id="history" style="display:none">
+    <h3>Recent Splits</h3>
+    <div id="historyList"></div>
+    <button class="btn-clear" id="clearHistory">Clear History</button>
+  </div>
+</div>
+
+<script>
+  const billInput = document.getElementById('billTotal');
+  const tipInput = document.getElementById('tipPercent');
+  const peopleInput = document.getElementById('numPeople');
+  const resultCard = document.getElementById('result');
+  const historySection = document.getElementById('history');
+  const historyList = document.getElementById('historyList');
+  
+  // Load saved data
+  if(localStorage.getItem('billSplitterTotal')) billInput.value = localStorage.getItem('billSplitterTotal');
+  if(localStorage.getItem('billSplitterTip')) tipInput.value = localStorage.getItem('billSplitterTip');
+  if(localStorage.getItem('billSplitterPeople')) peopleInput.value = localStorage.getItem('billSplitterPeople');
+  
+  function updateTipButtons() {
+    document.querySelectorAll('.tip-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tip === tipInput.value);
+    });
+  }
+  
+  document.querySelectorAll('.tip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tipInput.value = btn.dataset.tip;
+      updateTipButtons();
+    });
+  });
+  
+  tipInput.addEventListener('input', updateTipButtons);
+  
+  function calculate() {
+    const total = parseFloat(billInput.value) || 0;
+    const tipPercent = parseFloat(tipInput.value) || 0;
+    const people = parseInt(peopleInput.value) || 1;
+    
+    const tipAmount = total * (tipPercent / 100);
+    const totalWithTip = total + tipAmount;
+    const perPerson = totalWithTip / people;
+    
+    document.getElementById('tipAmount').textContent = '$' + tipAmount.toFixed(2);
+    document.getElementById('totalWithTip').textContent = '$' + totalWithTip.toFixed(2);
+    document.getElementById('perPerson').textContent = '$' + perPerson.toFixed(2);
+    
+    resultCard.style.display = 'block';
+    
+    // Save to localStorage
+    localStorage.setItem('billSplitterTotal', total);
+    localStorage.setItem('billSplitterTip', tipPercent);
+    localStorage.setItem('billSplitterPeople', people);
+    
+    // Save to history
+    saveToHistory({ total, tipPercent, people, perPerson: perPerson.toFixed(2), date: new Date().toISOString() });
+  }
+  
+  function saveToHistory(entry) {
+    let history = JSON.parse(localStorage.getItem('billSplitterHistory') || '[]');
+    history.unshift(entry);
+    history = history.slice(0, 10);
+    localStorage.setItem('billSplitterHistory', JSON.stringify(history));
+    renderHistory();
+  }
+  
+  function renderHistory() {
+    const history = JSON.parse(localStorage.getItem('billSplitterHistory') || '[]');
+    if(history.length === 0) {
+      historySection.style.display = 'none';
+      return;
+    }
+    historySection.style.display = 'block';
+    historyList.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div class="history-details">$${h.total.toFixed(2)} + ${h.tipPercent}% ÷ ${h.people}</div>
+        <div class="history-result">$${h.perPerson}/person</div>
+      </div>
+    `).join('');
+  }
+  
+  document.getElementById('splitBtn').addEventListener('click', calculate);
+  
+  document.getElementById('clearHistory').addEventListener('click', () => {
+    localStorage.removeItem('billSplitterHistory');
+    historySection.style.display = 'none';
+  });
+  
+  // Auto-calculate on enter
+  [billInput, tipInput, peopleInput].forEach(input => {
+    input.addEventListener('keypress', e => {
+      if(e.key === 'Enter') calculate();
+    });
+  });
+  
+  renderHistory();
+  if(localStorage.getItem('billSplitterTotal')) calculate();
+</script>
+</body>
+</html>
