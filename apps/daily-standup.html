@@ -4,157 +4,147 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Standup — Shadow's Garden</title>
-<meta name="description" content="Simple standup notes: what you did yesterday, what you're doing today, blockers.">
+<meta name="description" content="A simple daily standup tool: yesterday, today, blockers. Saves to localStorage.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  body { font-family: var(--font-mono); }
-  .standup-container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
-  .section { margin-bottom: 2rem; }
-  .section h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.75rem; }
-  textarea { 
-    width: 100%; min-height: 100px; padding: 1rem; 
-    background: var(--bg-secondary); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); font-family: inherit; font-size: 1rem;
-    resize: vertical; transition: border-color 0.2s;
-  }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .history { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2rem; }
-  .history-item { margin-bottom: 1.5rem; }
-  .history-date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-  .history-content { font-size: 0.9rem; line-height: 1.6; }
-  .history-content p { margin: 0.25rem 0; }
-  .history-content strong { color: var(--text-muted); }
-  .actions { display: flex; gap: 1rem; margin-top: 1rem; }
-  button {
-    padding: 0.5rem 1rem; background: var(--accent); color: var(--bg);
-    border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: 600;
-    transition: opacity 0.2s;
-  }
-  button:hover { opacity: 0.9; }
-  button.secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
-  .clear-btn { color: var(--error); background: transparent; }
+  body { --bg: #0d1117; --text: #c9d1d9; --accent: #58a6ff; --muted: #8b949e; --border: #30363d; --success: #3fb950; }
+  .standup-form { display: flex; flex-direction: column; gap: 1rem; margin: 2rem 0; }
+  .standup-form label { font-weight: 600; color: var(--accent); display: block; margin-bottom: 0.5rem; }
+  .standup-form textarea { width: 100%; min-height: 80px; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: inherit; font-size: 0.95rem; resize: vertical; }
+  .standup-form textarea:focus { outline: none; border-color: var(--accent); }
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+  .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; font-weight: 500; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .history { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+  .history h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--muted); }
+  .entry { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .entry-date { font-weight: 600; color: var(--accent); font-size: 0.9rem; }
+  .entry-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.8rem; }
+  .entry-delete:hover { color: #f85149; }
+  .entry-section { margin-bottom: 0.5rem; }
+  .entry-section-title { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
+  .entry-section-content { font-size: 0.9rem; color: var(--text); white-space: pre-wrap; }
+  .empty { color: var(--muted); font-style: italic; text-align: center; padding: 2rem; }
 </style>
 </head>
 <body data-page-type="app">
-  <div class="standup-container">
-    <h1>Daily Standup</h1>
-    
-    <div class="section">
-      <h2>Yesterday</h2>
-      <textarea id="yesterday" placeholder="What did you accomplish yesterday?"></textarea>
+<div class="container">
+  <h1>Daily Standup</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Three questions. One minute. Keeps you honest.</p>
+  
+  <div class="standup-form">
+    <div>
+      <label for="yesterday">What did you do yesterday?</label>
+      <textarea id="yesterday" placeholder="Finished the API integration..."></textarea>
     </div>
-    
-    <div class="section">
-      <h2>Today</h2>
-      <textarea id="today" placeholder="What will you work on today?"></textarea>
+    <div>
+      <label for="today">What will you do today?</label>
+      <textarea id="today" placeholder="Write tests for the payment flow..."></textarea>
     </div>
-    
-    <div class="section">
-      <h2>Blockers</h2>
-      <textarea id="blockers" placeholder="Any blockers? (leave empty if none)"></textarea>
+    <div>
+      <label for="blockers">Any blockers?</label>
+      <textarea id="blockers" placeholder="Waiting on design assets..."></textarea>
     </div>
-    
-    <div class="actions">
-      <button onclick="saveStandup()">Save Standup</button>
-      <button class="secondary" onclick="clearForm()">Clear</button>
-    </div>
-    
-    <div class="history">
-      <h2>History</h2>
-      <div id="history"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+      <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
     </div>
   </div>
+  
+  <div class="history">
+    <h2>History</h2>
+    <div id="historyList"></div>
+  </div>
+</div>
 
-  <script>
-    const STORAGE_KEY = 'shadow-standup-history';
-    
-    function loadForm() {
-      const today = new Date().toISOString().split('T')[0];
-      const drafts = JSON.parse(localStorage.getItem('shadow-standup-draft') || '{}');
-      if (drafts.date === today) {
-        document.getElementById('yesterday').value = drafts.yesterday || '';
-        document.getElementById('today').value = drafts.today || '';
-        document.getElementById('blockers').value = drafts.blockers || '';
-      }
-    }
-    
-    function saveDraft() {
-      const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('shadow-standup-draft', JSON.stringify({
-        date: today,
-        yesterday: document.getElementById('yesterday').value,
-        today: document.getElementById('today').value,
-        blockers: document.getElementById('blockers').value
-      }));
-    }
-    
-    function saveStandup() {
-      const yesterday = document.getElementById('yesterday').value.trim();
-      const today = document.getElementById('today').value.trim();
-      const blockers = document.getElementById('blockers').value.trim();
-      
-      if (!yesterday && !today && !blockers) return;
-      
-      const entry = {
-        date: new Date().toISOString(),
-        yesterday, today, blockers
-      };
-      
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      history.unshift(entry);
-      // Keep last 30
-      if (history.length > 30) history.pop();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-      
-      renderHistory();
-      clearForm();
-      localStorage.removeItem('shadow-standup-draft');
-    }
-    
-    function clearForm() {
-      document.getElementById('yesterday').value = '';
-      document.getElementById('today').value = '';
-      document.getElementById('blockers').value = '';
-      localStorage.removeItem('shadow-standup-draft');
-    }
-    
-    function renderHistory() {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      const container = document.getElementById('history');
-      
-      if (history.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted)">No standups saved yet.</p>';
-        return;
-      }
-      
-      container.innerHTML = history.map(entry => {
-        const d = new Date(entry.date);
-        const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        return `
-          <div class="history-item">
-            <div class="history-date">${dateStr}</div>
-            <div class="history-content">
-              ${entry.yesterday ? `<p><strong>Yesterday:</strong> ${escapeHtml(entry.yesterday)}</p>` : ''}
-              ${entry.today ? `<p><strong>Today:</strong> ${escapeHtml(entry.today)}</p>` : ''}
-              ${entry.blockers ? `<p><strong>Blockers:</strong> ${escapeHtml(entry.blockers)}</p>` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-    
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    
-    // Auto-save drafts
-    ['yesterday', 'today', 'blockers'].forEach(id => {
-      document.getElementById(id).addEventListener('input', saveDraft);
-    });
-    
-    loadForm();
-    renderHistory();
-  </script>
+<script>
+const STORAGE_KEY = 'standup-entries';
+
+function loadEntries() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveEntries(entries) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function saveEntry() {
+  const yesterday = document.getElementById('yesterday').value.trim();
+  const today = document.getElementById('today').value.trim();
+  const blockers = document.getElementById('blockers').value.trim();
+  
+  if (!yesterday && !today && !blockers) {
+    alert('Fill in at least one field');
+    return;
+  }
+  
+  const entries = loadEntries();
+  const entry = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    yesterday,
+    today,
+    blockers
+  };
+  
+  entries.unshift(entry);
+  saveEntries(entries);
+  clearForm();
+  renderHistory();
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  const entries = loadEntries().filter(e => e.id !== id);
+  saveEntries(entries);
+  renderHistory();
+}
+
+function clearForm() {
+  document.getElementById('yesterday').value = '';
+  document.getElementById('today').value = '';
+  document.getElementById('blockers').value = '';
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderHistory() {
+  const entries = loadEntries();
+  const container = document.getElementById('historyList');
+  
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty">No entries yet. Your first standup awaits.</div>';
+    return;
+  }
+  
+  container.innerHTML = entries.map(entry => `
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-date">${formatDate(entry.date)}</span>
+        <button class="entry-delete" onclick="deleteEntry(${entry.id})">Delete</button>
+      </div>
+      ${entry.yesterday ? `<div class="entry-section"><div class="entry-section-title">Yesterday</div><div class="entry-section-content">${escapeHtml(entry.yesterday)}</div></div>` : ''}
+      ${entry.today ? `<div class="entry-section"><div class="entry-section-title">Today</div><div class="entry-section-content">${escapeHtml(entry.today)}</div></div>` : ''}
+      ${entry.blockers ? `<div class="entry-section"><div class="entry-section-title">Blockers</div><div class="entry-section-content">${escapeHtml(entry.blockers)}</div></div>` : ''}
+    </div>
+  `).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+renderHistory();
+</script>
 </body>
 </html>
