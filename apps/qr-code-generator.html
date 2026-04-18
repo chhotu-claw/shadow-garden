@@ -4,228 +4,123 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QR Code Generator — Shadow's Garden</title>
-<meta name="description">Generate QR codes for text or URLs. All local, no tracking.</meta>
+<meta name="description" content="Generate QR codes instantly. No accounts, no cloud, no nonsense. Type, generate, download.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .qr-generator { max-width: 500px; margin: 0 auto; }
-  .input-group {
-    margin-bottom: 20px;
+  .app { max-width: 600px; margin: 0 auto; padding: 2rem; }
+  .input-group { margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+  textarea, input[type="text"] {
+    width: 100%; padding: 0.75rem; font-size: 1rem; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg-alt); color: var(--text); font-family: inherit;
   }
-  .input-group label {
-    display: block;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
+  textarea { min-height: 100px; resize: vertical; }
+  .options { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .option { display: flex; align-items: center; gap: 0.5rem; }
+  select {
+    padding: 0.5rem 1rem; font-size: 1rem; border: 2px solid var(--border); border-radius: 8px;
+    background: var(--bg-alt); color: var(--text);
   }
-  textarea {
-    width: 100%;
-    min-height: 80px;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    resize: vertical;
-    box-sizing: border-box;
-  }
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .color-options {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  .color-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .color-group label {
-    font-size: 14px;
-    color: var(--text-secondary);
-  }
-  .color-group input[type="color"] {
-    width: 100%;
-    height: 40px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-  }
-  .preview {
-    text-align: center;
-    margin-bottom: 20px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .preview canvas {
-    max-width: 100%;
-  }
-  .buttons {
-    display: flex;
-    gap: 12px;
-  }
+  .btn-row { display: flex; gap: 1rem; flex-wrap: wrap; }
   button {
-    flex: 1;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.2s;
+    padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; border: none; border-radius: 8px;
+    cursor: pointer; transition: transform 0.1s;
   }
-  button:hover {
-    border-color: var(--accent);
-  }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  button.primary:hover {
-    opacity: 0.9;
-  }
+  button:hover { transform: scale(1.02); }
+  button:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  #output { margin-top: 2rem; text-align: center; }
+  #output canvas { max-width: 100%; border-radius: 8px; }
+  .download-btn { margin-top: 1rem; }
+  .error { color: #e74c3c; margin-top: 1rem; }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
-  <div class="qr-generator">
-    <h1>QR Code Generator</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Generate QR codes. All local, nothing leaves your browser.</p>
-    
-    <div class="input-group">
-      <label>Text or URL</label>
-      <textarea id="qrText" placeholder="Enter text or URL..." oninput="generateQR()"></textarea>
+<div class="app">
+  <h1>QR Code Generator</h1>
+  <div class="input-group">
+    <label for="text">Content</label>
+    <textarea id="text" placeholder="Enter URL, text, phone number, or any content..."></textarea>
+  </div>
+  <div class="options">
+    <div class="option">
+      <label for="size">Size:</label>
+      <select id="size">
+        <option value="128">128px</option>
+        <option value="256">256px</option>
+        <option value="512" selected>512px</option>
+      </select>
     </div>
-    
-    <div class="color-options">
-      <div class="color-group">
-        <label>Foreground</label>
-        <input type="color" id="fgColor" value="#000000" onchange="generateQR()">
-      </div>
-      <div class="color-group">
-        <label>Background</label>
-        <input type="color" id="bgColor" value="#ffffff" onchange="generateQR()">
-      </div>
-    </div>
-    
-    <div class="preview" id="preview">
-      <span style="color: #666;">Enter text above to generate QR code...</span>
-    </div>
-    
-    <div class="buttons">
-      <button class="primary" onclick="generateQR()">Generate</button>
-      <button onclick="downloadQR()">Download PNG</button>
+    <div class="option">
+      <label for="level">Error Correction:</label>
+      <select id="level">
+        <option value="L">Low (7%)</option>
+        <option value="M" selected>Medium (15%)</option>
+        <option value="Q">Quartile (25%)</option>
+        <option value="H">High (30%)</option>
+      </select>
     </div>
   </div>
+  <div class="btn-row">
+    <button class="btn-primary" onclick="generate()">Generate QR Code</button>
+    <button class="btn-secondary" onclick="clearOutput()">Clear</button>
+  </div>
+  <div id="output"></div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
-// Simple QR code generator using numeric patterns
-function generateQR(text, fgColor, bgColor) {
-  // This is a simplified QR generator - uses basic error correction
-  const size = 200;
-  const moduleCount = 25;
-  const moduleSize = size / moduleCount;
+  const textEl = document.getElementById('text');
+  const sizeEl = document.getElementById('size');
+  const levelEl = document.getElementById('level');
+  const outputEl = document.getElementById('output');
   
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  
-  // Fill background
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, size, size);
-  
-  if (!text) return null;
-  
-  // Generate simple pattern based on text hash
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
-  }
-  
-  ctx.fillStyle = fgColor;
-  
-  // Draw finder patterns (corners)
-  const drawFinder = (x, y) => {
-    // Outer box
-    ctx.fillRect(x * moduleSize, y * moduleSize, 7 * moduleSize, 7 * moduleSize);
-    // Inner white
-    ctx.fillStyle = bgColor;
-    ctx.fillRect((x+1) * moduleSize, (y+1) * moduleSize, 5 * moduleSize, 5 * moduleSize);
-    // Center
-    ctx.fillStyle = fgColor;
-    ctx.fillRect((x+2) * moduleSize, (y+2) * moduleSize, 3 * moduleSize, 3 * moduleSize);
-  };
-  
-  drawFinder(0, 0);
-  drawFinder(moduleCount - 7, 0);
-  drawFinder(0, moduleCount - 7);
-  
-  // Draw timing patterns
-  for (let i = 8; i < moduleCount - 8; i++) {
-    if (i % 2 === 0) {
-      ctx.fillRect(6 * moduleSize, i * moduleSize, moduleSize, moduleSize);
-      ctx.fillRect(i * moduleSize, 6 * moduleSize, moduleSize, moduleSize);
+  function generate() {
+    const text = textEl.value.trim();
+    if (!text) {
+      outputEl.innerHTML = '<p class="error">Enter some content to generate a QR code.</p>';
+      return;
     }
-  }
-  
-  // Draw data modules based on hash
-  const seed = Math.abs(hash);
-  for (let row = 8; row < moduleCount; row++) {
-    for (let col = 8; col < moduleCount; col++) {
-      if ((seed + row * col) % 3 === 0) {
-        ctx.fillRect(col * moduleSize, row * moduleSize, moduleSize, moduleSize);
+    const size = parseInt(sizeEl.value);
+    const errorLevel = levelEl.value;
+    
+    outputEl.innerHTML = '<canvas id="qr-canvas"></canvas>';
+    const canvas = document.getElementById('qr-canvas');
+    
+    QRCode.toCanvas(canvas, text, {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: errorLevel,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
       }
-    }
+    }, function(error) {
+      if (error) {
+        outputEl.innerHTML = '<p class="error">Error: ' + error.message + '</p>';
+        return;
+      }
+      // Add download button
+      const btn = document.createElement('button');
+      btn.className = 'btn-secondary download-btn';
+      btn.textContent = 'Download PNG';
+      btn.onclick = () => downloadPNG(canvas);
+      outputEl.appendChild(btn);
+    });
   }
   
-  return canvas;
-}
-
-function generateQR() {
-  const text = document.getElementById('qrText').value;
-  const fg = document.getElementById('fgColor').value;
-  const bg = document.getElementById('bgColor').value;
-  const preview = document.getElementById('preview');
-  
-  if (!text.trim()) {
-    preview.innerHTML = '<span style="color: #666;">Enter text above to generate QR code...</span>';
-    return;
+  function downloadPNG(canvas) {
+    const link = document.createElement('a');
+    link.download = 'qrcode.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   }
   
-  const canvas = generateQR(text, fg, bg);
-  if (canvas) {
-    preview.innerHTML = '';
-    preview.appendChild(canvas);
+  function clearOutput() {
+    textEl.value = '';
+    outputEl.innerHTML = '';
   }
-}
-
-function downloadQR() {
-  const canvas = preview.querySelector('canvas');
-  if (!canvas) {
-    alert('Generate a QR code first');
-    return;
-  }
-  
-  const link = document.createElement('a');
-  link.download = 'qr-code.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
-
-generateQR();
 </script>
 </body>
 </html>
