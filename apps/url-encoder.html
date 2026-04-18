@@ -3,155 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>URL Encoder/Decoder — Shadow's Garden</title>
-<meta name="description">Encode special characters in URLs, decode %20-style strings. All local, no tracking.</meta>
+<title>URL Encoder / Decoder — Shadow's Garden</title>
+<meta name="description" content="Encode or decode URL parameters instantly.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .url-tool { max-width: 600px; margin: 0 auto; }
-  .mode-toggle {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-  .mode-toggle button {
-    flex: 1;
-    padding: 12px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
-  }
-  .mode-toggle button:hover { border-color: var(--accent); }
-  .mode-toggle button.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  textarea {
-    width: 100%;
-    min-height: 120px;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    font-family: var(--mono);
-    resize: vertical;
-    box-sizing: border-box;
-  }
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  label {
-    display: block;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-  }
-  .output-area { margin-top: 20px; }
-  .buttons {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
-  }
-  button {
-    flex: 1;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  button.primary:hover { opacity: 0.9; }
+  body { --bg: #0d1117; --text: #c9d1d9; --accent: #58a6ff; --muted: #8b949e; --border: #30363d; }
+  .converter { display: flex; flex-direction: column; gap: 1rem; }
+  .converter textarea, .converter input[type="text"] { width: 100%; min-height: 120px; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: monospace; font-size: 0.9rem; }
+  .converter input[type="text"] { min-height: auto; }
+  .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; background: var(--border); color: var(--text); }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .info { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; }
 </style>
 </head>
 <body data-page-type="app">
 <div class="container">
-  <div class="url-tool">
-    <h1>URL Encoder/Decoder</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 20px;">Encode special characters in URLs or decode %20-style strings.</p>
-    
-    <div class="mode-toggle">
-      <button class="active" onclick="setMode('encode', this)" id="btnEncode">Encode</button>
-      <button onclick="setMode('decode', this)" id="btnDecode">Decode</button>
+  <h1>URL Encoder / Decoder</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem;">Encode special characters for URLs, or decode URL-encoded strings.</p>
+  
+  <div class="converter">
+    <div>
+      <label style="display:block; margin-bottom:0.5rem; color:var(--accent); font-weight:600;">Input</label>
+      <textarea id="input" placeholder="Enter URL or text to encode/decode..."></textarea>
     </div>
     
-    <div class="input-area">
-      <label id="inputLabel">URL to encode</label>
-      <textarea id="input" placeholder="Enter URL or text to encode..."></textarea>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="encode()">Encode</button>
+      <button class="btn" onclick="decode()">Decode</button>
+      <button class="btn" onclick="clearAll()">Clear</button>
     </div>
     
-    <div class="buttons">
-      <button class="primary" onclick="convert()">Convert</button>
-      <button onclick="copyOutput()">Copy</button>
-      <button onclick="clearAll()">Clear</button>
+    <div>
+      <label style="display:block; margin-bottom:0.5rem; color:var(--accent); font-weight:600;">Output</label>
+      <textarea id="output" placeholder="Result..." readonly></textarea>
     </div>
     
-    <div class="output-area">
-      <label id="outputLabel">Encoded URL</label>
-      <textarea id="output" readonly placeholder="Result will appear here..."></textarea>
+    <div class="actions">
+      <button class="btn" onclick="copyOutput()">Copy Result</button>
     </div>
+    
+    <div class="info" id="info"></div>
   </div>
 </div>
+
 <script>
-  let mode = 'encode';
-  
-  function setMode(m, btn) {
-    mode = m;
-    document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('inputLabel').textContent = mode === 'encode' ? 'URL to encode' : 'URL to decode';
-    document.getElementById('outputLabel').textContent = mode === 'encode' ? 'Encoded URL' : 'Decoded URL';
-    document.getElementById('input').placeholder = mode === 'encode' ? 'Enter URL to encode...' : 'Enter URL to decode (e.g., hello%20world)...';
-    document.getElementById('output').value = '';
+function encode() {
+  const input = document.getElementById('input').value;
+  try {
+    const encoded = encodeURIComponent(input);
+    document.getElementById('output').value = encoded;
+    document.getElementById('info').textContent = `Encoded ${input.length} chars → ${encoded.length} chars`;
+  } catch (e) {
+    document.getElementById('output').value = 'Error: ' + e.message;
   }
-  
-  function convert() {
-    const input = document.getElementById('input').value;
-    const output = document.getElementById('output');
-    
-    if (!input) return;
-    
-    if (mode === 'encode') {
-      output.value = encodeURIComponent(input);
-    } else {
-      try {
-        output.value = decodeURIComponent(input);
-      } catch (e) {
-        output.value = 'Error: Invalid encoded string';
-      }
-    }
+}
+
+function decode() {
+  const input = document.getElementById('input').value;
+  try {
+    const decoded = decodeURIComponent(input);
+    document.getElementById('output').value = decoded;
+    document.getElementById('info').textContent = `Decoded ${input.length} chars → ${decoded.length} chars`;
+  } catch (e) {
+    document.getElementById('output').value = 'Error: Invalid URL encoding';
   }
-  
-  function copyOutput() {
-    const output = document.getElementById('output');
-    if (!output.value) return;
-    
-    navigator.clipboard.writeText(output.value).then(() => {
-      const btn = event.target;
-      const original = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = original, 1500);
-    });
-  }
-  
-  function clearAll() {
-    document.getElementById('input').value = '';
-    document.getElementById('output').value = '';
-  }
+}
+
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('output').value = '';
+  document.getElementById('info').textContent = '';
+}
+
+function copyOutput() {
+  const text = document.getElementById('output').value;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('info').textContent = 'Copied!';
+  });
+}
 </script>
 </body>
 </html>
