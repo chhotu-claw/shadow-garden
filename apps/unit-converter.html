@@ -4,440 +4,211 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unit Converter — Shadow's Garden</title>
-<meta name="description" content="Convert between length, weight, temperature, volume, and area units. All local, no tracking.">
+<meta name="description" content="Convert between units of length, weight, temperature, volume, and area. Simple, no clutter, no ads.">
 <link rel="stylesheet" href="../style.css">
 <script src="../nav.js" defer></script>
 <style>
-  .converter {
-    max-width: 600px;
-    margin: 0 auto;
-  }
-  .category-tabs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
-  }
-  .category-tab {
-    padding: 10px 18px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-  .category-tab:hover {
-    border-color: var(--accent);
-  }
-  .category-tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-  .converter-panel {
-    display: none;
-  }
-  .converter-panel.active {
-    display: block;
-  }
-  .conversion-row {
-    display: grid;
-    grid-template-columns: 1fr 40px 1fr;
-    gap: 12px;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  .unit-select, .value-input {
-    padding: 12px 14px;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 15px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .unit-select:focus, .value-input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .swap-btn {
-    width: 40px;
-    height: 40px;
-    border: 2px solid var(--border);
-    border-radius: 50%;
-    background: var(--bg);
-    color: var(--text);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    transition: all 0.2s;
-  }
-  .swap-btn:hover {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: white;
-  }
-  .formula-display {
-    padding: 16px;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-family: var(--mono);
-  }
-  @media (max-width: 500px) {
-    .conversion-row {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-    .swap-btn {
-      justify-self: center;
-      transform: rotate(90deg);
-    }
-  }
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; box-sizing: border-box; }
+  .converter { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; width: 100%; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  h1 { margin: 0 0 1.5rem 0; font-size: 1.5rem; text-align: center; color: var(--text); }
+  .category-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; justify-content: center; }
+  .category-tab { padding: 0.5rem 1rem; border: 1px solid var(--border); background: transparent; color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.875rem; transition: all 0.2s; }
+  .category-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .category-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .converter-grid { display: grid; gap: 1rem; }
+  .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .input-group label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+  .input-row { display: flex; gap: 0.5rem; }
+  input, select { padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 1rem; }
+  input { flex: 1; }
+  select { min-width: 120px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .swap-btn { display: flex; align-items: center; justify-content: center; padding: 0.5rem; background: transparent; border: 1px solid var(--border); border-radius: 50%; cursor: pointer; color: var(--text-dim); font-size: 1.25rem; margin: 0.5rem auto; transition: all 0.2s; width: 40px; height: 40px; }
+  .swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .result-display { margin-top: 1.5rem; padding: 1rem; background: var(--bg); border-radius: 8px; text-align: center; font-size: 1.25rem; font-weight: 500; color: var(--text); min-height: 3rem; display: flex; align-items: center; justify-content: center; }
+  .result-display.loading { opacity: 0.5; }
+  @media (max-width: 480px) { .converter { padding: 1.5rem; } .input-row { flex-direction: column; } select { width: 100%; } }
 </style>
 </head>
 <body data-page-type="app">
-<div class="container">
   <div class="converter">
     <h1>Unit Converter</h1>
-    <p style="color: var(--text-secondary); margin-bottom: 24px;">Convert length, weight, temperature, volume, and area. All local, no tracking.</p>
-    
-    <div class="category-tabs" id="categoryTabs">
-      <button class="category-tab active" data-category="length">Length</button>
-      <button class="category-tab" data-category="weight">Weight</button>
-      <button class="category-tab" data-category="temperature">Temperature</button>
-      <button class="category-tab" data-category="volume">Volume</button>
-      <button class="category-tab" data-category="area">Area</button>
-    </div>
-
-    <!-- Length -->
-    <div class="converter-panel active" data-panel="length">
-      <div class="conversion-row">
-        <div>
-          <input type="number" class="value-input" id="lengthFrom" value="1" placeholder="Enter value">
-          <select class="unit-select" id="lengthFromUnit">
-            <option value="meter">Meter (m)</option>
-            <option value="kilometer">Kilometer (km)</option>
-            <option value="centimeter">Centimeter (cm)</option>
-            <option value="millimeter">Millimeter (mm)</option>
-            <option value="mile">Mile (mi)</option>
-            <option value="yard">Yard (yd)</option>
-            <option value="foot">Foot (ft)</option>
-            <option value="inch">Inch (in)</option>
-            <option value="nauticalMile">Nautical Mile (nmi)</option>
-          </select>
-        </div>
-        <button class="swap-btn" onclick="swapUnits('length')">⇄</button>
-        <div>
-          <input type="number" class="value-input" id="lengthTo" readonly>
-          <select class="unit-select" id="lengthToUnit">
-            <option value="kilometer">Kilometer (km)</option>
-            <option value="meter">Meter (m)</option>
-            <option value="centimeter">Centimeter (cm)</option>
-            <option value="millimeter">Millimeter (mm)</option>
-            <option value="mile">Mile (mi)</option>
-            <option value="yard">Yard (yd)</option>
-            <option value="foot">Foot (ft)</option>
-            <option value="inch">Inch (in)</option>
-            <option value="nauticalMile">Nautical Mile (nmi)</option>
-          </select>
+    <div class="category-tabs" id="tabs"></div>
+    <div class="converter-grid">
+      <div class="input-group">
+        <label>From</label>
+        <div class="input-row">
+          <input type="number" id="fromValue" placeholder="Enter value" step="any">
+          <select id="fromUnit"></select>
         </div>
       </div>
-      <div class="formula-display" id="lengthFormula">1 meter = 0.001 kilometer</div>
-    </div>
-
-    <!-- Weight -->
-    <div class="converter-panel" data-panel="weight">
-      <div class="conversion-row">
-        <div>
-          <input type="number" class="value-input" id="weightFrom" value="1" placeholder="Enter value">
-          <select class="unit-select" id="weightFromUnit">
-            <option value="kilogram">Kilogram (kg)</option>
-            <option value="gram">Gram (g)</option>
-            <option value="milligram">Milligram (mg)</option>
-            <option value="metricTon">Metric Ton (t)</option>
-            <option value="pound">Pound (lb)</option>
-            <option value="ounce">Ounce (oz)</option>
-            <option value="stone">Stone (st)</option>
-          </select>
-        </div>
-        <button class="swap-btn" onclick="swapUnits('weight')">⇄</button>
-        <div>
-          <input type="number" class="value-input" id="weightTo" readonly>
-          <select class="unit-select" id="weightToUnit">
-            <option value="gram">Gram (g)</option>
-            <option value="kilogram">Kilogram (kg)</option>
-            <option value="milligram">Milligram (mg)</option>
-            <option value="metricTon">Metric Ton (t)</option>
-            <option value="pound">Pound (lb)</option>
-            <option value="ounce">Ounce (oz)</option>
-            <option value="stone">Stone (st)</option>
-          </select>
+      <button class="swap-btn" id="swapBtn" title="Swap units">⇅</button>
+      <div class="input-group">
+        <label>To</label>
+        <div class="input-row">
+          <input type="number" id="toValue" placeholder="Result" step="any" readonly>
+          <select id="toUnit"></select>
         </div>
       </div>
-      <div class="formula-display" id="weightFormula">1 kilogram = 1000 gram</div>
     </div>
-
-    <!-- Temperature -->
-    <div class="converter-panel" data-panel="temperature">
-      <div class="conversion-row">
-        <div>
-          <input type="number" class="value-input" id="tempFrom" value="0" placeholder="Enter value">
-          <select class="unit-select" id="tempFromUnit">
-            <option value="celsius">Celsius (°C)</option>
-            <option value="fahrenheit">Fahrenheit (°F)</option>
-            <option value="kelvin">Kelvin (K)</option>
-          </select>
-        </div>
-        <button class="swap-btn" onclick="swapUnits('temperature')">⇄</button>
-        <div>
-          <input type="number" class="value-input" id="tempTo" readonly>
-          <select class="unit-select" id="tempToUnit">
-            <option value="fahrenheit">Fahrenheit (°F)</option>
-            <option value="celsius">Celsius (°C)</option>
-            <option value="kelvin">Kelvin (K)</option>
-          </select>
-        </div>
-      </div>
-      <div class="formula-display" id="tempFormula">0°C = 32°F</div>
-    </div>
-
-    <!-- Volume -->
-    <div class="converter-panel" data-panel="volume">
-      <div class="conversion-row">
-        <div>
-          <input type="number" class="value-input" id="volumeFrom" value="1" placeholder="Enter value">
-          <select class="unit-select" id="volumeFromUnit">
-            <option value="liter">Liter (L)</option>
-            <option value="milliliter">Milliliter (mL)</option>
-            <option value="cubicMeter">Cubic Meter (m³)</option>
-            <option value="gallonUS">US Gallon (gal)</option>
-            <option value="gallonUK">UK Gallon (gal)</option>
-            <option value="quart">Quart (qt)</option>
-            <option value="pint">Pint (pt)</option>
-            <option value="cup">Cup</option>
-            <option value="fluidOunce">Fluid Ounce (fl oz)</option>
-          </select>
-        </div>
-        <button class="swap-btn" onclick="swapUnits('volume')">⇄</button>
-        <div>
-          <input type="number" class="value-input" id="volumeTo" readonly>
-          <select class="unit-select" id="volumeToUnit">
-            <option value="milliliter">Milliliter (mL)</option>
-            <option value="liter">Liter (L)</option>
-            <option value="cubicMeter">Cubic Meter (m³)</option>
-            <option value="gallonUS">US Gallon (gal)</option>
-            <option value="gallonUK">UK Gallon (gal)</option>
-            <option value="quart">Quart (qt)</option>
-            <option value="pint">Pint (pt)</option>
-            <option value="cup">Cup</option>
-            <option value="fluidOunce">Fluid Ounce (fl oz)</option>
-          </select>
-        </div>
-      </div>
-      <div class="formula-display" id="volumeFormula">1 liter = 1000 milliliter</div>
-    </div>
-
-    <!-- Area -->
-    <div class="converter-panel" data-panel="area">
-      <div class="conversion-row">
-        <div>
-          <input type="number" class="value-input" id="areaFrom" value="1" placeholder="Enter value">
-          <select class="unit-select" id="areaFromUnit">
-            <option value="squareMeter">Square Meter (m²)</option>
-            <option value="squareKilometer">Square Kilometer (km²)</option>
-            <option value="hectare">Hectare (ha)</option>
-            <option value="acre">Acre</option>
-            <option value="squareMile">Square Mile (mi²)</option>
-            <option value="squareYard">Square Yard (yd²)</option>
-            <option value="squareFoot">Square Foot (ft²)</option>
-            <option value="squareInch">Square Inch (in²)</option>
-          </select>
-        </div>
-        <button class="swap-btn" onclick="swapUnits('area')">⇄</button>
-        <div>
-          <input type="number" class="value-input" id="areaTo" readonly>
-          <select class="unit-select" id="areaToUnit">
-            <option value="squareFoot">Square Foot (ft²)</option>
-            <option value="squareMeter">Square Meter (m²)</option>
-            <option value="squareKilometer">Square Kilometer (km²)</option>
-            <option value="hectare">Hectare (ha)</option>
-            <option value="acre">Acre</option>
-            <option value="squareMile">Square Mile (mi²)</option>
-            <option value="squareYard">Square Yard (yd²)</option>
-            <option value="squareInch">Square Inch (in²)</option>
-          </select>
-        </div>
-      </div>
-      <div class="formula-display" id="areaFormula">1 m² = 10.764 ft²</div>
-    </div>
-
+    <div class="result-display" id="result"></div>
   </div>
-</div>
-<script>
-  const conversionRates = {
-    length: {
-      meter: 1,
-      kilometer: 1000,
-      centimeter: 0.01,
-      millimeter: 0.001,
-      mile: 1609.344,
-      yard: 0.9144,
-      foot: 0.3048,
-      inch: 0.0254,
-      nauticalMile: 1852
-    },
-    weight: {
-      kilogram: 1,
-      gram: 0.001,
-      milligram: 0.000001,
-      metricTon: 1000,
-      pound: 0.453592,
-      ounce: 0.0283495,
-      stone: 6.35029
-    },
-    volume: {
-      liter: 1,
-      milliliter: 0.001,
-      cubicMeter: 1000,
-      gallonUS: 3.78541,
-      gallonUK: 4.54609,
-      quart: 0.946353,
-      pint: 0.473176,
-      cup: 0.236588,
-      fluidOunce: 0.0295735
-    },
-    area: {
-      squareMeter: 1,
-      squareKilometer: 1000000,
-      hectare: 10000,
-      acre: 4046.86,
-      squareMile: 2589988.11,
-      squareYard: 0.836127,
-      squareFoot: 0.092903,
-      squareInch: 0.00064516
+  <script>
+    const categories = {
+      length: {
+        name: 'Length',
+        units: {
+          m: { name: 'Meter', toBase: 1 },
+          km: { name: 'Kilometer', toBase: 1000 },
+          cm: { name: 'Centimeter', toBase: 0.01 },
+          mm: { name: 'Millimeter', toBase: 0.001 },
+          mi: { name: 'Mile', toBase: 1609.344 },
+          yd: { name: 'Yard', toBase: 0.9144 },
+          ft: { name: 'Foot', toBase: 0.3048 },
+          in: { name: 'Inch', toBase: 0.0254 }
+        }
+      },
+      weight: {
+        name: 'Weight',
+        units: {
+          kg: { name: 'Kilogram', toBase: 1 },
+          g: { name: 'Gram', toBase: 0.001 },
+          mg: { name: 'Milligram', toBase: 0.000001 },
+          lb: { name: 'Pound', toBase: 0.453592 },
+          oz: { name: 'Ounce', toBase: 0.0283495 },
+          st: { name: 'Stone', toBase: 6.35029 }
+        }
+      },
+      temperature: {
+        name: 'Temperature',
+        units: {
+          C: { name: 'Celsius', toBase: 1, special: true },
+          F: { name: 'Fahrenheit', toBase: 1, special: true },
+          K: { name: 'Kelvin', toBase: 1, special: true }
+        }
+      },
+      volume: {
+        name: 'Volume',
+        units: {
+          l: { name: 'Liter', toBase: 1 },
+          ml: { name: 'Milliliter', toBase: 0.001 },
+          gal: { name: 'Gallon (US)', toBase: 3.78541 },
+          qt: { name: 'Quart (US)', toBase: 0.946353 },
+          pt: { name: 'Pint (US)', toBase: 0.473176 },
+          cup: { name: 'Cup (US)', toBase: 0.236588 },
+          fl oz: { name: 'Fluid oz (US)', toBase: 0.0295735 }
+        }
+      },
+      area: {
+        name: 'Area',
+        units: {
+          sqm: { name: 'Square meter', toBase: 1 },
+          sqkm: { name: 'Square kilometer', toBase: 1000000 },
+          sqcm: { name: 'Square centimeter', toBase: 0.0001 },
+          ha: { name: 'Hectare', toBase: 10000 },
+          acre: { name: 'Acre', toBase: 4046.86 },
+          sqft: { name: 'Square foot', toBase: 0.092903 },
+          sqyd: { name: 'Square yard', toBase: 0.836127 }
+        }
+      },
+      time: {
+        name: 'Time',
+        units: {
+          s: { name: 'Second', toBase: 1 },
+          min: { name: 'Minute', toBase: 60 },
+          h: { name: 'Hour', toBase: 3600 },
+          d: { name: 'Day', toBase: 86400 },
+          wk: { name: 'Week', toBase: 604800 },
+          mo: { name: 'Month (30d)', toBase: 2592000 },
+          yr: { name: 'Year (365d)', toBase: 31536000 }
+        }
+      }
+    };
+
+    let currentCategory = 'length';
+    const tabsEl = document.getElementById('tabs');
+    const fromValue = document.getElementById('fromValue');
+    const toValue = document.getElementById('toValue');
+    const fromUnit = document.getElementById('fromUnit');
+    const toUnit = document.getElementById('toUnit');
+    const swapBtn = document.getElementById('swapBtn');
+    const result = document.getElementById('result');
+
+    function renderTabs() {
+      tabsEl.innerHTML = '';
+      Object.keys(categories).forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `category-tab ${cat === currentCategory ? 'active' : ''}`;
+        btn.textContent = categories[cat].name;
+        btn.onclick = () => { currentCategory = cat; renderTabs(); renderUnits(); convert(); };
+        tabsEl.appendChild(btn);
+      });
     }
-  };
 
-  const temperatureConversions = {
-    celsius: {
-      fahrenheit: (v) => (v * 9/5) + 32,
-      kelvin: (v) => v + 273.15,
-      fromFahrenheit: (v) => (v - 32) * 5/9,
-      fromKelvin: (v) => v - 273.15
-    },
-    fahrenheit: {
-      celsius: (v) => (v - 32) * 5/9,
-      kelvin: (v) => (v - 32) * 5/9 + 273.15,
-      fromCelsius: (v) => (v * 9/5) + 32,
-      fromKelvin: (v) => (v - 273.15) * 9/5 + 32
-    },
-    kelvin: {
-      celsius: (v) => v - 273.15,
-      fahrenheit: (v) => (v - 273.15) * 9/5 + 32,
-      fromCelsius: (v) => v + 273.15,
-      fromFahrenheit: (v) => (v - 32) * 5/9 + 273.15
+    function renderUnits() {
+      const units = categories[currentCategory].units;
+      const fromOpts = Object.entries(units).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+      const toOpts = fromOpts;
+      fromUnit.innerHTML = fromOpts;
+      toUnit.innerHTML = toOpts;
+      // Set defaults
+      const keys = Object.keys(units);
+      fromUnit.value = keys[0];
+      toUnit.value = keys[1] || keys[0];
     }
-  };
 
-  const unitLabels = {
-    meter: 'meter', kilometer: 'kilometer', centimeter: 'centimeter', millimeter: 'millimeter',
-    mile: 'mile', yard: 'yard', foot: 'foot', inch: 'inch', nauticalMile: 'nautical mile',
-    kilogram: 'kilogram', gram: 'gram', milligram: 'milligram', metricTon: 'metric ton',
-    pound: 'pound', ounce: 'ounce', stone: 'stone',
-    celsius: '°C', fahrenheit: '°F', kelvin: 'K',
-    liter: 'liter', milliliter: 'milliliter', cubicMeter: 'cubic meter',
-    gallonUS: 'US gallon', gallonUK: 'UK gallon', quart: 'quart', pint: 'pint', cup: 'cup', fluidOunce: 'fluid ounce',
-    squareMeter: 'm²', squareKilometer: 'km²', hectare: 'hectare', acre: 'acre',
-    squareMile: 'mi²', squareYard: 'yd²', squareFoot: 'ft²', squareInch: 'in²'
-  };
+    function convertTemp(value, from, to) {
+      let celsius;
+      if (from === 'C') celsius = value;
+      else if (from === 'F') celsius = (value - 32) * 5/9;
+      else celsius = value - 273.15;
+      
+      if (to === 'C') return celsius;
+      if (to === 'F') return celsius * 9/5 + 32;
+      return celsius + 273.15;
+    }
 
-  // Category tabs
-  document.querySelectorAll('.category-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.converter-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.querySelector(`[data-panel="${tab.dataset.category}"]`).classList.add('active');
-      convert(tab.dataset.category);
+    function convert() {
+      const val = parseFloat(fromValue.value);
+      if (isNaN(val)) { toValue.value = ''; result.textContent = ''; return; }
+      
+      const from = fromUnit.value;
+      const to = toUnit.value;
+      const cat = categories[currentCategory];
+      
+      let resultVal;
+      if (currentCategory === 'temperature') {
+        resultVal = convertTemp(val, from, to);
+      } else {
+        const baseValue = val * cat.units[from].toBase;
+        resultVal = baseValue / cat.units[to].toBase;
+      }
+      
+      // Format nicely
+      if (Math.abs(resultVal) < 0.0001 || Math.abs(resultVal) > 1000000) {
+        toValue.value = resultVal.toExponential(4);
+      } else {
+        toValue.value = Math.round(resultVal * 1000000) / 1000000;
+      }
+      
+      result.textContent = `${val} ${cat.units[from].name} = ${toValue.value} ${cat.units[to].name}`;
+    }
+
+    fromValue.addEventListener('input', convert);
+    fromUnit.addEventListener('change', convert);
+    toUnit.addEventListener('change', convert);
+    
+    swapBtn.addEventListener('click', () => {
+      const tempVal = fromValue.value;
+      const tempUnit = fromUnit.value;
+      fromValue.value = toValue.value;
+      fromUnit.value = toUnit.value;
+      toUnit.value = tempUnit;
+      convert();
     });
-  });
 
-  // Convert function
-  function convert(category) {
-    if (category === 'temperature') {
-      const fromVal = parseFloat(document.getElementById('tempFrom').value) || 0;
-      const fromUnit = document.getElementById('tempFromUnit').value;
-      const toUnit = document.getElementById('tempToUnit').value;
-      
-      let celsius = fromVal;
-      if (fromUnit === 'fahrenheit') celsius = temperatureConversions.celsius.fromFahrenheit(fromVal);
-      else if (fromUnit === 'kelvin') celsius = temperatureConversions.celsius.fromKelvin(fromVal);
-      
-      let result;
-      if (toUnit === 'celsius') result = celsius;
-      else if (toUnit === 'fahrenheit') result = temperatureConversions.celsius.fahrenheit(celsius);
-      else result = temperatureConversions.celsius.kelvin(celsius);
-      
-      document.getElementById('tempTo').value = Math.round(result * 100000) / 100000;
-      document.getElementById('tempFormula').textContent = `${fromVal}${unitLabels[fromUnit]} = ${Math.round(result * 100000) / 100000}${unitLabels[toUnit]}`;
-    } else {
-      const rates = conversionRates[category];
-      const fromVal = parseFloat(document.getElementById(`${category}From`).value) || 0;
-      const fromUnit = document.getElementById(`${category}FromUnit`).value;
-      const toUnit = document.getElementById(`${category}ToUnit`).value;
-      
-      const baseValue = fromVal * rates[fromUnit];
-      const result = baseValue / rates[toUnit];
-      
-      document.getElementById(`${category}To`).value = result.toLocaleString(undefined, { maximumFractionDigits: 10 });
-      
-      let fromLabel = unitLabels[fromUnit].replace(/²/, '²').replace(/³/, '³');
-      let toLabel = unitLabels[toUnit].replace(/²/, '²').replace(/³/, '³');
-      document.getElementById(`${category}Formula`).textContent = `1 ${fromLabel} = ${(rates[fromUnit] / rates[toUnit]).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${toLabel}`;
-    }
-  }
-
-  // Swap units
-  function swapUnits(category) {
-    if (category === 'temperature') {
-      const fromUnit = document.getElementById('tempFromUnit');
-      const toUnit = document.getElementById('tempToUnit');
-      const temp = fromUnit.value;
-      fromUnit.value = toUnit.value;
-      toUnit.value = temp;
-    } else {
-      const fromUnit = document.getElementById(`${category}FromUnit`);
-      const toUnit = document.getElementById(`${category}ToUnit`);
-      const temp = fromUnit.value;
-      fromUnit.value = toUnit.value;
-      toUnit.value = temp;
-    }
-    convert(category);
-  }
-
-  // Event listeners
-  ['length', 'weight', 'volume', 'area'].forEach(cat => {
-    document.getElementById(`${cat}From`).addEventListener('input', () => convert(cat));
-    document.getElementById(`${cat}FromUnit`).addEventListener('change', () => convert(cat));
-    document.getElementById(`${cat}ToUnit`).addEventListener('change', () => convert(cat));
-  });
-
-  document.getElementById('tempFrom').addEventListener('input', () => convert('temperature'));
-  document.getElementById('tempFromUnit').addEventListener('change', () => convert('temperature'));
-  document.getElementById('tempToUnit').addEventListener('change', () => convert('temperature'));
-
-  // Initial convert
-  ['length', 'weight', 'temperature', 'volume', 'area'].forEach(convert);
-</script>
+    renderTabs();
+    renderUnits();
+  </script>
 </body>
 </html>
